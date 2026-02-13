@@ -1,0 +1,313 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  PHP_VERSION: '8.3'
+  NODE_VERSION: '20'
+
+jobs:
+  tests:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: tesotunes_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: --health-cmd="redis-cli ping" --health-interval=10s --health-timeout=5s --health-retries=3
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, xml, ctype, json, zip, gd, sqlite3, redis, mysql, bcmath, intl
+          coverage: none
+          tools: composer:v2
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install Composer dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress --optimize-autoloader
+      
+      - name: Copy .env
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+      
+      - name: Install NPM dependencies
+        run: npm ci  # Install ALL dependencies (including devDependencies for Vite)
+      
+      - name: Build production assets
+        run: npm run build
+      
+      - name: Run Laravel Pint
+        run: ./vendor/bin/pint --test
+        continue-on-error: true
+      
+      - name: Run tests
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: tesotunes_test
+          DB_USERNAME: root
+          DB_PASSWORD: password
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: 6379
+        run: php artisan test --parallel
+        continue-on-error: true
+      
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        if: always()
+        continue-on-error: true
+
+  security-check:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      
+      - name: Run Composer audit
+        run: composer audit
+        continue-on-error: true
+      
+      - name: Run NPM audit
+        run: npm audit --audit-level=high
+        continue-on-error: true
+
+  deploy:
+    name: Deploy to ${{ github.event.inputs.environment || 'production' }}
+    runs-on: ubuntu-latest
+    needs: [tests, security-check]
+    if: github.ref == 'refs/heads/main' && always()
+    
+    environment:
+      name: ${{ github.event.inputs.environment || 'production' }}
+      url: https://tesotunes.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, xml, ctype, json, zip
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install Composer dependencies
+        run: composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+      
+      - name: Install NPM dependencies (including devDependencies for build)
+        run: npm ci
+      
+      - name: Build production assets
+        run: npm run build
+      
+      - name: Create deployment package
+        run: |
+          mkdir -p deployment
+          rsync -av --exclude-from='.github/deploy-exclude.txt' \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='tests' \
+            --exclude='.env' \
+            --exclude='.env.example' \
+            --exclude='storage/logs' \
+            ./ deployment/
+      
+      - name: Deploy to server via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -e
+            
+            # Configuration
+            APP_PATH="${{ secrets.APP_PATH || '/var/www/tesotunes' }}"
+            TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+            BACKUP_PATH="$APP_PATH.backup.$TIMESTAMP"
+            
+            echo "🚀 Starting deployment to TesoTunes..."
+            
+            # Create backup
+            if [ -d "$APP_PATH" ]; then
+              echo "📦 Creating backup..."
+              cp -r $APP_PATH $BACKUP_PATH
+            fi
+            
+            # Create app directory if not exists
+            mkdir -p $APP_PATH
+            
+            cd $APP_PATH
+            
+            # Enable maintenance mode
+            echo "🔧 Enabling maintenance mode..."
+            php artisan down --retry=60 || true
+            
+            # Pull latest code
+            echo "📥 Pulling latest code..."
+            git fetch origin main
+            git reset --hard origin/main
+            
+            # Install dependencies
+            echo "📦 Installing dependencies..."
+            composer install --no-dev --optimize-autoloader --no-interaction
+            npm ci --production
+            npm run build
+            
+            # Run migrations
+            echo "🗄️  Running database migrations..."
+            php artisan migrate --force
+            
+            # Clear and optimize
+            echo "⚡ Optimizing application..."
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            php artisan event:cache
+            
+            # Restart services
+            echo "🔄 Restarting services..."
+            sudo supervisorctl restart tesotunes-worker:*
+            
+            # Disable maintenance mode
+            echo "✅ Disabling maintenance mode..."
+            php artisan up
+            
+            # Cleanup old backups (keep last 5)
+            echo "🧹 Cleaning up old backups..."
+            ls -t $APP_PATH.backup.* 2>/dev/null | tail -n +6 | xargs rm -rf 2>/dev/null || true
+            
+            echo "✨ Deployment completed successfully!"
+            echo "🌐 TesoTunes is live at https://tesotunes.com"
+      
+      - name: Health check
+        run: |
+          sleep 10
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://tesotunes.com)
+          if [ $response -eq 200 ]; then
+            echo "✅ Health check passed! Site is responding."
+          else
+            echo "❌ Health check failed! HTTP status: $response"
+            exit 1
+          fi
+      
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Deployment successful!"
+          else
+            echo "❌ Deployment failed!"
+          fi
+
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: failure() && needs.deploy.result == 'failure'
+    needs: [deploy]
+    
+    steps:
+      - name: Rollback via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            set -e
+            
+            APP_PATH="${{ secrets.APP_PATH || '/var/www/tesotunes' }}"
+            LATEST_BACKUP=$(ls -t $APP_PATH.backup.* 2>/dev/null | head -1)
+            
+            if [ -n "$LATEST_BACKUP" ]; then
+              echo "🔄 Rolling back to: $LATEST_BACKUP"
+              
+              # Enable maintenance mode
+              cd $APP_PATH
+              php artisan down --retry=60 || true
+              
+              # Restore backup
+              rm -rf $APP_PATH
+              mv $LATEST_BACKUP $APP_PATH
+              
+              cd $APP_PATH
+              
+              # Optimize
+              php artisan config:cache
+              php artisan route:cache
+              php artisan view:cache
+              
+              # Restart services
+              sudo supervisorctl restart tesotunes-worker:*
+              
+              # Disable maintenance mode
+              php artisan up
+              
+              echo "✅ Rollback completed!"
+            else
+              echo "❌ No backup found for rollback!"
+              exit 1
+            fi

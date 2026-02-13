@@ -1,0 +1,88 @@
+# =============================================================================
+# .dockerignore - TesoTunes
+# =============================================================================
+
+# Git
+.git
+.gitattributes
+.gitignore
+
+# Development
+.env
+.env.local
+.env.*.local
+.env.testing
+.env.backup
+.env.credentials.txt
+
+# Node development
+node_modules
+.next
+.swc
+coverage
+test-results
+playwright-report
+
+# IDE
+.vscode
+.idea
+.cursor
+.fleet
+.nova
+.zed
+.phpactor.json
+
+# Laravel dev
+.phpunit.cache
+.phpunit.result.cache
+storage/logs/*
+storage/framework/sessions/*
+storage/framework/cache/data/*
+vendor
+
+# Testing
+tests
+e2e
+__tests__
+*.test.ts
+*.test.js
+*.spec.ts
+jest.config.ts
+playwright.config.ts
+
+# Documentation
+*.md
+!README.md
+docs
+
+# Misc
+*.log
+debug.log
+server.log
+nul
+*.key
+*.pem
+*.crt
+credentials.json
+secrets.json
+
+# Build scripts
+scripts
+test-*.sh
+test-*.js
+create-admin.php
+reset-admin-password.php
+reset_test.php
+
+# Archives
+archive
+migrations
+
+# Claude/AI temp files
+cUsersegony*
+
+# Playwright
+.playwright-mcp
+
+# Frontend directory (used locally, not needed in Laravel image)
+frontend

@@ -1,0 +1,23 @@
+<?php
+
+/*
+|--------------------------------------------------------------------------
+| Web Auth Routes (API Backend)
+|--------------------------------------------------------------------------
+|
+| Minimal auth routes for the API backend. The primary auth endpoints
+| live in routes/api/auth.php under the /api prefix.
+|
+| These web-based auth routes exist only for:
+| - CSRF-exempt login/register for NextAuth (SPA frontend)
+| - Any OAuth callback flows that require web middleware
+|
+*/
+
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\Auth\AuthController as ApiAuthController;
+
+// API Login/Register endpoints (no CSRF - for NextAuth and mobile apps)
+// Returns JSON responses with Sanctum tokens
+Route::post('/auth/login', [ApiAuthController::class, 'login'])->name('auth.login');
+Route::post('/auth/register', [ApiAuthController::class, 'register'])->name('auth.register');

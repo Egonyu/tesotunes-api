@@ -1,0 +1,15 @@
+{
+  "name": "Store",
+  "alias": "store",
+  "description": "E-Commerce marketplace for LineOne - Merchandise, experiences, promotional services",
+  "version": "1.0.0",
+  "active": true,
+  "order": 200,
+  "providers": [
+    "App\\Modules\\Store\\Providers\\StoreServiceProvider"
+  ],
+  "author": {
+    "name": "LineOne Team",
+    "email": "dev@lineone.ug"
+  }
+}

@@ -1,0 +1,74 @@
+<?php
+
+namespace App\Http\Resources;
+
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+class AlbumResource extends JsonResource
+{
+    /**
+     * Transform the resource into an array.
+     */
+    public function toArray(Request $request): array
+    {
+        return [
+            'id' => $this->id,
+            'uuid' => $this->uuid,
+            'title' => $this->title,
+            'slug' => $this->slug,
+            'description' => $this->description,
+
+            // Media
+            'artwork_url' => $this->artwork_url ?? ($this->artwork ? url('storage/' . $this->artwork) : null),
+
+            // Metadata
+            'album_type' => $this->album_type,
+            'release_date' => $this->release_date?->toIso8601String(),
+            'release_year' => $this->release_year,
+            'is_explicit' => (bool) $this->is_explicit,
+            'is_free' => (bool) $this->is_free,
+            'price' => $this->when($this->price > 0, $this->price),
+            'record_label' => $this->record_label,
+            'copyright_notice' => $this->copyright_notice,
+
+            // Stats
+            'total_tracks' => (int) ($this->total_tracks ?? 0),
+            'total_duration_seconds' => (int) ($this->total_duration_seconds ?? 0),
+            'play_count' => (int) ($this->play_count ?? 0),
+            'like_count' => (int) ($this->like_count ?? 0),
+            'download_count' => (int) ($this->download_count ?? 0),
+
+            // Relationships
+            'artist' => $this->when($this->relationLoaded('artist') && $this->artist, function () {
+                return [
+                    'id' => $this->artist->id,
+                    'name' => $this->artist->stage_name,
+                    'slug' => $this->artist->slug,
+                    'avatar_url' => $this->artist->avatar ? url('storage/' . $this->artist->avatar) : null,
+                ];
+            }),
+            'genre' => $this->when($this->relationLoaded('primaryGenre') && $this->primaryGenre, function () {
+                return [
+                    'id' => $this->primaryGenre->id,
+                    'name' => $this->primaryGenre->name,
+                    'slug' => $this->primaryGenre->slug,
+                ];
+            }),
+
+            // Conditional nested resources
+            'songs' => SongResource::collection($this->whenLoaded('songs')),
+
+            // Timestamps
+            'created_at' => $this->created_at?->toIso8601String(),
+            'updated_at' => $this->updated_at?->toIso8601String(),
+
+            // API links
+            'links' => [
+                'self' => url("/api/albums/{$this->slug}"),
+                'tracks' => url("/api/albums/{$this->id}/tracks"),
+                'artist' => $this->artist_id ? url("/api/artists/{$this->artist_id}") : null,
+            ],
+        ];
+    }
+}

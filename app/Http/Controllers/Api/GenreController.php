@@ -1,0 +1,109 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Http\Resources\GenreResource;
+use App\Models\Genre;
+use Illuminate\Http\Request;
+
+class GenreController extends Controller
+{
+    /**
+     * List all active genres.
+     *
+     * GET /api/genres
+     */
+    public function index(Request $request)
+    {
+        $genres = Genre::active()
+            ->ordered()
+            ->withCount('songs')
+            ->get();
+
+        return GenreResource::collection($genres);
+    }
+
+    /**
+     * Show a single genre by slug.
+     *
+     * GET /api/genres/{slug}
+     */
+    public function showBySlug(string $slug)
+    {
+        $genre = Genre::active()
+            ->where('slug', $slug)
+            ->withCount('songs')
+            ->firstOrFail();
+
+        return new GenreResource($genre);
+    }
+
+    /**
+     * Show a single genre by ID.
+     *
+     * GET /api/genres/{id}
+     */
+    public function show(Genre $genre)
+    {
+        $genre->loadCount('songs');
+
+        return new GenreResource($genre);
+    }
+
+    /**
+     * Get songs in a genre (paginated).
+     *
+     * GET /api/genres/{id}/songs
+     */
+    public function songs(Request $request, Genre $genre)
+    {
+        $perPage = $request->integer('per_page', 20);
+
+        $songs = $genre->songs()
+            ->published()
+            ->with(['artist', 'album'])
+            ->orderByDesc('play_count')
+            ->paginate($perPage);
+
+        // Uses SongResource when created; for now return standard paginated JSON
+        return $songs;
+    }
+
+    /**
+     * Get artists in a genre (paginated).
+     *
+     * GET /api/genres/{id}/artists
+     */
+    public function artists(Request $request, Genre $genre)
+    {
+        $perPage = $request->integer('per_page', 20);
+
+        $artists = \App\Models\Artist::where('primary_genre_id', $genre->id)
+            ->approved()
+            ->orderByDesc('total_plays')
+            ->paginate($perPage);
+
+        // Uses ArtistResource when created; for now return standard paginated JSON
+        return $artists;
+    }
+
+    /**
+     * Get albums in a genre (paginated).
+     *
+     * GET /api/genres/{id}/albums
+     */
+    public function albums(Request $request, Genre $genre)
+    {
+        $perPage = $request->integer('per_page', 20);
+
+        $albums = \App\Models\Album::where('primary_genre_id', $genre->id)
+            ->published()
+            ->with('artist')
+            ->orderByDesc('release_date')
+            ->paginate($perPage);
+
+        // Uses AlbumResource when created; for now return standard paginated JSON
+        return $albums;
+    }
+}

@@ -1,0 +1,85 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+env:
+  PHP_VERSION: '8.3'
+  NODE_VERSION: '20'
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    
+    environment:
+      name: staging
+      url: https://staging.tesotunes.com
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: |
+          composer install --no-dev --optimize-autoloader
+          npm ci
+          npm run build
+      
+      - name: Deploy to staging server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.STAGING_SERVER_HOST }}
+          username: ${{ secrets.STAGING_SERVER_USER }}
+          key: ${{ secrets.STAGING_SERVER_SSH_KEY }}
+          port: ${{ secrets.STAGING_SERVER_PORT || 22 }}
+          script: |
+            set -e
+            
+            APP_PATH="${{ secrets.STAGING_APP_PATH || '/var/www/staging.tesotunes' }}"
+            
+            echo "🚀 Deploying to staging..."
+            
+            cd $APP_PATH
+            
+            # Enable maintenance mode
+            php artisan down || true
+            
+            # Pull latest code
+            git fetch origin develop
+            git reset --hard origin/develop
+            
+            # Install dependencies
+            composer install --no-dev --optimize-autoloader
+            npm ci --production
+            npm run build
+            
+            # Run migrations
+            php artisan migrate --force
+            
+            # Clear and cache
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+            
+            # Restart workers
+            sudo supervisorctl restart tesotunes-staging-worker:* || true
+            
+            # Disable maintenance mode
+            php artisan up
+            
+            echo "✅ Staging deployment completed!"

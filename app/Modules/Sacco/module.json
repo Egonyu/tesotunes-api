@@ -1,0 +1,42 @@
+{
+  "name": "Sacco",
+  "alias": "sacco",
+  "description": "Savings and Credit Cooperative Organization module for LineOne Music Platform",
+  "version": "1.0.0",
+  "keywords": [
+    "sacco",
+    "savings",
+    "loans",
+    "cooperative",
+    "finance",
+    "microfinance",
+    "artist-finance"
+  ],
+  "active": true,
+  "order": 100,
+  "providers": [
+    "App\\Modules\\Sacco\\Providers\\SaccoServiceProvider"
+  ],
+  "aliases": {},
+  "files": [],
+  "requires": {
+    "laravel/framework": "^12.0",
+    "php": "^8.2"
+  },
+  "dependencies": [],
+  "author": {
+    "name": "LineOne Team",
+    "email": "dev@lineone.ug"
+  },
+  "license": "proprietary",
+  "features": {
+    "savings_accounts": true,
+    "loan_products": true,
+    "dividend_distribution": true,
+    "mobile_money_integration": true,
+    "royalty_deduction": true,
+    "governance": true,
+    "fixed_deposits": true,
+    "guarantor_system": true
+  }
+}

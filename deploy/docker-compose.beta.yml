@@ -1,0 +1,45 @@
+# =============================================================================
+# TesoTunes Beta - Next.js Frontend Only (Docker)
+# =============================================================================
+# Laravel runs natively on the server (like tesotunes.com).
+# Only the Next.js frontend runs in Docker.
+#
+# Usage:
+#   cd /var/www/beta.tesotunes.com
+#   docker compose -f deploy/docker-compose.beta.yml up -d --build
+# =============================================================================
+
+services:
+  frontend:
+    build:
+      context: ..
+      dockerfile: Dockerfile.next
+      args:
+        NEXT_PUBLIC_APP_NAME: "TesoTunes"
+        NEXT_PUBLIC_APP_URL: "https://beta.tesotunes.com"
+        NEXT_PUBLIC_API_URL: "https://engine.tesotunes.com/api"
+        NEXT_PUBLIC_BACKEND_URL: "https://engine.tesotunes.com"
+        NEXTAUTH_URL: "https://beta.tesotunes.com"
+        NEXT_PUBLIC_GA_MEASUREMENT_ID: "${NEXT_PUBLIC_GA_MEASUREMENT_ID:-G-E1VJQ4RJBH}"
+        NEXT_PUBLIC_ENABLE_STORE: "true"
+        NEXT_PUBLIC_ENABLE_SACCO: "true"
+        NEXT_PUBLIC_ENABLE_FORUMS: "true"
+        NEXT_PUBLIC_ENABLE_PODCASTS: "true"
+        NEXT_PUBLIC_ENABLE_OJOKOTAU: "true"
+        NEXT_PUBLIC_ENABLE_EDULA: "false"
+    container_name: tesotunes-beta-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      NODE_ENV: production
+      NEXTAUTH_SECRET: "${NEXTAUTH_SECRET}"
+      NEXTAUTH_URL: "https://beta.tesotunes.com"
+      NEXT_PUBLIC_API_URL: "https://engine.tesotunes.com/api"
+      NEXT_PUBLIC_BACKEND_URL: "https://engine.tesotunes.com"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
