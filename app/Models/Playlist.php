@@ -19,7 +19,7 @@ class Playlist extends Model
         'uuid',
         'user_id',
         'category_id',
-        'name',            // Database column is 'name' not 'title'
+        'title',
         'slug',
         'description',
         'artwork',
@@ -27,7 +27,7 @@ class Playlist extends Model
         'is_collaborative',
         'is_featured',
         'is_system',
-        'song_count',      // Database column is 'song_count' not 'total_tracks'
+        'total_tracks',
         'total_duration_seconds',
         'play_count',
         'follower_count',
@@ -37,7 +37,7 @@ class Playlist extends Model
         'is_collaborative' => 'boolean',
         'is_featured' => 'boolean',
         'is_system' => 'boolean',
-        'song_count' => 'integer',
+        'total_tracks' => 'integer',
         'total_duration_seconds' => 'integer',
         'play_count' => 'integer',
         'follower_count' => 'integer',
@@ -45,11 +45,11 @@ class Playlist extends Model
 
     /**
      * Attributes to append to JSON serialization
-     * This ensures 'title' and 'total_tracks' are included in API responses
+     * Backward-compatible aliases for API responses
      */
     protected $appends = [
-        'title',
-        'total_tracks',
+        'name',
+        'song_count',
     ];
 
     /**
@@ -63,11 +63,11 @@ class Playlist extends Model
             if (empty($playlist->uuid)) {
                 $playlist->uuid = (string) Str::uuid();
             }
-            
-            // Auto-generate slug from name
-            if (!$playlist->slug && $playlist->name) {
-                $playlist->slug = Str::slug($playlist->name);
-                
+
+            // Auto-generate slug from title
+            if (!$playlist->slug && $playlist->title) {
+                $playlist->slug = Str::slug($playlist->title);
+
                 // Ensure uniqueness
                 $originalSlug = $playlist->slug;
                 $count = 1;
@@ -91,7 +91,7 @@ class Playlist extends Model
         if ($request && str_starts_with($request->path(), 'admin')) {
             return 'id';
         }
-        
+
         return 'slug';
     }
 
@@ -109,7 +109,7 @@ class Playlist extends Model
         if (is_numeric($value)) {
             return $this->where('id', $value)->firstOrFail();
         }
-        
+
         // Otherwise search by slug (for frontend)
         return $this->where('slug', $value)->firstOrFail();
     }
@@ -205,37 +205,37 @@ class Playlist extends Model
         });
     }
 
-    // Accessors
+    // Accessors — backward-compatible aliases
     /**
-     * Get title attribute (alias for name for backward compatibility)
+     * Get name attribute (alias for title for backward compatibility)
      */
-    public function getTitleAttribute(): ?string
+    public function getNameAttribute(): ?string
     {
-        return $this->name;
+        return $this->title;
     }
 
     /**
-     * Set title attribute (alias for name for backward compatibility)
+     * Set name attribute (alias for title for backward compatibility)
      */
-    public function setTitleAttribute($value): void
+    public function setNameAttribute($value): void
     {
-        $this->attributes['name'] = $value;
+        $this->attributes['title'] = $value;
     }
 
     /**
-     * Get total_tracks attribute (alias for song_count for backward compatibility)
+     * Get song_count attribute (alias for total_tracks for backward compatibility)
      */
-    public function getTotalTracksAttribute(): int
+    public function getSongCountAttribute(): int
     {
-        return $this->song_count ?? 0;
+        return $this->total_tracks ?? 0;
     }
 
     /**
-     * Set total_tracks attribute (alias for song_count for backward compatibility)
+     * Set song_count attribute (alias for total_tracks for backward compatibility)
      */
-    public function setTotalTracksAttribute($value): void
+    public function setSongCountAttribute($value): void
     {
-        $this->attributes['song_count'] = $value;
+        $this->attributes['total_tracks'] = $value;
     }
 
     public function getArtworkUrlAttribute(): ?string
@@ -372,7 +372,7 @@ class Playlist extends Model
     public function updateCounts(): void
     {
         $songs = $this->songs;
-        
+
         $this->update([
             'total_tracks' => $songs->count(),
             'total_duration_seconds' => $songs->sum('duration_seconds'),

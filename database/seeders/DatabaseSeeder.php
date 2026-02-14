@@ -16,7 +16,7 @@ class DatabaseSeeder extends Seeder
             CreditRateSeeder::class,
             SettingsSeeder::class,
             TestDataSeeder::class,
-            PollSeeder::class,
+            // PollSeeder::class, // TODO: enable after creating polls migration
         ]);
     }
 }

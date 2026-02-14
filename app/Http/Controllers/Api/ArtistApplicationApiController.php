@@ -37,23 +37,7 @@ class ArtistApplicationApiController extends Controller
             ]);
         }
 
-        // Check for pending application
-        $application = DB::table('artist_applications')
-            ->where('user_id', $user->id)
-            ->latest()
-            ->first();
-
-        if ($application) {
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'status' => $application->status,
-                    'is_artist' => false,
-                    'application' => $application,
-                ],
-            ]);
-        }
-
+        // No pending application (instant approval flow)
         return response()->json([
             'success' => true,
             'data' => [
@@ -123,9 +107,6 @@ class ArtistApplicationApiController extends Controller
                 'slug' => Str::slug($validated['stage_name']) . '-' . Str::random(6),
                 'bio' => $validated['bio'],
                 'primary_genre_id' => $validated['primary_genre'],
-                'genres' => array_unique($genreIds), // Store as JSON array
-                'country' => $validated['country'] ?? 'UG',
-                'city' => $validated['city'] ?? null,
                 'social_links' => $validated['social_links'] ?? [],
                 'is_verified' => false,
                 'status' => 'active',
@@ -136,14 +117,16 @@ class ArtistApplicationApiController extends Controller
                 $artist->addMediaFromRequest('avatar')->toMediaCollection('avatar');
             }
 
-            // Update user payout information
+            // Update user phone and artist payout info
             $user->update([
                 'phone' => $validated['phone'],
-                'payout_method' => $validated['payout_method'],
                 'mobile_money_number' => $validated['mobile_money_number'] ?? null,
                 'mobile_money_provider' => $validated['mobile_money_provider'] ?? null,
-                'bank_name' => $validated['bank_name'] ?? null,
-                'bank_account' => $validated['bank_account'] ?? null,
+            ]);
+
+            // Store payout phone on artist record
+            $artist->update([
+                'payout_phone_number' => $validated['mobile_money_number'] ?? $validated['phone'],
             ]);
 
             // Assign artist role

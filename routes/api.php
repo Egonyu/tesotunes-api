@@ -253,8 +253,8 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->name('api.ad
     Route::get('/payment-analytics', [\App\Http\Controllers\Api\PaymentController::class, 'analytics'])->name('payment-analytics');
 });
 
-// Admin Dashboard & Settings API (temporarily without auth to match other admin routes)
-Route::prefix('admin')->name('api.admin.')->group(function () {
+// Admin Dashboard & Settings API
+Route::middleware(['auth:sanctum', 'role:admin,Super Admin'])->prefix('admin')->name('api.admin.')->group(function () {
     // Dashboard API
     Route::get('/dashboard/stats', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'stats'])->name('dashboard.stats');
     Route::get('/dashboard/recent-activity', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'recentActivity'])->name('dashboard.recent-activity');
@@ -263,6 +263,15 @@ Route::prefix('admin')->name('api.admin.')->group(function () {
     Route::get('/settings', [\App\Http\Controllers\Api\Admin\SettingsController::class, 'index'])->name('settings.index');
     Route::put('/settings', [\App\Http\Controllers\Api\Admin\SettingsController::class, 'update'])->name('settings.update');
     
+    // Users API
+    Route::get('/users', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'index'])->name('users.index');
+    Route::get('/users/statistics', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'statistics'])->name('users.statistics');
+    Route::get('/users/{id}', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'show'])->name('users.show');
+    Route::post('/users', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'store'])->name('users.store');
+    Route::put('/users/{id}', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'update'])->name('users.update');
+    Route::post('/users/{id}/ban', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'ban'])->name('users.ban');
+    Route::delete('/users/{id}', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'destroy'])->name('users.destroy');
+
     // Events API
     Route::get('/events/stats', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'stats'])->name('events.stats');
     Route::get('/events', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'index'])->name('events.index');
@@ -284,15 +293,31 @@ Route::prefix('admin')->name('api.admin.')->group(function () {
     Route::get('/campaigns/{id}/pledges', [\App\Http\Controllers\Api\Admin\CampaignsApiController::class, 'pledges'])->name('campaigns.pledges');
     Route::get('/campaigns/{id}/updates', [\App\Http\Controllers\Api\Admin\CampaignsApiController::class, 'updates'])->name('campaigns.updates');
     
-    // Forums API — standardized via ForumsApiController + ForumThreadResource
+    // Forums API — full CRUD
     Route::get('/forums/stats', [\App\Http\Controllers\Api\Admin\ForumsApiController::class, 'stats'])->name('forums.stats');
-    Route::get('/forums/categories', [\App\Http\Controllers\Api\Admin\ForumsApiController::class, 'categories'])->name('forums.categories');
+    Route::get('/forums/categories', [\App\Http\Controllers\Api\Admin\ForumsApiController::class, 'categories'])->name('forums.categories.index');
+    Route::post('/forums/categories', [\App\Http\Controllers\Api\Admin\ForumsApiController::class, 'storeCategory'])->name('forums.categories.store');
+    Route::get('/forums/categories/{id}', [\App\Http\Controllers\Api\Admin\ForumsApiController::class, 'showCategory'])->name('forums.categories.show');
+    Route::put('/forums/categories/{id}', [\App\Http\Controllers\Api\Admin\ForumsApiController::class, 'updateCategory'])->name('forums.categories.update');
+    Route::delete('/forums/categories/{id}', [\App\Http\Controllers\Api\Admin\ForumsApiController::class, 'destroyCategory'])->name('forums.categories.destroy');
     Route::get('/forums', [\App\Http\Controllers\Api\Admin\ForumsApiController::class, 'index'])->name('forums.index');
+    Route::post('/forums', [\App\Http\Controllers\Api\Admin\ForumsApiController::class, 'store'])->name('forums.store');
     Route::get('/forums/{id}', [\App\Http\Controllers\Api\Admin\ForumsApiController::class, 'show'])->name('forums.show')->where('id', '[0-9]+');
+    Route::put('/forums/{id}', [\App\Http\Controllers\Api\Admin\ForumsApiController::class, 'update'])->name('forums.update')->where('id', '[0-9]+');
     Route::delete('/forums/{id}', [\App\Http\Controllers\Api\Admin\ForumsApiController::class, 'destroy'])->name('forums.destroy')->where('id', '[0-9]+');
     Route::post('/forums/{id}/pin', [\App\Http\Controllers\Api\Admin\ForumsApiController::class, 'togglePin'])->name('forums.pin')->where('id', '[0-9]+');
     Route::post('/forums/{id}/lock', [\App\Http\Controllers\Api\Admin\ForumsApiController::class, 'toggleLock'])->name('forums.lock')->where('id', '[0-9]+');
     Route::get('/forums/{id}/replies', [\App\Http\Controllers\Api\Admin\ForumsApiController::class, 'replies'])->name('forums.replies')->where('id', '[0-9]+');
+
+    // Polls API — full CRUD
+    Route::get('/polls/stats', [\App\Http\Controllers\Api\Admin\PollsApiController::class, 'stats'])->name('polls.stats');
+    Route::get('/polls', [\App\Http\Controllers\Api\Admin\PollsApiController::class, 'index'])->name('polls.index');
+    Route::post('/polls', [\App\Http\Controllers\Api\Admin\PollsApiController::class, 'store'])->name('polls.store');
+    Route::get('/polls/{id}', [\App\Http\Controllers\Api\Admin\PollsApiController::class, 'show'])->name('polls.show');
+    Route::put('/polls/{id}', [\App\Http\Controllers\Api\Admin\PollsApiController::class, 'update'])->name('polls.update');
+    Route::delete('/polls/{id}', [\App\Http\Controllers\Api\Admin\PollsApiController::class, 'destroy'])->name('polls.destroy');
+    Route::post('/polls/{id}/close', [\App\Http\Controllers\Api\Admin\PollsApiController::class, 'close'])->name('polls.close');
+    Route::post('/polls/{id}/reopen', [\App\Http\Controllers\Api\Admin\PollsApiController::class, 'reopen'])->name('polls.reopen');
     
     // SACCO API
     Route::get('/sacco/stats', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'stats'])->name('sacco.stats');

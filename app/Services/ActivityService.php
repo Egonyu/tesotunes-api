@@ -39,16 +39,16 @@ class ActivityService
         // Create the activity
         $activity = Activity::create([
             'user_id' => $actor?->id,
-            'type' => $action,
+            'activity_type' => $action,
             'subject_type' => get_class($subject),
             'subject_id' => $subject->id,
-            'data' => $metadata,
+            'metadata' => $metadata,
         ]);
 
         // Clear user's feed cache
         if ($actor) {
             self::clearUserFeedCache($actor->id);
-            
+
             // Clear feed cache for followers
             self::clearFollowersFeedCache($actor);
         }
@@ -119,7 +119,7 @@ class ActivityService
     {
         // Get all users following this user
         $followerIds = $user->followers()->pluck('id');
-        
+
         foreach ($followerIds as $followerId) {
             self::clearUserFeedCache($followerId);
         }
@@ -151,7 +151,7 @@ class ActivityService
     public static function getFollowingActivities(User $user, int $limit = 20)
     {
         $followingIds = $user->following()->pluck('id')->toArray();
-        
+
         if (empty($followingIds)) {
             return collect([]);
         }
@@ -219,7 +219,7 @@ class ActivityService
     public static function incrementEngagement(Activity $activity, string $type, int $increment = 1): void
     {
         $field = $type . '_count';
-        
+
         if (in_array($field, ['likes_count', 'comments_count', 'shares_count'])) {
             $activity->increment($field, $increment);
         }
