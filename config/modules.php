@@ -93,6 +93,19 @@ return [
         'enabled' => env('PODCAST_MODULE_ENABLED', true),
     ],
 
+    'ojokotau' => [
+        /*
+        |--------------------------------------------------------------------------
+        | Ojokotau (Crowdfunding) Module Enabled
+        |--------------------------------------------------------------------------
+        |
+        | Enable or disable the Ojokotau crowdfunding/campaigns module.
+        | When disabled, all campaign routes return 404.
+        |
+        */
+        'enabled' => env('OJOKOTAU_MODULE_ENABLED', false),
+    ],
+
     'store' => [
         /*
         |--------------------------------------------------------------------------
