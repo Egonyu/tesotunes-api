@@ -42,6 +42,11 @@ class ArtistController extends Controller
     public function show(string $artist)
     {
         $record = Artist::with(['primaryGenre'])
+            ->withCount(['songs' => function ($q) {
+                $q->where('status', 'published');
+            }, 'albums' => function ($q) {
+                $q->where('status', 'published');
+            }])
             ->where('status', 'active')
             ->where(function ($q) use ($artist) {
                 $q->where('id', $artist)
@@ -49,6 +54,10 @@ class ArtistController extends Controller
                   ->orWhere('uuid', $artist);
             })
             ->firstOrFail();
+
+        // Use accurate published counts
+        $record->total_songs_count = $record->songs_count;
+        $record->total_albums_count = $record->albums_count;
 
         return new ArtistResource($record);
     }

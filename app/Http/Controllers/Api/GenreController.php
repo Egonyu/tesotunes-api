@@ -18,7 +18,9 @@ class GenreController extends Controller
     {
         $genres = Genre::active()
             ->ordered()
-            ->withCount('songs')
+            ->withCount(['songs' => function ($q) {
+                $q->where('status', 'published');
+            }])
             ->get();
 
         return GenreResource::collection($genres);
@@ -33,7 +35,9 @@ class GenreController extends Controller
     {
         $genre = Genre::active()
             ->where('slug', $slug)
-            ->withCount('songs')
+            ->withCount(['songs' => function ($q) {
+                $q->where('status', 'published');
+            }])
             ->firstOrFail();
 
         return new GenreResource($genre);
@@ -46,7 +50,9 @@ class GenreController extends Controller
      */
     public function show(Genre $genre)
     {
-        $genre->loadCount('songs');
+        $genre->loadCount(['songs' => function ($q) {
+            $q->where('status', 'published');
+        }]);
 
         return new GenreResource($genre);
     }

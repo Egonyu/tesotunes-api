@@ -403,11 +403,11 @@ class Artist extends Model implements HasMedia
      */
     public function refreshCachedStats(): void
     {
-        // Use a single query with selectRaw to get song stats
+        // Use a single query with selectRaw to get song stats (only published)
         $songStats = $this->songs()
+            ->where('status', 'published')
             ->selectRaw('
                 COALESCE(SUM(play_count), 0) as total_plays,
-                COALESCE(SUM(revenue_generated), 0) as total_revenue,
                 COUNT(*) as total_songs
             ')
             ->first();
@@ -415,15 +415,10 @@ class Artist extends Model implements HasMedia
         // Get albums count
         $albumsCount = $this->albums()->count();
 
-        // Get followers count
-        $followersCount = $this->followers()->count();
-
         $this->update([
             'total_plays_count' => $songStats->total_plays ?? 0,
-            'total_revenue' => $songStats->total_revenue ?? 0,
             'total_songs_count' => $songStats->total_songs ?? 0,
             'total_albums_count' => $albumsCount,
-            'followers_count' => $followersCount,
             'stats_last_updated_at' => now(),
         ]);
 
