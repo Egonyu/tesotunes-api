@@ -16,6 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Disable default API throttling
+        $middleware->throttleApi('');
+
         // Exclude auth endpoints from CSRF verification (for API/NextAuth)
         $middleware->validateCsrfTokens(except: [
             '/auth/login',

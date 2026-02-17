@@ -69,7 +69,7 @@ class Award extends Model
     // Relationships
     public function categories(): HasMany
     {
-        return $this->hasMany(AwardCategory::class, 'award_id');
+        return $this->hasMany(AwardCategory::class, 'award_season_id');
     }
 
     public function nominations(): HasMany

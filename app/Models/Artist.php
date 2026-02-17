@@ -9,10 +9,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\Traits\Featurable;
+use Spatie\MediaLibrary\HasMedia;
+use Spatie\MediaLibrary\InteractsWithMedia;
 
-class Artist extends Model
+class Artist extends Model implements HasMedia
 {
-    use HasFactory, SoftDeletes, Featurable;
+    use HasFactory, SoftDeletes, Featurable, InteractsWithMedia;
 
     protected static function booted(): void
     {
@@ -94,6 +96,24 @@ class Artist extends Model
         'earnings_balance' => 'decimal:2',
         'commission_rate' => 'decimal:2',
     ];
+
+    /**
+     * Register media collections for Spatie Media Library
+     */
+    public function registerMediaCollections(): void
+    {
+        $this->addMediaCollection('avatar')
+            ->singleFile()
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp']);
+
+        $this->addMediaCollection('banner')
+            ->singleFile()
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp']);
+
+        $this->addMediaCollection('cover')
+            ->singleFile()
+            ->acceptsMimeTypes(['image/jpeg', 'image/png', 'image/webp']);
+    }
 
     // Relationships
     public function user(): BelongsTo
@@ -259,12 +279,12 @@ class Artist extends Model
         if ($this->status === 'rejected') {
             return 'rejected';
         }
-        
+
         // If verified, return verified
         if ($this->is_verified) {
             return 'verified';
         }
-        
+
         // Otherwise pending
         return 'pending';
     }
@@ -302,7 +322,7 @@ class Artist extends Model
     {
         // Get the raw total_revenue column value
         $rawTotal = $this->attributes['total_revenue'] ?? null;
-        
+
         // Always use cached value, queue update if stale
         if ($rawTotal !== null &&
             $this->stats_last_updated_at &&
@@ -333,7 +353,7 @@ class Artist extends Model
     {
         // Cache the monthly listeners count for 1 hour
         $cacheKey = "artist_monthly_listeners_{$this->id}";
-        
+
         return cache()->remember($cacheKey, now()->addHour(), function () {
             // Get unique users who played this artist's songs in the last 30 days
             return \App\Models\PlayHistory::whereIn('song_id', $this->songs()->pluck('songs.id'))
@@ -357,9 +377,15 @@ class Artist extends Model
 
     /**
      * Get remaining uploads for current month (optimized with caching)
+     * Returns 9999 if monthly_upload_limit is null (unlimited)
      */
     public function getRemainingUploadsThisMonth(): int
     {
+        // If no limit set, allow unlimited uploads
+        if ($this->monthly_upload_limit === null) {
+            return 9999;
+        }
+
         $cacheKey = "artist_uploads_{$this->id}_" . now()->format('Y_m');
 
         $currentMonthUploads = cache()->remember($cacheKey, now()->addHour(), function () {
@@ -483,7 +509,7 @@ class Artist extends Model
      */
     public function hasCompletedProfile(): bool
     {
-        return !empty($this->stage_name) && 
+        return !empty($this->stage_name) &&
                !empty($this->bio) &&
                !empty($this->user_id);
     }

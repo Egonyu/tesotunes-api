@@ -29,7 +29,7 @@ class ArtistController extends Controller
             ->when($request->filled('search'), function ($q) use ($request) {
                 $q->where('stage_name', 'like', '%' . $request->search . '%');
             })
-            ->orderByDesc('follower_count')
+            ->orderByDesc('followers_count')
             ->paginate($perPage);
 
         return ArtistResource::collection($artists);

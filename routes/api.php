@@ -74,6 +74,47 @@ Route::middleware('auth:sanctum')->prefix('artist/events')->name('api.artist.eve
     Route::get('/{id}/analytics', [\App\Http\Controllers\Api\ArtistEventsController::class, 'analytics'])->name('analytics');
 });
 
+// ============================================================================
+// Artist API Routes — Dashboard, Songs, Albums, Profile, Earnings, Analytics
+// ============================================================================
+Route::middleware('auth:sanctum')->prefix('artist')->name('api.artist.')->group(function () {
+    // Dashboard
+    Route::get('/dashboard', [\App\Http\Controllers\Api\ArtistApiController::class, 'dashboard'])->name('dashboard');
+
+    // Songs CRUD
+    Route::get('/songs', [\App\Http\Controllers\Api\ArtistApiController::class, 'songs'])->name('songs.index');
+    Route::post('/songs', [\App\Http\Controllers\Api\ArtistApiController::class, 'storeSong'])->name('songs.store');
+    Route::get('/songs/{id}', [\App\Http\Controllers\Api\ArtistApiController::class, 'showSong'])->name('songs.show');
+    Route::put('/songs/{id}', [\App\Http\Controllers\Api\ArtistApiController::class, 'updateSong'])->name('songs.update');
+    Route::delete('/songs/{id}', [\App\Http\Controllers\Api\ArtistApiController::class, 'deleteSong'])->name('songs.destroy');
+    Route::post('/songs/bulk-delete', [\App\Http\Controllers\Api\ArtistApiController::class, 'bulkDeleteSongs'])->name('songs.bulkDelete');
+    Route::post('/songs/bulk-status', [\App\Http\Controllers\Api\ArtistApiController::class, 'bulkUpdateSongStatus'])->name('songs.bulkStatus');
+
+    // Albums
+    Route::get('/albums', [\App\Http\Controllers\Api\ArtistApiController::class, 'albums'])->name('albums.index');
+    Route::post('/albums', [\App\Http\Controllers\Api\ArtistApiController::class, 'storeAlbum'])->name('albums.store');
+
+    // Profile
+    Route::get('/profile', [\App\Http\Controllers\Api\ArtistApiController::class, 'profile'])->name('profile.show');
+    Route::put('/profile', [\App\Http\Controllers\Api\ArtistApiController::class, 'updateProfile'])->name('profile.update');
+
+    // Earnings
+    Route::get('/earnings', [\App\Http\Controllers\Api\ArtistApiController::class, 'earnings'])->name('earnings.index');
+    Route::post('/earnings/withdraw', [\App\Http\Controllers\Api\ArtistApiController::class, 'withdraw'])->name('earnings.withdraw');
+
+    // Analytics
+    Route::get('/analytics', [\App\Http\Controllers\Api\ArtistApiController::class, 'analytics'])->name('analytics');
+
+    // Referrals
+    Route::get('/referrals/dashboard', [\App\Http\Controllers\Api\ArtistApiController::class, 'referralsDashboard'])->name('referrals.dashboard');
+    Route::get('/referrals/link', [\App\Http\Controllers\Api\ArtistApiController::class, 'referralLink'])->name('referrals.link');
+    Route::get('/referrals/fans', [\App\Http\Controllers\Api\ArtistApiController::class, 'referralFans'])->name('referrals.fans');
+    Route::get('/referrals/earnings', [\App\Http\Controllers\Api\ArtistApiController::class, 'referralEarnings'])->name('referrals.earnings');
+    Route::get('/referrals/promo-materials', [\App\Http\Controllers\Api\ArtistApiController::class, 'promoMaterials'])->name('referrals.promo');
+    Route::post('/referrals/promo-materials/generate', [\App\Http\Controllers\Api\ArtistApiController::class, 'generatePromoMaterial'])->name('referrals.promoGenerate');
+    Route::post('/referrals/share', [\App\Http\Controllers\Api\ArtistApiController::class, 'trackShare'])->name('referrals.share');
+});
+
 // Loyalty (Artist Fan Clubs) API Routes
 require __DIR__ . '/api/loyalty.php';
 
@@ -342,6 +383,25 @@ Route::middleware(['auth:sanctum', 'role:admin,Super Admin'])->prefix('admin')->
     Route::post('/songs/{id}/toggle-status', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'toggleStatus'])->name('songs.toggle-status');
     Route::post('/songs/{id}/toggle-featured', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'toggleFeatured'])->name('songs.toggle-featured');
     Route::get('/songs/{id}/play-history', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'playHistory'])->name('songs.play-history');
+
+    // Awards API — full CRUD
+    Route::get('/awards/stats', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'stats'])->name('awards.stats');
+    Route::get('/awards', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'index'])->name('awards.index');
+    Route::get('/awards/seasons', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'seasons'])->name('awards.seasons');
+    Route::get('/awards/seasons/{id}', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'showSeason'])->name('awards.seasons.show');
+    Route::post('/awards/seasons', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'storeSeason'])->name('awards.seasons.store');
+    Route::put('/awards/seasons/{id}', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'updateSeason'])->name('awards.seasons.update');
+    Route::delete('/awards/seasons/{id}', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'destroySeason'])->name('awards.seasons.destroy');
+    Route::get('/awards/categories', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'categories'])->name('awards.categories.index');
+    Route::get('/awards/categories/{id}', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'showCategory'])->name('awards.categories.show');
+    Route::post('/awards/categories', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'storeCategory'])->name('awards.categories.store');
+    Route::put('/awards/categories/{id}', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'updateCategory'])->name('awards.categories.update');
+    Route::delete('/awards/categories/{id}', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'destroyCategory'])->name('awards.categories.destroy');
+    Route::get('/awards/nominations', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'nominations'])->name('awards.nominations.index');
+    Route::post('/awards/nominations', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'storeNomination'])->name('awards.nominations.store');
+    Route::post('/awards/nominations/{id}/approve', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'approveNomination'])->name('awards.nominations.approve');
+    Route::post('/awards/nominations/{id}/reject', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'rejectNomination'])->name('awards.nominations.reject');
+    Route::post('/awards/nominations/{id}/set-winner', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'setWinner'])->name('awards.nominations.set-winner');
 });
 
 // Payment Webhooks (Public - no auth required)
@@ -578,4 +638,15 @@ Route::prefix('feed')->name('api.feed.')->group(function () {
 Route::prefix('auth')->group(function () {
     Route::post('/login', [\App\Http\Controllers\Api\Auth\AuthController::class, 'login']);
     Route::post('/register', [\App\Http\Controllers\Api\Auth\AuthController::class, 'register']);
+});
+
+// TEST: Simple upload endpoint for debugging
+Route::middleware('auth:sanctum')->post('/test-upload', function (Illuminate\Http\Request $request) {
+    return response()->json([
+        'success' => true,
+        'has_file' => $request->hasFile('audio'),
+        'files' => array_keys($request->allFiles()),
+        'all_keys' => array_keys($request->all()),
+        'user_id' => $request->user()->id,
+    ]);
 });

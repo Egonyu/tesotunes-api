@@ -11,6 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Skip if likes table doesn't exist (base schema missing)
+        if (!Schema::hasTable('likes')) {
+            return;
+        }
+
+        // Skip if column already exists
+        if (Schema::hasColumn('likes', 'type')) {
+            return;
+        }
+
         Schema::table('likes', function (Blueprint $table) {
             $table->string('type', 20)->default('like')->after('likeable_id')
                 ->comment('like or bookmark');
@@ -23,6 +33,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (!Schema::hasTable('likes') || !Schema::hasColumn('likes', 'type')) {
+            return;
+        }
+
         Schema::table('likes', function (Blueprint $table) {
             $table->dropIndex('likes_unique_interaction');
             $table->dropColumn('type');

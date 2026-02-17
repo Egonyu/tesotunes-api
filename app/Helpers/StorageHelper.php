@@ -25,7 +25,12 @@ class StorageHelper
 
         // Try to generate URL from the default disk
         try {
-            return Storage::url($path);
+            // Storage::url() returns relative paths, so we need to prepend APP_URL
+            $storageUrl = Storage::url($path);
+            if (str_starts_with($storageUrl, '/')) {
+                return config('app.url') . $storageUrl;
+            }
+            return $storageUrl;
         } catch (\Exception $e) {
             return url('storage/' . $path);
         }

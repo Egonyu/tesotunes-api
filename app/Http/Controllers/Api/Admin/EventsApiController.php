@@ -84,11 +84,14 @@ class EventsApiController extends Controller
             'title' => 'required|string|max:200',
             'slug' => 'nullable|string|max:220',
             'description' => 'nullable|string',
+            'short_description' => 'nullable|string|max:500',
             'event_type' => 'nullable|string',
             'venue_name' => 'nullable|string',
             'venue_address' => 'nullable|string',
             'city' => 'nullable|string',
             'country' => 'nullable|string',
+            'latitude' => 'nullable|numeric',
+            'longitude' => 'nullable|numeric',
             'start_date' => 'nullable|date',
             'start_time' => 'nullable|string',
             'end_date' => 'nullable|date',
@@ -99,6 +102,7 @@ class EventsApiController extends Controller
             'is_virtual' => 'nullable|boolean',
             'virtual_link' => 'nullable|url',
             'is_free' => 'nullable|boolean',
+            'currency' => 'nullable|string|max:10',
             'attendee_limit' => 'nullable|integer|min:1',
             'is_featured' => 'nullable|boolean',
             'status' => 'nullable|in:draft,published,cancelled,completed,postponed',
@@ -120,37 +124,47 @@ class EventsApiController extends Controller
             $file = $request->file('cover_image');
             $filename = time() . '_' . $file->getClientOriginalName();
             $file->move(public_path('uploads/events'), $filename);
-            $validated['artwork'] = 'uploads/events/' . $filename;
+            $validated['cover_image'] = 'uploads/events/' . $filename;
         }
 
         // Clean up non-model fields
-        unset($validated['start_date'], $validated['start_time'], $validated['end_date'], $validated['end_time'], $validated['cover_image'], $validated['ticket_tiers']);
+        unset($validated['start_date'], $validated['start_time'], $validated['end_date'], $validated['end_time'], $validated['ticket_tiers'], $validated['short_description']);
 
         $validated['uuid'] = Str::uuid();
         $validated['slug'] = $validated['slug'] ?? Str::slug($validated['title']) . '-' . Str::random(6);
-        $validated['organizer_id'] = auth()->id() ?? 1;
+        $validated['organizer_id'] = auth()->id();
         $validated['organizer_type'] = 'user';
+        // Only set user_id if authenticated (legacy field)
+        if (auth()->check()) {
+            $validated['user_id'] = auth()->id();
+        }
         $validated['status'] = $validated['status'] ?? 'draft';
         $validated['timezone'] = $validated['timezone'] ?? 'Africa/Nairobi';
 
         $event = Event::create($validated);
 
-        // Create event location if venue info provided
+        // Create event location if venue info provided (skip if table doesn't exist)
         if ($request->filled('venue_name') || $request->filled('city')) {
-            $location = EventLocation::create([
-                'uuid' => Str::uuid(),
-                'name' => $request->input('venue_name', $validated['title'] . ' Venue'),
-                'address' => $request->input('venue_address', ''),
-                'city' => $request->input('city', ''),
-                'country' => $request->input('country', 'Uganda'),
-                'capacity' => $validated['attendee_limit'] ?? null,
-            ]);
-            $event->update(['event_location_id' => $location->id]);
+            try {
+                if (\Schema::hasTable('event_locations')) {
+                    $location = EventLocation::create([
+                        'uuid' => Str::uuid(),
+                        'name' => $request->input('venue_name', $validated['title'] . ' Venue'),
+                        'address' => $request->input('venue_address', ''),
+                        'city' => $request->input('city', ''),
+                        'country' => $request->input('country', 'Uganda'),
+                        'capacity' => $validated['attendee_limit'] ?? null,
+                    ]);
+                    $event->update(['event_location_id' => $location->id]);
+                }
+            } catch (\Exception $e) {
+                // Skip if event_locations table doesn't exist
+            }
         }
 
-        // Create ticket tiers if provided
+        // Create ticket tiers if provided (skip if table doesn't exist)
         $ticketTiers = $request->input('ticket_tiers');
-        if ($ticketTiers) {
+        if ($ticketTiers && \Schema::hasTable('event_tickets')) {
             if (is_string($ticketTiers)) {
                 $ticketTiers = json_decode($ticketTiers, true);
             }
@@ -177,7 +191,7 @@ class EventsApiController extends Controller
             }
         }
 
-        return (new EventResource($event->load(['organizer', 'location', 'ticketTypes'])))
+        return (new EventResource($event->load(['organizer'])))
             ->response()
             ->setStatusCode(201);
     }
@@ -229,10 +243,10 @@ class EventsApiController extends Controller
             $file = $request->file('cover_image');
             $filename = time() . '_' . $file->getClientOriginalName();
             $file->move(public_path('uploads/events'), $filename);
-            $validated['artwork'] = 'uploads/events/' . $filename;
+            $validated['cover_image'] = 'uploads/events/' . $filename;
         }
 
-        unset($validated['start_date'], $validated['start_time'], $validated['end_date'], $validated['end_time'], $validated['cover_image'], $validated['ticket_tiers']);
+        unset($validated['start_date'], $validated['start_time'], $validated['end_date'], $validated['end_time'], $validated['ticket_tiers']);
 
         if (isset($validated['title']) && !isset($validated['slug'])) {
             $validated['slug'] = Str::slug($validated['title']) . '-' . Str::random(6);
@@ -248,8 +262,8 @@ class EventsApiController extends Controller
             }
             if (is_array($ticketTiers)) {
                 // Remove existing tiers that haven't sold any tickets
-                $event->ticketTypes()->where('quantity_sold', 0)->delete();
-                
+                $event->tickets()->where('quantity_sold', 0)->delete();
+
                 foreach ($ticketTiers as $i => $tier) {
                     if (isset($tier['id'])) {
                         // Update existing tier
@@ -286,7 +300,7 @@ class EventsApiController extends Controller
             }
         }
 
-        return new EventResource($event->fresh()->load(['organizer', 'location', 'ticketTypes']));
+        return new EventResource($event->fresh()->load(['organizer', 'location', 'tickets']));
     }
 
     /**

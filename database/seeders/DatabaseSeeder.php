@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Schema;
 
 class DatabaseSeeder extends Seeder
 {
@@ -12,11 +13,22 @@ class DatabaseSeeder extends Seeder
             RolePermissionSeeder::class,
             UserSeeder::class,
             GenreSeeder::class,
-            MoodSeeder::class,
-            CreditRateSeeder::class,
-            SettingsSeeder::class,
-            TestDataSeeder::class,
-            // PollSeeder::class, // TODO: enable after creating polls migration
         ]);
+
+        // Only run seeders for existing tables
+        if (Schema::hasTable('moods')) {
+            $this->call([MoodSeeder::class]);
+        }
+
+        if (Schema::hasTable('credit_rates')) {
+            $this->call([CreditRateSeeder::class]);
+        }
+
+        if (Schema::hasTable('settings')) {
+            $this->call([SettingsSeeder::class]);
+        }
+
+        // Always run test data last
+        $this->call([TestDataSeeder::class]);
     }
 }

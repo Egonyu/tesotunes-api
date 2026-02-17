@@ -54,7 +54,7 @@ class AlbumController extends Controller
 
     /**
      * GET /api/albums/{album}/tracks
-     * Paginated track-listing for an album, ordered by disc → track number.
+     * Paginated track-listing for an album, ordered by track number.
      */
     public function tracks(string $album, Request $request)
     {
@@ -71,7 +71,6 @@ class AlbumController extends Controller
         $songs = $record->songs()
             ->with(['artist', 'album'])
             ->where('status', 'published')
-            ->orderBy('disc_number')
             ->orderBy('track_number')
             ->paginate($perPage);
 

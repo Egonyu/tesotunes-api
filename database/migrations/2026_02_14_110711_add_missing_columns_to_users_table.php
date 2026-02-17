@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('users')) {
+            return;
+        }
+
         Schema::table('users', function (Blueprint $table) {
             // Add uuid column (used by User model boot)
             if (!Schema::hasColumn('users', 'uuid')) {
@@ -22,9 +26,9 @@ return new class extends Migration
                 $table->string('display_name')->nullable()->after('name');
             }
 
-            // Add phone column (model uses 'phone', DB has 'phone_number')
+            // Add phone column if it doesn't exist
             if (!Schema::hasColumn('users', 'phone')) {
-                $table->string('phone', 20)->nullable()->after('phone_number');
+                $table->string('phone', 20)->nullable()->after('email');
             }
         });
     }
@@ -34,8 +38,17 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (!Schema::hasTable('users')) {
+            return;
+        }
+
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn(['uuid', 'display_name', 'phone']);
+            if (Schema::hasColumn('users', 'uuid')) {
+                $table->dropColumn('uuid');
+            }
+            if (Schema::hasColumn('users', 'display_name')) {
+                $table->dropColumn('display_name');
+            }
         });
     }
 };

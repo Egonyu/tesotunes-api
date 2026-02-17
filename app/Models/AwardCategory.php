@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
@@ -13,18 +14,31 @@ class AwardCategory extends Model
 
     protected $fillable = [
         'uuid',
+        'award_season_id',
         'name',
         'slug',
         'description',
+        'icon',
         'artwork',
+        'nominee_type',
         'category_type',
+        'max_nominees',
+        'max_nominations_per_user',
+        'max_votes_per_user',
+        'is_jury_category',
+        'jury_weight_percentage',
         'is_active',
         'sort_order',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
+        'is_jury_category' => 'boolean',
         'sort_order' => 'integer',
+        'max_nominees' => 'integer',
+        'max_nominations_per_user' => 'integer',
+        'max_votes_per_user' => 'integer',
+        'jury_weight_percentage' => 'decimal:2',
     ];
 
     protected static function boot()
@@ -39,12 +53,17 @@ class AwardCategory extends Model
                 $category->slug = Str::slug($category->name);
             }
             if (empty($category->category_type)) {
-                $category->category_type = 'general';
+                $category->category_type = $category->nominee_type ?? 'general';
             }
         });
     }
 
     // Relationships
+    public function award(): BelongsTo
+    {
+        return $this->belongsTo(Award::class, 'award_season_id');
+    }
+
     public function nominations(): HasMany
     {
         return $this->hasMany(AwardNomination::class, 'category_id');
