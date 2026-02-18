@@ -131,7 +131,7 @@ jobs:
     
     environment:
       name: ${{ github.event.inputs.environment || 'production' }}
-      url: https://tesotunes.com
+      url: https://api.tesotunes.com
     
     steps:
       - name: Checkout code
@@ -184,11 +184,11 @@ jobs:
             set -e
             
             # Configuration
-            APP_PATH="${{ secrets.APP_PATH || '/var/www/tesotunes' }}"
+            APP_PATH="${{ secrets.APP_PATH || '/var/www/api.tesotunes.com' }}"
             TIMESTAMP=$(date +%Y%m%d_%H%M%S)
             BACKUP_PATH="$APP_PATH.backup.$TIMESTAMP"
             
-            echo "🚀 Starting deployment to TesoTunes..."
+            echo "🚀 Starting deployment to TesoTunes API..."
             
             # Create backup
             if [ -d "$APP_PATH" ]; then
@@ -229,7 +229,7 @@ jobs:
             
             # Restart services
             echo "🔄 Restarting services..."
-            sudo supervisorctl restart tesotunes-worker:*
+            sudo supervisorctl restart tesotunes-worker:* || true
             
             # Disable maintenance mode
             echo "✅ Disabling maintenance mode..."
@@ -240,14 +240,14 @@ jobs:
             ls -t $APP_PATH.backup.* 2>/dev/null | tail -n +6 | xargs rm -rf 2>/dev/null || true
             
             echo "✨ Deployment completed successfully!"
-            echo "🌐 TesoTunes is live at https://tesotunes.com"
+            echo "🌐 TesoTunes API is live at https://api.tesotunes.com"
       
       - name: Health check
         run: |
           sleep 10
-          response=$(curl -s -o /dev/null -w "%{http_code}" https://tesotunes.com)
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://api.tesotunes.com/api/health)
           if [ $response -eq 200 ]; then
-            echo "✅ Health check passed! Site is responding."
+            echo "✅ Health check passed! API is responding."
           else
             echo "❌ Health check failed! HTTP status: $response"
             exit 1
@@ -279,7 +279,7 @@ jobs:
           script: |
             set -e
             
-            APP_PATH="${{ secrets.APP_PATH || '/var/www/tesotunes' }}"
+            APP_PATH="${{ secrets.APP_PATH || '/var/www/api.tesotunes.com' }}"
             LATEST_BACKUP=$(ls -t $APP_PATH.backup.* 2>/dev/null | head -1)
             
             if [ -n "$LATEST_BACKUP" ]; then
@@ -301,7 +301,7 @@ jobs:
               php artisan view:cache
               
               # Restart services
-              sudo supervisorctl restart tesotunes-worker:*
+              sudo supervisorctl restart tesotunes-worker:* || true
               
               # Disable maintenance mode
               php artisan up
