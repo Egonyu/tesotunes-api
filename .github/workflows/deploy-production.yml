@@ -20,7 +20,6 @@ on:
 
 env:
   PHP_VERSION: '8.3'
-  NODE_VERSION: '20'
 
 jobs:
   tests:
@@ -55,12 +54,6 @@ jobs:
           coverage: none
           tools: composer:v2
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      
       - name: Install Composer dependencies
         run: composer install --prefer-dist --no-interaction --no-progress --optimize-autoloader
       
@@ -68,12 +61,6 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate
-      
-      - name: Install NPM dependencies
-        run: npm ci  # Install ALL dependencies (including devDependencies for Vite)
-      
-      - name: Build production assets
-        run: npm run build
       
       - name: Run Laravel Pint
         run: ./vendor/bin/pint --test
@@ -110,19 +97,10 @@ jobs:
         with:
           php-version: ${{ env.PHP_VERSION }}
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-      
       - name: Run Composer audit
         run: composer audit
         continue-on-error: true
       
-      - name: Run NPM audit
-        run: npm audit --audit-level=high
-        continue-on-error: true
-
   deploy:
     name: Deploy to ${{ github.event.inputs.environment || 'production' }}
     runs-on: ubuntu-latest
@@ -145,20 +123,8 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           extensions: mbstring, xml, ctype, json, zip
       
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-      
       - name: Install Composer dependencies
         run: composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
-      
-      - name: Install NPM dependencies (including devDependencies for build)
-        run: npm ci
-      
-      - name: Build production assets
-        run: npm run build
       
       - name: Create deployment package
         run: |
@@ -213,8 +179,6 @@ jobs:
             # Install dependencies
             echo "📦 Installing dependencies..."
             composer install --no-dev --optimize-autoloader --no-interaction
-            npm ci --production
-            npm run build
             
             # Run migrations
             echo "🗄️  Running database migrations..."
