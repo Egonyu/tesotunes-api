@@ -138,7 +138,21 @@ jobs:
             --exclude='storage/logs' \
             ./ deployment/
 
-      - name: Deploy to server via SSH
+      - name: Package application
+        run: |
+          tar -czf deployment.tar.gz -C deployment .
+
+      - name: Upload deployment archive
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT }}
+          source: "deployment.tar.gz"
+          target: "/tmp"
+
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.SERVER_HOST }}
@@ -149,61 +163,108 @@ jobs:
           script: |
             set -e
 
-            # Configuration
-            APP_PATH="${{ secrets.APP_PATH || '/var/www/api.tesotunes.com' }}"
+            APP_PATH="/var/www/api.tesotunes.com"
+            SHARED_PATH="/var/www/tesotunes-shared"
+            RELEASES_PATH="/var/www/tesotunes-releases"
             TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-            BACKUP_PATH="$APP_PATH.backup.$TIMESTAMP"
+            NEW_RELEASE="$RELEASES_PATH/$TIMESTAMP"
 
-            echo "🚀 Starting deployment to TesoTunes API..."
+            echo "🚀 Starting deployment..."
 
-            # Create backup
-            if [ -d "$APP_PATH" ]; then
-              echo "📦 Creating backup..."
-              cp -r $APP_PATH $BACKUP_PATH
+            # ----------------------------------------------------------
+            # First-time setup: migrate existing app into shared + releases structure
+            # This block runs only once, then the directory becomes a symlink
+            # ----------------------------------------------------------
+            if [ -d "$APP_PATH" ] && [ ! -L "$APP_PATH" ]; then
+              echo "📦 Migrating existing application to release-based deployment..."
+
+              # Create shared directory for persistent files
+              mkdir -p $SHARED_PATH
+
+              # Move .env to shared (if it exists in the app)
+              if [ -f "$APP_PATH/.env" ] && [ ! -f "$SHARED_PATH/.env" ]; then
+                cp "$APP_PATH/.env" "$SHARED_PATH/.env"
+                echo "  ✓ Copied .env to shared"
+              fi
+
+              # Move storage to shared (if not already there)
+              if [ -d "$APP_PATH/storage" ] && [ ! -d "$SHARED_PATH/storage" ]; then
+                cp -a "$APP_PATH/storage" "$SHARED_PATH/storage"
+                echo "  ✓ Copied storage to shared"
+              fi
+
+              # Rename the existing app as the first release
+              mkdir -p $RELEASES_PATH
+              INITIAL_RELEASE="$RELEASES_PATH/initial_$(date +%Y%m%d_%H%M%S)"
+              mv "$APP_PATH" "$INITIAL_RELEASE"
+              echo "  ✓ Moved existing app to $INITIAL_RELEASE"
+
+              # Create symlink pointing to the initial release
+              ln -sfn "$INITIAL_RELEASE" "$APP_PATH"
+              echo "  ✓ Created symlink: $APP_PATH -> $INITIAL_RELEASE"
+
+              echo "✅ Migration complete. Continuing with deployment..."
             fi
 
-            # Create app directory if not exists
-            mkdir -p $APP_PATH
+            # Ensure directories exist
+            mkdir -p $RELEASES_PATH
+            mkdir -p $SHARED_PATH
+            mkdir -p $SHARED_PATH/storage
+            mkdir -p $NEW_RELEASE
 
-            cd $APP_PATH
+            # Extract uploaded archive
+            echo "📦 Extracting deployment package..."
+            tar -xzf /tmp/deployment.tar.gz -C $NEW_RELEASE
+            rm -f /tmp/deployment.tar.gz
 
-            # Enable maintenance mode
-            echo "🔧 Enabling maintenance mode..."
-            php artisan down --retry=60 || true
+            cd $NEW_RELEASE
 
-            # Pull latest code
-            echo "📥 Pulling latest code..."
-            git fetch origin main
-            git reset --hard origin/main
+            # Link shared .env
+            ln -sfn $SHARED_PATH/.env .env
+
+            # Link shared storage (remove the one from the archive first)
+            rm -rf $NEW_RELEASE/storage
+            ln -sfn $SHARED_PATH/storage storage
 
             # Install dependencies
             echo "📦 Installing dependencies..."
             composer install --no-dev --optimize-autoloader --no-interaction
 
+            # Maintenance mode (on the CURRENT live release, if it exists)
+            if [ -L "$APP_PATH" ]; then
+              cd "$APP_PATH"
+              php artisan down --retry=60 || true
+              cd $NEW_RELEASE
+            fi
+
             # Run migrations
             echo "🗄️  Running database migrations..."
             php artisan migrate --force
 
-            # Clear and optimize
+            # Switch symlink to new release (atomic swap)
+            echo "🔗 Switching to new release..."
+            ln -sfn $NEW_RELEASE $APP_PATH
+
+            # Optimize
             echo "⚡ Optimizing application..."
             php artisan config:cache
             php artisan route:cache
             php artisan view:cache
             php artisan event:cache
 
-            # Restart services
-            echo "🔄 Restarting services..."
-            sudo supervisorctl restart tesotunes-worker:* || true
-
-            # Disable maintenance mode
-            echo "✅ Disabling maintenance mode..."
+            # Bring app back up
             php artisan up
 
-            # Cleanup old backups (keep last 5)
-            echo "🧹 Cleaning up old backups..."
-            ls -t $APP_PATH.backup.* 2>/dev/null | tail -n +6 | xargs rm -rf 2>/dev/null || true
+            # Restart workers
+            echo "🔄 Restarting workers..."
+            sudo supervisorctl restart tesotunes-worker:* || true
 
-            echo "✨ Deployment completed successfully!"
+            # Cleanup old releases (keep last 5)
+            echo "🧹 Cleaning up old releases..."
+            cd $RELEASES_PATH
+            ls -t | tail -n +6 | xargs rm -rf 2>/dev/null || true
+
+            echo "✅ Deployment complete!"
             echo "🌐 TesoTunes API is live at https://api.tesotunes.com"
 
       - name: Health check
@@ -243,35 +304,48 @@ jobs:
           script: |
             set -e
 
-            APP_PATH="${{ secrets.APP_PATH || '/var/www/api.tesotunes.com' }}"
-            LATEST_BACKUP=$(ls -t $APP_PATH.backup.* 2>/dev/null | head -1)
+            APP_PATH="/var/www/api.tesotunes.com"
+            RELEASES_PATH="/var/www/tesotunes-releases"
+            SHARED_PATH="/var/www/tesotunes-shared"
 
-            if [ -n "$LATEST_BACKUP" ]; then
-              echo "🔄 Rolling back to: $LATEST_BACKUP"
+            echo "🔄 Starting rollback..."
 
-              # Enable maintenance mode
-              cd $APP_PATH
-              php artisan down --retry=60 || true
+            # Find the previous release (second newest)
+            CURRENT=$(readlink -f $APP_PATH)
+            PREVIOUS=$(ls -t $RELEASES_PATH | head -2 | tail -1)
 
-              # Restore backup
-              rm -rf $APP_PATH
-              mv $LATEST_BACKUP $APP_PATH
-
-              cd $APP_PATH
-
-              # Optimize
-              php artisan config:cache
-              php artisan route:cache
-              php artisan view:cache
-
-              # Restart services
-              sudo supervisorctl restart tesotunes-worker:* || true
-
-              # Disable maintenance mode
-              php artisan up
-
-              echo "✅ Rollback completed!"
-            else
-              echo "❌ No backup found for rollback!"
+            if [ -z "$PREVIOUS" ] || [ "$RELEASES_PATH/$PREVIOUS" = "$CURRENT" ]; then
+              echo "❌ No previous release found for rollback!"
               exit 1
             fi
+
+            PREV_RELEASE="$RELEASES_PATH/$PREVIOUS"
+            echo "Rolling back to: $PREV_RELEASE"
+
+            # Ensure shared links exist in previous release
+            cd $PREV_RELEASE
+            ln -sfn $SHARED_PATH/.env .env
+            rm -rf storage 2>/dev/null || true
+            ln -sfn $SHARED_PATH/storage storage
+
+            # Maintenance mode on current
+            cd $APP_PATH
+            php artisan down --retry=60 || true
+
+            # Switch symlink to previous release
+            ln -sfn $PREV_RELEASE $APP_PATH
+
+            cd $APP_PATH
+
+            # Re-optimize
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+
+            # Restart workers
+            sudo supervisorctl restart tesotunes-worker:* || true
+
+            # Bring back up
+            php artisan up
+
+            echo "✅ Rollback completed! Now running: $PREV_RELEASE"
