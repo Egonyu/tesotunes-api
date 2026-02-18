@@ -75,12 +75,21 @@ return [
     'digitalocean' => [
         'key' => env('DO_SPACES_KEY'),
         'secret' => env('DO_SPACES_SECRET'),
-        'endpoint' => env('DO_SPACES_ENDPOINT', 'https://nyc3.digitaloceanspaces.com'),
-        'region' => env('DO_SPACES_REGION', 'nyc3'),
+        'endpoint' => env('DO_SPACES_ENDPOINT', 'https://syd1.digitaloceanspaces.com'),
+        'region' => env('DO_SPACES_REGION', 'syd1'),
         'bucket' => env('DO_SPACES_BUCKET'),
         'cdn_endpoint' => env('DO_SPACES_CDN_ENDPOINT'),
     ],
 
+    // ZengaPay Payment Gateway (Uganda Mobile Money, Cards, Bank)
+    'zengapay' => [
+        'api_key' => env('ZENGAPAY_API_KEY'),
+        'api_secret' => env('ZENGAPAY_API_SECRET'),
+        'webhook_secret' => env('ZENGAPAY_WEBHOOK_SECRET'),
+        'environment' => env('ZENGAPAY_ENVIRONMENT', 'production'),
+        'callback_url' => env('ZENGAPAY_CALLBACK_URL'),
+        'base_url' => env('ZENGAPAY_BASE_URL', 'https://api.zengapay.com/v1'),
+    ],
 
     // OAuth Providers (Social Authentication)
     'google' => [

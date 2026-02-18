@@ -152,4 +152,40 @@ class PaymentController extends Controller
 
         return response()->json(['message' => 'Webhook processed.']);
     }
+
+    /**
+     * GET /api/payments/status/{transactionId} — check ZengaPay transaction status
+     */
+    public function checkStatus(string $transactionId): JsonResponse
+    {
+        $result = $this->paymentService->checkZengaPayStatus($transactionId);
+
+        return response()->json([
+            'data' => $result,
+        ]);
+    }
+
+    /**
+     * GET /api/payments/zengapay/balance — get ZengaPay account balance (admin only)
+     */
+    public function zengapayBalance(): JsonResponse
+    {
+        $result = $this->paymentService->getZengaPayBalance();
+
+        return response()->json([
+            'data' => $result,
+        ]);
+    }
+
+    /**
+     * GET /api/payments/history — get authenticated user's payment history
+     */
+    public function history(Request $request): JsonResponse
+    {
+        $payments = Payment::where('user_id', $request->user()->id)
+            ->orderBy('created_at', 'desc')
+            ->paginate($request->input('per_page', 15));
+
+        return response()->json($payments);
+    }
 }

@@ -80,14 +80,14 @@ return [
             'driver' => 's3',
             'key' => env('DO_SPACES_ACCESS_KEY_ID'),
             'secret' => env('DO_SPACES_SECRET_ACCESS_KEY'),
-            'endpoint' => env('DO_SPACES_ENDPOINT'),
-            'region' => env('DO_SPACES_REGION', 'nyc3'),
+            'endpoint' => env('DO_SPACES_ENDPOINT', 'https://syd1.digitaloceanspaces.com'),
+            'region' => env('DO_SPACES_REGION', 'syd1'),
             'bucket' => env('DO_SPACES_BUCKET'),
             'url' => env('DO_SPACES_CDN_ENDPOINT'),
             'use_path_style_endpoint' => false,
             'throw' => false,
             'report' => false,
-            'visibility' => 'private',
+            'visibility' => 'public',
         ],
 
         // AWS S3 (original configuration)
