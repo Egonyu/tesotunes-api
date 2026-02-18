@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
@@ -14,7 +13,6 @@ class AwardCategory extends Model
 
     protected $fillable = [
         'uuid',
-        'award_season_id',
         'name',
         'slug',
         'description',
@@ -59,11 +57,6 @@ class AwardCategory extends Model
     }
 
     // Relationships
-    public function award(): BelongsTo
-    {
-        return $this->belongsTo(Award::class, 'award_season_id');
-    }
-
     public function nominations(): HasMany
     {
         return $this->hasMany(AwardNomination::class, 'category_id');

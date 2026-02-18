@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
@@ -67,9 +68,14 @@ class Award extends Model
     }
 
     // Relationships
-    public function categories(): HasMany
+    /**
+     * Categories linked to this award via nominations (pivot).
+     * Categories are global; nominations connect them to a specific award.
+     */
+    public function categories(): BelongsToMany
     {
-        return $this->hasMany(AwardCategory::class, 'award_season_id');
+        return $this->belongsToMany(AwardCategory::class, 'award_nominations', 'award_id', 'category_id')
+            ->distinct();
     }
 
     public function nominations(): HasMany
