@@ -7,31 +7,31 @@ on:
   workflow_dispatch:
 
 env:
-  PHP_VERSION: '8.3'
+  PHP_VERSION: '8.4'
 
 jobs:
   deploy-staging:
     name: Deploy to Staging
     runs-on: ubuntu-latest
-    
+
     environment:
       name: staging
       url: https://staging.tesotunes.com
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ env.PHP_VERSION }}
           extensions: mbstring, xml, ctype, json, zip, gd, sqlite3, redis, mysql, bcmath, intl
           tools: composer:v2
-      
+
       - name: Install Composer dependencies
         run: composer install --no-dev --optimize-autoloader --no-interaction --no-progress
-      
+
       - name: Deploy to staging server
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -41,35 +41,35 @@ jobs:
           port: ${{ secrets.STAGING_SERVER_PORT || 22 }}
           script: |
             set -e
-            
+
             APP_PATH="${{ secrets.STAGING_APP_PATH || '/var/www/staging.tesotunes' }}"
-            
+
             echo "🚀 Deploying to staging..."
-            
+
             cd $APP_PATH
-            
+
             # Enable maintenance mode
             php artisan down || true
-            
+
             # Pull latest code
             git fetch origin develop
             git reset --hard origin/develop
-            
+
             # Install dependencies
             composer install --no-dev --optimize-autoloader
-            
+
             # Run migrations
             php artisan migrate --force
-            
+
             # Clear and cache
             php artisan config:cache
             php artisan route:cache
             php artisan view:cache
-            
+
             # Restart workers
             sudo supervisorctl restart tesotunes-staging-worker:* || true
-            
+
             # Disable maintenance mode
             php artisan up
-            
+
             echo "✅ Staging deployment completed!"
