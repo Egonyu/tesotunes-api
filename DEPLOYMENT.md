@@ -6,12 +6,12 @@
                     ┌────────────────────────────────────┐
                     │         Coolify Server              │
                     │                                     │
-  beta.tesotunes.com│   ┌──────────────────┐              │
+  tesotunes.com│   ┌──────────────────┐              │
   ─────────────────►│   │   Next.js (3000)  │              │
                     │   │   Frontend        │              │
                     │   └────────┬─────────┘              │
                     │            │ HTTPS                   │
-api.beta.tesotunes  │   ┌────────▼─────────┐              │
+api.tesotunes.com   │   ┌────────▼─────────┐              │
   ─────────────────►│   │ Laravel API (80)  │              │
                     │   │ PHP-FPM + Nginx   │              │
                     │   └────────┬─────────┘              │
@@ -24,8 +24,8 @@ api.beta.tesotunes  │   ┌────────▼────────
 ```
 
 **Domains:**
-- `beta.tesotunes.com` → Next.js frontend (port 3000)
-- `api.beta.tesotunes.com` → Laravel API (port 80 inside container)
+- `tesotunes.com` → Next.js frontend (port 3000)
+- `api.tesotunes.com` → Laravel API (port 80 inside container)
 
 **SSL:** Coolify auto-provisions Let's Encrypt certificates.
 
@@ -124,8 +124,8 @@ In your DNS provider (e.g., Cloudflare, Namecheap), add:
 
 | Type  | Name                      | Value              | Proxy  |
 |-------|---------------------------|--------------------|--------|
-| A     | beta.tesotunes.com        | YOUR_SERVER_IP     | Off*   |
-| A     | api.beta.tesotunes.com    | YOUR_SERVER_IP     | Off*   |
+| A     | tesotunes.com        | YOUR_SERVER_IP     | Off*   |
+| A     | api.tesotunes.com    | YOUR_SERVER_IP     | Off*   |
 
 > *Turn proxy OFF initially so Coolify can provision SSL. You can enable Cloudflare proxy later.
 
@@ -149,11 +149,11 @@ In your DNS provider (e.g., Cloudflare, Namecheap), add:
 6. Configure domains per service:
 
 **For the `frontend` service:**
-- Domain: `beta.tesotunes.com`
+- Domain: `tesotunes.com`
 - Port: `3000`
 
 **For the `api` service:**
-- Domain: `api.beta.tesotunes.com`
+- Domain: `api.tesotunes.com`
 - Port: `80`
 
 **For `mysql`:**
@@ -173,7 +173,7 @@ If docker-compose doesn't work well in your Coolify version, deploy as 3 separat
 1. Add Resource → Application → Docker (from GitHub)
 2. Repo: `TesoTunes/tesotunes`, Branch: `main`
 3. Dockerfile: `Dockerfile` (the default)
-4. Domain: `api.beta.tesotunes.com`
+4. Domain: `api.tesotunes.com`
 5. Port: `80`
 6. Set environment variables (see below)
 
@@ -181,7 +181,7 @@ If docker-compose doesn't work well in your Coolify version, deploy as 3 separat
 1. Add Resource → Application → Docker (from GitHub)
 2. Repo: `TesoTunes/tesotunes`, Branch: `main`
 3. Dockerfile: `Dockerfile.next`
-4. Domain: `beta.tesotunes.com`
+4. Domain: `tesotunes.com`
 5. Port: `3000`
 6. Set build arguments and environment variables (see below)
 
@@ -216,19 +216,19 @@ php artisan key:generate --show
 Build arguments (set in Coolify under Build Settings):
 ```env
 NEXT_PUBLIC_APP_NAME=TesoTunes
-NEXT_PUBLIC_APP_URL=https://beta.tesotunes.com
-NEXT_PUBLIC_API_URL=https://api.beta.tesotunes.com/api
-NEXT_PUBLIC_BACKEND_URL=https://api.beta.tesotunes.com
-NEXTAUTH_URL=https://beta.tesotunes.com
+NEXT_PUBLIC_APP_URL=https://tesotunes.com
+NEXT_PUBLIC_API_URL=https://api.tesotunes.com/api
+NEXT_PUBLIC_BACKEND_URL=https://api.tesotunes.com
+NEXTAUTH_URL=https://tesotunes.com
 NEXT_PUBLIC_GA_MEASUREMENT_ID=G-E1VJQ4RJBH
 ```
 
 Runtime environment variables:
 ```env
 NEXTAUTH_SECRET=same_secret_as_api
-NEXTAUTH_URL=https://beta.tesotunes.com
-NEXT_PUBLIC_API_URL=https://api.beta.tesotunes.com/api
-NEXT_PUBLIC_BACKEND_URL=https://api.beta.tesotunes.com
+NEXTAUTH_URL=https://tesotunes.com
+NEXT_PUBLIC_API_URL=https://api.tesotunes.com/api
+NEXT_PUBLIC_BACKEND_URL=https://api.tesotunes.com
 ```
 
 ---
@@ -264,10 +264,10 @@ php artisan storage:link
 
 ### 4. Verify Health
 ```bash
-curl https://api.beta.tesotunes.com/api/health
+curl https://api.tesotunes.com/api/health
 # Should return: {"status":"ok"}
 
-curl https://beta.tesotunes.com
+curl https://tesotunes.com
 # Should return the Next.js app HTML
 ```
 
@@ -316,8 +316,8 @@ tesotunes/                      ← Git repo root
 - Check `SANCTUM_STATEFUL_DOMAINS` includes both domains
 
 ### "Unauthenticated" on API calls
-- Verify `SANCTUM_STATEFUL_DOMAINS` includes `beta.tesotunes.com`
-- Verify `SESSION_DOMAIN` is `.beta.tesotunes.com`
+- Verify `SANCTUM_STATEFUL_DOMAINS` includes `tesotunes.com`
+- Verify `SESSION_DOMAIN` is `.tesotunes.com`
 - Check browser network tab for the `Authorization` header
 
 ### Build fails for Next.js

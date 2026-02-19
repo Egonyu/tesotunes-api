@@ -9,7 +9,7 @@ Complete OpenAPI 3.0 specification for the TésoTunes admin panel REST API.
 Open the interactive API documentation in your browser:
 
 ```
-http://beta.test/api-docs.html
+http://tesotunes-api.test/api-docs.html
 ```
 
 **Features:**
@@ -23,7 +23,7 @@ http://beta.test/api-docs.html
 The raw OpenAPI specification is available at:
 
 ```
-http://beta.test/openapi.yaml
+http://tesotunes-api.test/openapi.yaml
 ```
 
 You can import this into:
@@ -35,7 +35,7 @@ You can import this into:
 
 ### Base URL
 - Production: `https://api.tesotunes.com`
-- Development: `http://beta.test`
+- Development: `http://tesotunes-api.test`
 
 ### Authentication
 
@@ -43,14 +43,14 @@ All admin endpoints require Bearer token authentication via Laravel Sanctum.
 
 **Getting a token:**
 ```bash
-curl -X POST http://beta.test/api/auth/login \
+curl -X POST http://tesotunes-api.test/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@tesotunes.com","password":"password"}'
 ```
 
 **Using the token:**
 ```bash
-curl -X GET http://beta.test/api/admin/sacco/dashboard \
+curl -X GET http://tesotunes-api.test/api/admin/sacco/dashboard \
   -H "Authorization: Bearer YOUR_TOKEN_HERE"
 ```
 
@@ -174,14 +174,14 @@ Tests all 15 Promotions endpoints with workflow testing
 
 **List SACCO Members:**
 ```bash
-curl -X GET "http://beta.test/api/admin/sacco/members?status=active&per_page=10" \
+curl -X GET "http://tesotunes-api.test/api/admin/sacco/members?status=active&per_page=10" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Accept: application/json"
 ```
 
 **Create Loyalty Reward:**
 ```bash
-curl -X POST "http://beta.test/api/admin/loyalty/rewards" \
+curl -X POST "http://tesotunes-api.test/api/admin/loyalty/rewards" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -194,7 +194,7 @@ curl -X POST "http://beta.test/api/admin/loyalty/rewards" \
 
 **Approve Promotion:**
 ```bash
-curl -X POST "http://beta.test/api/admin/promotions/1/approve" \
+curl -X POST "http://tesotunes-api.test/api/admin/promotions/1/approve" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Accept: application/json"
 ```
@@ -242,7 +242,7 @@ GET /api/admin/sacco/loans?status=active&sort_by=created_at&sort_order=desc
 ### JavaScript/TypeScript
 
 ```typescript
-const BASE_URL = 'http://beta.test/api';
+const BASE_URL = 'http://tesotunes-api.test/api';
 const token = localStorage.getItem('api_token');
 
 async function getSaccoDashboard() {
@@ -337,7 +337,7 @@ export function useSaccoMembers(filters = {}) {
 For API support or bug reports:
 - Email: api@tesotunes.com
 - GitHub Issues: https://github.com/tesotunes/admin-api/issues
-- Documentation: http://beta.test/api-docs.html
+- Documentation: http://tesotunes-api.test/api-docs.html
 
 ## License
 

@@ -20,7 +20,7 @@
 set -e
 
 # ── Configuration ────────────────────────────────────────────────────────────
-SITE_DIR="/var/www/beta.tesotunes.com"
+SITE_DIR="/var/www/api.tesotunes.com"
 REPO_URL="https://github.com/TesoTunes/tesotunes-next.git"
 BRANCH="main"
 DB_NAME="tesotunes_beta"
@@ -30,7 +30,7 @@ PHP_VERSION="8.4"
 echo ""
 echo "╔══════════════════════════════════════════════════╗"
 echo "║   TesoTunes Beta - Server Setup                 ║"
-echo "║   beta.tesotunes.com + engine.tesotunes.com     ║"
+echo "║   api.tesotunes.com + api.tesotunes.com     ║"
 echo "╚══════════════════════════════════════════════════╝"
 echo ""
 
@@ -196,8 +196,8 @@ echo ""
 echo "▸ Step 6: Configuring Nginx..."
 
 # Copy Nginx configs
-cp "$SITE_DIR/deploy/nginx/beta.tesotunes.com.conf" /etc/nginx/sites-available/beta.tesotunes.com
-cp "$SITE_DIR/deploy/nginx/engine.tesotunes.com.conf" /etc/nginx/sites-available/engine.tesotunes.com
+cp "$SITE_DIR/deploy/nginx/api.tesotunes.com.conf" /etc/nginx/sites-available/api.tesotunes.com
+cp "$SITE_DIR/deploy/nginx/api.tesotunes.com.conf" /etc/nginx/sites-available/api.tesotunes.com
 
 # Check PHP-FPM socket path (adjust if different version)
 PHP_SOCK="/run/php/php${PHP_VERSION}-fpm.sock"
@@ -206,7 +206,7 @@ if [ ! -S "$PHP_SOCK" ]; then
     FOUND_SOCK=$(ls /run/php/php*-fpm.sock 2>/dev/null | head -1)
     if [ -n "$FOUND_SOCK" ]; then
         echo "  Adjusting PHP-FPM socket path to: $FOUND_SOCK"
-        sed -i "s|unix:/run/php/php${PHP_VERSION}-fpm.sock|unix:$FOUND_SOCK|" /etc/nginx/sites-available/engine.tesotunes.com
+        sed -i "s|unix:/run/php/php${PHP_VERSION}-fpm.sock|unix:$FOUND_SOCK|" /etc/nginx/sites-available/api.tesotunes.com
     else
         echo "  ⚠ PHP-FPM socket not found at $PHP_SOCK"
         echo "  Check your PHP-FPM config and adjust the nginx config."
@@ -214,8 +214,8 @@ if [ ! -S "$PHP_SOCK" ]; then
 fi
 
 # Enable sites
-ln -sf /etc/nginx/sites-available/beta.tesotunes.com /etc/nginx/sites-enabled/
-ln -sf /etc/nginx/sites-available/engine.tesotunes.com /etc/nginx/sites-enabled/
+ln -sf /etc/nginx/sites-available/api.tesotunes.com /etc/nginx/sites-enabled/
+ln -sf /etc/nginx/sites-available/api.tesotunes.com /etc/nginx/sites-enabled/
 
 # Test nginx config
 nginx -t
@@ -231,12 +231,12 @@ echo "▸ Step 7: SSL certificates..."
 
 if command -v certbot &> /dev/null; then
     echo "  Getting SSL certificates..."
-    certbot --nginx -d beta.tesotunes.com -d engine.tesotunes.com --non-interactive --agree-tos --email info@tesotunes.com
+    certbot --nginx -d api.tesotunes.com -d api.tesotunes.com --non-interactive --agree-tos --email info@tesotunes.com
     echo "✓ SSL certificates installed"
 else
     echo "  ⚠ Certbot not installed. Install it and run:"
     echo "    apt install certbot python3-certbot-nginx"
-    echo "    certbot --nginx -d beta.tesotunes.com -d engine.tesotunes.com"
+    echo "    certbot --nginx -d api.tesotunes.com -d api.tesotunes.com"
 fi
 
 # ── Step 8: Setup queue worker (systemd) ──────────────────────────────────────
@@ -272,9 +272,9 @@ echo "╔═══════════════════════�
 echo "║   ✓ Deployment Complete!                        ║"
 echo "╠══════════════════════════════════════════════════╣"
 echo "║                                                  ║"
-echo "║   Frontend: https://beta.tesotunes.com           ║"
-echo "║   API:      https://engine.tesotunes.com          ║"
-echo "║   Health:   https://engine.tesotunes.com/api/health ║"
+echo "║   Frontend: https://api.tesotunes.com           ║"
+echo "║   API:      https://api.tesotunes.com          ║"
+echo "║   Health:   https://api.tesotunes.com/api/health ║"
 echo "║                                                  ║"
 echo "║   Next steps:                                    ║"
 echo "║   1. Edit .env with mail/payment secrets         ║"

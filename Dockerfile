@@ -2,7 +2,7 @@
 # TesoTunes Laravel API - Production Dockerfile
 # =============================================================================
 # Multi-stage build for optimized image size
-# Serves on api.beta.tesotunes.com via PHP-FPM + Nginx
+# Serves on api.tesotunes.com via PHP-FPM + Nginx
 # =============================================================================
 
 # Stage 1: Composer dependencies

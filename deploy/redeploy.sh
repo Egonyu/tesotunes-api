@@ -7,7 +7,7 @@
 
 set -e
 
-SITE_DIR="/var/www/beta.tesotunes.com"
+SITE_DIR="/var/www/api.tesotunes.com"
 cd "$SITE_DIR"
 
 echo "▸ Pulling latest code..."
@@ -36,5 +36,5 @@ nginx -t && systemctl reload nginx
 
 echo ""
 echo "✓ Redeployed! Check:"
-echo "  https://beta.tesotunes.com"
-echo "  https://engine.tesotunes.com/api/health"
+echo "  https://api.tesotunes.com"
+echo "  https://api.tesotunes.com/api/health"

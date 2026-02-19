@@ -6,12 +6,12 @@
 Your DigitalOcean Droplet
 ├── Nginx (already running for tesotunes.com)
 │   ├── tesotunes.com        → existing Laravel+Blade site (unchanged)
-│   ├── beta.tesotunes.com   → Docker Next.js (port 3000)    ← NEW
-│   └── api.beta.tesotunes.com → Laravel PHP-FPM             ← NEW
+│   ├── tesotunes.com   → Docker Next.js (port 3000)    ← NEW
+│   └── api.tesotunes.com → Laravel PHP-FPM             ← NEW
 │
 ├── PHP-FPM (already running)
 │   ├── tesotunes.com site
-│   └── beta.tesotunes.com Laravel API                       ← NEW
+│   └── tesotunes.com Laravel API                       ← NEW
 │
 ├── MySQL (already running)
 │   ├── existing tesotunes database
@@ -58,7 +58,7 @@ git add -A
 git status
 
 # Commit
-git commit -m "feat: add deployment configs for beta.tesotunes.com"
+git commit -m "feat: add deployment configs for tesotunes.com"
 
 # Push
 git push origin main
@@ -78,17 +78,17 @@ ssh root@YOUR_SERVER_IP
 
 ```bash
 # Create the site directory
-mkdir -p /var/www/beta.tesotunes.com
+mkdir -p /var/www/tesotunes.com
 
 # Clone the repo
-git clone git@github.com:TesoTunes/tesotunes-next.git /var/www/beta.tesotunes.com
+git clone git@github.com:TesoTunes/tesotunes-next.git /var/www/tesotunes.com
 
-cd /var/www/beta.tesotunes.com
+cd /var/www/tesotunes.com
 ```
 
 > If you haven't set up SSH keys on your server for GitHub, you can use HTTPS:
 > ```bash
-> git clone https://github.com/TesoTunes/tesotunes-next.git /var/www/beta.tesotunes.com
+> git clone https://github.com/TesoTunes/tesotunes-next.git /var/www/tesotunes.com
 > ```
 
 ---
@@ -112,7 +112,7 @@ SQL
 ## Step 6: Configure Laravel
 
 ```bash
-cd /var/www/beta.tesotunes.com
+cd /var/www/tesotunes.com
 
 # Copy the env template
 cp deploy/.env.beta.laravel .env
@@ -161,7 +161,7 @@ php artisan event:cache
 ## Step 7: Setup Next.js Docker Container
 
 ```bash
-cd /var/www/beta.tesotunes.com
+cd /var/www/tesotunes.com
 
 # Create the Docker .env file
 cp deploy/.env.beta.nextjs deploy/.env
@@ -197,18 +197,18 @@ curl http://localhost:3000
 
 ```bash
 # Copy the nginx configs
-cp deploy/nginx/beta.tesotunes.com.conf /etc/nginx/sites-available/
-cp deploy/nginx/api.beta.tesotunes.com.conf /etc/nginx/sites-available/
+cp deploy/nginx/tesotunes.com.conf /etc/nginx/sites-available/
+cp deploy/nginx/api.tesotunes.com.conf /etc/nginx/sites-available/
 
 # Check your PHP-FPM version/socket
 ls /run/php/php*-fpm.sock
 # If it's NOT php8.4-fpm.sock, edit the API config:
-# nano /etc/nginx/sites-available/api.beta.tesotunes.com
+# nano /etc/nginx/sites-available/api.tesotunes.com
 # Change the fastcgi_pass line to match your socket
 
 # Enable the sites
-ln -s /etc/nginx/sites-available/beta.tesotunes.com /etc/nginx/sites-enabled/
-ln -s /etc/nginx/sites-available/api.beta.tesotunes.com /etc/nginx/sites-enabled/
+ln -s /etc/nginx/sites-available/tesotunes.com /etc/nginx/sites-enabled/
+ln -s /etc/nginx/sites-available/api.tesotunes.com /etc/nginx/sites-enabled/
 
 # Test config
 nginx -t
@@ -226,7 +226,7 @@ systemctl reload nginx
 apt install -y certbot python3-certbot-nginx
 
 # Get certificates for both domains
-certbot --nginx -d beta.tesotunes.com -d api.beta.tesotunes.com
+certbot --nginx -d tesotunes.com -d api.tesotunes.com
 ```
 
 Certbot will auto-modify the Nginx configs to add SSL.
@@ -247,7 +247,7 @@ User=www-data
 Group=www-data
 Restart=always
 RestartSec=5
-WorkingDirectory=/var/www/beta.tesotunes.com
+WorkingDirectory=/var/www/tesotunes.com
 ExecStart=/usr/bin/php artisan queue:work --sleep=3 --tries=3 --max-time=3600
 
 [Install]
@@ -264,7 +264,7 @@ systemctl start tesotunes-beta-queue.service
 ## Step 11: Create Admin User
 
 ```bash
-cd /var/www/beta.tesotunes.com
+cd /var/www/tesotunes.com
 
 php artisan tinker
 ```
@@ -286,11 +286,11 @@ App\Models\User::create([
 
 ```bash
 # API health check
-curl https://api.beta.tesotunes.com/api/health
+curl https://api.tesotunes.com/api/health
 # → {"status":"ok"}
 
 # Frontend
-curl -I https://beta.tesotunes.com
+curl -I https://tesotunes.com
 # → HTTP/2 200
 
 # Docker status
@@ -299,8 +299,8 @@ docker ps
 ```
 
 Visit in your browser:
-- **https://beta.tesotunes.com** — Next.js frontend
-- **https://api.beta.tesotunes.com/api/health** — API health
+- **https://tesotunes.com** — Next.js frontend
+- **https://api.tesotunes.com/api/health** — API health
 
 ---
 
@@ -310,13 +310,13 @@ After you push changes locally:
 
 ```bash
 # On your server:
-cd /var/www/beta.tesotunes.com
+cd /var/www/tesotunes.com
 sudo ./deploy/redeploy.sh
 ```
 
 Or manually:
 ```bash
-cd /var/www/beta.tesotunes.com
+cd /var/www/tesotunes.com
 git pull origin main
 
 # Laravel changes
@@ -350,16 +350,16 @@ When ready to replace the old Blade frontend with Next.js on the main domain:
 
 ## Troubleshooting
 
-### "502 Bad Gateway" on beta.tesotunes.com
+### "502 Bad Gateway" on tesotunes.com
 - Docker container not running: `docker ps` → check if `tesotunes-beta-frontend` is up
 - Restart: `docker compose -f deploy/docker-compose.beta.yml restart`
 
-### "502 Bad Gateway" on api.beta.tesotunes.com
+### "502 Bad Gateway" on api.tesotunes.com
 - PHP-FPM not running: `systemctl status php8.4-fpm`
 - Wrong socket path: `ls /run/php/php*-fpm.sock` and update nginx config
 
 ### "CORS errors" in browser console
-- Check Laravel `.env` has correct `FRONTEND_URL=https://beta.tesotunes.com`
+- Check Laravel `.env` has correct `FRONTEND_URL=https://tesotunes.com`
 - Check `SANCTUM_STATEFUL_DOMAINS` includes both domains
 - Run `php artisan config:cache` after changes
 
@@ -368,9 +368,9 @@ When ready to replace the old Blade frontend with Next.js on the main domain:
 - Check NEXTAUTH_SECRET is set in `deploy/.env`
 
 ### "Unauthenticated" when making API calls
-- Check `SESSION_DOMAIN=.beta.tesotunes.com` in Laravel `.env`
+- Check `SESSION_DOMAIN=.tesotunes.com` in Laravel `.env`
 - Check browser is sending cookies (Network tab → look for `Set-Cookie` headers)
-- Make sure both domains share the `.beta.tesotunes.com` cookie domain
+- Make sure both domains share the `.tesotunes.com` cookie domain
 
 ### Docker build fails
 - Clear cache: `docker compose -f deploy/docker-compose.beta.yml build --no-cache`
