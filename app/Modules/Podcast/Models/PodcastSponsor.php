@@ -49,7 +49,7 @@ class PodcastSponsor extends Model
 
     public function isActive(): bool
     {
-        return $this->status === 'active' 
+        return $this->status === 'active'
             && ($this->contract_end_date === null || $this->contract_end_date->isFuture());
     }
 }

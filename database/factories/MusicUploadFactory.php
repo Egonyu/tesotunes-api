@@ -17,8 +17,8 @@ class MusicUploadFactory extends Factory
     public function definition(): array
     {
         return [
-            'file_name' => fake()->uuid() . '.mp3',
-            'file_path' => 'uploads/music/' . fake()->uuid() . '.mp3',
+            'file_name' => fake()->uuid().'.mp3',
+            'file_path' => 'uploads/music/'.fake()->uuid().'.mp3',
             'file_size' => fake()->numberBetween(1000000, 50000000), // 1MB to 50MB
             'mime_type' => 'audio/mpeg',
             'duration' => fake()->numberBetween(120, 360),

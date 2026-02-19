@@ -13,12 +13,12 @@ return new class extends Migration
     {
         Schema::table('award_categories', function (Blueprint $table) {
             // Add category_type column if it doesn't exist
-            if (!Schema::hasColumn('award_categories', 'category_type')) {
+            if (! Schema::hasColumn('award_categories', 'category_type')) {
                 $table->string('category_type', 50)->default('general')->after('description');
             }
 
             // Add artwork column if it doesn't exist
-            if (!Schema::hasColumn('award_categories', 'artwork')) {
+            if (! Schema::hasColumn('award_categories', 'artwork')) {
                 $table->string('artwork')->nullable()->after('icon');
             }
         });

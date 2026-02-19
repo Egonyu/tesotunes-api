@@ -66,13 +66,13 @@ class ApiConfigCast implements CastsAttributes
             return null;
         }
 
-        if (!is_array($decoded)) {
+        if (! is_array($decoded)) {
             return null;
         }
 
         // Decrypt sensitive fields
         foreach (self::ENCRYPTED_FIELDS as $field) {
-            if (isset($decoded[$field]) && !empty($decoded[$field])) {
+            if (isset($decoded[$field]) && ! empty($decoded[$field])) {
                 try {
                     $decoded[$field] = Crypt::decryptString($decoded[$field]);
                 } catch (\Exception $e) {
@@ -101,8 +101,8 @@ class ApiConfigCast implements CastsAttributes
             return null;
         }
 
-        if (!is_array($value)) {
-            throw new InvalidArgumentException("API config must be an array");
+        if (! is_array($value)) {
+            throw new InvalidArgumentException('API config must be an array');
         }
 
         // Validate structure
@@ -110,7 +110,7 @@ class ApiConfigCast implements CastsAttributes
 
         // Encrypt sensitive fields
         foreach (self::ENCRYPTED_FIELDS as $field) {
-            if (isset($validated[$field]) && !empty($validated[$field])) {
+            if (isset($validated[$field]) && ! empty($validated[$field])) {
                 $validated[$field] = Crypt::encryptString($validated[$field]);
             }
         }
@@ -125,11 +125,11 @@ class ApiConfigCast implements CastsAttributes
     {
         // Check required fields
         foreach (self::REQUIRED_FIELDS as $field) {
-            if (!isset($config[$field]) || empty($config[$field])) {
+            if (! isset($config[$field]) || empty($config[$field])) {
                 throw new InvalidArgumentException("API config missing required field: {$field}");
             }
 
-            if (!is_string($config[$field])) {
+            if (! is_string($config[$field])) {
                 throw new InvalidArgumentException("API config field '{$field}' must be a string");
             }
 
@@ -144,7 +144,7 @@ class ApiConfigCast implements CastsAttributes
         $allFields = array_merge(self::REQUIRED_FIELDS, self::OPTIONAL_FIELDS, self::ENCRYPTED_FIELDS);
 
         foreach ($config as $field => $fieldValue) {
-            if (!in_array($field, $allFields)) {
+            if (! in_array($field, $allFields)) {
                 throw new InvalidArgumentException("Unknown API config field: {$field}");
             }
 
@@ -153,39 +153,39 @@ class ApiConfigCast implements CastsAttributes
                 case 'endpoint':
                 case 'webhook_url':
                 case 'callback_url':
-                    if (!filter_var($fieldValue, FILTER_VALIDATE_URL)) {
+                    if (! filter_var($fieldValue, FILTER_VALIDATE_URL)) {
                         throw new InvalidArgumentException("API config field '{$field}' must be a valid URL");
                     }
                     break;
 
                 case 'timeout':
                 case 'retry_attempts':
-                    if (!is_int($fieldValue) || $fieldValue < 0) {
+                    if (! is_int($fieldValue) || $fieldValue < 0) {
                         throw new InvalidArgumentException("API config field '{$field}' must be a positive integer");
                     }
                     break;
 
                 case 'additional_headers':
-                    if (!is_array($fieldValue)) {
+                    if (! is_array($fieldValue)) {
                         throw new InvalidArgumentException("API config field 'additional_headers' must be an array");
                     }
                     // Validate header format
                     foreach ($fieldValue as $headerKey => $headerValue) {
-                        if (!is_string($headerKey) || !is_string($headerValue)) {
-                            throw new InvalidArgumentException("Additional headers must be string key-value pairs");
+                        if (! is_string($headerKey) || ! is_string($headerValue)) {
+                            throw new InvalidArgumentException('Additional headers must be string key-value pairs');
                         }
                     }
                     break;
 
                 case 'version':
-                    if (!is_string($fieldValue) || !preg_match('/^v?\d+(\.\d+)*$/', $fieldValue)) {
-                        throw new InvalidArgumentException("API version must be in format: v1, v1.0, 1.0, etc.");
+                    if (! is_string($fieldValue) || ! preg_match('/^v?\d+(\.\d+)*$/', $fieldValue)) {
+                        throw new InvalidArgumentException('API version must be in format: v1, v1.0, 1.0, etc.');
                     }
                     break;
 
                 case 'region':
-                    if (!is_string($fieldValue)) {
-                        throw new InvalidArgumentException("Region must be a string");
+                    if (! is_string($fieldValue)) {
+                        throw new InvalidArgumentException('Region must be a string');
                     }
                     break;
             }
@@ -204,7 +204,7 @@ class ApiConfigCast implements CastsAttributes
         $masked = $config;
 
         foreach (self::ENCRYPTED_FIELDS as $field) {
-            if (isset($masked[$field]) && !empty($masked[$field])) {
+            if (isset($masked[$field]) && ! empty($masked[$field])) {
                 $value = $masked[$field];
                 $length = strlen($value);
 
@@ -212,7 +212,7 @@ class ApiConfigCast implements CastsAttributes
                     $masked[$field] = str_repeat('*', $length);
                 } else {
                     // Show first 2 and last 2 characters
-                    $masked[$field] = substr($value, 0, 2) . str_repeat('*', $length - 4) . substr($value, -2);
+                    $masked[$field] = substr($value, 0, 2).str_repeat('*', $length - 4).substr($value, -2);
                 }
             }
         }
@@ -229,10 +229,11 @@ class ApiConfigCast implements CastsAttributes
         // For now, just validate structure
         try {
             foreach (self::REQUIRED_FIELDS as $field) {
-                if (!isset($config[$field])) {
+                if (! isset($config[$field])) {
                     return false;
                 }
             }
+
             return true;
         } catch (\Exception $e) {
             return false;

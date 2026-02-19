@@ -18,34 +18,34 @@ class PodcastSettingsService
             'podcast_allow_public_submissions' => Setting::get('podcast_allow_public_submissions', true),
             'podcast_require_approval' => Setting::get('podcast_require_approval', true),
             'podcast_auto_publish' => Setting::get('podcast_auto_publish', false),
-            
+
             // Upload Restrictions
             'podcast_max_episode_size_mb' => Setting::get('podcast_max_episode_size_mb', 500),
             'podcast_max_episodes_per_series' => Setting::get('podcast_max_episodes_per_series', 1000),
             'podcast_allowed_formats' => Setting::get('podcast_allowed_formats', 'mp3,m4a,wav'),
             'podcast_min_duration_seconds' => Setting::get('podcast_min_duration_seconds', 60),
             'podcast_max_duration_hours' => Setting::get('podcast_max_duration_hours', 4),
-            
+
             // Series Management
             'podcast_allow_multiple_series' => Setting::get('podcast_allow_multiple_series', true),
             'podcast_require_cover_art' => Setting::get('podcast_require_cover_art', true),
             'podcast_cover_art_min_size' => Setting::get('podcast_cover_art_min_size', 1400),
             'podcast_require_category' => Setting::get('podcast_require_category', true),
-            
+
             // Monetization
             'podcast_monetization_enabled' => Setting::get('podcast_monetization_enabled', true),
             'podcast_ads_enabled' => Setting::get('podcast_ads_enabled', true),
             'podcast_sponsorship_enabled' => Setting::get('podcast_sponsorship_enabled', true),
             'podcast_premium_episodes_enabled' => Setting::get('podcast_premium_episodes_enabled', true),
             'podcast_creator_revenue_share' => Setting::get('podcast_creator_revenue_share', 70),
-            
+
             // Analytics & Features
             'podcast_analytics_enabled' => Setting::get('podcast_analytics_enabled', true),
             'podcast_comments_enabled' => Setting::get('podcast_comments_enabled', true),
             'podcast_ratings_enabled' => Setting::get('podcast_ratings_enabled', true),
             'podcast_transcriptions_enabled' => Setting::get('podcast_transcriptions_enabled', false),
             'podcast_chapters_enabled' => Setting::get('podcast_chapters_enabled', true),
-            
+
             // Distribution
             'podcast_rss_feeds_enabled' => Setting::get('podcast_rss_feeds_enabled', true),
             'podcast_apple_podcasts_integration' => Setting::get('podcast_apple_podcasts_integration', false),
@@ -74,7 +74,8 @@ class PodcastSettingsService
 
             return true;
         } catch (\Exception $e) {
-            Log::error('Failed to update podcast general settings: ' . $e->getMessage());
+            Log::error('Failed to update podcast general settings: '.$e->getMessage());
+
             return false;
         }
     }
@@ -103,7 +104,8 @@ class PodcastSettingsService
 
             return true;
         } catch (\Exception $e) {
-            Log::error('Failed to update podcast upload settings: ' . $e->getMessage());
+            Log::error('Failed to update podcast upload settings: '.$e->getMessage());
+
             return false;
         }
     }
@@ -129,7 +131,8 @@ class PodcastSettingsService
 
             return true;
         } catch (\Exception $e) {
-            Log::error('Failed to update podcast monetization settings: ' . $e->getMessage());
+            Log::error('Failed to update podcast monetization settings: '.$e->getMessage());
+
             return false;
         }
     }
@@ -158,7 +161,8 @@ class PodcastSettingsService
 
             return true;
         } catch (\Exception $e) {
-            Log::error('Failed to update podcast features settings: ' . $e->getMessage());
+            Log::error('Failed to update podcast features settings: '.$e->getMessage());
+
             return false;
         }
     }
@@ -170,15 +174,16 @@ class PodcastSettingsService
     {
         try {
             Setting::set('podcast_module_enabled', $enabled, Setting::TYPE_BOOLEAN, Setting::GROUP_MODULES);
-            
+
             Log::info('Podcast module toggled', [
                 'enabled' => $enabled,
-                'admin_id' => auth()->id()
+                'admin_id' => auth()->id(),
             ]);
 
             return true;
         } catch (\Exception $e) {
-            Log::error('Failed to toggle podcast module: ' . $e->getMessage());
+            Log::error('Failed to toggle podcast module: '.$e->getMessage());
+
             return false;
         }
     }

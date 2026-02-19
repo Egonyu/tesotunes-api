@@ -79,7 +79,7 @@ class UserSubscription extends Model
     public function scopeExpiringSoon($query, int $days = 7)
     {
         return $query->where('status', 'active')
-                    ->where('expires_at', '<=', now()->addDays($days));
+            ->where('expires_at', '<=', now()->addDays($days));
     }
 
     public function isActive(): bool
@@ -103,7 +103,7 @@ class UserSubscription extends Model
 
     public function daysUntilExpiry(): int
     {
-        if (!$this->expires_at) {
+        if (! $this->expires_at) {
             return 0;
         }
 

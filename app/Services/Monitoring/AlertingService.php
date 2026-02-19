@@ -19,16 +19,19 @@ class AlertingService
 {
     // Severity levels
     public const CRITICAL = 'critical';   // Pager-worthy: revenue loss, data loss, full outage
-    public const HIGH     = 'high';       // Needs attention within an hour
-    public const WARNING  = 'warning';    // Should investigate today
-    public const INFO     = 'info';       // FYI — logged only
+
+    public const HIGH = 'high';       // Needs attention within an hour
+
+    public const WARNING = 'warning';    // Should investigate today
+
+    public const INFO = 'info';       // FYI — logged only
 
     // Cooldown periods per alert key (prevents flooding)
     private array $cooldowns = [
         self::CRITICAL => 300,    // 5 minutes between same critical alerts
-        self::HIGH     => 900,    // 15 minutes
-        self::WARNING  => 3600,   // 1 hour
-        self::INFO     => 3600,   // 1 hour
+        self::HIGH => 900,    // 15 minutes
+        self::WARNING => 3600,   // 1 hour
+        self::INFO => 3600,   // 1 hour
     ];
 
     /**
@@ -90,9 +93,9 @@ class AlertingService
         // Always log
         $logLevel = match ($severity) {
             self::CRITICAL => 'critical',
-            self::HIGH     => 'error',
-            self::WARNING  => 'warning',
-            default        => 'info',
+            self::HIGH => 'error',
+            self::WARNING => 'warning',
+            default => 'info',
         };
 
         Log::channel('security')->{$logLevel}("[ALERT:{$severity}] {$alertKey}: {$message}", $payload);
@@ -115,22 +118,22 @@ class AlertingService
     {
         $webhookUrl = config('logging.channels.slack.url') ?: env('LOG_SLACK_WEBHOOK_URL');
 
-        if (!$webhookUrl) {
+        if (! $webhookUrl) {
             return;
         }
 
         $emoji = match ($severity) {
             self::CRITICAL => ':rotating_light:',
-            self::HIGH     => ':warning:',
-            self::WARNING  => ':eyes:',
-            default        => ':information_source:',
+            self::HIGH => ':warning:',
+            self::WARNING => ':eyes:',
+            default => ':information_source:',
         };
 
         $color = match ($severity) {
             self::CRITICAL => '#FF0000',
-            self::HIGH     => '#FF8C00',
-            self::WARNING  => '#FFD700',
-            default        => '#36A64F',
+            self::HIGH => '#FF8C00',
+            self::WARNING => '#FFD700',
+            default => '#36A64F',
         };
 
         $contextFields = collect($context)->take(10)->map(fn ($v, $k) => [
@@ -174,10 +177,10 @@ class AlertingService
             foreach ($recipients as $email) {
                 Mail::raw(
                     "[CRITICAL ALERT] {$alertKey}\n\n{$message}\n\n"
-                    . "Context:\n" . json_encode($context, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
-                    . "\n\nServer: " . gethostname()
-                    . "\nEnvironment: " . app()->environment()
-                    . "\nTime: " . now()->toDateTimeString(),
+                    ."Context:\n".json_encode($context, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+                    ."\n\nServer: ".gethostname()
+                    ."\nEnvironment: ".app()->environment()
+                    ."\nTime: ".now()->toDateTimeString(),
                     fn ($m) => $m->to(trim($email))->subject("[CRITICAL] TesoTunes: {$alertKey}")
                 );
             }
@@ -192,6 +195,7 @@ class AlertingService
     protected function isThrottled(string $severity, string $alertKey): bool
     {
         $cacheKey = "alert:throttle:{$severity}:{$alertKey}";
+
         return Cache::has($cacheKey);
     }
 
@@ -227,9 +231,10 @@ class AlertingService
     /**
      * Get alert statistics for a given day.
      */
-    public function getAlertStats(string $date = null): array
+    public function getAlertStats(?string $date = null): array
     {
         $date = $date ?? now()->format('Y-m-d');
+
         return Cache::get("alert:metrics:{$date}", []);
     }
 }

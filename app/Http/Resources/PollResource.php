@@ -50,10 +50,10 @@ class PollResource extends JsonResource
             ),
 
             // Creator
-            'creator' => $this->when($this->relationLoaded('user') && !$this->is_anonymous, fn () => [
+            'creator' => $this->when($this->relationLoaded('user') && ! $this->is_anonymous, fn () => [
                 'id' => $this->user->id,
                 'name' => $this->user->name,
-                'avatar' => $this->user->avatar ? url('storage/' . $this->user->avatar) : null,
+                'avatar' => $this->user->avatar ? url('storage/'.$this->user->avatar) : null,
             ]),
 
             'created_at' => $this->created_at?->toIso8601String(),

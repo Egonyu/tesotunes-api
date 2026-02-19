@@ -12,6 +12,7 @@ class CreateEpisodeRequest extends FormRequest
     public function authorize(): bool
     {
         $podcast = $this->route('podcast');
+
         return $podcast && $podcast->isOwnedBy(auth()->user());
     }
 
@@ -33,14 +34,14 @@ class CreateEpisodeRequest extends FormRequest
                 'required',
                 'file',
                 'mimes:mp3,m4a,wav',
-                'max:' . (config('podcast.storage.limits.max_episode_size') / 1024), // Convert to KB
+                'max:'.(config('podcast.storage.limits.max_episode_size') / 1024), // Convert to KB
             ],
             'artwork' => [
                 'nullable',
                 'image',
                 'mimes:jpeg,png,jpg',
                 'max:10240', // 10MB
-                'dimensions:min_width=1400,min_height=1400,max_width=3000,max_height=3000'
+                'dimensions:min_width=1400,min_height=1400,max_width=3000,max_height=3000',
             ],
             'scheduled_for' => ['nullable', 'date', 'after:now'],
         ];
@@ -55,7 +56,7 @@ class CreateEpisodeRequest extends FormRequest
             'title.required' => 'Please provide a title for your episode.',
             'description.required' => 'Please provide a description for your episode.',
             'audio_file.required' => 'Please upload an audio file for your episode.',
-            'audio_file.max' => 'Audio file size must not exceed ' . (config('podcast.storage.limits.max_episode_size') / 1048576) . 'MB.',
+            'audio_file.max' => 'Audio file size must not exceed '.(config('podcast.storage.limits.max_episode_size') / 1048576).'MB.',
             'scheduled_for.after' => 'Scheduled date must be in the future.',
         ];
     }

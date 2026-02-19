@@ -17,11 +17,11 @@ class RealWorldStoreSeeder extends Seeder
         // Step 1: Categories (if not already seeded)
         $this->command->info('📂 Step 1/3: Seeding product categories...');
         $this->call(StoreCategoriesSeeder::class);
-        
+
         // Step 2: Create realistic stores with actual artist names
         $this->command->info('🏪 Step 2/3: Creating real-world artist stores...');
         $this->call(RealWorldStoresSeeder::class);
-        
+
         // Step 3: Create realistic products with Uganda pricing
         $this->command->info('📦 Step 3/3: Creating real-world products...');
         $this->call(RealWorldProductsSeeder::class);
@@ -31,7 +31,7 @@ class RealWorldStoreSeeder extends Seeder
         $this->command->info('✅ REAL-WORLD STORE DATA SEEDING COMPLETE!');
         $this->command->info('═══════════════════════════════════════════════════════');
         $this->command->newLine();
-        
+
         $this->printSummary();
     }
 
@@ -81,7 +81,7 @@ class RealWorldStoreSeeder extends Seeder
         $this->command->info('🚀 Quick Start:');
         $this->command->line('  Frontend: http://music.test/store');
         $this->command->line('  Backend:  http://music.test/admin/store');
-        
+
         $this->command->newLine();
         $this->command->info('🔐 Default Artist Login Credentials:');
         $this->command->line('  Email: navio@lineone.ug (or any artist email)');

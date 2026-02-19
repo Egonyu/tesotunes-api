@@ -9,9 +9,9 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 /**
  * CreditTransaction Model
- * 
+ *
  * Tracks all wallet credit transactions for users.
- * 
+ *
  * Database columns:
  * - id, user_id, type, amount, balance_after, description, reference,
  *   creditable_type, creditable_id, metadata, created_at, updated_at
@@ -46,14 +46,23 @@ class CreditTransaction extends Model
 
     // Type constants (must match database enum values)
     const TYPE_EARN = 'earn';
+
     const TYPE_EARNED = 'earned';
+
     const TYPE_SPEND = 'spend';
+
     const TYPE_SPENT = 'spent';
+
     const TYPE_REFUND = 'refund';
+
     const TYPE_BONUS = 'bonus';
+
     const TYPE_GIFT = 'gift';
+
     const TYPE_PURCHASE = 'purchase';
+
     const TYPE_STREAM = 'stream';
+
     const TYPE_TRANSFERRED = 'transferred';
 
     // Relationships
@@ -112,14 +121,14 @@ class CreditTransaction extends Model
     {
         return $query->whereBetween('created_at', [
             now()->startOfWeek(),
-            now()->endOfWeek()
+            now()->endOfWeek(),
         ]);
     }
 
     public function scopeThisMonth($query)
     {
         return $query->whereYear('created_at', now()->year)
-                    ->whereMonth('created_at', now()->month);
+            ->whereMonth('created_at', now()->month);
     }
 
     public function scopeForUser($query, int $userId)
@@ -131,12 +140,13 @@ class CreditTransaction extends Model
     public function getFormattedAmountAttribute(): string
     {
         $prefix = $this->type === 'spend' || $this->amount < 0 ? '-' : '+';
-        return $prefix . 'UGX ' . number_format(abs($this->amount), 0);
+
+        return $prefix.'UGX '.number_format(abs($this->amount), 0);
     }
 
     public function getTypeIconAttribute(): string
     {
-        return match($this->type) {
+        return match ($this->type) {
             'earn', 'earned' => '💰',
             'spend', 'spent' => '💸',
             'refund' => '🔄',
@@ -151,7 +161,7 @@ class CreditTransaction extends Model
 
     public function getSourceDescriptionAttribute(): string
     {
-        return match($this->source) {
+        return match ($this->source) {
             'listening' => 'Music listening',
             'daily_login' => 'Daily login bonus',
             'referral' => 'Referral bonus',
@@ -165,7 +175,7 @@ class CreditTransaction extends Model
 
     public function getTypeDescriptionAttribute(): string
     {
-        return match($this->type) {
+        return match ($this->type) {
             'earn' => 'Earned',
             'spend' => 'Spent',
             'refund' => 'Refund',
@@ -195,7 +205,7 @@ class CreditTransaction extends Model
             'amount' => $amount,
             'balance_after' => $balanceAfter,
             'description' => $description,
-            'reference' => 'stream_' . uniqid(),
+            'reference' => 'stream_'.uniqid(),
             'creditable_type' => $creditableType ?? 'App\\Models\\Song',
             'creditable_id' => $creditableId ?? 0,
             'metadata' => $metadata,

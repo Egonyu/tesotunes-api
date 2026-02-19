@@ -25,11 +25,11 @@ class OjokotauServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        if (!config('modules.ojokotau.enabled', false)) {
+        if (! config('modules.ojokotau.enabled', false)) {
             return;
         }
 
-        $this->loadRoutesFrom(__DIR__ . '/../routes/api.php');
-        $this->loadMigrationsFrom(__DIR__ . '/../database/migrations');
+        $this->loadRoutesFrom(__DIR__.'/../routes/api.php');
+        $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
     }
 }

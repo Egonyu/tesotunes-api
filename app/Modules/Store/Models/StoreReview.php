@@ -2,15 +2,15 @@
 
 namespace App\Modules\Store\Models;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\User;
 
 /**
  * StoreReview Model
- * 
+ *
  * Customer reviews for stores and products
  */
 class StoreReview extends Model
@@ -30,7 +30,7 @@ class StoreReview extends Model
 
         static::creating(function ($review) {
             // Auto-set store_id from product if not set
-            if ($review->product_id && !$review->store_id) {
+            if ($review->product_id && ! $review->store_id) {
                 $product = Product::find($review->product_id);
                 if ($product) {
                     $review->store_id = $product->store_id;

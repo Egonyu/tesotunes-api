@@ -76,20 +76,20 @@ class FeedItem extends Model
         return $query->where('published_at', '<=', now())
             ->where(function ($q) {
                 $q->whereNull('expires_at')
-                  ->orWhere('expires_at', '>', now());
+                    ->orWhere('expires_at', '>', now());
             });
     }
 
     public function scopeVisible(Builder $query, ?User $user = null): Builder
     {
-        if (!$user) {
+        if (! $user) {
             return $query->where('visibility', 'public');
         }
 
         return $query->where(function ($q) use ($user) {
             $q->where('visibility', 'public')
-              ->orWhere('visibility', 'members')
-              ->orWhere('actor_id', $user->id);
+                ->orWhere('visibility', 'members')
+                ->orWhere('actor_id', $user->id);
         });
     }
 
@@ -97,7 +97,7 @@ class FeedItem extends Model
     {
         return $query->where(function ($q) use ($region) {
             $q->whereNull('region')
-              ->orWhere('region', $region);
+                ->orWhere('region', $region);
         });
     }
 

@@ -17,7 +17,7 @@ class AuditLoggingListener
             'data' => $event,
         ]);
     }
-    
+
     /**
      * Laravel event system invokes this method
      */

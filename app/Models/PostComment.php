@@ -17,7 +17,7 @@ class PostComment extends Model
         'user_id',
         'parent_id',
         'content',
-        'likes_count'
+        'likes_count',
     ];
 
     // Relationships

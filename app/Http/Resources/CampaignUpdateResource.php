@@ -20,7 +20,7 @@ class CampaignUpdateResource extends JsonResource
             'author' => $this->when($this->relationLoaded('user') && $this->user, fn () => [
                 'id' => $this->user->id,
                 'name' => $this->user->name,
-                'avatar' => $this->user->avatar ? url('storage/' . $this->user->avatar) : null,
+                'avatar' => $this->user->avatar ? url('storage/'.$this->user->avatar) : null,
             ]),
 
             'created_at' => $this->created_at?->toIso8601String(),

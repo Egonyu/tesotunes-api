@@ -14,8 +14,8 @@
 |
 */
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\Auth\AuthController as ApiAuthController;
+use Illuminate\Support\Facades\Route;
 
 // API Login/Register endpoints (no CSRF - for NextAuth and mobile apps)
 // Returns JSON responses with Sanctum tokens

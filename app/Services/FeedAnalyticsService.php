@@ -2,12 +2,12 @@
 
 namespace App\Services;
 
-use App\Models\User;
 use App\Models\FeedABTest;
 use App\Models\FeedAnalytic;
+use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 
 class FeedAnalyticsService
 {
@@ -16,12 +16,12 @@ class FeedAnalyticsService
      */
     public function trackView(?User $user, string $feedTab = 'for_you', array $metadata = []): void
     {
-        if (!$user) {
+        if (! $user) {
             return; // Skip tracking for anonymous users
         }
-        
+
         $this->trackEvent($user, null, 'viewed', $feedTab, $metadata);
-        
+
         // Update A/B test metrics
         $this->updateABTestMetrics($user, 'views_count');
     }
@@ -31,12 +31,12 @@ class FeedAnalyticsService
      */
     public function trackClick(?User $user, int $activityId, string $feedTab = 'for_you', array $metadata = []): void
     {
-        if (!$user) {
+        if (! $user) {
             return;
         }
-        
+
         $this->trackEvent($user, $activityId, 'clicked', $feedTab, $metadata);
-        
+
         // Update A/B test metrics
         $this->updateABTestMetrics($user, 'clicks_count');
     }
@@ -46,12 +46,12 @@ class FeedAnalyticsService
      */
     public function trackLike(?User $user, int $activityId, string $feedTab = 'for_you', array $metadata = []): void
     {
-        if (!$user) {
+        if (! $user) {
             return;
         }
-        
+
         $this->trackEvent($user, $activityId, 'liked', $feedTab, $metadata);
-        
+
         // Update A/B test metrics
         $this->updateABTestMetrics($user, 'engagements_count');
     }
@@ -61,12 +61,12 @@ class FeedAnalyticsService
      */
     public function trackShare(?User $user, int $activityId, string $feedTab = 'for_you', array $metadata = []): void
     {
-        if (!$user) {
+        if (! $user) {
             return;
         }
-        
+
         $this->trackEvent($user, $activityId, 'shared', $feedTab, $metadata);
-        
+
         // Update A/B test metrics
         $this->updateABTestMetrics($user, 'engagements_count');
     }
@@ -76,10 +76,10 @@ class FeedAnalyticsService
      */
     public function trackHidden(?User $user, int $activityId, string $feedTab = 'for_you', array $metadata = []): void
     {
-        if (!$user) {
+        if (! $user) {
             return;
         }
-        
+
         $this->trackEvent($user, $activityId, 'hidden', $feedTab, $metadata);
     }
 
@@ -96,7 +96,7 @@ class FeedAnalyticsService
      */
     public function trackClickItem(?User $user, int|string $itemId, string $feedTab = 'for_you', array $metadata = []): void
     {
-        if (!$user) {
+        if (! $user) {
             return;
         }
         $this->trackEvent($user, is_int($itemId) ? $itemId : null, 'clicked', $feedTab, array_merge($metadata, ['feed_item_id' => $itemId]));
@@ -107,10 +107,10 @@ class FeedAnalyticsService
      */
     public function trackEngagementItem(?User $user, int|string $itemId, string $eventType, string $feedTab = 'for_you', array $metadata = []): void
     {
-        if (!$user) {
+        if (! $user) {
             return;
         }
-        
+
         $this->trackEvent($user, is_int($itemId) ? $itemId : null, $eventType, $feedTab, array_merge($metadata, ['feed_item_id' => $itemId]));
     }
 
@@ -120,10 +120,10 @@ class FeedAnalyticsService
     protected function trackEvent(User $user, ?int $activityId, string $eventType, string $feedTab, array $metadata): void
     {
         try {
-            if (!class_exists(\App\Models\FeedAnalytic::class)) {
+            if (! class_exists(\App\Models\FeedAnalytic::class)) {
                 return; // Model not yet created
             }
-            
+
             \App\Models\FeedAnalytic::create([
                 'user_id' => $user->id,
                 'activity_id' => $activityId,
@@ -144,12 +144,12 @@ class FeedAnalyticsService
      */
     protected function updateABTestMetrics(User $user, string $metric): void
     {
-        if (!config('feed.ab_testing.enabled')) {
+        if (! config('feed.ab_testing.enabled')) {
             return;
         }
 
         try {
-            if (!class_exists(\App\Models\FeedABTest::class)) {
+            if (! class_exists(\App\Models\FeedABTest::class)) {
                 return;
             }
             \App\Models\FeedABTest::where('user_id', $user->id)->increment($metric);
@@ -163,12 +163,12 @@ class FeedAnalyticsService
      */
     public function updateSessionDuration(User $user, float $duration): void
     {
-        if (!config('feed.ab_testing.enabled')) {
+        if (! config('feed.ab_testing.enabled')) {
             return;
         }
 
         $abTest = FeedABTest::where('user_id', $user->id)->first();
-        
+
         if ($abTest) {
             // Calculate new average
             $totalSessions = $abTest->views_count;
@@ -290,7 +290,7 @@ class FeedAnalyticsService
      */
     public function getABTestResults(): array
     {
-        if (!config('feed.ab_testing.enabled')) {
+        if (! config('feed.ab_testing.enabled')) {
             return ['enabled' => false];
         }
 
@@ -342,7 +342,7 @@ class FeedAnalyticsService
         }
 
         $minUsers = 100; // Minimum users per variant for valid test
-        $validVariants = array_filter($results, fn($r) => $r['users'] >= $minUsers);
+        $validVariants = array_filter($results, fn ($r) => $r['users'] >= $minUsers);
 
         if (empty($validVariants)) {
             return null;
@@ -382,7 +382,7 @@ class FeedAnalyticsService
             }
         }
 
-        if (!$allVariantsHaveEnoughData) {
+        if (! $allVariantsHaveEnoughData) {
             return 'insufficient_data';
         }
 
@@ -409,8 +409,8 @@ class FeedAnalyticsService
         }
 
         $mean = array_sum($values) / count($values);
-        $squaredDiffs = array_map(fn($v) => pow($v - $mean, 2), $values);
-        
+        $squaredDiffs = array_map(fn ($v) => pow($v - $mean, 2), $values);
+
         return sqrt(array_sum($squaredDiffs) / count($values));
     }
 

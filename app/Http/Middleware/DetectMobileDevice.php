@@ -16,16 +16,16 @@ class DetectMobileDevice
     public function handle(Request $request, Closure $next): Response
     {
         $userAgent = $request->header('User-Agent');
-        
+
         // Detect mobile devices
         $isMobile = $this->isMobileDevice($userAgent);
-        
+
         // Store in request for later use
         $request->attributes->set('is_mobile', $isMobile);
-        
+
         // Share with views
         view()->share('isMobile', $isMobile);
-        
+
         return $next($request);
     }
 
@@ -34,7 +34,7 @@ class DetectMobileDevice
      */
     private function isMobileDevice(?string $userAgent): bool
     {
-        if (!$userAgent) {
+        if (! $userAgent) {
             return false;
         }
 
@@ -42,7 +42,7 @@ class DetectMobileDevice
         $mobilePatterns = [
             'Mobile', 'Android', 'iPhone', 'iPad', 'iPod',
             'BlackBerry', 'IEMobile', 'Opera Mini', 'webOS',
-            'Windows Phone', 'Kindle', 'Silk', 'PlayBook'
+            'Windows Phone', 'Kindle', 'Silk', 'PlayBook',
         ];
 
         foreach ($mobilePatterns as $pattern) {

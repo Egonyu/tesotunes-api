@@ -2,8 +2,8 @@
 
 namespace Database\Factories;
 
-use App\Models\PodcastSubscription;
 use App\Models\Podcast;
+use App\Models\PodcastSubscription;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 

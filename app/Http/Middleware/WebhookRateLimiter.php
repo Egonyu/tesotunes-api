@@ -16,7 +16,7 @@ class WebhookRateLimiter
      */
     public function handle(Request $request, Closure $next, int $maxAttempts = 60): Response
     {
-        $key = 'webhook:' . ($request->ip() ?? 'unknown');
+        $key = 'webhook:'.($request->ip() ?? 'unknown');
 
         if (RateLimiter::tooManyAttempts($key, $maxAttempts)) {
             return response()->json([

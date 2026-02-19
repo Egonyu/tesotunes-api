@@ -16,7 +16,9 @@ class UpdateAllArtistCachedStats implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $timeout = 300; // 5 minutes timeout
+
     public int $tries = 3;
+
     protected int $batchSize;
 
     /**
@@ -33,8 +35,8 @@ class UpdateAllArtistCachedStats implements ShouldQueue
     public function handle(): void
     {
         try {
-            Log::info("Starting batch update of all artist cached stats", [
-                'batch_size' => $this->batchSize
+            Log::info('Starting batch update of all artist cached stats', [
+                'batch_size' => $this->batchSize,
             ]);
 
             $totalArtists = Artist::count();
@@ -53,22 +55,22 @@ class UpdateAllArtistCachedStats implements ShouldQueue
 
                 $processed += count($artistIds);
 
-                Log::info("Processed batch of artists", [
+                Log::info('Processed batch of artists', [
                     'processed' => $processed,
-                    'artist_ids' => $artistIds
+                    'artist_ids' => $artistIds,
                 ]);
             });
 
             $duration = $startTime->diffInSeconds(now());
 
-            Log::info("Completed batch update of all artist cached stats", [
+            Log::info('Completed batch update of all artist cached stats', [
                 'total_processed' => $processed,
                 'duration_seconds' => $duration,
-                'artists_per_second' => $processed > 0 ? round($processed / $duration, 2) : 0
+                'artists_per_second' => $processed > 0 ? round($processed / $duration, 2) : 0,
             ]);
 
         } catch (\Exception $e) {
-            Log::error("Failed to update all artist cached stats", [
+            Log::error('Failed to update all artist cached stats', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
@@ -83,7 +85,7 @@ class UpdateAllArtistCachedStats implements ShouldQueue
     private function updateSongStatistics(array $artistIds): void
     {
         // Use raw SQL to efficiently calculate and update song stats
-        DB::statement("
+        DB::statement('
             UPDATE artists
             SET
                 total_plays_cached = COALESCE((
@@ -99,8 +101,8 @@ class UpdateAllArtistCachedStats implements ShouldQueue
                     AND songs.deleted_at IS NULL
                 ), 0),
                 stats_last_updated_at = NOW()
-            WHERE artists.id IN (" . implode(',', array_map('intval', $artistIds)) . ")
-        ");
+            WHERE artists.id IN ('.implode(',', array_map('intval', $artistIds)).')
+        ');
     }
 
     /**
@@ -118,8 +120,8 @@ class UpdateAllArtistCachedStats implements ShouldQueue
                 AND user_follows.type = 'App\\\\Models\\\\Artist'
                 AND user_follows.deleted_at IS NULL
             ), 0)
-            WHERE artists.id IN (" . implode(',', array_map('intval', $artistIds)) . ")
-        ");
+            WHERE artists.id IN (".implode(',', array_map('intval', $artistIds)).')
+        ');
     }
 
     /**
@@ -127,7 +129,7 @@ class UpdateAllArtistCachedStats implements ShouldQueue
      */
     public function failed(\Throwable $exception): void
     {
-        Log::error("UpdateAllArtistCachedStats job failed permanently", [
+        Log::error('UpdateAllArtistCachedStats job failed permanently', [
             'error' => $exception->getMessage(),
         ]);
     }

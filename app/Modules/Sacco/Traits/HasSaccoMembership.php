@@ -21,11 +21,11 @@ trait HasSaccoMembership
     public function isSaccoMember(): bool
     {
         // Module must be enabled
-        if (!config('sacco.enabled', false)) {
+        if (! config('sacco.enabled', false)) {
             return false;
         }
 
-        return $this->saccoMember()->exists() 
+        return $this->saccoMember()->exists()
             && $this->saccoMember->status === 'active';
     }
 
@@ -35,12 +35,12 @@ trait HasSaccoMembership
     public function canJoinSacco(): bool
     {
         // Module must be enabled
-        if (!config('sacco.enabled', false)) {
+        if (! config('sacco.enabled', false)) {
             return false;
         }
 
         // Must be verified user
-        if (!$this->email_verified_at) {
+        if (! $this->email_verified_at) {
             return false;
         }
 
@@ -50,7 +50,7 @@ trait HasSaccoMembership
         }
 
         // Check if user is active
-        if (!$this->is_active) {
+        if (! $this->is_active) {
             return false;
         }
 
@@ -62,7 +62,7 @@ trait HasSaccoMembership
      */
     public function saccoMembershipStatus(): ?string
     {
-        if (!config('sacco.enabled', false)) {
+        if (! config('sacco.enabled', false)) {
             return null;
         }
 
@@ -74,7 +74,7 @@ trait HasSaccoMembership
      */
     public function hasPendingSaccoApplication(): bool
     {
-        if (!config('sacco.enabled', false)) {
+        if (! config('sacco.enabled', false)) {
             return false;
         }
 

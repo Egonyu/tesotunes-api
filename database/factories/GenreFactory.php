@@ -18,12 +18,12 @@ class GenreFactory extends Factory
     {
         $genres = ['Afrobeat', 'Kadongo Kamu', 'Hip Hop', 'R&B', 'Gospel', 'Reggae', 'Dancehall', 'Pop'];
         $name = fake()->randomElement($genres);
-        
+
         return [
-            'name' => $name . ' ' . fake()->unique()->numberBetween(1, 1000),
-            'slug' => \Illuminate\Support\Str::slug($name) . '-' . fake()->unique()->numberBetween(1, 10000),
+            'name' => $name.' '.fake()->unique()->numberBetween(1, 1000),
+            'slug' => \Illuminate\Support\Str::slug($name).'-'.fake()->unique()->numberBetween(1, 10000),
             'description' => fake()->sentence(),
-            'icon' => 'genres/' . fake()->uuid() . '.jpg',
+            'icon' => 'genres/'.fake()->uuid().'.jpg',
             'is_active' => true,
             'sort_order' => fake()->numberBetween(0, 100),
         ];

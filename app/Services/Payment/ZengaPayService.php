@@ -4,8 +4,8 @@ namespace App\Services\Payment;
 
 use App\Models\Payment;
 use App\Services\Payment\Adapters\ZengaPayGatewayAdapter;
-use Illuminate\Support\Facades\Log;
 use Exception;
+use Illuminate\Support\Facades\Log;
 
 /**
  * ZengaPay Service — Higher-level payment service wrapping the gateway adapter
@@ -19,7 +19,7 @@ class ZengaPayService
 
     public function __construct()
     {
-        $this->gateway = new ZengaPayGatewayAdapter();
+        $this->gateway = new ZengaPayGatewayAdapter;
     }
 
     /**
@@ -117,6 +117,7 @@ class ZengaPayService
 
         if (empty($secret)) {
             Log::warning('ZengaPay webhook secret is not configured — skipping signature verification');
+
             return true;
         }
 
@@ -134,7 +135,7 @@ class ZengaPayService
         $externalRef = $payload['externalReference'] ?? $payload['external_reference'] ?? null;
         $status = strtolower($payload['transactionStatus'] ?? $payload['status'] ?? '');
 
-        if (!$transactionId && !$externalRef) {
+        if (! $transactionId && ! $externalRef) {
             return ['success' => false, 'message' => 'Missing transaction identifier'];
         }
 
@@ -143,11 +144,12 @@ class ZengaPayService
             ->orWhere('payment_reference', $externalRef)
             ->first();
 
-        if (!$payment) {
+        if (! $payment) {
             Log::warning('ZengaPay webhook: payment not found', [
                 'transaction_id' => $transactionId,
                 'external_reference' => $externalRef,
             ]);
+
             return ['success' => false, 'message' => 'Payment not found'];
         }
 

@@ -2,16 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Traits\Featurable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\Traits\Featurable;
 
 class Album extends Model
 {
-    use HasFactory, SoftDeletes, Featurable;
+    use Featurable, HasFactory, SoftDeletes;
 
     protected $fillable = [
         'artist_id',
@@ -158,12 +158,13 @@ class Album extends Model
         if ($hours > 0) {
             return sprintf('%d:%02d:%02d', $hours, $minutes, $seconds);
         }
+
         return sprintf('%d:%02d', $minutes, $seconds);
     }
 
     public function getIsLikedByUserAttribute(): bool
     {
-        if (!auth()->check()) {
+        if (! auth()->check()) {
             return false;
         }
 

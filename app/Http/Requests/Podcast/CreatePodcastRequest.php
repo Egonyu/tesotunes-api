@@ -37,8 +37,8 @@ class CreatePodcastRequest extends FormRequest
                 'nullable',
                 'image',
                 'mimes:jpeg,png,jpg',
-                'max:' . (config('podcast.storage.limits.max_artwork_size') / 1024), // Convert to KB
-                'dimensions:min_width=1400,min_height=1400,max_width=3000,max_height=3000'
+                'max:'.(config('podcast.storage.limits.max_artwork_size') / 1024), // Convert to KB
+                'dimensions:min_width=1400,min_height=1400,max_width=3000,max_height=3000',
             ],
         ];
     }

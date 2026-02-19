@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * Audio Processing Service
- * 
+ *
  * Handles audio file processing using FFmpeg:
  * - Metadata extraction
  * - Duration calculation
@@ -21,8 +21,8 @@ class AudioProcessingService
      */
     public function extractMetadata(string $filePath): array
     {
-        if (!file_exists($filePath)) {
-            throw new Exception('Audio file not found: ' . $filePath);
+        if (! file_exists($filePath)) {
+            throw new Exception('Audio file not found: '.$filePath);
         }
 
         try {
@@ -35,7 +35,7 @@ class AudioProcessingService
             $output = shell_exec($command);
             $data = json_decode($output, true);
 
-            if (!$data || !isset($data['format'])) {
+            if (! $data || ! isset($data['format'])) {
                 throw new Exception('Failed to extract audio metadata');
             }
 
@@ -88,6 +88,7 @@ class AudioProcessingService
             );
 
             $output = trim(shell_exec($command));
+
             return (int) round(floatval($output));
 
         } catch (Exception $e) {
@@ -95,6 +96,7 @@ class AudioProcessingService
                 'file' => $filePath,
                 'error' => $e->getMessage(),
             ]);
+
             return 0;
         }
     }
@@ -144,6 +146,7 @@ class AudioProcessingService
     public function detectFormat(string $filePath): string
     {
         $metadata = $this->extractMetadata($filePath);
+
         return $metadata['format'];
     }
 
@@ -154,6 +157,7 @@ class AudioProcessingService
     {
         try {
             $metadata = $this->extractMetadata($filePath);
+
             return $metadata['duration'] > 0 && $metadata['codec'] !== 'unknown';
         } catch (Exception $e) {
             return false;
@@ -170,6 +174,7 @@ class AudioProcessingService
                 return $stream;
             }
         }
+
         return null;
     }
 

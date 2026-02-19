@@ -122,7 +122,7 @@ class SaccoAccount extends Model
             if (empty($account->account_number)) {
                 $account->account_number = self::generateAccountNumber($account->account_type);
             }
-            
+
             if (empty($account->opened_at)) {
                 $account->opened_at = now();
             }
@@ -131,7 +131,7 @@ class SaccoAccount extends Model
 
     protected static function generateAccountNumber(string $accountType): string
     {
-        $prefix = match($accountType) {
+        $prefix = match ($accountType) {
             'shares' => 'SHR',
             'savings' => 'SAV',
             'checking' => 'CHK',
@@ -140,7 +140,7 @@ class SaccoAccount extends Model
         };
 
         $year = now()->format('Y');
-        
+
         // Get last account for this type
         $lastAccount = self::where('account_number', 'like', "{$prefix}-{$year}-%")
             ->orderBy('account_number', 'desc')

@@ -16,7 +16,9 @@ class UpdateArtistCachedStats implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     protected int $artistId;
+
     public int $timeout = 60; // 1 minute timeout
+
     public int $tries = 3;
 
     /**
@@ -35,8 +37,9 @@ class UpdateArtistCachedStats implements ShouldQueue
         try {
             $artist = Artist::find($this->artistId);
 
-            if (!$artist) {
-                Log::warning("Artist not found for cached stats update", ['artist_id' => $this->artistId]);
+            if (! $artist) {
+                Log::warning('Artist not found for cached stats update', ['artist_id' => $this->artistId]);
+
                 return;
             }
 
@@ -62,9 +65,9 @@ class UpdateArtistCachedStats implements ShouldQueue
                 ]);
 
                 // Clear related cache
-                cache()->forget("artist_uploads_{$this->artistId}_" . now()->format('Y_m'));
+                cache()->forget("artist_uploads_{$this->artistId}_".now()->format('Y_m'));
 
-                Log::info("Updated cached stats for artist", [
+                Log::info('Updated cached stats for artist', [
                     'artist_id' => $this->artistId,
                     'stage_name' => $artist->stage_name,
                     'total_plays' => $songStats->total_plays ?? 0,
@@ -74,7 +77,7 @@ class UpdateArtistCachedStats implements ShouldQueue
             });
 
         } catch (\Exception $e) {
-            Log::error("Failed to update artist cached stats", [
+            Log::error('Failed to update artist cached stats', [
                 'artist_id' => $this->artistId,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -89,7 +92,7 @@ class UpdateArtistCachedStats implements ShouldQueue
      */
     public function failed(\Throwable $exception): void
     {
-        Log::error("UpdateArtistCachedStats job failed permanently", [
+        Log::error('UpdateArtistCachedStats job failed permanently', [
             'artist_id' => $this->artistId,
             'error' => $exception->getMessage(),
         ]);

@@ -41,7 +41,7 @@ class ProductCategoryFactory extends Factory
 
         return [
             'name' => $name,
-            'slug' => Str::slug($name) . '-' . fake()->unique()->numberBetween(100, 999),
+            'slug' => Str::slug($name).'-'.fake()->unique()->numberBetween(100, 999),
             'description' => fake()->sentence(10),
             'icon' => null,
             'parent_id' => null,

@@ -14,8 +14,8 @@ class UserFollowObserver
     {
         // Log follow activity
         if ($follow->follower && $follow->followable) {
-            $action = 'followed_' . strtolower(class_basename($follow->followable_type));
-            
+            $action = 'followed_'.strtolower(class_basename($follow->followable_type));
+
             ActivityService::log(
                 actor: $follow->follower,
                 action: $action,

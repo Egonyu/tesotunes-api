@@ -2,9 +2,9 @@
 
 namespace App\Policies;
 
+use App\Models\AuditLog;
 use App\Models\Playlist;
 use App\Models\User;
-use App\Models\AuditLog;
 
 class PlaylistPolicy
 {
@@ -28,7 +28,7 @@ class PlaylistPolicy
         }
 
         // For non-public playlists, must be logged in
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -52,7 +52,7 @@ class PlaylistPolicy
     public function create(User $user): bool
     {
         // Must have playlist.create permission
-        if (!$user->hasPermission('playlist.create')) {
+        if (! $user->hasPermission('playlist.create')) {
             return false;
         }
 
@@ -66,11 +66,12 @@ class PlaylistPolicy
     public function update(User $user, Playlist $playlist): bool
     {
         // Must have edit permission
-        if (!$user->hasPermission('playlist.edit')) {
+        if (! $user->hasPermission('playlist.edit')) {
             AuditLog::logActivity($user->id, 'unauthorized_playlist_edit_attempt', [
                 'playlist_id' => $playlist->id,
                 'playlist_name' => $playlist->name,
             ]);
+
             return false;
         }
 
@@ -104,11 +105,12 @@ class PlaylistPolicy
     public function delete(User $user, Playlist $playlist): bool
     {
         // Must have delete permission
-        if (!$user->hasPermission('playlist.delete')) {
+        if (! $user->hasPermission('playlist.delete')) {
             AuditLog::logActivity($user->id, 'unauthorized_playlist_delete_attempt', [
                 'playlist_id' => $playlist->id,
                 'playlist_name' => $playlist->name,
             ]);
+
             return false;
         }
 

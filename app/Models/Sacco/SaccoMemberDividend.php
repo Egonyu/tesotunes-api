@@ -59,6 +59,6 @@ class SaccoMemberDividend extends Model
 
     public function getFormattedAmountAttribute(): string
     {
-        return 'UGX ' . number_format($this->dividend_amount, 2);
+        return 'UGX '.number_format($this->dividend_amount, 2);
     }
 }

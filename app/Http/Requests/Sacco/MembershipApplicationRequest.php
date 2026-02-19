@@ -78,8 +78,8 @@ class MembershipApplicationRequest extends FormRequest
             'initial_shares' => [
                 'required',
                 'integer',
-                'min:' . config('sacco.minimum_shares', 1),
-                'max:' . config('sacco.maximum_initial_shares', 1000),
+                'min:'.config('sacco.minimum_shares', 1),
+                'max:'.config('sacco.maximum_initial_shares', 1000),
             ],
             'agree_terms' => [
                 'required',
@@ -98,8 +98,8 @@ class MembershipApplicationRequest extends FormRequest
             'phone_number.regex' => 'Please enter a valid Uganda phone number (e.g., 0700000000 or +256700000000)',
             'date_of_birth.before' => 'You must be at least 18 years old to join SACCO',
             'next_of_kin_phone.regex' => 'Please enter a valid Uganda phone number for next of kin',
-            'initial_shares.min' => 'Minimum initial shares is ' . config('sacco.minimum_shares', 1),
-            'initial_shares.max' => 'Maximum initial shares for new members is ' . config('sacco.maximum_initial_shares', 1000),
+            'initial_shares.min' => 'Minimum initial shares is '.config('sacco.minimum_shares', 1),
+            'initial_shares.max' => 'Maximum initial shares for new members is '.config('sacco.maximum_initial_shares', 1000),
             'agree_terms.accepted' => 'You must agree to the terms and conditions',
         ];
     }

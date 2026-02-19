@@ -2,8 +2,8 @@
 
 namespace App\Modules\Store\Http\Requests;
 
-use Illuminate\Foundation\Http\FormRequest;
 use App\Modules\Store\Models\Product;
+use Illuminate\Foundation\Http\FormRequest;
 
 class AddToCartRequest extends FormRequest
 {
@@ -63,16 +63,16 @@ class AddToCartRequest extends FormRequest
 
                 if ($product && $product->track_inventory) {
                     if ($product->inventory_quantity < $this->quantity) {
-                        $validator->errors()->add('quantity', 'Insufficient inventory. Only ' . $product->inventory_quantity . ' available');
+                        $validator->errors()->add('quantity', 'Insufficient inventory. Only '.$product->inventory_quantity.' available');
                     }
                 }
 
                 // Validate payment method compatibility
-                if ($this->payment_method === 'credits' && !$product->allow_credit_payment) {
+                if ($this->payment_method === 'credits' && ! $product->allow_credit_payment) {
                     $validator->errors()->add('payment_method', 'Credit payment not accepted for this product');
                 }
 
-                if ($this->payment_method === 'hybrid' && !$product->allow_hybrid_payment) {
+                if ($this->payment_method === 'hybrid' && ! $product->allow_hybrid_payment) {
                     $validator->errors()->add('payment_method', 'Hybrid payment not accepted for this product');
                 }
             }

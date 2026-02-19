@@ -2,13 +2,13 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Storage;
+use Exception;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
-use Exception;
+use Illuminate\Support\Facades\Storage;
 
 class SystemMonitoringService
 {
@@ -46,11 +46,11 @@ class SystemMonitoringService
         $totalBackups = 0;
         $totalSize = 0;
         $healthy = false;
-        
+
         if (File::exists($backupPath)) {
-            $files = glob($backupPath . '/*.{sql,sql.gz,zip}', GLOB_BRACE);
+            $files = glob($backupPath.'/*.{sql,sql.gz,zip}', GLOB_BRACE);
             $totalBackups = count($files);
-            
+
             // Get most recent backup
             $latestTime = 0;
             foreach ($files as $file) {
@@ -61,12 +61,12 @@ class SystemMonitoringService
                     $lastBackup = date('Y-m-d H:i:s', $mtime);
                 }
             }
-            
+
             // Determine health based on schedule
             if ($lastBackup) {
                 $daysSince = now()->diffInDays(\Carbon\Carbon::parse($lastBackup));
                 $schedule = config('backup.schedule', 'daily');
-                $maxDays = match($schedule) {
+                $maxDays = match ($schedule) {
                     'hourly' => 1,
                     'daily' => 2,
                     'weekly' => 8,
@@ -76,7 +76,7 @@ class SystemMonitoringService
                 $healthy = $daysSince < $maxDays;
             }
         }
-        
+
         return [
             'total_backups' => $totalBackups,
             'total_size' => $this->formatBytes($totalSize),
@@ -95,15 +95,15 @@ class SystemMonitoringService
     {
         $gitCommit = 'Unknown';
         $gitBranch = 'Unknown';
-        
+
         try {
             if (file_exists(base_path('.git/HEAD'))) {
                 $headContent = file_get_contents(base_path('.git/HEAD'));
                 if (preg_match('/ref: refs\/heads\/(.*)/', $headContent, $matches)) {
                     $gitBranch = trim($matches[1]);
                 }
-                
-                $commitFile = base_path('.git/refs/heads/' . $gitBranch);
+
+                $commitFile = base_path('.git/refs/heads/'.$gitBranch);
                 if (file_exists($commitFile)) {
                     $gitCommit = substr(trim(file_get_contents($commitFile)), 0, 8);
                 }
@@ -121,7 +121,7 @@ class SystemMonitoringService
             'php_version' => PHP_VERSION,
             'node_version' => $this->getNodeVersion(),
             'database_version' => $this->getDatabaseVersion(),
-            'server_os' => php_uname('s') . ' ' . php_uname('r'),
+            'server_os' => php_uname('s').' '.php_uname('r'),
             'web_server' => $_SERVER['SERVER_SOFTWARE'] ?? 'Unknown',
             'timezone' => config('app.timezone'),
             'locale' => config('app.locale'),
@@ -203,7 +203,7 @@ class SystemMonitoringService
             $totalStreams = DB::table('song_plays')->count();
             $streamsToday = DB::table('song_plays')->whereDate('played_at', today())->count();
             $streamsThisWeek = DB::table('song_plays')->where('played_at', '>=', now()->subWeek())->count();
-            
+
             return [
                 'total_streams' => $totalStreams,
                 'streams_today' => $streamsToday,
@@ -226,7 +226,7 @@ class SystemMonitoringService
             $uploadsPath = storage_path('app/public');
             $totalSize = 0;
             $fileCount = 0;
-            
+
             if (File::exists($uploadsPath)) {
                 $files = File::allFiles($uploadsPath);
                 $fileCount = count($files);
@@ -270,6 +270,7 @@ class SystemMonitoringService
     {
         try {
             $output = shell_exec('node --version 2>/dev/null');
+
             return $output ? trim($output) : 'Not installed';
         } catch (Exception $e) {
             return 'Unknown';
@@ -283,6 +284,7 @@ class SystemMonitoringService
     {
         try {
             $result = DB::select('SELECT VERSION() as version');
+
             return $result[0]->version ?? 'Unknown';
         } catch (Exception $e) {
             return 'Unknown';
@@ -296,6 +298,7 @@ class SystemMonitoringService
     {
         try {
             $lastMigration = DB::table('migrations')->orderBy('id', 'desc')->first();
+
             return [
                 'name' => $lastMigration?->migration ?? 'None',
                 'batch' => $lastMigration?->batch ?? 0,
@@ -312,6 +315,7 @@ class SystemMonitoringService
     {
         try {
             $uptime = shell_exec('uptime -p 2>/dev/null');
+
             return $uptime ? trim(str_replace('up ', '', $uptime)) : 'Unknown';
         } catch (Exception $e) {
             return 'Unknown';
@@ -324,8 +328,8 @@ class SystemMonitoringService
     public function getRecentLogs(int $lines = 100): array
     {
         $logFile = storage_path('logs/laravel.log');
-        
-        if (!File::exists($logFile)) {
+
+        if (! File::exists($logFile)) {
             return [];
         }
 
@@ -333,11 +337,11 @@ class SystemMonitoringService
         $file = new \SplFileObject($logFile);
         $file->seek(PHP_INT_MAX);
         $totalLines = $file->key() + 1;
-        
+
         $startLine = max(0, $totalLines - $lines);
         $file->seek($startLine);
 
-        while (!$file->eof()) {
+        while (! $file->eof()) {
             $line = $file->fgets();
             if ($line) {
                 $parsedLog = $this->parseLogLine($line);
@@ -436,7 +440,7 @@ class SystemMonitoringService
 
             // Check for slow queries
             if ($connectionTime > 100) {
-                $metrics['issues'][] = '⏱️ Slow database connection (>' . round($connectionTime) . 'ms)';
+                $metrics['issues'][] = '⏱️ Slow database connection (>'.round($connectionTime).'ms)';
                 $metrics['status'] = 'warning';
             }
 
@@ -444,7 +448,7 @@ class SystemMonitoringService
             try {
                 $songsCount = DB::table('songs')->count();
                 if ($songsCount > 10000) {
-                    $metrics['issues'][] = '📊 Large songs table (' . number_format($songsCount) . ' records) - consider archiving';
+                    $metrics['issues'][] = '📊 Large songs table ('.number_format($songsCount).' records) - consider archiving';
                 }
             } catch (Exception $e) {
                 // Table might not exist
@@ -457,7 +461,7 @@ class SystemMonitoringService
                 'status' => 'failed',
                 'connection_time_ms' => null,
                 'driver' => config('database.default'),
-                'issues' => ['❌ Database connection failed: ' . $this->makeLogHumanReadable($e->getMessage())],
+                'issues' => ['❌ Database connection failed: '.$this->makeLogHumanReadable($e->getMessage())],
                 'metrics' => [],
             ];
         }
@@ -485,11 +489,11 @@ class SystemMonitoringService
             ];
 
             if ($usedPercentage > 90) {
-                $issues[] = '💾 Storage almost full (' . round($usedPercentage) . '% used)';
+                $issues[] = '💾 Storage almost full ('.round($usedPercentage).'% used)';
             }
 
             // Check public storage link
-            if (!file_exists(public_path('storage'))) {
+            if (! file_exists(public_path('storage'))) {
                 $issues[] = '🔗 Public storage link missing - Run: php artisan storage:link';
             } else {
                 $metrics['storage_link'] = 'Connected';
@@ -510,7 +514,7 @@ class SystemMonitoringService
         } catch (Exception $e) {
             return [
                 'status' => 'failed',
-                'issues' => ['❌ Storage check failed: ' . $e->getMessage()],
+                'issues' => ['❌ Storage check failed: '.$e->getMessage()],
                 'metrics' => [],
             ];
         }
@@ -526,8 +530,8 @@ class SystemMonitoringService
             $issues = [];
 
             // Test cache write/read
-            $testKey = 'health_check_' . now()->timestamp;
-            $testValue = 'test_' . rand(1000, 9999);
+            $testKey = 'health_check_'.now()->timestamp;
+            $testValue = 'test_'.rand(1000, 9999);
 
             Cache::put($testKey, $testValue, 60);
             $retrieved = Cache::get($testKey);
@@ -535,7 +539,7 @@ class SystemMonitoringService
 
             $working = $retrieved === $testValue;
 
-            if (!$working) {
+            if (! $working) {
                 $issues[] = '❌ Cache read/write test failed';
             }
 
@@ -562,7 +566,7 @@ class SystemMonitoringService
                 'status' => 'failed',
                 'driver' => config('cache.default'),
                 'working' => false,
-                'issues' => ['❌ Cache system error: ' . $e->getMessage()],
+                'issues' => ['❌ Cache system error: '.$e->getMessage()],
                 'metrics' => [],
             ];
         }
@@ -588,11 +592,11 @@ class SystemMonitoringService
                 $metrics['failed_jobs'] = $failedJobs;
 
                 if ($pendingJobs > 100) {
-                    $issues[] = '⚠️ High number of pending jobs (' . $pendingJobs . ') - Queue workers may be slow or stopped';
+                    $issues[] = '⚠️ High number of pending jobs ('.$pendingJobs.') - Queue workers may be slow or stopped';
                 }
 
                 if ($failedJobs > 10) {
-                    $issues[] = '❌ Multiple failed jobs detected (' . $failedJobs . ') - Review and retry';
+                    $issues[] = '❌ Multiple failed jobs detected ('.$failedJobs.') - Review and retry';
                 }
 
                 $issues[] = '💡 Using database queue - Redis recommended for production';
@@ -606,7 +610,7 @@ class SystemMonitoringService
             return [
                 'status' => 'failed',
                 'driver' => config('queue.default'),
-                'issues' => ['❌ Queue system error: ' . $e->getMessage()],
+                'issues' => ['❌ Queue system error: '.$e->getMessage()],
                 'metrics' => [],
             ];
         }
@@ -670,7 +674,7 @@ class SystemMonitoringService
         if (File::exists($logFile)) {
             $recentContent = File::get($logFile);
             $errorCount = substr_count($recentContent, '.ERROR:');
-            
+
             if ($errorCount > 50) {
                 $alerts[] = [
                     'level' => 'warning',
@@ -777,7 +781,7 @@ class SystemMonitoringService
             $bytes /= 1024;
         }
 
-        return round($bytes, $precision) . ' ' . $units[$i];
+        return round($bytes, $precision).' '.$units[$i];
     }
 
     /**
@@ -789,6 +793,7 @@ class SystemMonitoringService
             switch ($command) {
                 case 'cache:clear':
                     Artisan::call('cache:clear');
+
                     return [
                         'success' => true,
                         'message' => '✅ Cache cleared successfully',
@@ -797,6 +802,7 @@ class SystemMonitoringService
 
                 case 'config:cache':
                     Artisan::call('config:cache');
+
                     return [
                         'success' => true,
                         'message' => '✅ Configuration cached successfully',
@@ -805,6 +811,7 @@ class SystemMonitoringService
 
                 case 'route:cache':
                     Artisan::call('route:cache');
+
                     return [
                         'success' => true,
                         'message' => '✅ Routes cached successfully',
@@ -813,6 +820,7 @@ class SystemMonitoringService
 
                 case 'view:clear':
                     Artisan::call('view:clear');
+
                     return [
                         'success' => true,
                         'message' => '✅ View cache cleared successfully',
@@ -821,6 +829,7 @@ class SystemMonitoringService
 
                 case 'optimize':
                     Artisan::call('optimize');
+
                     return [
                         'success' => true,
                         'message' => '✅ Application optimized successfully',
@@ -829,6 +838,7 @@ class SystemMonitoringService
 
                 case 'optimize:clear':
                     Artisan::call('optimize:clear');
+
                     return [
                         'success' => true,
                         'message' => '✅ All caches cleared successfully',
@@ -837,6 +847,7 @@ class SystemMonitoringService
 
                 case 'queue:restart':
                     Artisan::call('queue:restart');
+
                     return [
                         'success' => true,
                         'message' => '✅ Queue workers restarted',
@@ -858,7 +869,7 @@ class SystemMonitoringService
 
             return [
                 'success' => false,
-                'message' => '❌ Command failed: ' . $e->getMessage(),
+                'message' => '❌ Command failed: '.$e->getMessage(),
                 'output' => null,
             ];
         }
@@ -896,7 +907,7 @@ class SystemMonitoringService
         $tests[] = [
             'name' => 'Application',
             'status' => true,
-            'message' => '✅ Running (v' . app()->version() . ')',
+            'message' => '✅ Running (v'.app()->version().')',
         ];
 
         return $tests;
@@ -906,6 +917,7 @@ class SystemMonitoringService
     {
         try {
             DB::connection()->getPdo();
+
             return true;
         } catch (Exception $e) {
             return false;
@@ -915,10 +927,11 @@ class SystemMonitoringService
     private function testCache(): bool
     {
         try {
-            $key = 'test_' . now()->timestamp;
+            $key = 'test_'.now()->timestamp;
             Cache::put($key, 'value', 1);
             $result = Cache::get($key) === 'value';
             Cache::forget($key);
+
             return $result;
         } catch (Exception $e) {
             return false;
@@ -928,10 +941,11 @@ class SystemMonitoringService
     private function testStorage(): bool
     {
         try {
-            $testFile = 'health_test_' . now()->timestamp . '.txt';
+            $testFile = 'health_test_'.now()->timestamp.'.txt';
             Storage::put($testFile, 'test');
             $exists = Storage::exists($testFile);
             Storage::delete($testFile);
+
             return $exists;
         } catch (Exception $e) {
             return false;

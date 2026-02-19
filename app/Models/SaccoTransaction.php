@@ -37,13 +37,21 @@ class SaccoTransaction extends Model
 
     // Transaction types
     const TYPE_DEPOSIT = 'deposit';
+
     const TYPE_WITHDRAWAL = 'withdrawal';
+
     const TYPE_TRANSFER = 'transfer';
+
     const TYPE_LOAN_DISBURSEMENT = 'loan_disbursement';
+
     const TYPE_LOAN_REPAYMENT = 'loan_repayment';
+
     const TYPE_DIVIDEND = 'dividend';
+
     const TYPE_INTEREST = 'interest';
+
     const TYPE_FEE = 'fee';
+
     const TYPE_ADJUSTMENT = 'adjustment';
 
     /**
@@ -90,7 +98,7 @@ class SaccoTransaction extends Model
     public function scopeThisMonth($query)
     {
         return $query->whereYear('transaction_date', now()->year)
-                     ->whereMonth('transaction_date', now()->month);
+            ->whereMonth('transaction_date', now()->month);
     }
 
     /**
@@ -118,6 +126,7 @@ class SaccoTransaction extends Model
     public function getFormattedAmountAttribute(): string
     {
         $prefix = $this->is_debit ? '-' : '+';
-        return $prefix . 'UGX ' . number_format($this->amount, 2);
+
+        return $prefix.'UGX '.number_format($this->amount, 2);
     }
 }

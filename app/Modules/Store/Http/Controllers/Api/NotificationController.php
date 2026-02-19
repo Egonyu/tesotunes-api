@@ -4,8 +4,8 @@ namespace App\Modules\Store\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Notification;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
  * Notification API Controller

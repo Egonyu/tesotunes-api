@@ -2,11 +2,11 @@
 
 namespace App\Services\Sacco;
 
+use App\Models\Sacco\SaccoAuditLog;
 use App\Models\Sacco\SaccoLoan;
 use App\Models\Sacco\SaccoLoanProduct;
 use App\Models\Sacco\SaccoMember;
 use App\Models\Sacco\SaccoTransaction;
-use App\Models\Sacco\SaccoAuditLog;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -22,28 +22,27 @@ class SaccoLoanService
     /**
      * Apply for a loan
      *
-     * @param SaccoMember $member
-     * @param array $loanData [loan_product_id, principal_amount, term_months, purpose, guarantors]
-     * @return SaccoLoan
+     * @param  array  $loanData  [loan_product_id, principal_amount, term_months, purpose, guarantors]
+     *
      * @throws \Exception
      */
     public function applyForLoan(SaccoMember $member, array $loanData): SaccoLoan
     {
         // Validate member eligibility
         $eligibility = $this->checkLoanEligibility($member, $loanData['principal_amount']);
-        if (!$eligibility['eligible']) {
-            throw new \Exception('Loan eligibility check failed: ' . implode(', ', $eligibility['reasons']));
+        if (! $eligibility['eligible']) {
+            throw new \Exception('Loan eligibility check failed: '.implode(', ', $eligibility['reasons']));
         }
 
         // Get loan product
         $loanProduct = SaccoLoanProduct::findOrFail($loanData['loan_product_id']);
 
         // Validate loan amount and term
-        if (!$loanProduct->isEligibleAmount($loanData['principal_amount'])) {
+        if (! $loanProduct->isEligibleAmount($loanData['principal_amount'])) {
             throw new \Exception("Loan amount must be between {$loanProduct->min_amount} and {$loanProduct->max_amount}");
         }
 
-        if (!$loanProduct->isEligibleTerm($loanData['term_months'])) {
+        if (! $loanProduct->isEligibleTerm($loanData['term_months'])) {
             throw new \Exception("Loan term must be between {$loanProduct->min_term_months} and {$loanProduct->max_term_months} months");
         }
 
@@ -79,9 +78,6 @@ class SaccoLoanService
     /**
      * Approve a loan application
      *
-     * @param SaccoLoan $loan
-     * @param User $admin
-     * @return void
      * @throws \Exception
      */
     public function approveLoan(SaccoLoan $loan, User $admin): void
@@ -107,10 +103,6 @@ class SaccoLoanService
     /**
      * Reject a loan application
      *
-     * @param SaccoLoan $loan
-     * @param User $admin
-     * @param string $reason
-     * @return void
      * @throws \Exception
      */
     public function rejectLoan(SaccoLoan $loan, User $admin, string $reason): void
@@ -138,9 +130,6 @@ class SaccoLoanService
     /**
      * Disburse an approved loan
      *
-     * @param SaccoLoan $loan
-     * @param User $admin
-     * @return SaccoTransaction
      * @throws \Exception
      */
     public function disburseLoan(SaccoLoan $loan, User $admin): SaccoTransaction
@@ -151,7 +140,7 @@ class SaccoLoanService
 
         // Get or create member's checking account
         $checkingAccount = $loan->member->checkingAccount;
-        if (!$checkingAccount) {
+        if (! $checkingAccount) {
             $checkingAccount = $this->accountService->openAccount($loan->member, 'checking');
         }
 
@@ -204,15 +193,13 @@ class SaccoLoanService
     /**
      * Record a loan repayment
      *
-     * @param SaccoLoan $loan
-     * @param float $amount
-     * @param array $metadata [payment_method, reference]
-     * @return SaccoTransaction
+     * @param  array  $metadata  [payment_method, reference]
+     *
      * @throws \Exception
      */
     public function recordRepayment(SaccoLoan $loan, float $amount, array $metadata = []): SaccoTransaction
     {
-        if (!$loan->is_active) {
+        if (! $loan->is_active) {
             throw new \Exception('Loan must be active to record repayments');
         }
 
@@ -226,7 +213,7 @@ class SaccoLoanService
 
         // Get member's checking account
         $checkingAccount = $loan->member->checkingAccount;
-        if (!$checkingAccount || !$checkingAccount->canWithdraw($amount)) {
+        if (! $checkingAccount || ! $checkingAccount->canWithdraw($amount)) {
             throw new \Exception('Insufficient balance in checking account for repayment');
         }
 
@@ -267,9 +254,6 @@ class SaccoLoanService
 
     /**
      * Calculate loan repayment schedule
-     *
-     * @param SaccoLoan $loan
-     * @return array
      */
     public function calculateLoanSchedule(SaccoLoan $loan): array
     {
@@ -279,8 +263,6 @@ class SaccoLoanService
     /**
      * Check loan eligibility for a member
      *
-     * @param SaccoMember $member
-     * @param float $amount
      * @return array ['eligible' => bool, 'reasons' => array, 'max_amount' => float]
      */
     public function checkLoanEligibility(SaccoMember $member, float $amount): array
@@ -295,7 +277,7 @@ class SaccoLoanService
         }
 
         // Check minimum shares requirement
-        if (!$member->hasMinimumShares()) {
+        if (! $member->hasMinimumShares()) {
             $eligible = false;
             $reasons[] = 'Minimum share capital requirement not met';
         }
@@ -304,7 +286,7 @@ class SaccoLoanService
         $maxLoan = max($member->total_savings * 3, $member->total_shares * 4);
         if ($amount > $maxLoan) {
             $eligible = false;
-            $reasons[] = "Maximum loan amount is UGX " . number_format($maxLoan, 2) . " based on savings/shares";
+            $reasons[] = 'Maximum loan amount is UGX '.number_format($maxLoan, 2).' based on savings/shares';
         }
 
         // Check active loans count
@@ -352,7 +334,7 @@ class SaccoLoanService
         foreach ($overdueLoans as $loan) {
             if ($loan->checkDefaultStatus()) {
                 $defaultedCount++;
-                
+
                 // Notify member (event/notification)
                 SaccoAuditLog::log('loan_defaulted', $loan, ['status' => 'active'], ['status' => 'defaulted']);
             }
@@ -363,8 +345,6 @@ class SaccoLoanService
 
     /**
      * Get loan statistics summary
-     *
-     * @return array
      */
     public function getLoanSummary(): array
     {

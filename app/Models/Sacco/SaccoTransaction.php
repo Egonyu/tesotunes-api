@@ -121,7 +121,7 @@ class SaccoTransaction extends Model
 
     public function getFormattedAmountAttribute(): string
     {
-        return 'UGX ' . number_format($this->amount, 2);
+        return 'UGX '.number_format($this->amount, 2);
     }
 
     public function getTransactionTypeDisplayAttribute(): string
@@ -138,7 +138,7 @@ class SaccoTransaction extends Model
             if (empty($transaction->transaction_reference)) {
                 $transaction->transaction_reference = self::generateReference();
             }
-            
+
             if (empty($transaction->transaction_date)) {
                 $transaction->transaction_date = now();
             }
@@ -157,6 +157,7 @@ class SaccoTransaction extends Model
     {
         $date = now()->format('Ymd');
         $random = strtoupper(substr(md5(uniqid(mt_rand(), true)), 0, 8));
+
         return "TXN-{$date}-{$random}";
     }
 }

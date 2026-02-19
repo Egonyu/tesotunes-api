@@ -43,7 +43,7 @@ class RoleFactory extends Factory
             ];
         });
     }
-    
+
     public function artist(): self
     {
         return $this->state(function (array $attributes) {

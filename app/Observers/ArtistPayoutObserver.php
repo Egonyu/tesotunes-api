@@ -108,7 +108,7 @@ class ArtistPayoutObserver
             $newStatus = $changes['status'];
 
             // Validate status transitions
-            if (!$this->isValidStatusTransition($oldStatus, $newStatus)) {
+            if (! $this->isValidStatusTransition($oldStatus, $newStatus)) {
                 Log::channel('audit')->critical('Invalid payout status transition attempted', [
                     'id' => $payout->id,
                     'transaction_id' => $payout->transaction_id,
@@ -327,7 +327,7 @@ class ArtistPayoutObserver
      */
     protected function calculateFee(float $amount, string $method): float
     {
-        return match($method) {
+        return match ($method) {
             ArtistPayout::METHOD_MOBILE_MONEY => $amount * 0.015, // 1.5%
             ArtistPayout::METHOD_BANK_TRANSFER => $amount * 0.005, // 0.5%
             ArtistPayout::METHOD_PAYPAL => $amount * 0.02, // 2%

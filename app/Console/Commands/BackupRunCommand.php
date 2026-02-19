@@ -2,10 +2,10 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Log;
 use Exception;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class BackupRunCommand extends Command
 {
@@ -31,7 +31,7 @@ class BackupRunCommand extends Command
                 default => throw new Exception("Unknown backup type: {$type}"),
             };
 
-            $this->info("Backup completed successfully.");
+            $this->info('Backup completed successfully.');
 
             if ($this->option('clean')) {
                 $this->call('backup:clean');
@@ -60,7 +60,7 @@ class BackupRunCommand extends Command
         $connection = config('backup.database_connection') ?? config('database.default');
         $dbConfig = config("database.connections.{$connection}");
 
-        if (!$dbConfig) {
+        if (! $dbConfig) {
             throw new Exception("Database connection '{$connection}' not configured");
         }
 
@@ -68,7 +68,7 @@ class BackupRunCommand extends Command
         $tempPath = storage_path("app/backup-temp/{$filename}");
 
         // Ensure temp directory exists
-        if (!is_dir(dirname($tempPath))) {
+        if (! is_dir(dirname($tempPath))) {
             mkdir(dirname($tempPath), 0755, true);
         }
 
@@ -83,7 +83,7 @@ class BackupRunCommand extends Command
         }
 
         // Compress
-        $gzPath = $tempPath . '.gz';
+        $gzPath = $tempPath.'.gz';
         $this->compressFile($tempPath, $gzPath);
 
         // Upload to storage
@@ -95,7 +95,7 @@ class BackupRunCommand extends Command
         @unlink($gzPath);
 
         $size = Storage::disk($disk)->size($storagePath);
-        $this->info("Database backup saved: {$storagePath} (" . $this->formatBytes($size) . ")");
+        $this->info("Database backup saved: {$storagePath} (".$this->formatBytes($size).')');
     }
 
     protected function backupFull(string $disk, string $basePath, string $timestamp): void
@@ -110,8 +110,9 @@ class BackupRunCommand extends Command
         foreach ($includeDirs as $dir) {
             $fullPath = base_path($dir);
 
-            if (!is_dir($fullPath)) {
+            if (! is_dir($fullPath)) {
                 $this->warn("Directory not found, skipping: {$dir}");
+
                 continue;
             }
 
@@ -124,7 +125,7 @@ class BackupRunCommand extends Command
 
             $count = 0;
             foreach ($files as $file) {
-                $relativePath = str_replace($fullPath . DIRECTORY_SEPARATOR, '', $file->getRealPath());
+                $relativePath = str_replace($fullPath.DIRECTORY_SEPARATOR, '', $file->getRealPath());
 
                 // Check exclusions
                 $skip = false;
@@ -141,6 +142,7 @@ class BackupRunCommand extends Command
                 $maxSize = config('backup.max_file_size', 500) * 1024 * 1024;
                 if ($maxSize > 0 && $file->getSize() > $maxSize) {
                     $this->warn("Skipping large file: {$relativePath}");
+
                     continue;
                 }
 
@@ -166,20 +168,20 @@ class BackupRunCommand extends Command
             escapeshellarg($host),
             escapeshellarg($port),
             escapeshellarg($username),
-            $password ? '--password=' . escapeshellarg($password) : '',
+            $password ? '--password='.escapeshellarg($password) : '',
             escapeshellarg($database),
             escapeshellarg($outputPath)
         );
 
         $result = null;
         $output = [];
-        exec($command . ' 2>&1', $output, $result);
+        exec($command.' 2>&1', $output, $result);
 
         if ($result !== 0) {
-            throw new Exception('mysqldump failed: ' . implode("\n", $output));
+            throw new Exception('mysqldump failed: '.implode("\n", $output));
         }
 
-        if (!file_exists($outputPath) || filesize($outputPath) === 0) {
+        if (! file_exists($outputPath) || filesize($outputPath) === 0) {
             throw new Exception('mysqldump produced an empty file');
         }
     }
@@ -204,12 +206,12 @@ class BackupRunCommand extends Command
 
         $result = null;
         $output = [];
-        exec($command . ' 2>&1', $output, $result);
+        exec($command.' 2>&1', $output, $result);
 
         putenv('PGPASSWORD');
 
         if ($result !== 0) {
-            throw new Exception('pg_dump failed: ' . implode("\n", $output));
+            throw new Exception('pg_dump failed: '.implode("\n", $output));
         }
     }
 
@@ -218,7 +220,7 @@ class BackupRunCommand extends Command
         $fp = gzopen($destination, 'w9');
         $handle = fopen($source, 'r');
 
-        while (!feof($handle)) {
+        while (! feof($handle)) {
             gzwrite($fp, fread($handle, 1024 * 512));
         }
 
@@ -234,6 +236,7 @@ class BackupRunCommand extends Command
             $bytes /= 1024;
             $i++;
         }
-        return round($bytes, 2) . ' ' . $units[$i];
+
+        return round($bytes, 2).' '.$units[$i];
     }
 }

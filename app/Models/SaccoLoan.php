@@ -60,12 +60,19 @@ class SaccoLoan extends Model
 
     // Loan statuses
     const STATUS_PENDING = 'pending_approval';
+
     const STATUS_APPROVED = 'approved';
+
     const STATUS_DISBURSED = 'disbursed';
+
     const STATUS_ACTIVE = 'active';
+
     const STATUS_COMPLETED = 'completed';
+
     const STATUS_DEFAULTED = 'defaulted';
+
     const STATUS_WRITTEN_OFF = 'written_off';
+
     const STATUS_REJECTED = 'rejected';
 
     /**
@@ -112,7 +119,7 @@ class SaccoLoan extends Model
     public function scopeOverdue($query)
     {
         return $query->whereIn('status', [self::STATUS_DISBURSED, self::STATUS_ACTIVE])
-                     ->where('due_date', '<', now());
+            ->where('due_date', '<', now());
     }
 
     /**
@@ -125,26 +132,28 @@ class SaccoLoan extends Model
 
     public function isOverdue(): bool
     {
-        return $this->due_date && $this->due_date->isPast() 
+        return $this->due_date && $this->due_date->isPast()
             && in_array($this->status, [self::STATUS_DISBURSED, self::STATUS_ACTIVE]);
     }
 
     public function getDaysOverdue(): int
     {
-        if (!$this->isOverdue()) {
+        if (! $this->isOverdue()) {
             return 0;
         }
+
         return $this->due_date->diffInDays(now());
     }
 
     public function calculateLateFee(): float
     {
-        if (!$this->isOverdue()) {
+        if (! $this->isOverdue()) {
             return 0;
         }
 
         $daysOverdue = $this->getDaysOverdue();
         $lateFeeRate = config('sacco.late_fee_per_day', 100); // UGX per day
+
         return $daysOverdue * $lateFeeRate;
     }
 
@@ -153,6 +162,7 @@ class SaccoLoan extends Model
         if ($this->total_amount <= 0) {
             return 0;
         }
+
         return ($this->amount_paid / $this->total_amount) * 100;
     }
 

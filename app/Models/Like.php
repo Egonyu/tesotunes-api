@@ -54,7 +54,7 @@ class Like extends Model
             $likeable->decrement('like_count');
 
             // Create activity for unlike
-            Activity::createForUser($user, 'unliked_' . class_basename($likeable), $likeable);
+            Activity::createForUser($user, 'unliked_'.class_basename($likeable), $likeable);
 
             return false; // Unliked
         } else {
@@ -67,14 +67,14 @@ class Like extends Model
             $likeable->increment('like_count');
 
             // Create activity for like
-            Activity::createForUser($user, 'liked_' . class_basename($likeable), $likeable);
+            Activity::createForUser($user, 'liked_'.class_basename($likeable), $likeable);
 
             // Notify content owner (if not self-like)
             if (method_exists($likeable, 'user') && $likeable->user && $likeable->user->id !== $user->id) {
                 $likeable->user->notifications()->create([
                     'notification_type' => 'content_liked',  // Fixed: was 'type'
                     'title' => 'New Like',
-                    'message' => "{$user->name} liked your " . class_basename($likeable),
+                    'message' => "{$user->name} liked your ".class_basename($likeable),
                     'metadata' => [  // Fixed: was 'data'
                         'liker_id' => $user->id,
                         'likeable_type' => get_class($likeable),

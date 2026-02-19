@@ -2,25 +2,23 @@
 
 namespace App\Services;
 
-use App\Models\Activity;
-use App\Models\FeedItem as FeedItemModel;
-use App\Models\User;
 use App\DTOs\Feed\FeedItem as FeedItemDTO;
 use App\Feed\FeedItemFactory;
 use App\Feed\TransformerRegistry;
+use App\Models\Activity;
+use App\Models\FeedItem as FeedItemModel;
+use App\Models\User;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Pagination\LengthAwarePaginator;
-use Carbon\Carbon;
 
 /**
  * Feed Service
- * 
+ *
  * New feed service that works with FeedItem model and DTOs.
  * Provides both legacy Activity-based feed and new FeedItem-based feed.
- * 
+ *
  * Features:
  * - FeedItem model as primary source
  * - DTO conversion for API responses
@@ -32,18 +30,27 @@ use Carbon\Carbon;
 class FeedService
 {
     protected ?User $user = null;
+
     protected FeedRankingService $rankingService;
+
     protected ContentDiversityService $diversityService;
+
     protected TransformerRegistry $transformerRegistry;
-    
+
     protected array $modules = [];
+
     protected array $types = [];
+
     protected array $excludeTypes = [];
+
     protected array $excludeActors = [];
-    
+
     protected int $perPage;
+
     protected bool $supportsTagging;
+
     protected bool $includePrestigeOnly = false;
+
     protected ?string $region = null;
 
     public function __construct(
@@ -71,6 +78,7 @@ class FeedService
     public function forUser(?User $user): self
     {
         $this->user = $user;
+
         return $this;
     }
 
@@ -80,6 +88,7 @@ class FeedService
     public function perPage(int $perPage): self
     {
         $this->perPage = min($perPage, config('feed.pagination.max_per_page', 50));
+
         return $this;
     }
 
@@ -89,6 +98,7 @@ class FeedService
     public function forModules(array $modules): self
     {
         $this->modules = $modules;
+
         return $this;
     }
 
@@ -98,6 +108,7 @@ class FeedService
     public function ofTypes(array $types): self
     {
         $this->types = $types;
+
         return $this;
     }
 
@@ -107,6 +118,7 @@ class FeedService
     public function excludeTypes(array $types): self
     {
         $this->excludeTypes = $types;
+
         return $this;
     }
 
@@ -116,6 +128,7 @@ class FeedService
     public function excludeActors(array $actorIds): self
     {
         $this->excludeActors = $actorIds;
+
         return $this;
     }
 
@@ -125,6 +138,7 @@ class FeedService
     public function prestigeOnly(): self
     {
         $this->includePrestigeOnly = true;
+
         return $this;
     }
 
@@ -134,6 +148,7 @@ class FeedService
     public function forRegion(string $region): self
     {
         $this->region = $region;
+
         return $this;
     }
 
@@ -147,6 +162,7 @@ class FeedService
     public function forYou(): self
     {
         $this->modules = ['music', 'events', 'awards', 'store', 'ojokotau', 'loyalty', 'forum'];
+
         return $this;
     }
 
@@ -157,6 +173,7 @@ class FeedService
     {
         // Will be filtered in query to only show followed actors
         $this->modules = ['music', 'events', 'awards', 'store', 'ojokotau', 'loyalty'];
+
         return $this;
     }
 
@@ -167,6 +184,7 @@ class FeedService
     {
         $this->modules = ['music', 'events', 'awards', 'ojokotau'];
         $this->includePrestigeOnly = false;
+
         return $this;
     }
 
@@ -176,6 +194,7 @@ class FeedService
     public function music(): self
     {
         $this->modules = ['music'];
+
         return $this;
     }
 
@@ -185,6 +204,7 @@ class FeedService
     public function events(): self
     {
         $this->modules = ['events'];
+
         return $this;
     }
 
@@ -194,6 +214,7 @@ class FeedService
     public function awards(): self
     {
         $this->modules = ['awards'];
+
         return $this;
     }
 
@@ -215,6 +236,7 @@ class FeedService
             $cached = $this->getCachedFeed($cacheKey);
             if ($cached !== null) {
                 $this->logPerformance('cache_hit', $startTime);
+
                 return $cached;
             }
         }
@@ -273,8 +295,8 @@ class FeedService
     {
         $feedItems = $this->queryFeedItems($limit);
         $ranked = $this->rankingService->rankFeedItems($this->user, $feedItems);
-        
-        return $ranked->map(fn($item) => $this->itemToDTO($item));
+
+        return $ranked->map(fn ($item) => $this->itemToDTO($item));
     }
 
     /**
@@ -287,22 +309,22 @@ class FeedService
             ->visible($this->user);
 
         // Filter by modules
-        if (!empty($this->modules)) {
+        if (! empty($this->modules)) {
             $query->whereIn('module', $this->modules);
         }
 
         // Filter by types
-        if (!empty($this->types)) {
+        if (! empty($this->types)) {
             $query->whereIn('type', $this->types);
         }
 
         // Exclude types
-        if (!empty($this->excludeTypes)) {
+        if (! empty($this->excludeTypes)) {
             $query->whereNotIn('type', $this->excludeTypes);
         }
 
         // Exclude actors
-        if (!empty($this->excludeActors)) {
+        if (! empty($this->excludeActors)) {
             $query->whereNotIn('actor_id', $this->excludeActors);
         }
 
@@ -347,12 +369,12 @@ class FeedService
      */
     protected function getFollowedActorIds(): Collection
     {
-        if (!$this->user) {
+        if (! $this->user) {
             return collect();
         }
 
         $cacheKey = "user:{$this->user->id}:followed_actors";
-        
+
         return Cache::remember($cacheKey, 3600, function () {
             return $this->user->following()->pluck('followable_id');
         });
@@ -368,15 +390,16 @@ class FeedService
     public function getLegacy(int $page = 1): LengthAwarePaginator
     {
         $activities = $this->queryActivities();
-        
+
         // Convert activities to FeedItem DTOs
         $feedItems = $activities->map(function ($activity) {
             try {
                 return FeedItemFactory::fromActivity($activity);
             } catch (\Exception $e) {
                 Log::warning("Failed to convert activity to DTO: {$activity->id}", [
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
                 ]);
+
                 return null;
             }
         })->filter();
@@ -398,9 +421,9 @@ class FeedService
             ->where('created_at', '>', now()->subDays(14));
 
         // Module type filtering
-        if (!empty($this->modules)) {
+        if (! empty($this->modules)) {
             $activityTypes = $this->modulesToActivityTypes($this->modules);
-            if (!empty($activityTypes)) {
+            if (! empty($activityTypes)) {
                 $query->whereIn('type', $activityTypes);
             }
         }
@@ -446,7 +469,7 @@ class FeedService
         // Balance by module
         $balanced = $this->diversityService->balanceByCategory(
             $items,
-            fn($item) => $item->module,
+            fn ($item) => $item->module,
             $this->perPage * 3
         );
 
@@ -467,10 +490,10 @@ class FeedService
     {
         $total = $items->count();
         $offset = ($page - 1) * $this->perPage;
-        
+
         $pageItems = $items
             ->slice($offset, $this->perPage)
-            ->map(fn($item) => $this->itemToDTO($item))
+            ->map(fn ($item) => $this->itemToDTO($item))
             ->values();
 
         return new LengthAwarePaginator(
@@ -489,7 +512,7 @@ class FeedService
     {
         $total = $items->count();
         $offset = ($page - 1) * $this->perPage;
-        
+
         $pageItems = $items
             ->slice($offset, $this->perPage)
             ->values();
@@ -510,7 +533,7 @@ class FeedService
     {
         $total = $dtos->count();
         $offset = ($page - 1) * $this->perPage;
-        
+
         $pageItems = $dtos->slice($offset, $this->perPage)->values();
 
         return new LengthAwarePaginator(
@@ -532,14 +555,14 @@ class FeedService
         $modules = implode(',', $this->modules);
         $types = implode(',', $this->types);
         $prestige = $this->includePrestigeOnly ? '1' : '0';
-        
+
         return "feed_v2:{$userId}:m:{$modules}:t:{$types}:p:{$prestige}:page:{$page}";
     }
 
     protected function getCachedFeed(string $cacheKey): ?LengthAwarePaginator
     {
         $ttl = config('feed.cache.ttl.feed', 300);
-        
+
         $cached = $this->supportsTagging
             ? Cache::tags(['feed', "user:{$this->user?->id}"])->get($cacheKey)
             : Cache::get($cacheKey);
@@ -574,7 +597,7 @@ class FeedService
 
     protected function logPerformance(string $type, float $startTime): void
     {
-        if (!config('feed.analytics.enabled', true)) {
+        if (! config('feed.analytics.enabled', true)) {
             return;
         }
 
@@ -589,7 +612,7 @@ class FeedService
 
         $threshold = config('feed.monitoring.slow_query_threshold', 500);
         if ($duration > $threshold) {
-            Log::warning("Slow FeedV2 generation", [
+            Log::warning('Slow FeedV2 generation', [
                 'user_id' => $this->user?->id,
                 'duration_ms' => round($duration, 2),
             ]);

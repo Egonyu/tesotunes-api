@@ -28,7 +28,7 @@ class SaccoLoanRepayment extends Model
                 $repayment->uuid = (string) Str::uuid();
             }
             if (empty($repayment->payment_code)) {
-                $repayment->payment_code = 'REP' . now()->format('YmdHis') . rand(1000, 9999);
+                $repayment->payment_code = 'REP'.now()->format('YmdHis').rand(1000, 9999);
             }
         });
     }
@@ -102,7 +102,7 @@ class SaccoLoanRepayment extends Model
      */
     public function getDaysOverdueAttribute(): int
     {
-        if (!$this->isOverdue()) {
+        if (! $this->isOverdue()) {
             return 0;
         }
 
@@ -114,6 +114,6 @@ class SaccoLoanRepayment extends Model
      */
     public function getFormattedAmountAttribute(): string
     {
-        return 'UGX ' . number_format($this->amount_due, 2);
+        return 'UGX '.number_format($this->amount_due, 2);
     }
 }

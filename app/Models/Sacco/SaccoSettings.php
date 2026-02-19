@@ -26,8 +26,8 @@ class SaccoSettings extends Model
     {
         return Cache::remember("sacco_setting:{$key}", 3600, function () use ($key, $default) {
             $setting = self::where('key', $key)->first();
-            
-            if (!$setting) {
+
+            if (! $setting) {
                 return $default;
             }
 
@@ -59,7 +59,7 @@ class SaccoSettings extends Model
 
     protected static function castValue($value, string $type)
     {
-        return match($type) {
+        return match ($type) {
             'integer' => (int) $value,
             'decimal', 'float' => (float) $value,
             'boolean' => filter_var($value, FILTER_VALIDATE_BOOLEAN),

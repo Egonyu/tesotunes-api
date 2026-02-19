@@ -4,13 +4,15 @@ namespace App\Services\Audio;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
-use Illuminate\Support\Facades\Storage;
 
 class FFmpegService
 {
     protected string $ffmpegBinary;
+
     protected string $ffprobeBinary;
+
     protected int $timeout;
+
     protected int $threads;
 
     public function __construct()
@@ -24,10 +26,10 @@ class FFmpegService
     /**
      * Transcode audio to specified bitrate
      *
-     * @param string $inputPath Path to input file
-     * @param string $outputPath Path to output file
-     * @param string $bitrate Bitrate (e.g., '320k', '128k')
-     * @param int $sampleRate Sample rate in Hz (default: 44100)
+     * @param  string  $inputPath  Path to input file
+     * @param  string  $outputPath  Path to output file
+     * @param  string  $bitrate  Bitrate (e.g., '320k', '128k')
+     * @param  int  $sampleRate  Sample rate in Hz (default: 44100)
      * @return bool Success status
      */
     public function transcode(string $inputPath, string $outputPath, string $bitrate, int $sampleRate = 44100): bool
@@ -54,15 +56,16 @@ class FFmpegService
                     'input' => $inputPath,
                     'output' => $outputPath,
                     'bitrate' => $bitrate,
-                    'error' => $result->errorOutput()
+                    'error' => $result->errorOutput(),
                 ]);
+
                 return false;
             }
 
             Log::info('Audio transcoded successfully', [
                 'input' => $inputPath,
                 'output' => $outputPath,
-                'bitrate' => $bitrate
+                'bitrate' => $bitrate,
             ]);
 
             return true;
@@ -71,8 +74,9 @@ class FFmpegService
             Log::error('FFmpeg transcoding exception', [
                 'error' => $e->getMessage(),
                 'input' => $inputPath,
-                'output' => $outputPath
+                'output' => $outputPath,
             ]);
+
             return false;
         }
     }
@@ -80,10 +84,10 @@ class FFmpegService
     /**
      * Generate 30-second preview clip
      *
-     * @param string $inputPath Path to input file
-     * @param string $outputPath Path to output file
-     * @param int $startTime Start time in seconds (default: 0)
-     * @param int $duration Duration in seconds (default: 30)
+     * @param  string  $inputPath  Path to input file
+     * @param  string  $outputPath  Path to output file
+     * @param  int  $startTime  Start time in seconds (default: 0)
+     * @param  int  $duration  Duration in seconds (default: 30)
      * @return bool Success status
      */
     public function generatePreview(string $inputPath, string $outputPath, int $startTime = 0, int $duration = 30): bool
@@ -114,15 +118,16 @@ class FFmpegService
                 Log::error('FFmpeg preview generation failed', [
                     'input' => $inputPath,
                     'output' => $outputPath,
-                    'error' => $result->errorOutput()
+                    'error' => $result->errorOutput(),
                 ]);
+
                 return false;
             }
 
             Log::info('Preview generated successfully', [
                 'input' => $inputPath,
                 'output' => $outputPath,
-                'duration' => $duration
+                'duration' => $duration,
             ]);
 
             return true;
@@ -131,8 +136,9 @@ class FFmpegService
             Log::error('FFmpeg preview generation exception', [
                 'error' => $e->getMessage(),
                 'input' => $inputPath,
-                'output' => $outputPath
+                'output' => $outputPath,
             ]);
+
             return false;
         }
     }
@@ -140,10 +146,10 @@ class FFmpegService
     /**
      * Generate waveform image
      *
-     * @param string $inputPath Path to input file
-     * @param string $outputPath Path to output PNG file
-     * @param string $size Image size (e.g., '1920x200')
-     * @param string $color Waveform color (default: 'blue')
+     * @param  string  $inputPath  Path to input file
+     * @param  string  $outputPath  Path to output PNG file
+     * @param  string  $size  Image size (e.g., '1920x200')
+     * @param  string  $color  Waveform color (default: 'blue')
      * @return bool Success status
      */
     public function generateWaveform(string $inputPath, string $outputPath, string $size = '1920x200', string $color = 'blue'): bool
@@ -174,15 +180,16 @@ class FFmpegService
                 Log::error('FFmpeg waveform generation failed', [
                     'input' => $inputPath,
                     'output' => $outputPath,
-                    'error' => $result->errorOutput()
+                    'error' => $result->errorOutput(),
                 ]);
+
                 return false;
             }
 
             Log::info('Waveform generated successfully', [
                 'input' => $inputPath,
                 'output' => $outputPath,
-                'size' => $size
+                'size' => $size,
             ]);
 
             return true;
@@ -191,8 +198,9 @@ class FFmpegService
             Log::error('FFmpeg waveform generation exception', [
                 'error' => $e->getMessage(),
                 'input' => $inputPath,
-                'output' => $outputPath
+                'output' => $outputPath,
             ]);
+
             return false;
         }
     }
@@ -200,7 +208,7 @@ class FFmpegService
     /**
      * Extract audio metadata using ffprobe
      *
-     * @param string $filePath Path to audio file
+     * @param  string  $filePath  Path to audio file
      * @return array|null Audio metadata or null on failure
      */
     public function extractMetadata(string $filePath): ?array
@@ -221,20 +229,21 @@ class FFmpegService
             if ($result->failed()) {
                 Log::error('FFprobe metadata extraction failed', [
                     'file' => $filePath,
-                    'error' => $result->errorOutput()
+                    'error' => $result->errorOutput(),
                 ]);
+
                 return null;
             }
 
             $data = json_decode($result->output(), true);
 
-            if (!$data) {
+            if (! $data) {
                 return null;
             }
 
             // Extract relevant audio stream info
             $audioStream = collect($data['streams'] ?? [])
-                ->first(fn($stream) => ($stream['codec_type'] ?? '') === 'audio');
+                ->first(fn ($stream) => ($stream['codec_type'] ?? '') === 'audio');
 
             return [
                 'duration' => (float) ($data['format']['duration'] ?? 0),
@@ -249,8 +258,9 @@ class FFmpegService
         } catch (\Exception $e) {
             Log::error('FFprobe metadata extraction exception', [
                 'error' => $e->getMessage(),
-                'file' => $filePath
+                'file' => $filePath,
             ]);
+
             return null;
         }
     }
@@ -264,6 +274,7 @@ class FFmpegService
     {
         try {
             $result = Process::run("{$this->ffmpegBinary} -version");
+
             return $result->successful();
         } catch (\Exception $e) {
             return false;
@@ -281,8 +292,10 @@ class FFmpegService
             $result = Process::run("{$this->ffmpegBinary} -version");
             if ($result->successful()) {
                 $lines = explode("\n", $result->output());
+
                 return $lines[0] ?? null;
             }
+
             return null;
         } catch (\Exception $e) {
             return null;
@@ -292,17 +305,15 @@ class FFmpegService
     /**
      * Transcode using quality preset
      *
-     * @param string $inputPath
-     * @param string $outputPath
-     * @param string $preset 'high', 'medium', 'low', or 'preview'
-     * @return bool
+     * @param  string  $preset  'high', 'medium', 'low', or 'preview'
      */
     public function transcodeWithPreset(string $inputPath, string $outputPath, string $preset = 'medium'): bool
     {
         $config = config("ffmpeg.quality_presets.{$preset}");
-        
-        if (!$config) {
+
+        if (! $config) {
             Log::error("Invalid FFmpeg preset: {$preset}");
+
             return false;
         }
 
@@ -316,8 +327,6 @@ class FFmpegService
 
     /**
      * Get supported audio formats
-     *
-     * @return array
      */
     public function getSupportedFormats(): array
     {
@@ -326,15 +335,13 @@ class FFmpegService
 
     /**
      * Create necessary directories for FFmpeg operations
-     *
-     * @return void
      */
     public function ensureDirectories(): void
     {
         $paths = config('ffmpeg.paths', []);
-        
+
         foreach ($paths as $path) {
-            if (!file_exists($path)) {
+            if (! file_exists($path)) {
                 mkdir($path, 0755, true);
             }
         }

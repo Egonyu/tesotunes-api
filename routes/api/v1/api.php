@@ -1,8 +1,7 @@
 <?php
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
+use Illuminate\Support\Facades\Route;
 
 // Authentication routes for API tokens
 Route::post('/auth/login', [AuthController::class, 'login'])->name('api.auth.login');

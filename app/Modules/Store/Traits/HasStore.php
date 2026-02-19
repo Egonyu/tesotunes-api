@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * Trait HasStore
- * 
+ *
  * Adds store functionality to User model
  * Usage: use HasStore; in User model
  */
@@ -26,7 +26,7 @@ trait HasStore
      */
     public function hasStore(): bool
     {
-        if (!config('store.enabled', false)) {
+        if (! config('store.enabled', false)) {
             return false;
         }
 
@@ -39,7 +39,7 @@ trait HasStore
     public function canCreateStore(): bool
     {
         // Module must be enabled
-        if (!config('store.enabled', false)) {
+        if (! config('store.enabled', false)) {
             return false;
         }
 
@@ -49,7 +49,7 @@ trait HasStore
         }
 
         // Must be verified
-        if (!$this->email_verified_at) {
+        if (! $this->email_verified_at) {
             return false;
         }
 
@@ -87,11 +87,11 @@ trait HasStore
      */
     public function getStoreTransactionFee(): float
     {
-        if (!$this->hasStore()) {
+        if (! $this->hasStore()) {
             return config('store.fees.free_tier', 7.0);
         }
 
-        return match($this->store->subscription_tier) {
+        return match ($this->store->subscription_tier) {
             'premium' => config('store.fees.premium_tier', 5.0),
             'business' => config('store.fees.business_tier', 3.0),
             default => config('store.fees.free_tier', 7.0),

@@ -2,22 +2,22 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Blade;
-use Illuminate\Support\Facades\Event as EventFacade;
-use Illuminate\Cache\RateLimiting\Limit;
-use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Http\Request;
-use App\Models\Setting;
-use App\Models\Payment;
-// use App\Models\ArtistPayout; // Not yet implemented
+use App\Models\Album;
 use App\Models\ArtistRevenue;
-use App\Models\Song;
+use App\Models\AwardVote;
 use App\Models\Event as EventModel;
 use App\Models\Like;
-use App\Models\Album;
+use App\Models\Payment;
 use App\Models\Playlist;
-use App\Models\AwardVote;
+use App\Models\Setting;
+// use App\Models\ArtistPayout; // Not yet implemented
+use App\Models\Song;
+use App\Observers\AlbumObserver;
+use App\Observers\ArtistPayoutObserver;
+use App\Observers\ArtistRevenueObserver;
+use App\Observers\AwardVoteObserver;
+use App\Observers\EventObserver;
+use App\Observers\LikeObserver;
 // use App\Models\UserFollow; // Not yet implemented
 // use App\Models\Comment; // Not yet implemented
 // use App\Models\Share; // Not yet implemented
@@ -27,14 +27,14 @@ use App\Models\AwardVote;
 // use App\Models\Modules\Forum\ForumReply; // Not yet implemented
 // use App\Models\Modules\Forum\Poll; // Not yet implemented
 use App\Observers\PaymentObserver;
-use App\Observers\ArtistPayoutObserver;
-use App\Observers\ArtistRevenueObserver;
-use App\Observers\SongObserver;
-use App\Observers\EventObserver;
-use App\Observers\LikeObserver;
-use App\Observers\AlbumObserver;
 use App\Observers\PlaylistObserver;
-use App\Observers\AwardVoteObserver;
+use App\Observers\SongObserver;
+use App\Services\Payment\ZengaPayService;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Event as EventFacade;
+use Illuminate\Support\Facades\RateLimiter;
 // use App\Observers\UserFollowObserver; // Not yet implemented
 // use App\Observers\CommentObserver; // Not yet implemented
 // use App\Observers\ShareObserver; // Not yet implemented
@@ -43,7 +43,7 @@ use App\Observers\AwardVoteObserver;
 // use App\Observers\ForumTopicObserver; // Not yet implemented
 // use App\Observers\ForumReplyObserver; // Not yet implemented
 // use App\Observers\PollObserver; // Not yet implemented
-use App\Services\Payment\ZengaPayService;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -54,7 +54,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Register ZengaPay Service as singleton
         $this->app->singleton(ZengaPayService::class, function ($app) {
-            return new ZengaPayService();
+            return new ZengaPayService;
         });
     }
 
@@ -67,14 +67,14 @@ class AppServiceProvider extends ServiceProvider
         Payment::observe(PaymentObserver::class);
         // ArtistPayout::observe(ArtistPayoutObserver::class); // Not yet implemented
         ArtistRevenue::observe(ArtistRevenueObserver::class);
-        
+
         // Register observer for store reviews
         // \App\Modules\Store\Models\Review::observe(\App\Observers\ReviewObserver::class); // Not yet implemented
-        
+
         // Register observers for timeline activities (Timeline Phase 2)
         // User::observe(UserObserver::class); // Not yet implemented
         // Artist::observe(ArtistObserver::class); // Not yet implemented
-        
+
         // Register observers for activity tracking (Phase 4: Activity Tracking)
         Song::observe(SongObserver::class);
         Album::observe(AlbumObserver::class);
@@ -85,32 +85,32 @@ class AppServiceProvider extends ServiceProvider
         // Comment::observe(CommentObserver::class); // Not yet implemented
         // Share::observe(ShareObserver::class); // Not yet implemented
         AwardVote::observe(AwardVoteObserver::class);
-        
+
         // Register observers for Awards module (Phase 3: Feed Infrastructure)
         // \App\Models\Award::observe(\App\Observers\AwardObserver::class); // Not yet implemented
         // \App\Models\AwardNomination::observe(\App\Observers\AwardNominationObserver::class); // Not yet implemented
         // \App\Models\AwardWinner::observe(\App\Observers\AwardWinnerObserver::class); // Not yet implemented
-        
+
         // Register observers for Store module (Phase 3: Feed Infrastructure)
         // \App\Modules\Store\Models\Product::observe(\App\Observers\Store\ProductObserver::class); // Not yet implemented
         // \App\Modules\Store\Models\Store::observe(\App\Observers\Store\StoreObserver::class); // Not yet implemented
         // \App\Models\Order::observe(\App\Observers\Store\OrderObserver::class); // Not yet implemented
-        
+
         // Register observers for SACCO module (Phase 3: Feed Infrastructure)
         // \App\Models\Sacco\SaccoDividend::observe(\App\Observers\Sacco\SaccoDividendObserver::class); // Not yet implemented
         // \App\Models\Sacco\SaccoMember::observe(\App\Observers\Sacco\SaccoMemberObserver::class); // Not yet implemented
         // \App\Models\Sacco\SaccoMemberDividend::observe(\App\Observers\Sacco\SaccoMemberDividendObserver::class); // Not yet implemented
-        
+
         // Register observers for Ojokotau module (Phase 3: Feed Infrastructure)
         // \App\Modules\Ojokotau\Models\Campaign::observe(\App\Observers\Ojokotau\CampaignObserver::class); // Not yet implemented
         // \App\Modules\Ojokotau\Models\CampaignEndorsement::observe(\App\Observers\Ojokotau\CampaignEndorsementObserver::class); // Not yet implemented
         // \App\Modules\Ojokotau\Models\CampaignPledge::observe(\App\Observers\Ojokotau\CampaignPledgeObserver::class); // Not yet implemented
-        
+
         // Register observers for Loyalty module
         // \App\Models\Loyalty\LoyaltyCardMember::observe(\App\Observers\Loyalty\LoyaltyCardMemberObserver::class); // Not yet implemented
         // \App\Models\Loyalty\LoyaltyCard::observe(\App\Observers\Loyalty\LoyaltyCardObserver::class); // Not yet implemented
         // \App\Models\Loyalty\LoyaltyReward::observe(\App\Observers\Loyalty\LoyaltyRewardObserver::class); // Not yet implemented
-        
+
         // Register event listeners for loyalty points
         EventFacade::listen(
             \App\Events\AttendeeCheckedIn::class,
@@ -150,7 +150,7 @@ class AppServiceProvider extends ServiceProvider
             \Illuminate\Auth\Events\PasswordReset::class,
             [\App\Listeners\AuditLoggingListener::class, 'handlePasswordReset']
         );
-        
+
         // Register observers for Forum & Polls module (Phase 4: Dashboard Integration)
         // ForumTopic::observe(ForumTopicObserver::class); // Not yet implemented
         // ForumReply::observe(ForumReplyObserver::class); // Not yet implemented
@@ -214,7 +214,7 @@ class AppServiceProvider extends ServiceProvider
         });
 
         Blade::directive('endenv', function () {
-            return "<?php endif; ?>";
+            return '<?php endif; ?>';
         });
 
         Blade::if('promotionsEnabled', function () {
@@ -232,16 +232,16 @@ class AppServiceProvider extends ServiceProvider
         Blade::if('playlistsEnabled', function () {
             return Setting::get('playlist_creation_enabled', true);
         });
-        
+
         // Authentication settings Blade directives
         Blade::if('emailLoginEnabled', function () {
             return Setting::get('auth_email_login_enabled', true);
         });
-        
+
         Blade::if('phoneLoginEnabled', function () {
             return Setting::get('auth_phone_login_enabled', true);
         });
-        
+
         Blade::if('socialLoginEnabled', function ($provider) {
             return Setting::get("auth_{$provider}_login_enabled", false);
         });
@@ -262,21 +262,21 @@ class AppServiceProvider extends ServiceProvider
             $requireSpecial = Setting::get('auth_password_require_special_char', true);
             $requireNumber = Setting::get('auth_password_require_number', true);
             $requireUpper = Setting::get('auth_password_require_uppercase', true);
-            
+
             $rule = \Illuminate\Validation\Rules\Password::min($minLength);
-            
+
             if ($requireSpecial) {
                 $rule->symbols();
             }
-            
+
             if ($requireNumber) {
                 $rule->numbers();
             }
-            
+
             if ($requireUpper) {
                 $rule->mixedCase();
             }
-            
+
             return $rule;
         });
     }
@@ -290,6 +290,7 @@ class AppServiceProvider extends ServiceProvider
         // Login attempts (prevent brute force) - now uses settings
         RateLimiter::for('login', function (Request $request) {
             $maxAttempts = Setting::get('auth_max_login_attempts', 5);
+
             return Limit::perMinute($maxAttempts)->by($request->ip());
         });
 
@@ -305,6 +306,7 @@ class AppServiceProvider extends ServiceProvider
             if ($request->user()?->hasActiveSubscription()) {
                 return Limit::none();
             }
+
             return Limit::perMinute(30)->by($request->user()?->id ?? $request->ip());
         });
 

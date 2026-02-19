@@ -10,7 +10,6 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Storage;
 
 class WatermarkAudioJob implements ShouldQueue
 {
@@ -56,8 +55,9 @@ class WatermarkAudioJob implements ShouldQueue
             // Get the audio file path
             $audioPath = $this->getAudioPath();
 
-            if (!$audioPath || !file_exists($audioPath)) {
+            if (! $audioPath || ! file_exists($audioPath)) {
                 Log::error("Audio file not found for song {$this->song->id}: {$audioPath}");
+
                 return;
             }
 
@@ -66,13 +66,13 @@ class WatermarkAudioJob implements ShouldQueue
 
             // Ensure output directory exists
             $outputDir = dirname($outputPath);
-            if (!is_dir($outputDir)) {
+            if (! is_dir($outputDir)) {
                 mkdir($outputDir, 0755, true);
             }
 
             // Perform watermarking
             Log::info("Watermarking: {$audioPath} -> {$outputPath}");
-            
+
             $success = $watermarkService->watermarkAudio($audioPath, $outputPath, [
                 'positions' => ['start', 'middle', 'end'],
                 'volume' => 0.25, // 25% volume for watermark
@@ -93,11 +93,11 @@ class WatermarkAudioJob implements ShouldQueue
             }
 
         } catch (\Exception $e) {
-            Log::error("Error watermarking song {$this->song->id}: " . $e->getMessage(), [
+            Log::error("Error watermarking song {$this->song->id}: ".$e->getMessage(), [
                 'song_id' => $this->song->id,
                 'quality' => $this->quality,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             // Re-throw to trigger retry mechanism
@@ -114,9 +114,9 @@ class WatermarkAudioJob implements ShouldQueue
         $songId = $this->song->id;
 
         $paths = [
-            'original' => storage_path("app/music/{$userId}/{$songId}/original/" . $this->song->file_path),
-            '320kbps' => storage_path("app/music/{$userId}/{$songId}/320kbps/" . basename($this->song->file_path)),
-            '128kbps' => storage_path("app/music/{$userId}/{$songId}/128kbps/" . basename($this->song->file_path)),
+            'original' => storage_path("app/music/{$userId}/{$songId}/original/".$this->song->file_path),
+            '320kbps' => storage_path("app/music/{$userId}/{$songId}/320kbps/".basename($this->song->file_path)),
+            '128kbps' => storage_path("app/music/{$userId}/{$songId}/128kbps/".basename($this->song->file_path)),
         ];
 
         return $paths[$this->quality] ?? null;
@@ -155,9 +155,9 @@ class WatermarkAudioJob implements ShouldQueue
     {
         try {
             // Backup original file
-            $backupPath = $originalPath . '.original.backup';
-            
-            if (!file_exists($backupPath)) {
+            $backupPath = $originalPath.'.original.backup';
+
+            if (! file_exists($backupPath)) {
                 copy($originalPath, $backupPath);
                 Log::info("Created backup: {$backupPath}");
             }
@@ -168,7 +168,8 @@ class WatermarkAudioJob implements ShouldQueue
 
             return true;
         } catch (\Exception $e) {
-            Log::error("Failed to replace original file: " . $e->getMessage());
+            Log::error('Failed to replace original file: '.$e->getMessage());
+
             return false;
         }
     }
@@ -181,7 +182,7 @@ class WatermarkAudioJob implements ShouldQueue
         Log::error("Watermarking job failed permanently for song {$this->song->id}", [
             'song_id' => $this->song->id,
             'quality' => $this->quality,
-            'error' => $exception->getMessage()
+            'error' => $exception->getMessage(),
         ]);
 
         // Optionally: Notify admin or update song status

@@ -48,7 +48,7 @@ class PaymentRequest extends FormRequest
                     'mtn_mobile_money',
                     'airtel_money',
                     'stripe',
-                    'bank_transfer'
+                    'bank_transfer',
                 ]),
             ],
             'description' => [
@@ -178,7 +178,7 @@ class PaymentRequest extends FormRequest
 
             // Convert 0 prefix to +256
             if (str_starts_with($phoneNumber, '0')) {
-                $phoneNumber = '+256' . substr($phoneNumber, 1);
+                $phoneNumber = '+256'.substr($phoneNumber, 1);
             }
 
             $this->merge(['phone_number' => $phoneNumber]);
@@ -204,7 +204,7 @@ class PaymentRequest extends FormRequest
             // Validate subscription plan is active if provided
             if ($this->filled('subscription_plan_id')) {
                 $plan = \App\Models\SubscriptionPlan::find($this->subscription_plan_id);
-                if ($plan && !$plan->is_active) {
+                if ($plan && ! $plan->is_active) {
                     $validator->errors()->add('subscription_plan_id', 'Selected subscription plan is not available.');
                 }
 
@@ -227,7 +227,7 @@ class PaymentRequest extends FormRequest
 
             $availableMethods = $regionalMethods[$userCountry] ?? $regionalMethods['INTL'];
 
-            if (!in_array($paymentMethod, $availableMethods)) {
+            if (! in_array($paymentMethod, $availableMethods)) {
                 $validator->errors()->add('payment_method', 'This payment method is not available in your region.');
             }
 

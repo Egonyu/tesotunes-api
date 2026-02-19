@@ -2,24 +2,26 @@
 
 namespace App\Modules\Store\Models;
 
+use App\Models\Payment;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\{User, Payment};
 
 /**
  * Order Model
- * 
+ *
  * Represents a customer purchase
  * Supports dual currency payments (UGX + Credits)
  */
 class Order extends Model
 {
     use HasFactory, SoftDeletes;
-    
+
     protected $table = 'orders';
-    
+
     protected static function newFactory()
     {
         return \Database\Factories\OrderFactory::new();
@@ -113,18 +115,28 @@ class Order extends Model
 
     // Status constants
     const STATUS_PENDING = 'pending';
+
     const STATUS_PROCESSING = 'processing';
+
     const STATUS_SHIPPED = 'shipped';
+
     const STATUS_DELIVERED = 'delivered';
+
     const STATUS_COMPLETED = 'completed';
+
     const STATUS_CANCELLED = 'cancelled';
+
     const STATUS_REFUNDED = 'refunded';
+
     const STATUS_FAILED = 'failed';
 
     // Payment status constants
     const PAYMENT_PENDING = 'pending';
+
     const PAYMENT_PAID = 'paid';
+
     const PAYMENT_FAILED = 'failed';
+
     const PAYMENT_REFUNDED = 'refunded';
 
     /*
@@ -142,7 +154,7 @@ class Order extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
-    
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
@@ -280,15 +292,15 @@ class Order extends Model
     public function getFormattedTotalAttribute(): string
     {
         $parts = [];
-        
+
         if ($this->total_ugx > 0) {
-            $parts[] = 'UGX ' . number_format($this->total_ugx, 0);
+            $parts[] = 'UGX '.number_format($this->total_ugx, 0);
         }
-        
+
         if ($this->total_credits > 0) {
-            $parts[] = number_format($this->total_credits) . ' credits';
+            $parts[] = number_format($this->total_credits).' credits';
         }
-        
+
         return implode(' + ', $parts) ?: 'UGX 0';
     }
 
@@ -296,7 +308,7 @@ class Order extends Model
     {
         return $this->subtotal_ugx - $this->platform_fee_ugx;
     }
-    
+
     public function getSellerAmountCreditsAttribute(): int
     {
         return $this->subtotal_credits - ($this->platform_fee_credits ?? 0);
@@ -315,28 +327,28 @@ class Order extends Model
             'paid_at' => now(),
             'status' => self::STATUS_PROCESSING,
         ]);
-        
+
         if ($result) {
             // Dispatch event for loyalty points
             \App\Events\OrderPaid::dispatch($this);
         }
-        
+
         return $result;
     }
 
-    public function markAsShipped(string $trackingNumber = null, string $provider = null): bool
+    public function markAsShipped(?string $trackingNumber = null, ?string $provider = null): bool
     {
         $updates = [
             'status' => self::STATUS_SHIPPED,
             'tracking_number' => $trackingNumber,
             'shipped_at' => now(),
         ];
-        
+
         // Store shipping method instead of provider
         if ($provider) {
             $updates['shipping_method'] = $provider;
         }
-        
+
         return $this->update($updates);
     }
 
@@ -348,22 +360,22 @@ class Order extends Model
         ]);
     }
 
-    public function cancel(string $reason = null): bool
+    public function cancel(?string $reason = null): bool
     {
         $updates = [
             'status' => self::STATUS_CANCELLED,
         ];
-        
+
         // Store cancellation reason in admin_notes if provided
         if ($reason) {
             $updates['admin_notes'] = $reason;
         }
-        
+
         // Refund credits if the order was paid with credits
         if ($this->payment_method === 'credit' && $this->total_credits > 0 && $this->user) {
             $this->user->increment('credits', $this->total_credits);
         }
-        
+
         return $this->update($updates);
     }
 
@@ -374,13 +386,13 @@ class Order extends Model
 
     public function canBeShipped(): bool
     {
-        return $this->status === self::STATUS_PROCESSING 
+        return $this->status === self::STATUS_PROCESSING
             && $this->payment_status === self::PAYMENT_PAID;
     }
 
     public static function generateOrderNumber(): string
     {
-        return 'ORD-' . date('Ymd') . '-' . strtoupper(\Str::random(6));
+        return 'ORD-'.date('Ymd').'-'.strtoupper(\Str::random(6));
     }
 
     /*
@@ -398,10 +410,10 @@ class Order extends Model
         $shipping = floatval($this->attributes['shipping_amount'] ?? 0);
         $tax = floatval($this->attributes['tax_amount'] ?? 0);
         $discount = floatval($this->attributes['discount_amount'] ?? 0);
-        
+
         return $subtotal + $shipping + $tax - $discount;
     }
-    
+
     /**
      * Accessor for shipping_cost - alias for shipping_amount
      */
@@ -409,7 +421,7 @@ class Order extends Model
     {
         return $this->shipping_amount;
     }
-    
+
     /**
      * Mutator for shipping_cost - sets shipping_amount
      */
@@ -429,7 +441,7 @@ class Order extends Model
         parent::boot();
 
         static::creating(function ($order) {
-            if (!$order->order_number) {
+            if (! $order->order_number) {
                 $order->order_number = self::generateOrderNumber();
             }
         });
@@ -438,7 +450,7 @@ class Order extends Model
         static::updated(function ($order) {
             if ($order->isDirty('payment_status') && $order->is_paid) {
                 $order->store->incrementSales(
-                    $order->paid_ugx ?? $order->total_ugx ?? 0, 
+                    $order->paid_ugx ?? $order->total_ugx ?? 0,
                     $order->paid_credits ?? 0
                 );
             }
@@ -456,7 +468,7 @@ class Order extends Model
      */
     public function getProgressPercentage(): int
     {
-        return match($this->status) {
+        return match ($this->status) {
             'pending', 'processing' => 15,
             'confirmed', 'preparing' => 40,
             'shipped', 'in_transit' => 65,
@@ -499,7 +511,7 @@ class Order extends Model
         }
 
         // Calculate based on shipping method
-        $daysToAdd = match($this->shipping_method) {
+        $daysToAdd = match ($this->shipping_method) {
             'express' => 2,
             'standard' => 5,
             default => 5,

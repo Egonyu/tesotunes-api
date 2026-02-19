@@ -23,8 +23,8 @@ class EventResource extends JsonResource
             'status' => $this->status,
 
             // Media
-            'artwork' => $this->artwork ? url('storage/' . $this->artwork) : null,
-            'banner' => $this->banner ? url('storage/' . $this->banner) : null,
+            'artwork' => $this->artwork ? url('storage/'.$this->artwork) : null,
+            'banner' => $this->banner ? url('storage/'.$this->banner) : null,
 
             // Schedule
             'starts_at' => $this->starts_at?->toIso8601String(),
@@ -93,7 +93,7 @@ class EventResource extends JsonResource
                 return [
                     'id' => $this->organizer->id,
                     'name' => $this->organizer->name,
-                    'avatar' => $this->organizer->avatar ? url('storage/' . $this->organizer->avatar) : null,
+                    'avatar' => $this->organizer->avatar ? url('storage/'.$this->organizer->avatar) : null,
                 ];
             }),
 

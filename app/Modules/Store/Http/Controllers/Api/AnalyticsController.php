@@ -5,8 +5,8 @@ namespace App\Modules\Store\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Modules\Store\Models\Store;
 use App\Modules\Store\Services\AnalyticsService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
  * Analytics API Controller

@@ -13,7 +13,7 @@ class ForumCategoryFactory extends Factory
     public function definition(): array
     {
         $name = $this->faker->unique()->words(2, true);
-        
+
         return [
             'name' => ucfirst($name),
             'slug' => Str::slug($name),

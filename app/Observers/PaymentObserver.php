@@ -2,9 +2,9 @@
 
 namespace App\Observers;
 
+use App\Facades\AuditLog;
 use App\Models\Payment;
 use App\Models\User;
-use App\Facades\AuditLog;
 use App\Notifications\AdminPaymentNotification;
 use App\Notifications\ArtistRevenueNotification;
 use App\Notifications\PaymentFailedNotification;
@@ -12,7 +12,6 @@ use App\Notifications\PaymentSuccessNotification;
 use App\Services\Loyalty\PaymentLoyaltyService;
 use App\Services\Sacco\SavingsAutoDepositService;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 
 /**
@@ -85,7 +84,7 @@ class PaymentObserver
             AuditLog::log(
                 'WALLET_EVENT',
                 'payment_created',
-                "Payment initiated: {$payment->currency} " . number_format($payment->amount) . " via {$payment->payment_method}",
+                "Payment initiated: {$payment->currency} ".number_format($payment->amount)." via {$payment->payment_method}",
                 [
                     'actor_id' => $payment->user_id,
                     'actor_name' => $user?->name ?? 'Unknown User',
@@ -105,7 +104,7 @@ class PaymentObserver
                 ]
             );
         } catch (\Exception $e) {
-            Log::error('Failed to log payment to audit log: ' . $e->getMessage());
+            Log::error('Failed to log payment to audit log: '.$e->getMessage());
         }
     }
 
@@ -145,8 +144,8 @@ class PaymentObserver
         // Prevent direct mass assignment of protected fields
         $protectedFields = ['amount', 'currency', 'status', 'transaction_id'];
         $unauthorizedChanges = array_intersect_key($changes, array_flip($protectedFields));
-        
-        if (!empty($unauthorizedChanges) && !$this->isSystemContext()) {
+
+        if (! empty($unauthorizedChanges) && ! $this->isSystemContext()) {
             Log::channel('audit')->critical('Unauthorized payment field modification attempt', [
                 'id' => $payment->id,
                 'transaction_id' => $payment->transaction_id,
@@ -191,7 +190,7 @@ class PaymentObserver
     {
         try {
             $user = $payment->user;
-            $severity = match($newStatus) {
+            $severity = match ($newStatus) {
                 Payment::STATUS_COMPLETED => 'info',
                 Payment::STATUS_FAILED => 'warning',
                 Payment::STATUS_REFUNDED => 'warning',
@@ -199,17 +198,17 @@ class PaymentObserver
                 default => 'info',
             };
 
-            $narrative = match($newStatus) {
-                Payment::STATUS_COMPLETED => "Payment completed: {$payment->currency} " . number_format($payment->amount),
-                Payment::STATUS_FAILED => "Payment failed: {$payment->currency} " . number_format($payment->amount) . " - " . ($payment->failure_reason ?? 'Unknown reason'),
-                Payment::STATUS_REFUNDED => "Payment refunded: {$payment->currency} " . number_format($payment->amount),
-                Payment::STATUS_CANCELLED => "Payment cancelled: {$payment->currency} " . number_format($payment->amount),
+            $narrative = match ($newStatus) {
+                Payment::STATUS_COMPLETED => "Payment completed: {$payment->currency} ".number_format($payment->amount),
+                Payment::STATUS_FAILED => "Payment failed: {$payment->currency} ".number_format($payment->amount).' - '.($payment->failure_reason ?? 'Unknown reason'),
+                Payment::STATUS_REFUNDED => "Payment refunded: {$payment->currency} ".number_format($payment->amount),
+                Payment::STATUS_CANCELLED => "Payment cancelled: {$payment->currency} ".number_format($payment->amount),
                 default => "Payment status changed from {$oldStatus} to {$newStatus}",
             };
 
             AuditLog::log(
                 'WALLET_EVENT',
-                'payment_' . $newStatus,
+                'payment_'.$newStatus,
                 $narrative,
                 [
                     'actor_id' => $payment->user_id,
@@ -235,7 +234,7 @@ class PaymentObserver
                 ]
             );
         } catch (\Exception $e) {
-            Log::error('Failed to log payment status change to audit log: ' . $e->getMessage());
+            Log::error('Failed to log payment status change to audit log: '.$e->getMessage());
         }
     }
 
@@ -298,7 +297,7 @@ class PaymentObserver
                     'amount' => $payment->amount,
                     'user_id' => $payment->user_id,
                 ]);
-                
+
                 // Notify user of successful payment
                 if ($user && $this->shouldNotifyUser($user, 'payment_received')) {
                     $user->notify(new PaymentSuccessNotification($payment));
@@ -336,7 +335,7 @@ class PaymentObserver
 
                 // Notify admins of failed payment for investigation
                 $this->notifyAdmins($payment, 'failed');
-                
+
                 // Check if this is a failed artist payout
                 if ($payment->payment_type === 'artist_payout' && $user?->isArtist()) {
                     $user->notify(new ArtistRevenueNotification($payment, 'payout_failed'));
@@ -374,6 +373,7 @@ class PaymentObserver
                     'payment_id' => $payment->id,
                     'event_type' => $eventType,
                 ]);
+
                 return;
             }
 
@@ -465,6 +465,6 @@ class PaymentObserver
     protected function isSystemContext(): bool
     {
         // Check if call is from service layer or console command
-        return app()->runningInConsole() || !auth()->check();
+        return app()->runningInConsole() || ! auth()->check();
     }
 }

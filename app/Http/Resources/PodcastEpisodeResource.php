@@ -28,21 +28,21 @@ class PodcastEpisodeResource extends JsonResource
             'explicit' => $this->explicit,
             'is_premium' => $this->is_premium,
             'status' => $this->status,
-            
+
             // Media URLs
             'audio_url' => $this->when($this->canAccess($request->user()), $this->audio_url),
             'artwork_url' => $this->artwork_url,
-            
+
             // Technical specs
             'mime_type' => $this->mime_type,
             'bitrate' => $this->bitrate,
             'sample_rate' => $this->sample_rate,
-            
+
             // Statistics
             'listen_count' => $this->listen_count,
             'download_count' => $this->download_count,
             'completion_rate' => $this->completion_rate,
-            
+
             // Podcast info
             'podcast' => [
                 'id' => $this->podcast->uuid,
@@ -50,13 +50,13 @@ class PodcastEpisodeResource extends JsonResource
                 'slug' => $this->podcast->slug,
                 'cover_image_url' => $this->podcast->cover_image_url,
             ],
-            
+
             // Timestamps
             'published_at' => $this->published_at?->toIso8601String(),
             'scheduled_for' => $this->scheduled_for?->toIso8601String(),
             'created_at' => $this->created_at->toIso8601String(),
             'updated_at' => $this->updated_at->toIso8601String(),
-            
+
             // API URLs
             'links' => [
                 'self' => route('api.episode.show', $this->uuid),
@@ -73,12 +73,12 @@ class PodcastEpisodeResource extends JsonResource
     protected function canAccess(?object $user): bool
     {
         // Public episodes are always accessible
-        if (!$this->is_premium) {
+        if (! $this->is_premium) {
             return true;
         }
 
         // Premium episodes require authentication
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 

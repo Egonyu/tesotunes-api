@@ -2,17 +2,15 @@
 
 namespace App\Services;
 
-use App\Models\Song;
+use App\Models\Download;
 use App\Models\Like;
 use App\Models\PlayHistory;
-use App\Models\Download;
+use App\Models\Song;
 use App\Models\User;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
+use Exception;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Exception;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Service class for handling song-related business logic
@@ -83,10 +81,10 @@ class SongService
         return Song::with(['artist', 'album'])
             ->where('status', 'published')
             ->where('is_active', true)
-            ->whereHas('playHistory', function($query) use ($days) {
+            ->whereHas('playHistory', function ($query) use ($days) {
                 $query->where('played_at', '>=', now()->subDays($days));
             })
-            ->withCount(['playHistory as recent_plays' => function($query) use ($days) {
+            ->withCount(['playHistory as recent_plays' => function ($query) use ($days) {
                 $query->where('played_at', '>=', now()->subDays($days));
             }])
             ->orderBy('recent_plays', 'desc')
@@ -116,7 +114,7 @@ class SongService
         return Song::with(['artist', 'album', 'genre'])
             ->where('status', 'published')
             ->where('is_active', true)
-            ->whereHas('genre', function($query) use ($genreSlug) {
+            ->whereHas('genre', function ($query) use ($genreSlug) {
                 $query->where('slug', $genreSlug);
             })
             ->orderBy('created_at', 'desc')
@@ -131,15 +129,15 @@ class SongService
         return Song::with(['artist', 'album'])
             ->where('status', 'published')
             ->where('is_active', true)
-            ->where(function($q) use ($query) {
+            ->where(function ($q) use ($query) {
                 $q->where('title', 'LIKE', "%{$query}%")
-                  ->orWhere('description', 'LIKE', "%{$query}%")
-                  ->orWhereHas('artist', function($artistQuery) use ($query) {
-                      $artistQuery->where('stage_name', 'LIKE', "%{$query}%");
-                  })
-                  ->orWhereHas('album', function($albumQuery) use ($query) {
-                      $albumQuery->where('title', 'LIKE', "%{$query}%");
-                  });
+                    ->orWhere('description', 'LIKE', "%{$query}%")
+                    ->orWhereHas('artist', function ($artistQuery) use ($query) {
+                        $artistQuery->where('stage_name', 'LIKE', "%{$query}%");
+                    })
+                    ->orWhereHas('album', function ($albumQuery) use ($query) {
+                        $albumQuery->where('title', 'LIKE', "%{$query}%");
+                    });
             })
             ->orderBy('play_count', 'desc')
             ->paginate($perPage);
@@ -151,7 +149,7 @@ class SongService
     public function recordPlay(Song $song, User $user, array $playData = []): PlayHistory
     {
         // Check if user can play this song
-        if (!$this->canUserPlaySong($song, $user)) {
+        if (! $this->canUserPlaySong($song, $user)) {
             throw new Exception('Premium subscription required to play this song');
         }
 
@@ -186,12 +184,12 @@ class SongService
     public function downloadSong(Song $song, User $user): array
     {
         // Check if user can download
-        if (!$this->canUserDownload($user)) {
+        if (! $this->canUserDownload($user)) {
             throw new Exception('Download limit reached. Upgrade to premium for unlimited downloads.');
         }
 
         // Check if song is available for download
-        if (!$song->isAvailableForDownload()) {
+        if (! $song->isAvailableForDownload()) {
             throw new Exception('This song is not available for download');
         }
 
@@ -204,7 +202,7 @@ class SongService
             return [
                 'download_url' => $song->getDownloadUrlAttribute(),
                 'expires_at' => $existingDownload->expires_at,
-                'message' => 'Song already downloaded'
+                'message' => 'Song already downloaded',
             ];
         }
 
@@ -227,7 +225,7 @@ class SongService
         return [
             'download_url' => $song->getDownloadUrlAttribute(),
             'expires_at' => $download->expires_at,
-            'message' => 'Download initiated successfully'
+            'message' => 'Download initiated successfully',
         ];
     }
 
@@ -241,7 +239,7 @@ class SongService
         return [
             'is_liked' => $isLiked,
             'like_count' => $song->fresh()->like_count,
-            'message' => $isLiked ? 'Song liked' : 'Song unliked'
+            'message' => $isLiked ? 'Song liked' : 'Song unliked',
         ];
     }
 
@@ -254,12 +252,12 @@ class SongService
 
         try {
             // Validate artist permissions
-            if (!$this->canUserUploadSong($user)) {
+            if (! $this->canUserUploadSong($user)) {
                 throw new Exception('You do not have permission to upload songs');
             }
 
             // Get or create artist profile for user
-            if (!$user->artist) {
+            if (! $user->artist) {
                 throw new Exception('User must have an artist profile to upload songs');
             }
 
@@ -313,13 +311,13 @@ class SongService
     public function updateSong(Song $song, array $updateData, User $user): Song
     {
         // Check permissions
-        if (!$this->canUserEditSong($song, $user)) {
+        if (! $this->canUserEditSong($song, $user)) {
             throw new Exception('You do not have permission to edit this song');
         }
 
         $allowedFields = [
             'title', 'description', 'primary_genre_id', 'album_id', 'is_free',
-            'is_explicit', 'primary_language', 'mood_tags'
+            'is_explicit', 'primary_language', 'mood_tags',
         ];
 
         $updateData = array_intersect_key($updateData, array_flip($allowedFields));
@@ -335,7 +333,7 @@ class SongService
     public function deleteSong(Song $song, User $user): bool
     {
         // Check permissions
-        if (!$this->canUserDeleteSong($song, $user)) {
+        if (! $this->canUserDeleteSong($song, $user)) {
             throw new Exception('You do not have permission to delete this song');
         }
 
@@ -364,16 +362,16 @@ class SongService
     public function moderateSong(Song $song, string $action, User $moderator, ?string $reason = null): Song
     {
         // Check moderator permissions
-        if (!$moderator->hasRole('moderator') && 
-            !$moderator->hasRole('admin') && 
-            !$moderator->hasRole('super_admin') && 
-            !$moderator->hasPermission('music.moderate')) {
+        if (! $moderator->hasRole('moderator') &&
+            ! $moderator->hasRole('admin') &&
+            ! $moderator->hasRole('super_admin') &&
+            ! $moderator->hasPermission('music.moderate')) {
             throw new Exception('You do not have permission to moderate content');
         }
 
         $validActions = ['approve', 'reject', 'flag', 'unflag'];
 
-        if (!in_array($action, $validActions)) {
+        if (! in_array($action, $validActions)) {
             throw new Exception('Invalid moderation action');
         }
 
@@ -381,7 +379,7 @@ class SongService
             'approve' => 'published',
             'reject' => 'rejected',
             'flag' => 'flagged',
-            'unflag' => 'published'
+            'unflag' => 'published',
         ];
 
         $song->update([
@@ -423,7 +421,7 @@ class SongService
     protected function applyFilters($query, array $filters): void
     {
         if (isset($filters['genre'])) {
-            $query->whereHas('primaryGenre', function($q) use ($filters) {
+            $query->whereHas('primaryGenre', function ($q) use ($filters) {
                 $q->where('slug', $filters['genre']);
             });
         }
@@ -533,9 +531,9 @@ class SongService
      */
     protected function canUserEditSong(Song $song, User $user): bool
     {
-        return $song->user_id === $user->id || 
-               $user->hasRole('admin') || 
-               $user->hasRole('super_admin') || 
+        return $song->user_id === $user->id ||
+               $user->hasRole('admin') ||
+               $user->hasRole('super_admin') ||
                $user->hasPermission('music.edit_any');
     }
 
@@ -544,9 +542,9 @@ class SongService
      */
     protected function canUserDeleteSong(Song $song, User $user): bool
     {
-        return $song->user_id === $user->id || 
-               $user->hasRole('admin') || 
-               $user->hasRole('super_admin') || 
+        return $song->user_id === $user->id ||
+               $user->hasRole('admin') ||
+               $user->hasRole('super_admin') ||
                $user->hasPermission('music.delete_any');
     }
 

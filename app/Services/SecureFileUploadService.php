@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class SecureFileUploadService
@@ -31,8 +31,11 @@ class SecureFileUploadService
 
     // Audio quality constraints
     const MIN_BITRATE = 96;   // kbps
+
     const MAX_BITRATE = 320;  // kbps
+
     const MIN_DURATION = 30;  // seconds
+
     const MAX_DURATION = 900; // 15 minutes
 
     /**
@@ -43,19 +46,21 @@ class SecureFileUploadService
         $validation = [
             'valid' => false,
             'errors' => [],
-            'metadata' => []
+            'metadata' => [],
         ];
 
         try {
             // Basic file validation
-            if (!$file->isValid()) {
+            if (! $file->isValid()) {
                 $validation['errors'][] = 'File upload failed or corrupted';
+
                 return $validation;
             }
 
             // Check file size
             if ($file->getSize() > max(self::MAX_FILE_SIZES)) {
                 $validation['errors'][] = 'File size exceeds maximum allowed size';
+
                 return $validation;
             }
 
@@ -63,8 +68,9 @@ class SecureFileUploadService
             $mimeType = $file->getMimeType();
             $extension = strtolower($file->getClientOriginalExtension());
 
-            if (!$this->validateMimeType($mimeType, $extension)) {
+            if (! $this->validateMimeType($mimeType, $extension)) {
                 $validation['errors'][] = 'Invalid file type or suspicious file';
+
                 return $validation;
             }
 
@@ -72,19 +78,22 @@ class SecureFileUploadService
             if (isset(self::MAX_FILE_SIZES[$extension]) &&
                 $file->getSize() > self::MAX_FILE_SIZES[$extension]) {
                 $validation['errors'][] = "File size exceeds maximum for {$extension} format";
+
                 return $validation;
             }
 
             // Scan file content for malicious patterns
-            if (!$this->scanFileContent($file)) {
+            if (! $this->scanFileContent($file)) {
                 $validation['errors'][] = 'File contains suspicious content';
+
                 return $validation;
             }
 
             // Extract and validate audio metadata
             $metadata = $this->extractAudioMetadata($file);
-            if (!empty($metadata['errors'])) {
+            if (! empty($metadata['errors'])) {
                 $validation['errors'] = array_merge($validation['errors'], $metadata['errors']);
+
                 return $validation;
             }
 
@@ -95,13 +104,13 @@ class SecureFileUploadService
                 'filename' => $file->getClientOriginalName(),
                 'size' => $file->getSize(),
                 'mime_type' => $mimeType,
-                'extension' => $extension
+                'extension' => $extension,
             ]);
 
         } catch (\Exception $e) {
             Log::error('File validation error', [
                 'error' => $e->getMessage(),
-                'filename' => $file->getClientOriginalName()
+                'filename' => $file->getClientOriginalName(),
             ]);
             $validation['errors'][] = 'File validation failed';
         }
@@ -114,7 +123,7 @@ class SecureFileUploadService
      */
     private function validateMimeType(string $mimeType, string $extension): bool
     {
-        if (!isset(self::ALLOWED_AUDIO_TYPES[$extension])) {
+        if (! isset(self::ALLOWED_AUDIO_TYPES[$extension])) {
             return false;
         }
 
@@ -129,7 +138,7 @@ class SecureFileUploadService
         try {
             // Read first 1KB for basic content scanning
             $handle = fopen($file->getPathname(), 'rb');
-            if (!$handle) {
+            if (! $handle) {
                 return false;
             }
 
@@ -145,15 +154,16 @@ class SecureFileUploadService
                 'exec(',
                 'system(',
                 '<!DOCTYPE',
-                '<html'
+                '<html',
             ];
 
             foreach ($suspiciousPatterns as $pattern) {
                 if (stripos($header, $pattern) !== false) {
                     Log::warning('Suspicious pattern detected in upload', [
                         'pattern' => $pattern,
-                        'filename' => $file->getClientOriginalName()
+                        'filename' => $file->getClientOriginalName(),
                     ]);
+
                     return false;
                 }
             }
@@ -161,6 +171,7 @@ class SecureFileUploadService
             return true;
         } catch (\Exception $e) {
             Log::error('Content scanning failed', ['error' => $e->getMessage()]);
+
             return false;
         }
     }
@@ -175,7 +186,7 @@ class SecureFileUploadService
             'bitrate' => null,
             'sample_rate' => null,
             'format' => null,
-            'errors' => []
+            'errors' => [],
         ];
 
         try {
@@ -220,7 +231,7 @@ class SecureFileUploadService
             // Store file in private storage
             $path = $file->storeAs($directory, $secureFilename, 'private');
 
-            if (!$path) {
+            if (! $path) {
                 throw new \Exception('File storage failed');
             }
 
@@ -233,25 +244,25 @@ class SecureFileUploadService
             Log::info('File stored securely', [
                 'original_name' => $file->getClientOriginalName(),
                 'secure_name' => $secureFilename,
-                'path' => $path
+                'path' => $path,
             ]);
 
             return [
                 'success' => true,
                 'path' => $path,
                 'filename' => $secureFilename,
-                'size' => $file->getSize()
+                'size' => $file->getSize(),
             ];
 
         } catch (\Exception $e) {
             Log::error('Secure file storage failed', [
                 'error' => $e->getMessage(),
-                'filename' => $file->getClientOriginalName()
+                'filename' => $file->getClientOriginalName(),
             ]);
 
             return [
                 'success' => false,
-                'error' => 'File storage failed'
+                'error' => 'File storage failed',
             ];
         }
     }
@@ -276,6 +287,7 @@ class SecureFileUploadService
         try {
             if (Storage::disk('private')->exists($path)) {
                 Storage::disk('private')->delete($path);
+
                 return true;
             }
         } catch (\Exception $e) {

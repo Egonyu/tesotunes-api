@@ -2,13 +2,15 @@
 
 namespace App\Modules\Store\Services;
 
-use App\Modules\Store\Models\{Store, Product, Order};
-use Illuminate\Support\Facades\DB;
+use App\Modules\Store\Models\Order;
+use App\Modules\Store\Models\Product;
+use App\Modules\Store\Models\Store;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Analytics Service
- * 
+ *
  * Provides analytics and metrics for stores
  * Optimized for dashboard displays with charts
  */
@@ -50,14 +52,14 @@ class AnalyticsService
 
         $currentRevenue = $currentPeriod->sum('total_ugx');
         $previousRevenue = $previousPeriod->sum('total_ugx');
-        $revenueChange = $previousRevenue > 0 
-            ? (($currentRevenue - $previousRevenue) / $previousRevenue) * 100 
+        $revenueChange = $previousRevenue > 0
+            ? (($currentRevenue - $previousRevenue) / $previousRevenue) * 100
             : 100;
 
         $currentOrders = $currentPeriod->count();
         $previousOrders = $previousPeriod->count();
-        $ordersChange = $previousOrders > 0 
-            ? (($currentOrders - $previousOrders) / $previousOrders) * 100 
+        $ordersChange = $previousOrders > 0
+            ? (($currentOrders - $previousOrders) / $previousOrders) * 100
             : 100;
 
         $avgOrderValue = $currentOrders > 0 ? $currentRevenue / $currentOrders : 0;
@@ -65,7 +67,7 @@ class AnalyticsService
         return [
             'total_revenue' => [
                 'value' => $currentRevenue,
-                'formatted' => 'UGX ' . number_format($currentRevenue),
+                'formatted' => 'UGX '.number_format($currentRevenue),
                 'change' => round($revenueChange, 1),
                 'trend' => $revenueChange >= 0 ? 'up' : 'down',
             ],
@@ -76,11 +78,11 @@ class AnalyticsService
             ],
             'average_order_value' => [
                 'value' => $avgOrderValue,
-                'formatted' => 'UGX ' . number_format($avgOrderValue),
+                'formatted' => 'UGX '.number_format($avgOrderValue),
             ],
             'conversion_rate' => [
                 'value' => $this->calculateConversionRate($store, $dateRange),
-                'formatted' => number_format($this->calculateConversionRate($store, $dateRange), 1) . '%',
+                'formatted' => number_format($this->calculateConversionRate($store, $dateRange), 1).'%',
             ],
         ];
     }
@@ -155,8 +157,8 @@ class AnalyticsService
         return [
             'unique_customers' => $uniqueCustomers,
             'repeat_customers' => $repeatCustomers,
-            'repeat_rate' => $uniqueCustomers > 0 
-                ? round(($repeatCustomers / $uniqueCustomers) * 100, 1) 
+            'repeat_rate' => $uniqueCustomers > 0
+                ? round(($repeatCustomers / $uniqueCustomers) * 100, 1)
                 : 0,
             'new_customers' => $uniqueCustomers - $repeatCustomers,
         ];
@@ -181,7 +183,7 @@ class AnalyticsService
             ->get();
 
         return [
-            'labels' => $data->pluck('date')->map(fn($d) => Carbon::parse($d)->format('M d'))->toArray(),
+            'labels' => $data->pluck('date')->map(fn ($d) => Carbon::parse($d)->format('M d'))->toArray(),
             'datasets' => [
                 [
                     'label' => 'Revenue (UGX)',
@@ -212,7 +214,7 @@ class AnalyticsService
             ->get();
 
         return [
-            'labels' => $data->pluck('status')->map(fn($s) => ucfirst($s))->toArray(),
+            'labels' => $data->pluck('status')->map(fn ($s) => ucfirst($s))->toArray(),
             'data' => $data->pluck('count')->toArray(),
             'colors' => ['#F59E0B', '#3B82F6', '#10B981', '#6366F1', '#EF4444'],
         ];
@@ -265,7 +267,7 @@ class AnalyticsService
             ->get();
 
         return [
-            'labels' => $data->pluck('payment_method')->map(fn($m) => ucfirst(str_replace('_', ' ', $m)))->toArray(),
+            'labels' => $data->pluck('payment_method')->map(fn ($m) => ucfirst(str_replace('_', ' ', $m)))->toArray(),
             'data' => $data->pluck('revenue')->toArray(),
             'counts' => $data->pluck('count')->toArray(),
             'colors' => ['#3B82F6', '#10B981', '#F59E0B', '#EF4444'],
@@ -293,8 +295,8 @@ class AnalyticsService
     protected function getDateRange(string $period): array
     {
         $end = Carbon::now();
-        
-        $start = match($period) {
+
+        $start = match ($period) {
             '7days' => Carbon::now()->subDays(7),
             '30days' => Carbon::now()->subDays(30),
             '90days' => Carbon::now()->subDays(90),
@@ -325,7 +327,7 @@ class AnalyticsService
             return [
                 'online_views' => 0, // TODO: Implement real-time tracking
                 'active_carts' => DB::table('shopping_carts')
-                    ->whereHas('items', fn($q) => $q->whereHas('product', fn($q2) => $q2->where('store_id', $store->id)))
+                    ->whereHas('items', fn ($q) => $q->whereHas('product', fn ($q2) => $q2->where('store_id', $store->id)))
                     ->where('updated_at', '>=', now()->subHours(1))
                     ->count(),
                 'pending_orders' => Order::where('store_id', $store->id)
@@ -345,7 +347,7 @@ class AnalyticsService
     public function exportData(Store $store, string $period = '30days'): array
     {
         $dateRange = $this->getDateRange($period);
-        
+
         return [
             'store' => [
                 'name' => $store->name,

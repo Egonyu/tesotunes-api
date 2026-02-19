@@ -17,15 +17,15 @@ class ArtistFactory extends Factory
     public function definition(): array
     {
         $stageName = fake()->name();
-        
+
         return [
             'user_id' => \App\Models\User::factory(),
             'name' => $stageName,
             'stage_name' => $stageName,
-            'slug' => \Illuminate\Support\Str::slug($stageName) . '-' . fake()->unique()->numberBetween(1, 10000),
+            'slug' => \Illuminate\Support\Str::slug($stageName).'-'.fake()->unique()->numberBetween(1, 10000),
             'bio' => fake()->paragraphs(2, true),
-            'avatar' => 'artists/avatars/' . fake()->uuid() . '.jpg',
-            'banner' => 'artists/banners/' . fake()->uuid() . '.jpg',
+            'avatar' => 'artists/avatars/'.fake()->uuid().'.jpg',
+            'banner' => 'artists/banners/'.fake()->uuid().'.jpg',
             'country' => 'Uganda',
             'city' => fake()->city(),
             'is_verified' => fake()->boolean(50),

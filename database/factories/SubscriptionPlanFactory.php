@@ -23,14 +23,14 @@ class SubscriptionPlanFactory extends Factory
                     'Standard audio quality',
                     'Limited downloads (50 per month)',
                     'Basic playlists',
-                    'Mobile app access'
+                    'Mobile app access',
                 ],
                 'limits' => [
                     'downloads_per_month' => 50,
                     'offline_playlists' => 3,
                     'audio_quality' => 'standard',
                     'ad_free' => false,
-                ]
+                ],
             ],
             'premium' => [
                 'name' => 'Premium Plan',
@@ -45,14 +45,14 @@ class SubscriptionPlanFactory extends Factory
                     'Advanced playlists',
                     'Ad-free experience',
                     'Offline listening',
-                    'Cross-platform sync'
+                    'Cross-platform sync',
                 ],
                 'limits' => [
                     'downloads_per_month' => -1, // unlimited
                     'offline_playlists' => -1, // unlimited
                     'audio_quality' => 'high',
                     'ad_free' => true,
-                ]
+                ],
             ],
             'artist' => [
                 'name' => 'Artist Plan',
@@ -67,7 +67,7 @@ class SubscriptionPlanFactory extends Factory
                     'Revenue tracking',
                     'ISRC generation',
                     'Copyright management',
-                    'Promotional tools'
+                    'Promotional tools',
                 ],
                 'limits' => [
                     'downloads_per_month' => -1,
@@ -76,7 +76,7 @@ class SubscriptionPlanFactory extends Factory
                     'ad_free' => true,
                     'music_uploads_per_month' => 100,
                     'distribution_platforms' => -1,
-                ]
+                ],
             ],
             'label' => [
                 'name' => 'Label Plan',
@@ -91,7 +91,7 @@ class SubscriptionPlanFactory extends Factory
                     'Advanced analytics',
                     'White-label options',
                     'API access',
-                    'Priority support'
+                    'Priority support',
                 ],
                 'limits' => [
                     'downloads_per_month' => -1,
@@ -101,8 +101,8 @@ class SubscriptionPlanFactory extends Factory
                     'music_uploads_per_month' => -1,
                     'distribution_platforms' => -1,
                     'managed_artists' => -1,
-                ]
-            ]
+                ],
+            ],
         ];
 
         $planType = $this->faker->randomElement(array_keys($planTypes));
@@ -126,7 +126,7 @@ class SubscriptionPlanFactory extends Factory
                     'general_listeners',
                     'music_enthusiasts',
                     'professional_artists',
-                    'record_labels'
+                    'record_labels',
                 ]),
                 'marketing_tags' => $this->faker->randomElements([
                     'best_value',
@@ -134,7 +134,7 @@ class SubscriptionPlanFactory extends Factory
                     'professional',
                     'unlimited',
                     'ad_free',
-                    'high_quality'
+                    'high_quality',
                 ], $this->faker->numberBetween(1, 3)),
                 'promo_eligible' => $this->faker->boolean(60),
             ],
@@ -157,7 +157,7 @@ class SubscriptionPlanFactory extends Factory
                 'Standard audio quality',
                 'Limited downloads (50 per month)',
                 'Basic playlists',
-                'Mobile app access'
+                'Mobile app access',
             ],
             'limits' => [
                 'downloads_per_month' => 50,
@@ -185,7 +185,7 @@ class SubscriptionPlanFactory extends Factory
                 'Advanced playlists',
                 'Ad-free experience',
                 'Offline listening',
-                'Cross-platform sync'
+                'Cross-platform sync',
             ],
             'limits' => [
                 'downloads_per_month' => -1,
@@ -213,7 +213,7 @@ class SubscriptionPlanFactory extends Factory
                 'Revenue tracking',
                 'ISRC generation',
                 'Copyright management',
-                'Promotional tools'
+                'Promotional tools',
             ],
             'limits' => [
                 'downloads_per_month' => -1,
@@ -243,7 +243,7 @@ class SubscriptionPlanFactory extends Factory
                 'Advanced analytics',
                 'White-label options',
                 'API access',
-                'Priority support'
+                'Priority support',
             ],
             'limits' => [
                 'downloads_per_month' => -1,
@@ -310,7 +310,7 @@ class SubscriptionPlanFactory extends Factory
             'duration_days' => 365,
             'price_usd' => $attributes['price_usd'] * 10, // 2 months free
             'price' => $attributes['price'] * 10,
-            'name' => $attributes['name'] . ' (Yearly)',
+            'name' => $attributes['name'].' (Yearly)',
             'metadata' => array_merge($attributes['metadata'] ?? [], [
                 'billing_cycle' => 'yearly',
                 'discount_percentage' => 16.67, // 2 months free = ~16.67% discount

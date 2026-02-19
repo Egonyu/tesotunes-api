@@ -2,9 +2,8 @@
 
 namespace App\Policies\Store;
 
-use App\Modules\Store\Models\Promotion;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
+use App\Modules\Store\Models\Promotion;
 
 class PromotionPolicy
 {
@@ -22,8 +21,8 @@ class PromotionPolicy
     public function view(?User $user, Promotion $promotion): bool
     {
         // Public can view active promotions
-        if ($promotion->status === 'active' && 
-            $promotion->starts_at <= now() && 
+        if ($promotion->status === 'active' &&
+            $promotion->starts_at <= now() &&
             $promotion->ends_at >= now()) {
             return true;
         }
@@ -41,7 +40,7 @@ class PromotionPolicy
     public function create(User $user): bool
     {
         // Only artists with active stores can create promotions
-        return $user->hasRole('artist') && 
+        return $user->hasRole('artist') &&
                $user->stores()->where('status', 'active')->exists();
     }
 
@@ -99,14 +98,14 @@ class PromotionPolicy
     public function redeem(User $user, Promotion $promotion): bool
     {
         // Check if promotion is active and within date range
-        if ($promotion->status !== 'active' || 
-            $promotion->starts_at > now() || 
+        if ($promotion->status !== 'active' ||
+            $promotion->starts_at > now() ||
             $promotion->ends_at < now()) {
             return false;
         }
 
         // Check if max redemptions reached
-        if ($promotion->max_redemptions && 
+        if ($promotion->max_redemptions &&
             $promotion->redemptions_count >= $promotion->max_redemptions) {
             return false;
         }
@@ -116,7 +115,7 @@ class PromotionPolicy
             $userRedemptions = $promotion->redemptions()
                 ->where('user_id', $user->id)
                 ->count();
-            
+
             if ($userRedemptions >= $promotion->max_per_user) {
                 return false;
             }

@@ -2,14 +2,14 @@
 
 namespace App\Modules\Store\Models;
 
+use App\Models\Payment;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use App\Models\Payment;
 
 /**
  * StoreSubscription Model
- * 
+ *
  * Tracks store premium subscriptions
  * Supports dual currency payment
  */
@@ -96,7 +96,7 @@ class StoreSubscription extends Model
 
     public function getDaysRemainingAttribute(): int
     {
-        if (!$this->expires_at || $this->expires_at->isPast()) {
+        if (! $this->expires_at || $this->expires_at->isPast()) {
             return 0;
         }
 

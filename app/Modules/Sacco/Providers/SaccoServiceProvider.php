@@ -3,8 +3,6 @@
 namespace App\Modules\Sacco\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\View;
 
 class SaccoServiceProvider extends ServiceProvider
 {
@@ -24,7 +22,7 @@ class SaccoServiceProvider extends ServiceProvider
     public function __construct($app)
     {
         parent::__construct($app);
-        $this->modulePath = __DIR__ . '/..';
+        $this->modulePath = __DIR__.'/..';
     }
 
     /**
@@ -33,7 +31,7 @@ class SaccoServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Only boot if module is enabled
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return;
         }
 
@@ -51,7 +49,7 @@ class SaccoServiceProvider extends ServiceProvider
     {
         // Register config
         $this->mergeConfigFrom(
-            $this->modulePath . '/Config/sacco.php',
+            $this->modulePath.'/Config/sacco.php',
             'sacco'
         );
 
@@ -75,7 +73,7 @@ class SaccoServiceProvider extends ServiceProvider
     protected function registerConfig(): void
     {
         $this->publishes([
-            $this->modulePath . '/Config/sacco.php' => config_path('sacco.php'),
+            $this->modulePath.'/Config/sacco.php' => config_path('sacco.php'),
         ], 'sacco-config');
     }
 
@@ -84,7 +82,7 @@ class SaccoServiceProvider extends ServiceProvider
      */
     protected function registerMigrations(): void
     {
-        $this->loadMigrationsFrom($this->modulePath . '/Database/Migrations');
+        $this->loadMigrationsFrom($this->modulePath.'/Database/Migrations');
     }
 
     /**
@@ -93,7 +91,7 @@ class SaccoServiceProvider extends ServiceProvider
     protected function registerMiddleware(): void
     {
         $router = $this->app['router'];
-        
+
         $router->aliasMiddleware('sacco.enabled', \App\Modules\Sacco\Http\Middleware\SaccoEnabled::class);
     }
 
@@ -103,11 +101,11 @@ class SaccoServiceProvider extends ServiceProvider
     protected function registerServices(): void
     {
         $this->app->singleton('sacco.credit-score', function ($app) {
-            return new \App\Modules\Sacco\Services\SaccoCreditScoreService();
+            return new \App\Modules\Sacco\Services\SaccoCreditScoreService;
         });
 
         $this->app->singleton('sacco.interest', function ($app) {
-            return new \App\Modules\Sacco\Services\SaccoInterestService();
+            return new \App\Modules\Sacco\Services\SaccoInterestService;
         });
 
         $this->app->singleton('sacco.loan', function ($app) {
@@ -117,7 +115,7 @@ class SaccoServiceProvider extends ServiceProvider
         });
 
         $this->app->singleton('sacco.mobile-money', function ($app) {
-            return new \App\Modules\Sacco\Services\SaccoMobileMoneyService();
+            return new \App\Modules\Sacco\Services\SaccoMobileMoneyService;
         });
     }
 
@@ -141,7 +139,7 @@ class SaccoServiceProvider extends ServiceProvider
     protected function publishAssets(): void
     {
         $this->publishes([
-            $this->modulePath . '/Resources/assets' => public_path('modules/sacco'),
+            $this->modulePath.'/Resources/assets' => public_path('modules/sacco'),
         ], 'sacco-assets');
     }
 

@@ -36,7 +36,7 @@ class ProductResource extends JsonResource
             // Inventory
             'stock_quantity' => (int) ($this->stock_quantity ?? 0),
             'track_inventory' => (bool) $this->track_inventory,
-            'is_in_stock' => $this->when(isset($this->stock_quantity), fn () => $this->stock_quantity > 0 || !$this->track_inventory),
+            'is_in_stock' => $this->when(isset($this->stock_quantity), fn () => $this->stock_quantity > 0 || ! $this->track_inventory),
 
             // Flags
             'is_featured' => (bool) $this->is_featured,

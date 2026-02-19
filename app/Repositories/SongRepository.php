@@ -2,19 +2,18 @@
 
 namespace App\Repositories;
 
-use App\Models\Song;
-use App\Models\PlayHistory;
-use App\Models\Like;
 use App\Models\Download;
+use App\Models\Like;
+use App\Models\PlayHistory;
+use App\Models\Song;
 use App\Repositories\Contracts\SongRepositoryInterface;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 
 /**
  * Song Repository
- * 
+ *
  * Implements data access layer for Song model
  */
 class SongRepository implements SongRepositoryInterface
@@ -34,9 +33,9 @@ class SongRepository implements SongRepositoryInterface
         $query = $this->model->with($relations);
 
         return Cache::remember(
-            "song:{$id}:" . md5(json_encode($relations)),
+            "song:{$id}:".md5(json_encode($relations)),
             3600, // 1 hour
-            fn() => $query->find($id)
+            fn () => $query->find($id)
         );
     }
 
@@ -60,14 +59,14 @@ class SongRepository implements SongRepositoryInterface
      */
     public function findTrendingSongs(int $days = 7, int $limit = 20): Collection
     {
-        return Cache::remember("trending:songs:{$days}:{$limit}", 900, function() use ($days, $limit) {
+        return Cache::remember("trending:songs:{$days}:{$limit}", 900, function () use ($days, $limit) {
             return $this->model
                 ->with(['artist', 'album'])
                 ->where('status', 'published')
-                ->whereHas('playHistory', function($query) use ($days) {
+                ->whereHas('playHistory', function ($query) use ($days) {
                     $query->where('played_at', '>=', now()->subDays($days));
                 })
-                ->withCount(['playHistory as recent_plays' => function($query) use ($days) {
+                ->withCount(['playHistory as recent_plays' => function ($query) use ($days) {
                     $query->where('played_at', '>=', now()->subDays($days));
                 }])
                 ->orderBy('recent_plays', 'desc')
@@ -95,7 +94,7 @@ class SongRepository implements SongRepositoryInterface
      */
     public function findNewReleases(int $days = 30, int $limit = 20): Collection
     {
-        return Cache::remember("new:releases:{$days}:{$limit}", 1800, function() use ($days, $limit) {
+        return Cache::remember("new:releases:{$days}:{$limit}", 1800, function () use ($days, $limit) {
             return $this->model
                 ->with(['artist', 'album'])
                 ->where('status', 'published')
@@ -146,17 +145,17 @@ class SongRepository implements SongRepositoryInterface
         return $this->model
             ->with(['artist', 'album'])
             ->where('status', 'published')
-            ->where(function($q) use ($query) {
+            ->where(function ($q) use ($query) {
                 $q->where('title', 'LIKE', "%{$query}%")
-                  ->orWhere('description', 'LIKE', "%{$query}%")
-                  ->orWhere('lyrics', 'LIKE', "%{$query}%")
-                  ->orWhereHas('artist', function($artistQuery) use ($query) {
-                      $artistQuery->where('name', 'LIKE', "%{$query}%")
-                                  ->orWhere('stage_name', 'LIKE', "%{$query}%");
-                  })
-                  ->orWhereHas('album', function($albumQuery) use ($query) {
-                      $albumQuery->where('title', 'LIKE', "%{$query}%");
-                  });
+                    ->orWhere('description', 'LIKE', "%{$query}%")
+                    ->orWhere('lyrics', 'LIKE', "%{$query}%")
+                    ->orWhereHas('artist', function ($artistQuery) use ($query) {
+                        $artistQuery->where('name', 'LIKE', "%{$query}%")
+                            ->orWhere('stage_name', 'LIKE', "%{$query}%");
+                    })
+                    ->orWhereHas('album', function ($albumQuery) use ($query) {
+                        $albumQuery->where('title', 'LIKE', "%{$query}%");
+                    });
             })
             ->orderBy('play_count', 'desc')
             ->paginate($perPage);
@@ -167,7 +166,7 @@ class SongRepository implements SongRepositoryInterface
      */
     public function findFeatured(int $limit = 10): Collection
     {
-        return Cache::remember("featured:songs:{$limit}", 3600, function() use ($limit) {
+        return Cache::remember("featured:songs:{$limit}", 3600, function () use ($limit) {
             return $this->model
                 ->with(['artist', 'album'])
                 ->where('status', 'published')
@@ -200,9 +199,9 @@ class SongRepository implements SongRepositoryInterface
         return $this->model
             ->with(['artist', 'album'])
             ->where('status', 'published')
-            ->where(function($q) use ($language) {
+            ->where(function ($q) use ($language) {
                 $q->where('primary_language', $language)
-                  ->orWhereJsonContains('languages_sung', $language);
+                    ->orWhereJsonContains('languages_sung', $language);
             })
             ->orderBy('release_date', 'desc')
             ->paginate($perPage);
@@ -217,16 +216,16 @@ class SongRepository implements SongRepositoryInterface
             ->with(['artist', 'album'])
             ->where('status', 'published')
             ->where('id', '!=', $song->id)
-            ->where(function($query) use ($song) {
+            ->where(function ($query) use ($song) {
                 $query->where('primary_genre_id', $song->primary_genre_id)
-                      ->orWhere('artist_id', $song->artist_id)
-                      ->orWhere(function($q) use ($song) {
-                          if ($song->mood_tags) {
-                              foreach ($song->mood_tags as $mood) {
-                                  $q->orWhereJsonContains('mood_tags', $mood);
-                              }
-                          }
-                      });
+                    ->orWhere('artist_id', $song->artist_id)
+                    ->orWhere(function ($q) use ($song) {
+                        if ($song->mood_tags) {
+                            foreach ($song->mood_tags as $mood) {
+                                $q->orWhereJsonContains('mood_tags', $mood);
+                            }
+                        }
+                    });
             })
             ->orderByRaw('
                 (CASE 
@@ -248,7 +247,7 @@ class SongRepository implements SongRepositoryInterface
     {
         return $this->model
             ->with(['artist', 'album'])
-            ->whereHas('likes', function($query) use ($userId) {
+            ->whereHas('likes', function ($query) use ($userId) {
                 $query->where('user_id', $userId);
             })
             ->orderByDesc(
@@ -268,7 +267,7 @@ class SongRepository implements SongRepositoryInterface
     {
         return $this->model
             ->with(['artist', 'album'])
-            ->whereHas('downloads', function($query) use ($userId) {
+            ->whereHas('downloads', function ($query) use ($userId) {
                 $query->where('user_id', $userId);
             })
             ->orderByDesc(
@@ -298,7 +297,7 @@ class SongRepository implements SongRepositoryInterface
      */
     public function findMostPlayed(int $days = 7, int $limit = 20): Collection
     {
-        return Cache::remember("most:played:{$days}:{$limit}", 900, function() use ($days, $limit) {
+        return Cache::remember("most:played:{$days}:{$limit}", 900, function () use ($days, $limit) {
             return $this->model
                 ->with(['artist', 'album'])
                 ->where('status', 'published')
@@ -335,8 +334,8 @@ class SongRepository implements SongRepositoryInterface
     public function update(int $id, array $data): bool
     {
         $song = $this->model->find($id);
-        
-        if (!$song) {
+
+        if (! $song) {
             return false;
         }
 
@@ -354,8 +353,8 @@ class SongRepository implements SongRepositoryInterface
     public function delete(int $id): bool
     {
         $song = $this->model->find($id);
-        
-        if (!$song) {
+
+        if (! $song) {
             return false;
         }
 
@@ -371,8 +370,8 @@ class SongRepository implements SongRepositoryInterface
     public function restore(int $id): bool
     {
         $song = $this->model->withTrashed()->find($id);
-        
-        if (!$song) {
+
+        if (! $song) {
             return false;
         }
 
@@ -384,10 +383,10 @@ class SongRepository implements SongRepositoryInterface
      */
     public function getStatistics(int $songId): array
     {
-        return Cache::remember("song:stats:{$songId}", 1800, function() use ($songId) {
+        return Cache::remember("song:stats:{$songId}", 1800, function () use ($songId) {
             $song = $this->model->find($songId);
 
-            if (!$song) {
+            if (! $song) {
                 return [];
             }
 
@@ -436,7 +435,7 @@ class SongRepository implements SongRepositoryInterface
     {
         $song = $this->model->find($songId);
 
-        if (!$song) {
+        if (! $song) {
             return;
         }
 

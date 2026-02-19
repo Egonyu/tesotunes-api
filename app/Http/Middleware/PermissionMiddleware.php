@@ -2,10 +2,10 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\AuditLog;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
-use App\Models\AuditLog;
 
 class PermissionMiddleware
 {
@@ -16,11 +16,11 @@ class PermissionMiddleware
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             return $this->unauthorized();
         }
 
-        if (!$user->isActive()) {
+        if (! $user->isActive()) {
             return $this->forbidden('Account is suspended');
         }
 
@@ -33,7 +33,7 @@ class PermissionMiddleware
         }
 
         foreach ($permissions as $permission) {
-            if (!$user->hasPermission($permission)) {
+            if (! $user->hasPermission($permission)) {
                 // Log unauthorized access attempt
                 AuditLog::logActivity($user->id, 'unauthorized_access_attempt', [
                     'permission' => $permission,
@@ -53,7 +53,7 @@ class PermissionMiddleware
         if (request()->expectsJson()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Authentication required'
+                'message' => 'Authentication required',
             ], 401);
         }
 
@@ -65,7 +65,7 @@ class PermissionMiddleware
         if (request()->expectsJson()) {
             return response()->json([
                 'success' => false,
-                'message' => $message
+                'message' => $message,
             ], 403);
         }
 

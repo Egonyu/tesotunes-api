@@ -33,7 +33,7 @@ class PlaylistObserver
     public function updated(Playlist $playlist): void
     {
         // Log if playlist visibility changed from private to public
-        if ($playlist->isDirty('is_public') && $playlist->is_public && !$playlist->original['is_public']) {
+        if ($playlist->isDirty('is_public') && $playlist->is_public && ! $playlist->original['is_public']) {
             ActivityService::log(
                 actor: $playlist->user,
                 action: 'playlist_made_public',

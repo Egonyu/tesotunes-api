@@ -2,16 +2,16 @@
 
 namespace App\Services;
 
+use App\DTOs\Feed\FeedItem as FeedItemDTO;
 use App\Models\FeedItem as FeedItemModel;
 use App\Models\User;
-use App\DTOs\Feed\FeedItem as FeedItemDTO;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use Carbon\Carbon;
 
 /**
  * Feed Ranking Service
- * 
+ *
  * Ranks feed items using a composite scoring algorithm:
  * - Recency (exponential decay)
  * - Relevance (followed actors, genres)
@@ -23,7 +23,9 @@ use Carbon\Carbon;
 class FeedRankingService
 {
     protected array $weights;
+
     protected array $config;
+
     protected bool $supportsTagging;
 
     public function __construct()
@@ -74,6 +76,7 @@ class FeedRankingService
         // Calculate scores
         $scored = $items->map(function (FeedItemModel $item) use ($user) {
             $item->feed_score = $this->calculateScore($item, $user);
+
             return $item;
         });
 
@@ -97,6 +100,7 @@ class FeedRankingService
         // Calculate scores for DTOs
         $scored = $dtos->map(function (FeedItemDTO $dto) use ($user) {
             $dto->rankScore = $this->calculateDTOScore($dto, $user);
+
             return $dto;
         });
 
@@ -172,7 +176,7 @@ class FeedRankingService
      */
     protected function calculateRecencyScore(?Carbon $timestamp): float
     {
-        if (!$timestamp) {
+        if (! $timestamp) {
             return 50; // Default for items without timestamp
         }
 
@@ -196,7 +200,7 @@ class FeedRankingService
      */
     protected function calculateRelevanceScore(FeedItemModel $item, ?User $user): float
     {
-        if (!$user) {
+        if (! $user) {
             return 30; // Base score for guests
         }
 
@@ -230,7 +234,7 @@ class FeedRankingService
      */
     protected function calculateDTORelevanceScore(FeedItemDTO $dto, ?User $user): float
     {
-        if (!$user) {
+        if (! $user) {
             return 30;
         }
 
@@ -260,7 +264,7 @@ class FeedRankingService
     protected function calculateEngagementScore(FeedItemModel $item): float
     {
         $thresholds = $this->config['engagement'];
-        
+
         $total = $item->likes_count + $item->comments_count + $item->shares_count;
 
         if ($total >= ($thresholds['viral_threshold'] ?? 1000)) {
@@ -275,6 +279,7 @@ class FeedRankingService
 
         // Linear scale
         $trending = $thresholds['trending_threshold'] ?? 50;
+
         return min(40, ($total / $trending) * 40);
     }
 
@@ -283,13 +288,13 @@ class FeedRankingService
      */
     protected function calculateDTOEngagementScore(FeedItemDTO $dto): float
     {
-        if (!$dto->engagement) {
+        if (! $dto->engagement) {
             return 0;
         }
 
         $thresholds = $this->config['engagement'];
-        $total = ($dto->engagement->likesCount ?? 0) + 
-                 ($dto->engagement->commentsCount ?? 0) + 
+        $total = ($dto->engagement->likesCount ?? 0) +
+                 ($dto->engagement->commentsCount ?? 0) +
                  ($dto->engagement->sharesCount ?? 0);
 
         if ($total >= ($thresholds['viral_threshold'] ?? 1000)) {
@@ -303,6 +308,7 @@ class FeedRankingService
         }
 
         $trending = $thresholds['trending_threshold'] ?? 50;
+
         return min(40, ($total / $trending) * 40);
     }
 
@@ -331,7 +337,7 @@ class FeedRankingService
      */
     protected function calculatePersonalizationScore(FeedItemModel $item, ?User $user): float
     {
-        if (!$user) {
+        if (! $user) {
             return 0;
         }
 
@@ -339,7 +345,7 @@ class FeedRankingService
         $preferences = $this->getUserPreferences($user);
 
         // Genre matching (for music items)
-        if ($item->module === 'music' && !empty($preferences['genres'])) {
+        if ($item->module === 'music' && ! empty($preferences['genres'])) {
             $itemGenre = $item->getExtra('genre');
             if ($itemGenre && in_array($itemGenre, $preferences['genres'])) {
                 $score += 50;
@@ -363,7 +369,7 @@ class FeedRankingService
         if ($item->is_prestige) {
             return 100;
         }
-        
+
         if ($item->has_celebration) {
             return 50;
         }
@@ -409,17 +415,17 @@ class FeedRankingService
 
         $get = function () use ($user, $actorId, $actorType) {
             // Safely check if following relationship exists
-            if (!method_exists($user, 'following')) {
+            if (! method_exists($user, 'following')) {
                 return false;
             }
 
-            $followableType = match($actorType) {
+            $followableType = match ($actorType) {
                 'Artist' => 'App\Models\Artist',
                 'User' => 'App\Models\User',
                 default => null,
             };
 
-            if (!$followableType) {
+            if (! $followableType) {
                 return false;
             }
 
@@ -508,7 +514,7 @@ class FeedRankingService
         // Check if user is in A/B test
         $variant = $this->getUserVariant($user);
 
-        return match($variant) {
+        return match ($variant) {
             'recency_heavy' => array_merge($this->weights, ['recency' => 0.50, 'relevance' => 0.20]),
             'engagement_heavy' => array_merge($this->weights, ['engagement' => 0.30, 'recency' => 0.25]),
             'prestige_heavy' => array_merge($this->weights, ['prestige' => 0.15, 'diversity' => 0.05]),
@@ -525,10 +531,16 @@ class FeedRankingService
         $hash = crc32("feed_ranking_{$user->id}");
         $bucket = $hash % 100;
 
-        if ($bucket < 10) return 'recency_heavy';
-        if ($bucket < 20) return 'engagement_heavy';
-        if ($bucket < 30) return 'prestige_heavy';
-        
+        if ($bucket < 10) {
+            return 'recency_heavy';
+        }
+        if ($bucket < 20) {
+            return 'engagement_heavy';
+        }
+        if ($bucket < 30) {
+            return 'prestige_heavy';
+        }
+
         return 'control';
     }
 }

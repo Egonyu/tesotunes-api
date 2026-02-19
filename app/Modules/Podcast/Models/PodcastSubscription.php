@@ -2,7 +2,6 @@
 
 namespace App\Modules\Podcast\Models;
 
-use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -67,13 +66,13 @@ class PodcastSubscription extends Model
         return $query->where('status', 'active')
             ->where(function ($q) {
                 $q->where('type', 'free')
-                  ->orWhere(function ($q2) {
-                      $q2->where('type', 'premium')
-                         ->where(function ($q3) {
-                             $q3->whereNull('expires_at')
-                                ->orWhere('expires_at', '>', now());
-                         });
-                  });
+                    ->orWhere(function ($q2) {
+                        $q2->where('type', 'premium')
+                            ->where(function ($q3) {
+                                $q3->whereNull('expires_at')
+                                    ->orWhere('expires_at', '>', now());
+                            });
+                    });
             });
     }
 
@@ -82,8 +81,8 @@ class PodcastSubscription extends Model
         return $query->where('status', 'expired')
             ->orWhere(function ($q) {
                 $q->where('type', 'premium')
-                  ->whereNotNull('expires_at')
-                  ->where('expires_at', '<=', now());
+                    ->whereNotNull('expires_at')
+                    ->where('expires_at', '<=', now());
             });
     }
 
@@ -113,8 +112,8 @@ class PodcastSubscription extends Model
 
     public function hasExpired(): bool
     {
-        return $this->type === 'premium' 
-            && $this->expires_at !== null 
+        return $this->type === 'premium'
+            && $this->expires_at !== null
             && $this->expires_at->isPast();
     }
 
@@ -127,7 +126,7 @@ class PodcastSubscription extends Model
         ]);
     }
 
-    public function renew(int $months = 1, float $price = null): void
+    public function renew(int $months = 1, ?float $price = null): void
     {
         $expiresAt = $this->expires_at && $this->expires_at->isFuture()
             ? $this->expires_at

@@ -13,7 +13,7 @@ class ArtistResource extends JsonResource
     public function toArray(Request $request): array
     {
         // Load profile relation for location data if available
-        $profile = $this->whenLoaded('profile', fn() => $this->profile);
+        $profile = $this->whenLoaded('profile', fn () => $this->profile);
 
         return [
             'id' => $this->id,
@@ -24,9 +24,9 @@ class ArtistResource extends JsonResource
 
             // Media
             'avatar_url' => $this->avatar_url,
-            'banner_url' => $this->cover_image ? url('storage/' . $this->cover_image) : null,
-            'banner' => $this->cover_image ? url('storage/' . $this->cover_image) : null,
-            'cover_image' => $this->cover_image ? url('storage/' . $this->cover_image) : null,
+            'banner_url' => $this->cover_image ? url('storage/'.$this->cover_image) : null,
+            'banner' => $this->cover_image ? url('storage/'.$this->cover_image) : null,
+            'cover_image' => $this->cover_image ? url('storage/'.$this->cover_image) : null,
 
             // Location — sourced from profile relation or artist attributes
             'country' => $this->country ?? ($this->relationLoaded('profile') && $this->profile ? ($this->profile->country ?? $this->profile->location ?? null) : null),

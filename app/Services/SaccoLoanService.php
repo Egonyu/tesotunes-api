@@ -2,16 +2,15 @@
 
 namespace App\Services;
 
-use App\Models\SaccoMember;
+use App\Models\SaccoAccount;
+use App\Models\SaccoAuditLog;
 use App\Models\SaccoLoan;
 use App\Models\SaccoLoanProduct;
-use App\Models\SaccoAccount;
+use App\Models\SaccoMember;
 use App\Models\SaccoTransaction;
-use App\Models\SaccoAuditLog;
 use App\Notifications\LoanStatusNotification;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Exception;
+use Illuminate\Support\Facades\DB;
 
 class SaccoLoanService
 {
@@ -24,11 +23,7 @@ class SaccoLoanService
 
     /**
      * Apply for a loan
-     * 
-     * @param SaccoMember $member
-     * @param SaccoLoanProduct $loanProduct
-     * @param array $data
-     * @return SaccoLoan
+     *
      * @throws Exception
      */
     public function applyForLoan(
@@ -37,28 +32,28 @@ class SaccoLoanService
         array $data
     ): SaccoLoan {
         // Validation
-        if (!$member->canApplyForLoan()) {
-            throw new Exception('Member does not meet loan eligibility requirements. Minimum shares: UGX ' . number_format(config('sacco.minimum_shares_for_loan', 100000), 2));
+        if (! $member->canApplyForLoan()) {
+            throw new Exception('Member does not meet loan eligibility requirements. Minimum shares: UGX '.number_format(config('sacco.minimum_shares_for_loan', 100000), 2));
         }
 
-        if (!$loanProduct->is_active) {
+        if (! $loanProduct->is_active) {
             throw new Exception('This loan product is currently not available.');
         }
 
         $requestedAmount = $data['principal_amount'];
         $termMonths = $data['term_months'];
 
-        if (!$loanProduct->isAmountEligible($requestedAmount)) {
+        if (! $loanProduct->isAmountEligible($requestedAmount)) {
             throw new Exception("Loan amount must be between UGX {$loanProduct->min_amount} and UGX {$loanProduct->max_amount}");
         }
 
-        if (!$loanProduct->isTermEligible($termMonths)) {
+        if (! $loanProduct->isTermEligible($termMonths)) {
             throw new Exception("Loan term must be between {$loanProduct->min_term_months} and {$loanProduct->max_term_months} months");
         }
 
         $eligibleAmount = $member->calculateLoanEligibility();
         if ($requestedAmount > $eligibleAmount) {
-            throw new Exception("Requested amount exceeds loan eligibility. Maximum eligible: UGX " . number_format($eligibleAmount, 2));
+            throw new Exception('Requested amount exceeds loan eligibility. Maximum eligible: UGX '.number_format($eligibleAmount, 2));
         }
 
         // Check for active loans
@@ -69,7 +64,7 @@ class SaccoLoanService
         }
 
         DB::beginTransaction();
-        
+
         try {
             // Calculate loan details
             $interestAmount = $loanProduct->calculateTotalInterest($requestedAmount, $termMonths);
@@ -77,9 +72,9 @@ class SaccoLoanService
             $insuranceFee = $loanProduct->calculateInsuranceFee($requestedAmount);
             $totalAmount = $requestedAmount + $interestAmount + $processingFee + $insuranceFee;
             $monthlyInstallment = $totalAmount / $termMonths;
-            
+
             // Create loan application
-            $loan = new SaccoLoan();
+            $loan = new SaccoLoan;
             $loan->member_id = $member->id;
             $loan->loan_product_id = $loanProduct->id;
             $loan->loan_number = $this->generateLoanNumber();
@@ -87,7 +82,7 @@ class SaccoLoanService
             $loan->purpose = $data['purpose'] ?? null;
             $loan->guarantors = $data['guarantors'] ?? [];
             $loan->applied_date = now();
-            
+
             // Protected fields - set explicitly
             $loan->principal_amount = $requestedAmount;
             $loan->interest_amount = $interestAmount;
@@ -100,9 +95,9 @@ class SaccoLoanService
             $loan->installments_paid = 0;
             $loan->installments_remaining = $termMonths;
             $loan->status = SaccoLoan::STATUS_PENDING;
-            
+
             $loan->save();
-            
+
             // Log application
             SaccoAuditLog::log(
                 action: SaccoAuditLog::ACTION_CREATED,
@@ -110,11 +105,11 @@ class SaccoLoanService
                 modelId: $loan->id,
                 newValues: $loan->toArray()
             );
-            
+
             DB::commit();
-            
+
             return $loan->fresh(['loanProduct', 'member']);
-            
+
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;
@@ -123,23 +118,20 @@ class SaccoLoanService
 
     /**
      * Approve a loan application
-     * 
-     * @param SaccoLoan $loan
-     * @param array $data
-     * @return SaccoLoan
+     *
      * @throws Exception
      */
     public function approveLoan(SaccoLoan $loan, array $data = []): SaccoLoan
     {
         if ($loan->status !== SaccoLoan::STATUS_PENDING) {
-            throw new Exception('Only pending loans can be approved. Current status: ' . $loan->status);
+            throw new Exception('Only pending loans can be approved. Current status: '.$loan->status);
         }
 
         DB::beginTransaction();
-        
+
         try {
             $oldValues = $loan->toArray();
-            
+
             // Update loan status
             $loan->status = SaccoLoan::STATUS_APPROVED;
             $loan->approved_date = now();
@@ -147,7 +139,7 @@ class SaccoLoanService
             $loan->due_date = now()->addMonth(); // First installment due in 1 month
             $loan->maturity_date = now()->addMonths($loan->term_months);
             $loan->save();
-            
+
             // Log approval
             SaccoAuditLog::log(
                 action: SaccoAuditLog::ACTION_APPROVED,
@@ -156,16 +148,16 @@ class SaccoLoanService
                 oldValues: $oldValues,
                 newValues: $loan->toArray()
             );
-            
+
             DB::commit();
-            
+
             // Send approval notification
             if ($loan->member && $loan->member->user) {
                 $loan->member->user->notify(new LoanStatusNotification($loan, 'approved'));
             }
-            
+
             return $loan->fresh();
-            
+
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;
@@ -174,44 +166,41 @@ class SaccoLoanService
 
     /**
      * Disburse an approved loan
-     * 
-     * @param SaccoLoan $loan
-     * @param string $disbursementMethod
-     * @return SaccoLoan
+     *
      * @throws Exception
      */
     public function disburseLoan(SaccoLoan $loan, string $disbursementMethod = 'account'): SaccoLoan
     {
         if ($loan->status !== SaccoLoan::STATUS_APPROVED) {
-            throw new Exception('Only approved loans can be disbursed. Current status: ' . $loan->status);
+            throw new Exception('Only approved loans can be disbursed. Current status: '.$loan->status);
         }
 
         DB::beginTransaction();
-        
+
         try {
             $member = $loan->member;
-            
+
             // Get member's savings account for disbursement
             $savingsAccount = $member->accounts()
                 ->where('account_type', SaccoAccount::TYPE_SAVINGS)
                 ->active()
                 ->first();
-            
-            if (!$savingsAccount && $disbursementMethod === 'account') {
+
+            if (! $savingsAccount && $disbursementMethod === 'account') {
                 throw new Exception('No active savings account found for loan disbursement.');
             }
-            
+
             $oldValues = $loan->toArray();
-            
+
             // Update loan status
             $loan->status = SaccoLoan::STATUS_DISBURSED;
             $loan->disbursed_date = now();
             $loan->disbursed_by = auth()->id();
             $loan->save();
-            
+
             // Credit loan amount to savings account (minus fees)
             $netDisbursement = $loan->principal_amount - $loan->processing_fee - $loan->insurance_fee;
-            
+
             if ($disbursementMethod === 'account') {
                 $this->transactionService->deposit(
                     $savingsAccount,
@@ -220,12 +209,12 @@ class SaccoLoanService
                     ['loan_id' => $loan->id]
                 );
             }
-            
+
             // Create loan disbursement transaction record
-            $transaction = new SaccoTransaction();
+            $transaction = new SaccoTransaction;
             $transaction->account_id = $savingsAccount ? $savingsAccount->id : null;
             $transaction->member_id = $member->id;
-            $transaction->transaction_reference = 'LOAN-' . $loan->loan_number;
+            $transaction->transaction_reference = 'LOAN-'.$loan->loan_number;
             $transaction->transaction_type = SaccoTransaction::TYPE_LOAN_DISBURSEMENT;
             $transaction->description = "Loan disbursement: {$loan->loan_number}";
             $transaction->amount = $netDisbursement;
@@ -234,11 +223,11 @@ class SaccoLoanService
             $transaction->processed_by = auth()->id();
             $transaction->transaction_date = now();
             $transaction->save();
-            
+
             // Update member total loans
             $member->total_loans = $member->loans()->active()->sum('balance');
             $member->save();
-            
+
             // Log disbursement
             SaccoAuditLog::log(
                 action: SaccoAuditLog::ACTION_DISBURSED,
@@ -247,14 +236,14 @@ class SaccoLoanService
                 oldValues: $oldValues,
                 newValues: array_merge($loan->toArray(), [
                     'net_disbursement' => $netDisbursement,
-                    'disbursement_method' => $disbursementMethod
+                    'disbursement_method' => $disbursementMethod,
                 ])
             );
-            
+
             DB::commit();
-            
+
             return $loan->fresh();
-            
+
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;
@@ -263,17 +252,13 @@ class SaccoLoanService
 
     /**
      * Make a loan repayment
-     * 
-     * @param SaccoLoan $loan
-     * @param float $amount
-     * @param array $metadata
-     * @return SaccoTransaction
+     *
      * @throws Exception
      */
     public function makeRepayment(SaccoLoan $loan, float $amount, array $metadata = []): SaccoTransaction
     {
-        if (!$loan->canRepay()) {
-            throw new Exception('This loan cannot accept repayments. Status: ' . $loan->status);
+        if (! $loan->canRepay()) {
+            throw new Exception('This loan cannot accept repayments. Status: '.$loan->status);
         }
 
         if ($amount <= 0) {
@@ -281,45 +266,45 @@ class SaccoLoanService
         }
 
         if ($amount > $loan->balance) {
-            throw new Exception('Repayment amount cannot exceed loan balance. Balance: UGX ' . number_format($loan->balance, 2));
+            throw new Exception('Repayment amount cannot exceed loan balance. Balance: UGX '.number_format($loan->balance, 2));
         }
 
         DB::beginTransaction();
-        
+
         try {
             $member = $loan->member;
             $oldBalance = $loan->balance;
-            
+
             // Calculate late fee if overdue
             $lateFee = $loan->isOverdue() ? $loan->calculateLateFee() : 0;
             $effectivePayment = $amount - $lateFee;
-            
+
             // Update loan amounts
             $loan->amount_paid += $effectivePayment;
             $loan->balance = $loan->total_amount - $loan->amount_paid;
-            
+
             // Calculate installments paid
             $installmentsPaid = floor($loan->amount_paid / $loan->monthly_installment);
             $loan->installments_paid = $installmentsPaid;
             $loan->installments_remaining = $loan->term_months - $installmentsPaid;
-            
+
             // Update due date
             if ($loan->installments_remaining > 0) {
                 $loan->due_date = now()->addMonth();
             }
-            
+
             // Check if fully paid
             if ($loan->balance <= 0) {
                 $loan->status = SaccoLoan::STATUS_COMPLETED;
                 $loan->balance = 0;
             }
-            
+
             $loan->save();
-            
+
             // Create repayment transaction
-            $transaction = new SaccoTransaction();
+            $transaction = new SaccoTransaction;
             $transaction->member_id = $member->id;
-            $transaction->transaction_reference = 'REP-' . $loan->loan_number . '-' . now()->format('YmdHis');
+            $transaction->transaction_reference = 'REP-'.$loan->loan_number.'-'.now()->format('YmdHis');
             $transaction->transaction_type = SaccoTransaction::TYPE_LOAN_REPAYMENT;
             $transaction->description = "Loan repayment: {$loan->loan_number}";
             $transaction->notes = $metadata['notes'] ?? null;
@@ -329,11 +314,11 @@ class SaccoLoanService
             $transaction->processed_by = auth()->id();
             $transaction->transaction_date = now();
             $transaction->save();
-            
+
             // Update member total loans
             $member->total_loans = $member->loans()->active()->sum('balance');
             $member->save();
-            
+
             // Log repayment
             SaccoAuditLog::log(
                 action: SaccoAuditLog::ACTION_REPAID,
@@ -346,11 +331,11 @@ class SaccoLoanService
                     'status' => $loan->status,
                 ]
             );
-            
+
             DB::commit();
-            
+
             return $transaction->fresh();
-            
+
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;
@@ -359,10 +344,6 @@ class SaccoLoanService
 
     /**
      * Reject a loan application
-     * 
-     * @param SaccoLoan $loan
-     * @param string $reason
-     * @return SaccoLoan
      */
     public function rejectLoan(SaccoLoan $loan, string $reason): SaccoLoan
     {
@@ -371,13 +352,13 @@ class SaccoLoanService
         }
 
         DB::beginTransaction();
-        
+
         try {
             $oldValues = $loan->toArray();
-            
+
             $loan->status = SaccoLoan::STATUS_REJECTED;
             $loan->save();
-            
+
             SaccoAuditLog::log(
                 action: SaccoAuditLog::ACTION_REJECTED,
                 modelType: SaccoLoan::class,
@@ -385,11 +366,11 @@ class SaccoLoanService
                 oldValues: $oldValues,
                 newValues: array_merge($loan->toArray(), ['rejection_reason' => $reason])
             );
-            
+
             DB::commit();
-            
+
             return $loan->fresh();
-            
+
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;
@@ -398,16 +379,13 @@ class SaccoLoanService
 
     /**
      * Get loan statistics for a member
-     * 
-     * @param SaccoMember $member
-     * @return array
      */
     public function getMemberLoanStatistics(SaccoMember $member): array
     {
         $activeLoans = $member->loans()->active()->get();
         $completedLoans = $member->loans()->where('status', SaccoLoan::STATUS_COMPLETED)->count();
         $defaultedLoans = $member->loans()->where('status', SaccoLoan::STATUS_DEFAULTED)->count();
-        
+
         return [
             'active_loans_count' => $activeLoans->count(),
             'total_active_balance' => $activeLoans->sum('balance'),
@@ -423,32 +401,28 @@ class SaccoLoanService
 
     /**
      * Generate unique loan number
-     * 
-     * @return string
      */
     private function generateLoanNumber(): string
     {
         $prefix = config('sacco.loan_number_prefix', 'LN');
         $year = now()->format('y');
-        
+
         $lastLoan = SaccoLoan::where('loan_number', 'like', "{$prefix}{$year}%")
             ->orderBy('loan_number', 'desc')
             ->first();
-        
+
         if ($lastLoan) {
             $lastNumber = (int) substr($lastLoan->loan_number, -5);
             $nextNumber = $lastNumber + 1;
         } else {
             $nextNumber = 1;
         }
-        
-        return $prefix . $year . str_pad($nextNumber, 5, '0', STR_PAD_LEFT);
+
+        return $prefix.$year.str_pad($nextNumber, 5, '0', STR_PAD_LEFT);
     }
 
     /**
      * Get portfolio summary (admin view)
-     * 
-     * @return array
      */
     public function getPortfolioSummary(): array
     {
@@ -468,49 +442,45 @@ class SaccoLoanService
 
     /**
      * Calculate default rate percentage
-     * 
-     * @return float
      */
     private function calculateDefaultRate(): float
     {
         $totalLoans = SaccoLoan::whereIn('status', [
             SaccoLoan::STATUS_ACTIVE,
             SaccoLoan::STATUS_COMPLETED,
-            SaccoLoan::STATUS_DEFAULTED
+            SaccoLoan::STATUS_DEFAULTED,
         ])->count();
-        
+
         if ($totalLoans === 0) {
             return 0;
         }
-        
+
         $defaultedLoans = SaccoLoan::where('status', SaccoLoan::STATUS_DEFAULTED)->count();
-        
+
         return ($defaultedLoans / $totalLoans) * 100;
     }
 
     /**
      * Calculate repayment rate percentage
-     * 
-     * @return float
      */
     private function calculateRepaymentRate(): float
     {
         $totalDisbursed = SaccoLoan::whereIn('status', [
             SaccoLoan::STATUS_DISBURSED,
             SaccoLoan::STATUS_ACTIVE,
-            SaccoLoan::STATUS_COMPLETED
+            SaccoLoan::STATUS_COMPLETED,
         ])->sum('total_amount');
-        
+
         if ($totalDisbursed === 0) {
             return 0;
         }
-        
+
         $totalRepaid = SaccoLoan::whereIn('status', [
             SaccoLoan::STATUS_DISBURSED,
             SaccoLoan::STATUS_ACTIVE,
-            SaccoLoan::STATUS_COMPLETED
+            SaccoLoan::STATUS_COMPLETED,
         ])->sum('amount_paid');
-        
+
         return ($totalRepaid / $totalDisbursed) * 100;
     }
 }

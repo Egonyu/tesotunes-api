@@ -1,12 +1,12 @@
 <?php
 
+use App\Services\Monitoring\AlertingService;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
-use App\Services\Monitoring\AlertingService;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -45,7 +45,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // For a pure API backend, unauthenticated requests should get JSON 401
         // instead of being redirected to a login page
-        $middleware->redirectGuestsTo(fn() => null);
+        $middleware->redirectGuestsTo(fn () => null);
     })
     ->withExceptions(function (Exceptions $exceptions) {
 
@@ -69,17 +69,17 @@ return Application::configure(basePath: dirname(__DIR__))
                 $alerting = app(AlertingService::class);
 
                 // Deduplicate by exception class + file + line
-                $alertKey = 'exception_' . md5(get_class($e) . $e->getFile() . $e->getLine());
+                $alertKey = 'exception_'.md5(get_class($e).$e->getFile().$e->getLine());
 
                 $context = [
                     'exception' => get_class($e),
-                    'message'   => mb_substr($e->getMessage(), 0, 500),
-                    'file'      => $e->getFile() . ':' . $e->getLine(),
-                    'url'       => request()?->fullUrl(),
-                    'method'    => request()?->method(),
-                    'user_id'   => auth()->id(),
-                    'ip'        => request()?->ip(),
-                    'trace'     => mb_substr($e->getTraceAsString(), 0, 1500),
+                    'message' => mb_substr($e->getMessage(), 0, 500),
+                    'file' => $e->getFile().':'.$e->getLine(),
+                    'url' => request()?->fullUrl(),
+                    'method' => request()?->method(),
+                    'user_id' => auth()->id(),
+                    'ip' => request()?->ip(),
+                    'trace' => mb_substr($e->getTraceAsString(), 0, 1500),
                 ];
 
                 // Payment & queue failures get higher severity
@@ -95,7 +95,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 $alerting->alert(
                     $severity,
                     $alertKey,
-                    get_class($e) . ': ' . mb_substr($e->getMessage(), 0, 200),
+                    get_class($e).': '.mb_substr($e->getMessage(), 0, 200),
                     $context
                 );
             } catch (\Throwable) {
@@ -125,13 +125,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 if ($e instanceof \Illuminate\Validation\ValidationException) {
                     return response()->json([
                         'message' => $e->getMessage(),
-                        'errors'  => $e->errors(),
+                        'errors' => $e->errors(),
                     ], 422);
                 }
 
                 // In production, never leak stack traces
                 $payload = ['message' => $message];
-                if (!app()->isProduction()) {
+                if (! app()->isProduction()) {
                     $payload['exception'] = get_class($e);
                     $payload['trace'] = collect($e->getTrace())->take(5)->toArray();
                 }

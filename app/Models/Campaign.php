@@ -89,7 +89,7 @@ class Campaign extends Model
                 $campaign->uuid = (string) Str::uuid();
             }
             if (empty($campaign->slug)) {
-                $campaign->slug = Str::slug($campaign->title) . '-' . Str::random(8);
+                $campaign->slug = Str::slug($campaign->title).'-'.Str::random(8);
             }
         });
     }
@@ -145,14 +145,14 @@ class Campaign extends Model
 
     public function scopeSearch($query, ?string $term)
     {
-        if (!$term) {
+        if (! $term) {
             return $query;
         }
 
         return $query->where(function ($q) use ($term) {
             $q->where('title', 'LIKE', "%{$term}%")
-              ->orWhere('description', 'LIKE', "%{$term}%")
-              ->orWhere('beneficiary_name', 'LIKE', "%{$term}%");
+                ->orWhere('description', 'LIKE', "%{$term}%")
+                ->orWhere('beneficiary_name', 'LIKE', "%{$term}%");
         });
     }
 
@@ -165,7 +165,7 @@ class Campaign extends Model
 
     public function getProgressPercentAttribute(): float
     {
-        if (!$this->target_amount || $this->target_amount <= 0) {
+        if (! $this->target_amount || $this->target_amount <= 0) {
             return 0;
         }
 

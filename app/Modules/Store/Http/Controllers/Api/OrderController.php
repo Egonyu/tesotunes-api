@@ -4,8 +4,8 @@ namespace App\Modules\Store\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Store\Models\Order;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -94,7 +94,7 @@ class OrderController extends Controller
 
         try {
             // If items provided directly (not from cart)
-            if (isset($validated['items']) && !empty($validated['items'])) {
+            if (isset($validated['items']) && ! empty($validated['items'])) {
                 return $this->createOrderFromItems($request, $validated);
             }
 
@@ -110,7 +110,7 @@ class OrderController extends Controller
             $storeId = $cart->items->first()->product->store_id;
 
             $order = Order::create([
-                'order_number' => 'ORD-' . strtoupper(uniqid()),
+                'order_number' => 'ORD-'.strtoupper(uniqid()),
                 'user_id' => $request->user()->id,
                 'store_id' => $storeId,
                 'status' => Order::STATUS_PENDING,
@@ -179,9 +179,9 @@ class OrderController extends Controller
         $products = \App\Modules\Store\Models\Product::whereIn('id', $productIds)->get()->keyBy('id');
 
         foreach ($items as $item) {
-            if (!$products->has($item['product_id'])) {
+            if (! $products->has($item['product_id'])) {
                 return response()->json([
-                    'message' => 'Product not found: ' . $item['product_id'],
+                    'message' => 'Product not found: '.$item['product_id'],
                 ], 422);
             }
         }
@@ -196,7 +196,7 @@ class OrderController extends Controller
         $storeId = $firstProduct->store_id;
 
         $order = Order::create([
-            'order_number' => 'ORD-' . strtoupper(uniqid()),
+            'order_number' => 'ORD-'.strtoupper(uniqid()),
             'user_id' => $request->user()->id,
             'store_id' => $storeId,
             'status' => Order::STATUS_PENDING,
@@ -258,7 +258,7 @@ class OrderController extends Controller
             ->where('order_number', $orderNumber)
             ->firstOrFail();
 
-        if (!in_array($order->status, [Order::STATUS_PENDING, Order::STATUS_PROCESSING])) {
+        if (! in_array($order->status, [Order::STATUS_PENDING, Order::STATUS_PROCESSING])) {
             return response()->json([
                 'message' => 'Order cannot be cancelled.',
             ], 422);
@@ -303,7 +303,7 @@ class OrderController extends Controller
     {
         $store = $request->user()->store;
 
-        if (!$store) {
+        if (! $store) {
             return response()->json([
                 'message' => 'No store found.',
             ], 404);

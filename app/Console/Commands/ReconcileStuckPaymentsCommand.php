@@ -8,6 +8,7 @@ use Illuminate\Console\Command;
 class ReconcileStuckPaymentsCommand extends Command
 {
     protected $signature = 'payments:reconcile-stuck {--minutes=15 : Minutes threshold for stuck payments}';
+
     protected $description = 'Reconcile payments stuck in processing status by checking ZengaPay';
 
     public function handle(): int
@@ -21,7 +22,7 @@ class ReconcileStuckPaymentsCommand extends Command
 
         $this->table(
             ['Metric', 'Count'],
-            collect($results)->map(fn($v, $k) => [ucfirst(str_replace('_', ' ', $k)), $v])->values()->toArray()
+            collect($results)->map(fn ($v, $k) => [ucfirst(str_replace('_', ' ', $k)), $v])->values()->toArray()
         );
 
         if ($results['resolved'] > 0) {

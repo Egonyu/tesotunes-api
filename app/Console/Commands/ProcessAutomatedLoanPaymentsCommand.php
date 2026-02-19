@@ -2,9 +2,9 @@
 
 namespace App\Console\Commands;
 
-use App\Services\CrossModuleRevenueService;
-use App\Services\CrossModuleNotificationService;
 use App\Events\CrossModuleEvent;
+use App\Services\CrossModuleNotificationService;
+use App\Services\CrossModuleRevenueService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
@@ -18,6 +18,7 @@ class ProcessAutomatedLoanPaymentsCommand extends Command
     protected $description = 'Process automated loan payments from artist revenue earnings';
 
     protected CrossModuleRevenueService $revenueService;
+
     protected CrossModuleNotificationService $notificationService;
 
     public function __construct(
@@ -47,6 +48,7 @@ class ProcessAutomatedLoanPaymentsCommand extends Command
 
             if ($eligibleUsers->isEmpty()) {
                 $this->info('ℹ️  No users eligible for automated loan payments');
+
                 return 0;
             }
 
@@ -69,9 +71,9 @@ class ProcessAutomatedLoanPaymentsCommand extends Command
                     if ($result['success']) {
                         $successful++;
                         $totalAmount += $result['payment_amount'];
-                        $this->info("  ✅ Payment processed: UGX " . number_format($result['payment_amount']));
+                        $this->info('  ✅ Payment processed: UGX '.number_format($result['payment_amount']));
 
-                        if (!$dryRun) {
+                        if (! $dryRun) {
                             // Send notification
                             $this->notificationService->sendLoanPaymentNotification(
                                 $user,
@@ -90,7 +92,7 @@ class ProcessAutomatedLoanPaymentsCommand extends Command
                                 'sacco',
                                 'automated_payment_success',
                                 'Automatic Loan Payment Processed',
-                                "Your loan payment of UGX " . number_format($result['payment_amount']) . " has been automatically processed.",
+                                'Your loan payment of UGX '.number_format($result['payment_amount']).' has been automatically processed.',
                                 $result
                             ));
                         }
@@ -98,7 +100,7 @@ class ProcessAutomatedLoanPaymentsCommand extends Command
                         $failed++;
                         $this->error("  ❌ Payment failed: {$result['message']}");
 
-                        if (!$dryRun) {
+                        if (! $dryRun) {
                             // Send failure notification
                             $this->notificationService->sendLoanPaymentNotification(
                                 $user,
@@ -127,24 +129,24 @@ class ProcessAutomatedLoanPaymentsCommand extends Command
                 }
 
                 // Add small delay to prevent overwhelming the system
-                if (!$dryRun) {
+                if (! $dryRun) {
                     usleep(100000); // 0.1 second
                 }
             }
 
             // Summary
-            $this->info("\n" . str_repeat('=', 60));
-            $this->info("📊 PROCESSING SUMMARY");
+            $this->info("\n".str_repeat('=', 60));
+            $this->info('📊 PROCESSING SUMMARY');
             $this->info(str_repeat('=', 60));
             $this->info("Users processed: {$processed}");
             $this->info("Successful payments: {$successful}");
             $this->info("Failed payments: {$failed}");
-            $this->info("Total amount processed: UGX " . number_format($totalAmount));
+            $this->info('Total amount processed: UGX '.number_format($totalAmount));
 
             if ($dryRun) {
-                $this->warn("Note: This was a dry run - no actual payments were made");
+                $this->warn('Note: This was a dry run - no actual payments were made');
             } else {
-                $this->info("✅ Automated loan payment processing completed successfully");
+                $this->info('✅ Automated loan payment processing completed successfully');
 
                 // Log summary for audit
                 Log::info('Automated loan payments processed', [
@@ -164,6 +166,7 @@ class ProcessAutomatedLoanPaymentsCommand extends Command
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
+
             return 1;
         }
     }
@@ -176,8 +179,9 @@ class ProcessAutomatedLoanPaymentsCommand extends Command
         if ($specificUserId) {
             $this->info("🎯 Processing only user ID: {$specificUserId}");
 
-            if (!class_exists(\App\Modules\Sacco\Models\SaccoMember::class)) {
+            if (! class_exists(\App\Modules\Sacco\Models\SaccoMember::class)) {
                 $this->error('SACCO module not available');
+
                 return collect();
             }
 
@@ -195,6 +199,7 @@ class ProcessAutomatedLoanPaymentsCommand extends Command
         if ($minRevenue) {
             $eligibleUsers = $eligibleUsers->filter(function ($member) use ($minRevenue) {
                 $revenue = $this->revenueService->calculateTotalUserRevenue($member->user);
+
                 return $revenue['total'] >= $minRevenue;
             });
         }
@@ -212,8 +217,8 @@ class ProcessAutomatedLoanPaymentsCommand extends Command
         $monthlyRevenue = $revenue['total'];
         $monthlyPayment = $loan->monthly_payment;
 
-        $this->line("  💰 Current revenue: UGX " . number_format($monthlyRevenue));
-        $this->line("  💳 Required payment: UGX " . number_format($monthlyPayment));
+        $this->line('  💰 Current revenue: UGX '.number_format($monthlyRevenue));
+        $this->line('  💳 Required payment: UGX '.number_format($monthlyPayment));
 
         // Check if sufficient funds
         if ($monthlyRevenue < $monthlyPayment) {
@@ -230,7 +235,7 @@ class ProcessAutomatedLoanPaymentsCommand extends Command
         $lastPayment = $loan->payments()->latest()->first();
         $paymentDue = $this->isPaymentDue($loan, $lastPayment);
 
-        if (!$paymentDue) {
+        if (! $paymentDue) {
             return [
                 'success' => false,
                 'message' => 'Payment not due yet',
@@ -257,7 +262,7 @@ class ProcessAutomatedLoanPaymentsCommand extends Command
      */
     protected function isPaymentDue($loan, $lastPayment): bool
     {
-        if (!$lastPayment) {
+        if (! $lastPayment) {
             // No previous payments - check if loan start date + 1 month has passed
             return $loan->created_at->addMonth()->isPast();
         }
@@ -271,7 +276,7 @@ class ProcessAutomatedLoanPaymentsCommand extends Command
      */
     protected function getNextPaymentDate($loan, $lastPayment): string
     {
-        if (!$lastPayment) {
+        if (! $lastPayment) {
             return $loan->created_at->addMonth()->toDateString();
         }
 
@@ -283,7 +288,7 @@ class ProcessAutomatedLoanPaymentsCommand extends Command
      */
     public function getHelp(): string
     {
-        return "
+        return '
 This command processes automated loan payments for SACCO members based on their
 revenue earnings from the music platform.
 
@@ -311,6 +316,6 @@ Safety Features:
 - Comprehensive logging and notifications
 - Dry run mode for testing
 - Individual user processing for troubleshooting
-";
+';
     }
 }

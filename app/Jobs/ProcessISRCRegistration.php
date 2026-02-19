@@ -9,14 +9,15 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class ProcessISRCRegistration implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public $timeout = 300; // 5 minutes
+
     public $tries = 3;
 
     public function __construct(
@@ -29,13 +30,14 @@ class ProcessISRCRegistration implements ShouldQueue
             Log::info("Processing ISRC registration for code: {$this->isrcCode->isrc_code}");
 
             // Validate ISRC code format
-            if (!ISRCCode::validateISRCFormat($this->isrcCode->isrc_code)) {
+            if (! ISRCCode::validateISRCFormat($this->isrcCode->isrc_code)) {
                 throw new \Exception("Invalid ISRC format: {$this->isrcCode->isrc_code}");
             }
 
             // Check if already registered
             if ($this->isrcCode->isRegistered()) {
                 Log::info("ISRC code already registered: {$this->isrcCode->isrc_code}");
+
                 return;
             }
 
@@ -54,11 +56,11 @@ class ProcessISRCRegistration implements ShouldQueue
             }
 
         } catch (\Exception $e) {
-            Log::error("ISRC registration failed for {$this->isrcCode->isrc_code}: " . $e->getMessage());
+            Log::error("ISRC registration failed for {$this->isrcCode->isrc_code}: ".$e->getMessage());
 
             $this->isrcCode->update([
                 'status' => 'disputed',
-                'notes' => "Registration failed: " . $e->getMessage(),
+                'notes' => 'Registration failed: '.$e->getMessage(),
             ]);
 
             throw $e;
@@ -110,7 +112,7 @@ class ProcessISRCRegistration implements ShouldQueue
             // TODO: Replace with actual UMRO API integration
             $simulatedResponse = $this->simulateUMROResponse($data);
 
-            Log::info("UMRO registration response", $simulatedResponse);
+            Log::info('UMRO registration response', $simulatedResponse);
 
             return $simulatedResponse;
 
@@ -140,7 +142,7 @@ class ProcessISRCRegistration implements ShouldQueue
         } catch (\Exception $e) {
             return [
                 'success' => false,
-                'error' => 'API connection failed: ' . $e->getMessage(),
+                'error' => 'API connection failed: '.$e->getMessage(),
                 'error_code' => 'CONNECTION_ERROR',
             ];
         }
@@ -155,12 +157,12 @@ class ProcessISRCRegistration implements ShouldQueue
         // Force success for demo purposes
         $scenario = 'success';
 
-        return match($scenario) {
+        return match ($scenario) {
             'success' => [
                 'success' => true,
-                'registration_reference' => 'UMRO-' . date('Y') . '-' . str_pad(rand(1, 999999), 6, '0', STR_PAD_LEFT),
+                'registration_reference' => 'UMRO-'.date('Y').'-'.str_pad(rand(1, 999999), 6, '0', STR_PAD_LEFT),
                 'registration_date' => now()->toDateString(),
-                'certificate_url' => 'https://certificates.umro.ug/' . $this->isrcCode->isrc_code . '.pdf',
+                'certificate_url' => 'https://certificates.umro.ug/'.$this->isrcCode->isrc_code.'.pdf',
                 'validity_period' => 'Perpetual',
                 'territorial_scope' => ['Uganda'],
             ],
@@ -191,7 +193,7 @@ class ProcessISRCRegistration implements ShouldQueue
             'registration_authority' => 'Uganda Music Rights Organization',
         ]);
 
-        Log::info("ISRC code successfully registered", [
+        Log::info('ISRC code successfully registered', [
             'isrc_code' => $this->isrcCode->isrc_code,
             'reference' => $result['registration_reference'],
         ]);
@@ -199,7 +201,7 @@ class ProcessISRCRegistration implements ShouldQueue
 
     private function handleFailedRegistration(array $result): void
     {
-        $status = match($result['error_code']) {
+        $status = match ($result['error_code']) {
             'DUPLICATE_ISRC' => 'disputed',
             'VALIDATION_ERROR' => 'pending',
             default => 'disputed'
@@ -210,7 +212,7 @@ class ProcessISRCRegistration implements ShouldQueue
             'notes' => "Registration failed: {$result['error']}",
         ]);
 
-        Log::warning("ISRC registration failed", [
+        Log::warning('ISRC registration failed', [
             'isrc_code' => $this->isrcCode->isrc_code,
             'error' => $result['error'],
             'error_code' => $result['error_code'],
@@ -242,7 +244,7 @@ class ProcessISRCRegistration implements ShouldQueue
 
         $this->isrcCode->update([
             'status' => 'disputed',
-            'notes' => "Registration job failed: " . $exception->getMessage(),
+            'notes' => 'Registration job failed: '.$exception->getMessage(),
         ]);
     }
 }
@@ -252,6 +254,7 @@ class ProcessInternationalISRCRegistration implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public $timeout = 600; // 10 minutes
+
     public $tries = 2;
 
     public function __construct(
@@ -263,8 +266,8 @@ class ProcessInternationalISRCRegistration implements ShouldQueue
         try {
             Log::info("Processing international ISRC registration for code: {$this->isrcCode->isrc_code}");
 
-            if (!$this->isrcCode->isRegistered()) {
-                throw new \Exception("ISRC must be domestically registered before international registration");
+            if (! $this->isrcCode->isRegistered()) {
+                throw new \Exception('ISRC must be domestically registered before international registration');
             }
 
             // Submit to international registries (IFPI, etc.)
@@ -277,14 +280,14 @@ class ProcessInternationalISRCRegistration implements ShouldQueue
                     'international_territories' => $internationalResult['territories'],
                 ]);
 
-                Log::info("International ISRC registration successful", [
+                Log::info('International ISRC registration successful', [
                     'isrc_code' => $this->isrcCode->isrc_code,
                     'territories' => $internationalResult['territories'],
                 ]);
             }
 
         } catch (\Exception $e) {
-            Log::error("International ISRC registration failed for {$this->isrcCode->isrc_code}: " . $e->getMessage());
+            Log::error("International ISRC registration failed for {$this->isrcCode->isrc_code}: ".$e->getMessage());
             throw $e;
         }
     }

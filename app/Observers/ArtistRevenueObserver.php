@@ -75,12 +75,12 @@ class ArtistRevenueObserver
         $changes = $revenue->getDirty();
 
         // Alert on financial field changes (should be rare)
-        $financialFields = ['gross_amount', 'net_amount', 'platform_fee', 'distribution_fee', 
-                           'credit_amount', 'money_amount', 'artist_share_percentage'];
-        
+        $financialFields = ['gross_amount', 'net_amount', 'platform_fee', 'distribution_fee',
+            'credit_amount', 'money_amount', 'artist_share_percentage'];
+
         $financialChanges = array_intersect_key($changes, array_flip($financialFields));
-        
-        if (!empty($financialChanges)) {
+
+        if (! empty($financialChanges)) {
             Log::channel('audit')->warning('Revenue financial fields modified', [
                 'id' => $revenue->id,
                 'artist_id' => $revenue->artist_id,
@@ -106,7 +106,7 @@ class ArtistRevenueObserver
         }
 
         // Validate calculations on update
-        if (!empty($financialChanges)) {
+        if (! empty($financialChanges)) {
             $this->validateRevenueCalculations($revenue);
         }
     }
@@ -168,12 +168,12 @@ class ArtistRevenueObserver
     {
         // Validate net amount calculation
         if ($revenue->gross_amount && $revenue->net_amount) {
-            $expectedNetAmount = $revenue->gross_amount - 
-                                ($revenue->platform_fee ?? 0) - 
+            $expectedNetAmount = $revenue->gross_amount -
+                                ($revenue->platform_fee ?? 0) -
                                 ($revenue->distribution_fee ?? 0);
-            
+
             $difference = abs($expectedNetAmount - $revenue->net_amount);
-            
+
             // Allow small rounding differences (0.01)
             if ($difference > 0.01) {
                 Log::channel('audit')->warning('Revenue calculation mismatch', [
@@ -191,7 +191,7 @@ class ArtistRevenueObserver
         }
 
         // Validate share percentage
-        if ($revenue->artist_share_percentage && 
+        if ($revenue->artist_share_percentage &&
             ($revenue->artist_share_percentage < 0 || $revenue->artist_share_percentage > 100)) {
             Log::channel('audit')->error('Invalid artist share percentage', [
                 'artist_id' => $revenue->artist_id,
@@ -202,9 +202,9 @@ class ArtistRevenueObserver
         }
 
         // Validate revenue splits sum to 100%
-        if (!empty($revenue->revenue_splits) && is_array($revenue->revenue_splits)) {
+        if (! empty($revenue->revenue_splits) && is_array($revenue->revenue_splits)) {
             $totalSplit = array_sum(array_column($revenue->revenue_splits, 'percentage'));
-            
+
             if (abs($totalSplit - 100) > 0.01) {
                 Log::channel('audit')->warning('Revenue splits do not sum to 100%', [
                     'artist_id' => $revenue->artist_id,

@@ -6,14 +6,14 @@ use App\Mail\Store\OrderCreatedMail;
 use App\Models\Notification;
 use App\Models\User;
 use App\Modules\Store\Models\Order;
-use App\Modules\Store\Models\Store;
 use App\Modules\Store\Models\Product;
-use Illuminate\Support\Facades\Mail;
+use App\Modules\Store\Models\Store;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * Store Notification Service
- * 
+ *
  * Handles all notification logic for the Store module
  * Supports: In-app, Email, SMS (future)
  */
@@ -25,13 +25,13 @@ class NotificationService
     public function notifyOrderCreated(Order $order): void
     {
         $user = $order->user;
-        
+
         // In-app notification
         Notification::createForUser(
             $user,
             'store_order_created',
             'Order Confirmed',
-            "Your order #{$order->order_number} has been confirmed for UGX " . number_format($order->total_ugx),
+            "Your order #{$order->order_number} has been confirmed for UGX ".number_format($order->total_ugx),
             [
                 'order_number' => $order->order_number,
                 'total_ugx' => $order->total_ugx,
@@ -58,12 +58,12 @@ class NotificationService
     public function notifySellerNewOrder(Order $order): void
     {
         $seller = $order->store->owner;
-        
+
         Notification::createForUser(
             $seller,
             'store_new_order',
             'New Order Received',
-            "New order #{$order->order_number} from {$order->user->name} - UGX " . number_format($order->total_ugx),
+            "New order #{$order->order_number} from {$order->user->name} - UGX ".number_format($order->total_ugx),
             [
                 'order_number' => $order->order_number,
                 'buyer_name' => $order->user->name,
@@ -79,7 +79,7 @@ class NotificationService
     public function notifyOrderStatusChanged(Order $order, string $oldStatus, string $newStatus): void
     {
         $user = $order->user;
-        
+
         $statusMessages = [
             'processing' => 'Your order is being processed',
             'shipped' => 'Your order has been shipped',
@@ -88,7 +88,7 @@ class NotificationService
         ];
 
         $message = $statusMessages[$newStatus] ?? "Order status updated to {$newStatus}";
-        
+
         Notification::createForUser(
             $user,
             'store_order_status',
@@ -109,7 +109,7 @@ class NotificationService
     public function notifyPaymentSuccessful(Order $order): void
     {
         $user = $order->user;
-        
+
         Notification::createForUser(
             $user,
             'store_payment_success',
@@ -127,15 +127,15 @@ class NotificationService
     /**
      * Notify buyer when payment fails
      */
-    public function notifyPaymentFailed(Order $order, string $reason = null): void
+    public function notifyPaymentFailed(Order $order, ?string $reason = null): void
     {
         $user = $order->user;
-        
+
         Notification::createForUser(
             $user,
             'store_payment_failed',
             'Payment Failed',
-            "Payment for order #{$order->order_number} could not be processed. " . ($reason ?? 'Please try again.'),
+            "Payment for order #{$order->order_number} could not be processed. ".($reason ?? 'Please try again.'),
             [
                 'order_number' => $order->order_number,
                 'reason' => $reason,
@@ -150,9 +150,9 @@ class NotificationService
     public function notifyProductReviewed(Product $product, User $reviewer, int $rating): void
     {
         $seller = $product->store->owner;
-        
+
         $stars = str_repeat('⭐', $rating);
-        
+
         Notification::createForUser(
             $seller,
             'store_new_review',
@@ -194,7 +194,7 @@ class NotificationService
     {
         // Get store followers (if follower system exists)
         $followerIds = $store->followers()->pluck('user_id')->toArray();
-        
+
         if (empty($followerIds)) {
             return;
         }
@@ -249,9 +249,11 @@ class NotificationService
             // TODO: Integrate with SMS provider (Africa's Talking, Twilio)
             // For now, just log
             Log::info("SMS to {$phoneNumber}: {$message}");
+
             return true;
         } catch (\Exception $e) {
-            Log::error("Failed to send SMS: " . $e->getMessage());
+            Log::error('Failed to send SMS: '.$e->getMessage());
+
             return false;
         }
     }
@@ -262,19 +264,19 @@ class NotificationService
     public function notifyOrderViaSMS(Order $order, string $status): void
     {
         $phone = $order->shipping_address['phone'] ?? $order->user->phone;
-        
-        if (!$phone) {
+
+        if (! $phone) {
             return;
         }
 
         $messages = [
-            'confirmed' => "Your order #{$order->order_number} is confirmed. Track at: " . route('store.orders.show', $order->order_number),
+            'confirmed' => "Your order #{$order->order_number} is confirmed. Track at: ".route('store.orders.show', $order->order_number),
             'shipped' => "Your order #{$order->order_number} has been shipped!",
             'delivered' => "Your order #{$order->order_number} has been delivered. Enjoy!",
         ];
 
         $message = $messages[$status] ?? null;
-        
+
         if ($message) {
             $this->sendSMS($phone, $message);
         }

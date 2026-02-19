@@ -52,7 +52,7 @@ class PodcastEpisode extends Model
 
         // Handle scheduled_for as an alias for published_at
         static::creating(function ($episode) {
-            if (isset($episode->scheduled_for) && !isset($episode->published_at)) {
+            if (isset($episode->scheduled_for) && ! isset($episode->published_at)) {
                 $episode->published_at = $episode->scheduled_for;
             }
         });
@@ -114,8 +114,8 @@ class PodcastEpisode extends Model
     public function scopePublished($query)
     {
         return $query->where('status', 'published')
-                     ->whereNotNull('published_at')
-                     ->where('published_at', '<=', now());
+            ->whereNotNull('published_at')
+            ->where('published_at', '<=', now());
     }
 
     public function scopePremium($query)
@@ -128,8 +128,8 @@ class PodcastEpisode extends Model
      */
     public function isPublished()
     {
-        return $this->status === 'published' 
-            && $this->published_at 
+        return $this->status === 'published'
+            && $this->published_at
             && $this->published_at <= now();
     }
 
@@ -146,7 +146,7 @@ class PodcastEpisode extends Model
     public function incrementListenCount()
     {
         $this->increment('listen_count');
-        
+
         // Also increment podcast's total listen count
         if ($this->podcast) {
             $this->podcast->increment('total_listen_count');
@@ -169,7 +169,7 @@ class PodcastEpisode extends Model
 
     public function getDurationFormattedAttribute()
     {
-        if (!$this->duration_seconds) {
+        if (! $this->duration_seconds) {
             return '0:00';
         }
 
@@ -186,17 +186,17 @@ class PodcastEpisode extends Model
 
     public function getFileSizeFormattedAttribute()
     {
-        if (!isset($this->attributes['file_size'])) {
+        if (! isset($this->attributes['file_size'])) {
             return 'N/A';
         }
 
         $bytes = $this->attributes['file_size'];
         $units = ['B', 'KB', 'MB', 'GB'];
-        
+
         for ($i = 0; $bytes > 1024 && $i < count($units) - 1; $i++) {
             $bytes /= 1024;
         }
 
-        return round($bytes, 2) . ' ' . $units[$i];
+        return round($bytes, 2).' '.$units[$i];
     }
 }

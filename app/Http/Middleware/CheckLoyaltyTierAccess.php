@@ -17,7 +17,7 @@ class CheckLoyaltyTierAccess
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 

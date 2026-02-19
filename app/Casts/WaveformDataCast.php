@@ -32,9 +32,13 @@ use InvalidArgumentException;
 class WaveformDataCast implements CastsAttributes
 {
     const MIN_VALUE = 0;
+
     const MAX_VALUE = 100;
+
     const MAX_POINTS = 1000;
+
     const TYPICAL_POINTS = 300; // Good balance of detail vs size
+
     const MIN_POINTS = 50;
 
     /**
@@ -54,7 +58,7 @@ class WaveformDataCast implements CastsAttributes
             return null;
         }
 
-        if (!is_array($decoded)) {
+        if (! is_array($decoded)) {
             return null;
         }
 
@@ -78,8 +82,8 @@ class WaveformDataCast implements CastsAttributes
             return null;
         }
 
-        if (!is_array($value)) {
-            throw new InvalidArgumentException("Waveform data must be an array");
+        if (! is_array($value)) {
+            throw new InvalidArgumentException('Waveform data must be an array');
         }
 
         $validated = $this->validate($value);
@@ -101,22 +105,22 @@ class WaveformDataCast implements CastsAttributes
             $validated = ['data' => $this->validateDataPoints($data)];
 
             if (isset($metadata['sample_rate'])) {
-                if (!is_int($metadata['sample_rate']) || $metadata['sample_rate'] <= 0) {
-                    throw new InvalidArgumentException("Sample rate must be a positive integer");
+                if (! is_int($metadata['sample_rate']) || $metadata['sample_rate'] <= 0) {
+                    throw new InvalidArgumentException('Sample rate must be a positive integer');
                 }
                 $validated['sample_rate'] = $metadata['sample_rate'];
             }
 
             if (isset($metadata['duration'])) {
-                if (!is_numeric($metadata['duration']) || $metadata['duration'] <= 0) {
-                    throw new InvalidArgumentException("Duration must be a positive number");
+                if (! is_numeric($metadata['duration']) || $metadata['duration'] <= 0) {
+                    throw new InvalidArgumentException('Duration must be a positive number');
                 }
                 $validated['duration'] = (float) $metadata['duration'];
             }
 
             if (isset($metadata['points_per_second'])) {
-                if (!is_numeric($metadata['points_per_second']) || $metadata['points_per_second'] <= 0) {
-                    throw new InvalidArgumentException("Points per second must be a positive number");
+                if (! is_numeric($metadata['points_per_second']) || $metadata['points_per_second'] <= 0) {
+                    throw new InvalidArgumentException('Points per second must be a positive number');
                 }
                 $validated['points_per_second'] = (float) $metadata['points_per_second'];
             }
@@ -137,24 +141,24 @@ class WaveformDataCast implements CastsAttributes
 
         // Check point count
         if ($count < self::MIN_POINTS) {
-            throw new InvalidArgumentException("Waveform must have at least " . self::MIN_POINTS . " data points. Got: {$count}");
+            throw new InvalidArgumentException('Waveform must have at least '.self::MIN_POINTS." data points. Got: {$count}");
         }
 
         if ($count > self::MAX_POINTS) {
-            throw new InvalidArgumentException("Waveform exceeds maximum of " . self::MAX_POINTS . " data points. Got: {$count}");
+            throw new InvalidArgumentException('Waveform exceeds maximum of '.self::MAX_POINTS." data points. Got: {$count}");
         }
 
         // Validate each point
         $validated = [];
         foreach ($points as $index => $point) {
-            if (!is_numeric($point)) {
+            if (! is_numeric($point)) {
                 throw new InvalidArgumentException("Waveform point at index {$index} must be numeric");
             }
 
             $value = (int) $point;
 
             if ($value < self::MIN_VALUE || $value > self::MAX_VALUE) {
-                throw new InvalidArgumentException("Waveform point at index {$index} must be between " . self::MIN_VALUE . " and " . self::MAX_VALUE . ". Got: {$value}");
+                throw new InvalidArgumentException("Waveform point at index {$index} must be between ".self::MIN_VALUE.' and '.self::MAX_VALUE.". Got: {$value}");
             }
 
             $validated[] = $value;
@@ -191,7 +195,7 @@ class WaveformDataCast implements CastsAttributes
     {
         $data = $waveform['data'] ?? $waveform;
 
-        if (!is_array($data)) {
+        if (! is_array($data)) {
             return $waveform;
         }
 
@@ -214,6 +218,7 @@ class WaveformDataCast implements CastsAttributes
 
         if (isset($waveform['data'])) {
             $waveform['data'] = $compressed;
+
             return $waveform;
         }
 
@@ -226,6 +231,7 @@ class WaveformDataCast implements CastsAttributes
     public static function getPeakAmplitude(array $waveform): int
     {
         $data = $waveform['data'] ?? $waveform;
+
         return max($data);
     }
 
@@ -235,6 +241,7 @@ class WaveformDataCast implements CastsAttributes
     public static function getAverageAmplitude(array $waveform): float
     {
         $data = $waveform['data'] ?? $waveform;
+
         return array_sum($data) / count($data);
     }
 
@@ -251,10 +258,11 @@ class WaveformDataCast implements CastsAttributes
         }
 
         $scale = self::MAX_VALUE / $peak;
-        $normalized = array_map(fn($value) => (int) ($value * $scale), $data);
+        $normalized = array_map(fn ($value) => (int) ($value * $scale), $data);
 
         if (isset($waveform['data'])) {
             $waveform['data'] = $normalized;
+
             return $waveform;
         }
 

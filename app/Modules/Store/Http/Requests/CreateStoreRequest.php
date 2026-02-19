@@ -2,8 +2,8 @@
 
 namespace App\Modules\Store\Http\Requests;
 
-use Illuminate\Foundation\Http\FormRequest;
 use App\Modules\Store\Models\Store;
+use Illuminate\Foundation\Http\FormRequest;
 
 class CreateStoreRequest extends FormRequest
 {
@@ -13,7 +13,7 @@ class CreateStoreRequest extends FormRequest
     public function authorize(): bool
     {
         // Check if user can create stores
-        if (!config('store.enabled', false)) {
+        if (! config('store.enabled', false)) {
             return false;
         }
 
@@ -23,12 +23,12 @@ class CreateStoreRequest extends FormRequest
         }
 
         // Check if email is verified
-        if (!$this->user()->email_verified_at) {
+        if (! $this->user()->email_verified_at) {
             return false;
         }
 
         // Check if user is artist or if user stores are allowed
-        if (!$this->user()->hasRole('artist') && !config('store.stores.allow_user_stores', false)) {
+        if (! $this->user()->hasRole('artist') && ! config('store.stores.allow_user_stores', false)) {
             return false;
         }
 

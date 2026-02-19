@@ -3,11 +3,9 @@
 namespace App\Services;
 
 use App\Models\User;
-use App\Models\Song;
 use App\Modules\Podcast\Models\Podcast;
-use App\Modules\Store\Models\StoreProduct;
-use App\Modules\Sacco\Models\SaccoMember;
 use App\Modules\Sacco\Models\Loan;
+use App\Modules\Sacco\Models\SaccoMember;
 use Illuminate\Support\Collection;
 
 class CrossModuleRevenueService
@@ -30,7 +28,7 @@ class CrossModuleRevenueService
                 'music_percentage' => $this->calculatePercentage($musicRevenue['total'], $musicRevenue['total'] + $podcastRevenue['total'] + $storeRevenue['total']),
                 'podcast_percentage' => $this->calculatePercentage($podcastRevenue['total'], $musicRevenue['total'] + $podcastRevenue['total'] + $storeRevenue['total']),
                 'store_percentage' => $this->calculatePercentage($storeRevenue['total'], $musicRevenue['total'] + $podcastRevenue['total'] + $storeRevenue['total']),
-            ]
+            ],
         ];
     }
 
@@ -72,7 +70,7 @@ class CrossModuleRevenueService
                 'total_streams' => $totalStreams,
                 'total_downloads' => $totalDownloads,
                 'songs_count' => $songs->count(),
-            ]
+            ],
         ];
     }
 
@@ -81,7 +79,7 @@ class CrossModuleRevenueService
      */
     protected function calculatePodcastRevenue(User $user): array
     {
-        if (!trait_exists(\App\Modules\Podcast\Traits\HasPodcast::class)) {
+        if (! trait_exists(\App\Modules\Podcast\Traits\HasPodcast::class)) {
             return ['total' => 0, 'subscription' => 0, 'sponsorship' => 0, 'stats' => []];
         }
 
@@ -119,7 +117,7 @@ class CrossModuleRevenueService
                 'total_subscribers' => $totalSubscribers,
                 'total_episodes' => $totalEpisodes,
                 'podcasts_count' => $podcasts->count(),
-            ]
+            ],
         ];
     }
 
@@ -128,13 +126,13 @@ class CrossModuleRevenueService
      */
     protected function calculateStoreRevenue(User $user): array
     {
-        if (!trait_exists(\App\Modules\Store\Traits\HasStore::class)) {
+        if (! trait_exists(\App\Modules\Store\Traits\HasStore::class)) {
             return ['total' => 0, 'sales' => 0, 'commission' => 0, 'stats' => []];
         }
 
         $store = $user->store;
-        
-        if (!$store) {
+
+        if (! $store) {
             return ['total' => 0, 'sales' => 0, 'commission' => 0, 'stats' => ['total_sales' => 0, 'products_count' => 0]];
         }
 
@@ -164,7 +162,7 @@ class CrossModuleRevenueService
             'stats' => [
                 'total_sales' => $totalSales,
                 'products_count' => $totalProducts,
-            ]
+            ],
         ];
     }
 
@@ -173,7 +171,7 @@ class CrossModuleRevenueService
      */
     public function getUsersEligibleForLoanPayments(): Collection
     {
-        if (!class_exists(\App\Modules\Sacco\Models\SaccoMember::class)) {
+        if (! class_exists(\App\Modules\Sacco\Models\SaccoMember::class)) {
             return collect();
         }
 
@@ -199,12 +197,12 @@ class CrossModuleRevenueService
      */
     public function processAutomatedLoanPayment(User $user): array
     {
-        if (!class_exists(\App\Modules\Sacco\Models\SaccoMember::class)) {
+        if (! class_exists(\App\Modules\Sacco\Models\SaccoMember::class)) {
             return ['success' => false, 'message' => 'SACCO module not available'];
         }
 
         $saccoMember = $user->saccoMembership;
-        if (!$saccoMember || !$saccoMember->activeLoan) {
+        if (! $saccoMember || ! $saccoMember->activeLoan) {
             return ['success' => false, 'message' => 'No active loan found'];
         }
 
@@ -328,7 +326,7 @@ class CrossModuleRevenueService
     protected function calculateRiskLevel(array $revenue): string
     {
         $totalRevenue = $revenue['total'];
-        $diversification = count(array_filter([$revenue['music']['total'], $revenue['podcast']['total'], $revenue['store']['total']], fn($x) => $x > 0));
+        $diversification = count(array_filter([$revenue['music']['total'], $revenue['podcast']['total'], $revenue['store']['total']], fn ($x) => $x > 0));
 
         if ($totalRevenue >= 200000 && $diversification >= 2) {
             return 'low';

@@ -5,8 +5,6 @@ namespace App\Modules\Podcast\Services;
 use App\Models\Artist;
 use App\Models\User;
 use App\Modules\Podcast\Models\Podcast;
-use App\Modules\Podcast\Models\PodcastEpisode;
-use App\Modules\Podcast\Models\PodcastCategory;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Str;
 
@@ -21,22 +19,22 @@ class PodcastService
         $data['slug'] = $data['slug'] ?? Str::slug($data['title']);
 
         // Ensure artist_id is set (use user's artist_id or create one if needed)
-        if (!isset($data['artist_id']) && $user->artist_id) {
+        if (! isset($data['artist_id']) && $user->artist_id) {
             $data['artist_id'] = $user->artist_id;
-        } elseif (!isset($data['artist_id'])) {
-                    // If artist_id is not provided, auto-create one
-        if (!isset($data['artist_id']) && isset($data['user_id'])) {
-            $user = User::find($data['user_id']);
-            $stageName = $user->name ?? 'Unknown Artist';
-            $artist = Artist::firstOrCreate(
-                ['user_id' => $data['user_id']],
-                [
-                    'stage_name' => $stageName,
-                    'slug' => \Illuminate\Support\Str::slug($stageName),
-                ]
-            );
-            $data['artist_id'] = $artist->id;
-        }
+        } elseif (! isset($data['artist_id'])) {
+            // If artist_id is not provided, auto-create one
+            if (! isset($data['artist_id']) && isset($data['user_id'])) {
+                $user = User::find($data['user_id']);
+                $stageName = $user->name ?? 'Unknown Artist';
+                $artist = Artist::firstOrCreate(
+                    ['user_id' => $data['user_id']],
+                    [
+                        'stage_name' => $stageName,
+                        'slug' => \Illuminate\Support\Str::slug($stageName),
+                    ]
+                );
+                $data['artist_id'] = $artist->id;
+            }
         }
 
         return Podcast::create($data);
@@ -47,11 +45,12 @@ class PodcastService
      */
     public function updatePodcast(Podcast $podcast, array $data): Podcast
     {
-        if (isset($data['title']) && !isset($data['slug'])) {
+        if (isset($data['title']) && ! isset($data['slug'])) {
             $data['slug'] = Str::slug($data['title']);
         }
 
         $podcast->update($data);
+
         return $podcast->fresh();
     }
 
@@ -73,6 +72,7 @@ class PodcastService
     public function archivePodcast(Podcast $podcast): Podcast
     {
         $podcast->update(['status' => 'archived']);
+
         return $podcast->fresh();
     }
 
@@ -121,10 +121,10 @@ class PodcastService
         return Podcast::published()
             ->where(function ($q) use ($query) {
                 $q->where('title', 'LIKE', "%{$query}%")
-                  ->orWhere('description', 'LIKE', "%{$query}%")
-                  ->orWhereHas('creator', function ($q) use ($query) {
-                      $q->where('name', 'LIKE', "%{$query}%");
-                  });
+                    ->orWhere('description', 'LIKE', "%{$query}%")
+                    ->orWhereHas('creator', function ($q) use ($query) {
+                        $q->where('name', 'LIKE', "%{$query}%");
+                    });
             })
             ->with(['creator', 'category'])
             ->withCount('episodes')
@@ -199,9 +199,10 @@ class PodcastService
     public function generateRSSFeedUrl(Podcast $podcast): string
     {
         $baseUrl = config('podcast.rss.base_url');
-        if (!$baseUrl) {
+        if (! $baseUrl) {
             return url("/podcast-rss/{$podcast->slug}");
         }
+
         return "{$baseUrl}/{$podcast->slug}";
     }
 

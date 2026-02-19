@@ -47,10 +47,15 @@ class Award extends Model
 
     // Status constants
     const STATUS_DRAFT = 'draft';
+
     const STATUS_NOMINATIONS_OPEN = 'nominations_open';
+
     const STATUS_NOMINATIONS_CLOSED = 'nominations_closed';
+
     const STATUS_VOTING_OPEN = 'voting_open';
+
     const STATUS_VOTING_CLOSED = 'voting_closed';
+
     const STATUS_COMPLETED = 'completed';
 
     protected static function boot()

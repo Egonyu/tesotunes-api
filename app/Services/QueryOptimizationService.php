@@ -4,26 +4,26 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Cache;
 
 /**
  * Query Optimization Service
- * 
+ *
  * Provides query optimization utilities, slow query detection,
  * and database performance monitoring
  */
 class QueryOptimizationService
 {
     private array $slowQueries = [];
+
     private float $slowQueryThreshold = 100.0; // milliseconds
-    
+
     /**
      * Enable query logging for performance analysis
      */
     public function enableQueryLogging(): void
     {
         DB::enableQueryLog();
-        
+
         // Log slow queries
         DB::listen(function ($query) {
             if ($query->time > $this->slowQueryThreshold) {
@@ -33,16 +33,16 @@ class QueryOptimizationService
                     'time' => $query->time,
                     'timestamp' => now()->toISOString(),
                 ];
-                
+
                 Log::warning('Slow query detected', [
                     'sql' => $query->sql,
-                    'time' => $query->time . 'ms',
+                    'time' => $query->time.'ms',
                     'bindings' => $query->bindings,
                 ]);
             }
         });
     }
-    
+
     /**
      * Get slow queries detected during request
      */
@@ -50,7 +50,7 @@ class QueryOptimizationService
     {
         return $this->slowQueries;
     }
-    
+
     /**
      * Get query log
      */
@@ -58,27 +58,27 @@ class QueryOptimizationService
     {
         return DB::getQueryLog();
     }
-    
+
     /**
      * Analyze query performance
      */
     public function analyzeQueryPerformance(): array
     {
         $queries = DB::getQueryLog();
-        
+
         if (empty($queries)) {
             return [
                 'enabled' => false,
-                'message' => 'Query logging not enabled'
+                'message' => 'Query logging not enabled',
             ];
         }
-        
+
         $totalQueries = count($queries);
         $totalTime = array_sum(array_column($queries, 'time'));
         $avgTime = $totalTime / $totalQueries;
-        
-        $slowQueries = array_filter($queries, fn($q) => $q['time'] > $this->slowQueryThreshold);
-        
+
+        $slowQueries = array_filter($queries, fn ($q) => $q['time'] > $this->slowQueryThreshold);
+
         return [
             'enabled' => true,
             'total_queries' => $totalQueries,
@@ -90,7 +90,7 @@ class QueryOptimizationService
             'duplicate_queries' => $this->findDuplicateQueries($queries),
         ];
     }
-    
+
     /**
      * Find the slowest query
      */
@@ -99,18 +99,18 @@ class QueryOptimizationService
         if (empty($queries)) {
             return null;
         }
-        
+
         $slowest = array_reduce($queries, function ($carry, $query) {
-            return (!$carry || $query['time'] > $carry['time']) ? $query : $carry;
+            return (! $carry || $query['time'] > $carry['time']) ? $query : $carry;
         });
-        
+
         return [
             'sql' => $slowest['sql'],
             'time_ms' => $slowest['time'],
             'bindings' => $slowest['bindings'],
         ];
     }
-    
+
     /**
      * Find duplicate queries (N+1 indicators)
      */
@@ -118,17 +118,17 @@ class QueryOptimizationService
     {
         $querySignatures = [];
         $duplicates = [];
-        
+
         foreach ($queries as $query) {
             $signature = $query['sql'];
-            
-            if (!isset($querySignatures[$signature])) {
+
+            if (! isset($querySignatures[$signature])) {
                 $querySignatures[$signature] = 0;
             }
-            
+
             $querySignatures[$signature]++;
         }
-        
+
         foreach ($querySignatures as $signature => $count) {
             if ($count > 5) { // More than 5 identical queries suggests N+1
                 $duplicates[] = [
@@ -137,10 +137,10 @@ class QueryOptimizationService
                 ];
             }
         }
-        
+
         return $duplicates;
     }
-    
+
     /**
      * Get database statistics
      */
@@ -148,12 +148,12 @@ class QueryOptimizationService
     {
         $driver = config('database.default');
         $connection = DB::connection();
-        
+
         $stats = [
             'driver' => $driver,
             'database' => $connection->getDatabaseName(),
         ];
-        
+
         try {
             if ($driver === 'mysql') {
                 $stats = array_merge($stats, $this->getMySQLStats());
@@ -163,19 +163,19 @@ class QueryOptimizationService
         } catch (\Exception $e) {
             $stats['error'] = $e->getMessage();
         }
-        
+
         return $stats;
     }
-    
+
     /**
      * Get MySQL-specific statistics
      */
     private function getMySQLStats(): array
     {
         $stats = [];
-        
+
         // Table sizes
-        $tables = DB::select("
+        $tables = DB::select('
             SELECT 
                 table_name,
                 table_rows,
@@ -185,30 +185,30 @@ class QueryOptimizationService
             WHERE table_schema = DATABASE()
             ORDER BY (data_length + index_length) DESC
             LIMIT 10
-        ");
-        
+        ');
+
         $stats['largest_tables'] = $tables;
-        
+
         // Connection stats
         $connections = DB::selectOne("SHOW STATUS LIKE 'Threads_connected'");
         $stats['active_connections'] = $connections->Value ?? 'unknown';
-        
+
         return $stats;
     }
-    
+
     /**
      * Get SQLite-specific statistics
      */
     private function getSQLiteStats(): array
     {
         $stats = [];
-        
+
         // Database size
         $dbPath = database_path(config('database.connections.sqlite.database'));
         if (file_exists($dbPath)) {
             $stats['database_size_mb'] = round(filesize($dbPath) / 1024 / 1024, 2);
         }
-        
+
         // Table counts
         $tables = DB::select("
             SELECT name, 
@@ -216,73 +216,73 @@ class QueryOptimizationService
             FROM sqlite_master m 
             WHERE type='table' AND name NOT LIKE 'sqlite_%'
         ");
-        
+
         $stats['tables'] = $tables;
-        
+
         return $stats;
     }
-    
+
     /**
      * Optimize database tables (MySQL only)
      */
     public function optimizeTables(): array
     {
         $driver = config('database.default');
-        
+
         if ($driver !== 'mysql') {
             return [
                 'success' => false,
-                'message' => 'Table optimization only supported for MySQL'
+                'message' => 'Table optimization only supported for MySQL',
             ];
         }
-        
+
         try {
-            $tables = DB::select("
+            $tables = DB::select('
                 SELECT table_name 
                 FROM information_schema.tables 
                 WHERE table_schema = DATABASE()
-            ");
-            
+            ');
+
             $results = [];
-            
+
             foreach ($tables as $table) {
                 $tableName = $table->table_name;
                 DB::statement("OPTIMIZE TABLE `{$tableName}`");
                 $results[] = $tableName;
             }
-            
+
             Log::info('Database tables optimized', ['tables' => $results]);
-            
+
             return [
                 'success' => true,
                 'tables_optimized' => count($results),
                 'tables' => $results,
             ];
-            
+
         } catch (\Exception $e) {
             Log::error('Table optimization failed', ['error' => $e->getMessage()]);
-            
+
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
             ];
         }
     }
-    
+
     /**
      * Check for missing indexes
      */
     public function checkMissingIndexes(): array
     {
         $driver = config('database.default');
-        
+
         if ($driver !== 'mysql') {
             return [
                 'supported' => false,
-                'message' => 'Index analysis only supported for MySQL'
+                'message' => 'Index analysis only supported for MySQL',
             ];
         }
-        
+
         try {
             // Get tables without indexes on foreign keys
             $results = DB::select("
@@ -303,13 +303,13 @@ class QueryOptimizationService
                     )
                 ORDER BY TABLE_NAME, COLUMN_NAME
             ");
-            
+
             return [
                 'supported' => true,
                 'potential_missing_indexes' => $results,
                 'count' => count($results),
             ];
-            
+
         } catch (\Exception $e) {
             return [
                 'supported' => true,
@@ -317,21 +317,21 @@ class QueryOptimizationService
             ];
         }
     }
-    
+
     /**
      * Get index usage statistics (MySQL only)
      */
     public function getIndexUsageStats(): array
     {
         $driver = config('database.default');
-        
+
         if ($driver !== 'mysql') {
             return [
                 'supported' => false,
-                'message' => 'Index statistics only supported for MySQL'
+                'message' => 'Index statistics only supported for MySQL',
             ];
         }
-        
+
         try {
             $results = DB::select("
                 SELECT 
@@ -346,13 +346,13 @@ class QueryOptimizationService
                     AND INDEX_NAME != 'PRIMARY'
                 ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX
             ");
-            
+
             return [
                 'supported' => true,
                 'indexes' => $results,
                 'total_indexes' => count($results),
             ];
-            
+
         } catch (\Exception $e) {
             return [
                 'supported' => true,

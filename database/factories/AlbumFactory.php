@@ -17,13 +17,13 @@ class AlbumFactory extends Factory
     public function definition(): array
     {
         $title = fake()->words(3, true);
-        
+
         return [
             'artist_id' => \App\Models\Artist::factory(),
             'title' => $title,
-            'slug' => \Illuminate\Support\Str::slug($title) . '-' . fake()->unique()->numberBetween(1, 10000),
+            'slug' => \Illuminate\Support\Str::slug($title).'-'.fake()->unique()->numberBetween(1, 10000),
             'description' => fake()->paragraph(),
-            'artwork' => 'albums/' . fake()->uuid() . '.jpg',
+            'artwork' => 'albums/'.fake()->uuid().'.jpg',
             'album_type' => fake()->randomElement(['single', 'ep', 'album', 'compilation']),
             'release_date' => fake()->date(),
             'status' => fake()->randomElement(['draft', 'pending_review', 'approved', 'published', 'archived']),

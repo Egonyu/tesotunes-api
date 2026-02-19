@@ -37,6 +37,7 @@ class ProductService
         }
 
         $product->update($data);
+
         return $product->fresh();
     }
 

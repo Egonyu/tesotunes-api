@@ -2,8 +2,8 @@
 
 namespace Database\Factories;
 
-use App\Models\PodcastEpisode;
 use App\Models\Podcast;
+use App\Models\PodcastEpisode;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -14,14 +14,14 @@ class PodcastEpisodeFactory extends Factory
     public function definition(): array
     {
         $title = $this->faker->sentence(4);
-        
+
         return [
             'podcast_id' => Podcast::factory(),
             'sponsor_id' => null,
             'title' => $title,
             'slug' => Str::slug($title),
             'description' => $this->faker->paragraph(),
-            'audio_file' => 'episodes/' . $this->faker->uuid() . '.mp3',
+            'audio_file' => 'episodes/'.$this->faker->uuid().'.mp3',
             'artwork' => $this->faker->optional()->imageUrl(640, 640),
             'duration_seconds' => $this->faker->numberBetween(300, 7200),
             'episode_number' => $this->faker->numberBetween(1, 100),

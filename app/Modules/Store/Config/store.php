@@ -50,7 +50,7 @@ return [
         'premium_tier' => (float) env('STORE_PREMIUM_TIER_FEE', 5.0),
         'business_tier' => (float) env('STORE_BUSINESS_TIER_FEE', 3.0),
         'minimum_fee' => (int) env('STORE_MINIMUM_FEE', 1000), // UGX
-        
+
         // Promotion-specific fees (higher than physical products)
         'promotion_free_tier' => (float) env('STORE_PROMOTION_FREE_TIER_FEE', 10.0),
         'promotion_premium_tier' => (float) env('STORE_PROMOTION_PREMIUM_TIER_FEE', 7.0),

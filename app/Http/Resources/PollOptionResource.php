@@ -17,7 +17,7 @@ class PollOptionResource extends JsonResource
         return [
             'id' => $this->id,
             'option_text' => $this->option_text,
-            'image' => $this->image ? url('storage/' . $this->image) : null,
+            'image' => $this->image ? url('storage/'.$this->image) : null,
             'position' => $this->position,
 
             // Results — only shown when allowed

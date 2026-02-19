@@ -2,8 +2,8 @@
 
 namespace App\Modules\Store\Http\Requests;
 
-use Illuminate\Foundation\Http\FormRequest;
 use App\Modules\Store\Models\Product;
+use Illuminate\Foundation\Http\FormRequest;
 
 class CreateProductRequest extends FormRequest
 {
@@ -14,7 +14,7 @@ class CreateProductRequest extends FormRequest
     {
         $store = $this->user()->store;
 
-        if (!$store) {
+        if (! $store) {
             return false;
         }
 
@@ -45,7 +45,7 @@ class CreateProductRequest extends FormRequest
             ],
             'product_type' => [
                 'required',
-                'in:' . implode(',', [
+                'in:'.implode(',', [
                     Product::TYPE_PHYSICAL,
                     Product::TYPE_DIGITAL,
                     Product::TYPE_SERVICE,

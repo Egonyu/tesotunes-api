@@ -4,7 +4,6 @@ namespace App\Policies\Modules\Forum;
 
 use App\Models\Modules\Forum\ForumTopic;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class ForumTopicPolicy
 {
@@ -34,7 +33,7 @@ class ForumTopicPolicy
         // Check minimum reputation if configured
         $config = \App\Models\ModuleSetting::getConfiguration('forum');
         $minReputation = $config['min_reputation_to_post'] ?? 0;
-        
+
         // For now, all authenticated users can create topics
         // TODO: Implement reputation system
         return true;
@@ -46,7 +45,7 @@ class ForumTopicPolicy
     public function update(User $user, ForumTopic $forumTopic): bool
     {
         // Users can edit their own topics, moderators can edit any
-        return $user->id === $forumTopic->user_id || 
+        return $user->id === $forumTopic->user_id ||
                $user->hasAnyRole(['admin', 'super_admin', 'moderator']);
     }
 

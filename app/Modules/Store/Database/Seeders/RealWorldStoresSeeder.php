@@ -2,11 +2,11 @@
 
 namespace App\Modules\Store\Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Modules\Store\Models\Store;
 use App\Models\User;
-use Illuminate\Support\Str;
+use App\Modules\Store\Models\Store;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class RealWorldStoresSeeder extends Seeder
 {
@@ -133,7 +133,7 @@ class RealWorldStoresSeeder extends Seeder
 
         foreach ($storeData as $index => $data) {
             $user = $artistUsers[$data['user_key']] ?? $artistUsers['default'];
-            
+
             Store::create([
                 'uuid' => Str::uuid(),
                 'user_id' => $user->id,
@@ -153,15 +153,15 @@ class RealWorldStoresSeeder extends Seeder
                     'accepts_mobile_money' => true,
                     'auto_accept_orders' => $index < 3, // Top stores auto-accept
                     'social_links' => [
-                        'instagram' => '@' . $data['slug'],
-                        'twitter' => '@' . $data['slug'],
+                        'instagram' => '@'.$data['slug'],
+                        'twitter' => '@'.$data['slug'],
                         'youtube' => $data['slug'],
                     ],
                 ],
             ]);
         }
 
-        $this->command->info('✓ Created ' . Store::count() . ' real-world stores');
+        $this->command->info('✓ Created '.Store::count().' real-world stores');
     }
 
     /**
@@ -170,7 +170,7 @@ class RealWorldStoresSeeder extends Seeder
     private function createArtistUsers(): array
     {
         $users = [];
-        
+
         $artistData = [
             'navio' => ['name' => 'Daniel Lubwama (Navio)', 'email' => 'navio@lineone.ug'],
             'nessim' => ['name' => 'Nessim Producer', 'email' => 'nessim@lineone.ug'],
@@ -187,8 +187,8 @@ class RealWorldStoresSeeder extends Seeder
         // Check if users already exist, create if not
         foreach ($artistData as $key => $data) {
             $user = User::where('email', $data['email'])->first();
-            
-            if (!$user) {
+
+            if (! $user) {
                 $user = User::create([
                     'name' => $data['name'],
                     'email' => $data['email'],
@@ -196,16 +196,16 @@ class RealWorldStoresSeeder extends Seeder
                     'email_verified_at' => now(),
                     'role' => 'artist', // Set role directly if column exists
                 ]);
-                
+
                 $this->command->info("Created user: {$data['name']}");
             }
-            
+
             $users[$key] = $user;
         }
-        
+
         // Get default user as fallback
         $users['default'] = User::first() ?? $users['navio'];
-        
+
         return $users;
     }
 }

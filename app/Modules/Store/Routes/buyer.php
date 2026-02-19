@@ -17,6 +17,6 @@ Route::get('/', function () {
     return response()->json([
         'message' => 'Store module is active',
         'module' => 'store',
-        'version' => '1.0.0'
+        'version' => '1.0.0',
     ]);
 })->name('index');

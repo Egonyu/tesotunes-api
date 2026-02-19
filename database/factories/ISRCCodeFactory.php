@@ -2,10 +2,9 @@
 
 namespace Database\Factories;
 
+use App\Models\Artist;
 use App\Models\ISRCCode;
 use App\Models\Song;
-use App\Models\Artist;
-use App\Models\Album;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class ISRCCodeFactory extends Factory
@@ -16,9 +15,9 @@ class ISRCCodeFactory extends Factory
     {
         return $this->afterMaking(function (ISRCCode $isrcCode) {
             // Reconstruct isrc_code from individual components to ensure consistency
-            $isrcCode->isrc_code = $isrcCode->country_code . 
-                                   $isrcCode->registrant_code . 
-                                   $isrcCode->year_code . 
+            $isrcCode->isrc_code = $isrcCode->country_code.
+                                   $isrcCode->registrant_code.
+                                   $isrcCode->year_code.
                                    $isrcCode->designation_code;
         });
     }
@@ -31,7 +30,7 @@ class ISRCCodeFactory extends Factory
         $designationCode = str_pad($this->faker->numberBetween(1, 99999), 5, '0', STR_PAD_LEFT);
 
         return [
-            'isrc_code' => $countryCode . $registrantCode . str_pad($yearCode, 2, '0', STR_PAD_LEFT) . $designationCode,
+            'isrc_code' => $countryCode.$registrantCode.str_pad($yearCode, 2, '0', STR_PAD_LEFT).$designationCode,
             'song_id' => Song::factory(),
             'artist_id' => Artist::factory(),
             'album_id' => null, // Make nullable by default
@@ -41,9 +40,9 @@ class ISRCCodeFactory extends Factory
             'designation_code' => $designationCode,
             'registrant_name' => $this->faker->company(),
             'recording_date' => $this->faker->dateTimeBetween('-5 years', 'now'),
-            'recording_location' => $this->faker->city() . ', Uganda',
+            'recording_location' => $this->faker->city().', Uganda',
             'recording_details' => [
-                'studio' => $this->faker->company() . ' Studios',
+                'studio' => $this->faker->company().' Studios',
                 'engineer' => $this->faker->name(),
                 'producer' => $this->faker->name(),
                 'equipment' => $this->faker->randomElements([
@@ -51,7 +50,7 @@ class ISRCCodeFactory extends Factory
                     'Logic Pro',
                     'Ableton Live',
                     'Cubase',
-                    'Studio One'
+                    'Studio One',
                 ], $this->faker->numberBetween(1, 3)),
             ],
             'master_ownership_percentage' => $this->faker->randomFloat(2, 50, 100),
@@ -91,7 +90,7 @@ class ISRCCodeFactory extends Factory
                 'Rwanda',
                 'South Sudan',
                 'Congo',
-                'Global'
+                'Global',
             ], $this->faker->numberBetween(1, 4)),
             'international_registered_at' => $this->faker->optional(0.2)->dateTimeBetween('-1 year', 'now'),
             'work_title' => $this->faker->sentence(3),
@@ -101,7 +100,7 @@ class ISRCCodeFactory extends Factory
                 'Radio Edit',
                 'Extended Mix',
                 'Acoustic Version',
-                'Remix'
+                'Remix',
             ]),
             'duration_seconds' => $this->faker->numberBetween(120, 600),
             'genres' => $this->faker->randomElements([
@@ -112,7 +111,7 @@ class ISRCCodeFactory extends Factory
                 'Gospel',
                 'Traditional',
                 'Folk',
-                'Electronic'
+                'Electronic',
             ], $this->faker->numberBetween(1, 3)),
             'primary_language' => $this->faker->randomElement([
                 'English',
@@ -120,12 +119,12 @@ class ISRCCodeFactory extends Factory
                 'Swahili',
                 'Runyoro',
                 'Luo',
-                'Ateso'
+                'Ateso',
             ]),
             'featured_artists' => $this->faker->optional(0.4)->randomElements([
                 $this->faker->name(),
                 $this->faker->name(),
-                $this->faker->name()
+                $this->faker->name(),
             ], $this->faker->numberBetween(1, 2)),
             'copyright_owner' => $this->faker->company(),
             'copyright_year' => $this->faker->numberBetween(2015, date('Y')),
@@ -136,13 +135,13 @@ class ISRCCodeFactory extends Factory
             'distribution_restrictions' => $this->faker->optional(0.2)->randomElements([
                 'No explicit content platforms',
                 'Limited to streaming only',
-                'Exclude specific territories'
+                'Exclude specific territories',
             ], $this->faker->numberBetween(1, 2)),
             'territorial_restrictions' => $this->faker->optional(0.1)->randomElements([
                 'China',
                 'Iran',
                 'North Korea',
-                'Syria'
+                'Syria',
             ], $this->faker->numberBetween(1, 2)),
         ];
     }
@@ -163,7 +162,7 @@ class ISRCCodeFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'status' => 'registered',
             'registered_at' => $this->faker->dateTimeBetween('-1 year', 'now'),
-            'registration_reference' => 'URA-' . $this->faker->numerify('####') . '-' . $this->faker->lexify('????'),
+            'registration_reference' => 'URA-'.$this->faker->numerify('####').'-'.$this->faker->lexify('????'),
         ]);
     }
 
@@ -172,7 +171,7 @@ class ISRCCodeFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'status' => 'registered',
             'registered_at' => $this->faker->dateTimeBetween('-1 year', '-1 month'),
-            'registration_reference' => 'URA-' . $this->faker->numerify('####') . '-' . $this->faker->lexify('????'),
+            'registration_reference' => 'URA-'.$this->faker->numerify('####').'-'.$this->faker->lexify('????'),
             'cleared_for_distribution' => true,
             'distribution_cleared_at' => $this->faker->dateTimeBetween('-1 month', 'now'),
         ]);
@@ -188,7 +187,7 @@ class ISRCCodeFactory extends Factory
                 'Rwanda',
                 'South Sudan',
                 'Congo',
-                'Global'
+                'Global',
             ], $this->faker->numberBetween(2, 5)),
             'international_registered_at' => $this->faker->dateTimeBetween('-1 year', 'now'),
         ]);
@@ -202,13 +201,13 @@ class ISRCCodeFactory extends Factory
                 'Iran',
                 'North Korea',
                 'Syria',
-                'Russia'
+                'Russia',
             ], $this->faker->numberBetween(1, 3)),
             'distribution_restrictions' => $this->faker->randomElements([
                 'No explicit content platforms',
                 'Streaming only',
                 'No social media platforms',
-                'Limited territory release'
+                'Limited territory release',
             ], $this->faker->numberBetween(1, 2)),
         ]);
     }
@@ -217,13 +216,13 @@ class ISRCCodeFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'country_code' => 'UG',
-            'registrant_name' => $this->faker->company() . ' Uganda',
+            'registrant_name' => $this->faker->company().' Uganda',
             'recording_location' => $this->faker->randomElement([
                 'Kampala, Uganda',
                 'Entebbe, Uganda',
                 'Jinja, Uganda',
                 'Mbarara, Uganda',
-                'Gulu, Uganda'
+                'Gulu, Uganda',
             ]),
         ]);
     }
@@ -237,7 +236,7 @@ class ISRCCodeFactory extends Factory
             'year_code' => $yearCode,
             'copyright_year' => $currentYear,
             'phonogram_year' => $currentYear,
-            'recording_date' => $this->faker->dateTimeBetween('January 1, ' . $currentYear, 'now'),
+            'recording_date' => $this->faker->dateTimeBetween('January 1, '.$currentYear, 'now'),
         ]);
     }
 }

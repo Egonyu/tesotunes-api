@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Cache;
 
 /**
  * Profile Completion Service
- * 
+ *
  * Tracks and calculates user profile completion percentage
  * Encourages progressive profiling without forcing it
  */
@@ -118,11 +118,11 @@ class ProfileCompletionService
         $pending = [];
 
         foreach ($this->steps as $stepKey => $step) {
-            if (!$this->isStepCompleted($user, $step)) {
+            if (! $this->isStepCompleted($user, $step)) {
                 // Check if prerequisites are met
                 if (isset($step['requires'])) {
                     $prerequisite = $this->steps[$step['requires']] ?? null;
-                    if ($prerequisite && !$this->isStepCompleted($user, $prerequisite)) {
+                    if ($prerequisite && ! $this->isStepCompleted($user, $prerequisite)) {
                         continue; // Skip if prerequisite not met
                     }
                 }
@@ -165,10 +165,11 @@ class ProfileCompletionService
         if ($isPartial) {
             // At least one field must be filled
             foreach ($fields as $field) {
-                if (!empty($user->$field)) {
+                if (! empty($user->$field)) {
                     return true;
                 }
             }
+
             return false;
         } else {
             // All fields must be filled
@@ -177,6 +178,7 @@ class ProfileCompletionService
                     return false;
                 }
             }
+
             return true;
         }
     }
@@ -240,6 +242,7 @@ class ProfileCompletionService
     public function getNextMostImportantStep(User $user): ?array
     {
         $pending = $this->getPendingSteps($user);
+
         return $pending[0] ?? null;
     }
 
@@ -257,6 +260,7 @@ class ProfileCompletionService
         ];
 
         $requiredPercentage = $minimums[$action] ?? 0;
+
         return $user->profile_completion_percentage >= $requiredPercentage;
     }
 

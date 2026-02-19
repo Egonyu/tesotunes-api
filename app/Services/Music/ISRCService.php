@@ -2,13 +2,13 @@
 
 namespace App\Services\Music;
 
-use App\Models\Song;
 use App\Models\ISRCCode;
+use App\Models\Song;
 use Exception;
 
 /**
  * ISRC (International Standard Recording Code) Service
- * 
+ *
  * Generates and validates ISRC codes for Uganda
  * Format: UG-XXX-YY-NNNNN
  * - UG: Uganda country code
@@ -19,6 +19,7 @@ use Exception;
 class ISRCService
 {
     protected string $countryCode;
+
     protected string $registrantCode;
 
     public function __construct()
@@ -29,9 +30,9 @@ class ISRCService
 
     /**
      * Generate ISRC code for a song
-     * 
-     * @param Song $song
+     *
      * @return string ISRC code (e.g., UG-MUS-25-00001)
+     *
      * @throws Exception
      */
     public function generate(Song $song): string
@@ -47,13 +48,14 @@ class ISRCService
         $isrcCode = "{$this->countryCode}-{$this->registrantCode}-{$year}-{$designation}";
 
         // Validate format
-        if (!$this->validateFormat($isrcCode)) {
+        if (! $this->validateFormat($isrcCode)) {
             throw new Exception('Generated ISRC code failed validation');
         }
 
         // Check for duplicates (extremely rare but possible)
         if ($this->exists($isrcCode)) {
             \Log::warning('ISRC collision detected, regenerating', ['isrc' => $isrcCode]);
+
             return $this->generate($song); // Regenerate
         }
 
@@ -77,7 +79,7 @@ class ISRCService
         $nextNumber = $lastISRC ? $lastISRC->designation_number + 1 : 1;
 
         if ($nextNumber > 99999) {
-            throw new Exception('ISRC designation limit reached for year ' . $year);
+            throw new Exception('ISRC designation limit reached for year '.$year);
         }
 
         return str_pad($nextNumber, 5, '0', STR_PAD_LEFT);
@@ -90,6 +92,7 @@ class ISRCService
     public function validateFormat(string $isrcCode): bool
     {
         $pattern = '/^[A-Z]{2}-[A-Z0-9]{3}-\d{2}-\d{5}$/';
+
         return preg_match($pattern, $isrcCode) === 1;
     }
 

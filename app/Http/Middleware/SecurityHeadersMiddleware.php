@@ -71,12 +71,12 @@ class SecurityHeadersMiddleware
             "object-src 'none'",
             "base-uri 'self'",
             "form-action 'self'",
-            "frame-ancestors 'none'"
+            "frame-ancestors 'none'",
         ];
 
         // Only add upgrade-insecure-requests in production
         if (app()->isProduction()) {
-            $directives[] = "upgrade-insecure-requests";
+            $directives[] = 'upgrade-insecure-requests';
         }
 
         return implode('; ', $directives);

@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Event extends Model
 {
-    use HasFactory, SoftDeletes, HasReviews;
+    use HasFactory, HasReviews, SoftDeletes;
 
     protected $fillable = [
         'uuid',
@@ -97,7 +97,7 @@ class Event extends Model
         'contact_info' => 'array',
         'social_links' => 'array',
         'latitude' => 'decimal:7',
-        'longitude' => 'decimal:7'
+        'longitude' => 'decimal:7',
     ];
 
     protected static function boot()
@@ -175,12 +175,12 @@ class Event extends Model
 
     public function scopeNearLocation($query, $latitude, $longitude, $radius = 50)
     {
-        return $query->selectRaw("*,
+        return $query->selectRaw('*,
             ( 6371 * acos( cos( radians(?) ) *
               cos( radians( latitude ) ) *
               cos( radians( longitude ) - radians(?) ) +
               sin( radians(?) ) *
-              sin( radians( latitude ) ) ) ) AS distance",
+              sin( radians( latitude ) ) ) ) AS distance',
             [$latitude, $longitude, $latitude])
             ->having('distance', '<', $radius)
             ->orderBy('distance');
@@ -214,11 +214,12 @@ class Event extends Model
 
     public function getAvailableTicketsAttribute(): int
     {
-        if (!$this->capacity) {
+        if (! $this->capacity) {
             return -1; // Unlimited
         }
 
         $soldTickets = $this->attendees()->where('status', 'confirmed')->count();
+
         return max(0, $this->capacity - $soldTickets);
     }
 
@@ -238,13 +239,13 @@ class Event extends Model
             return $this->starts_at->format('M j, Y');
         }
 
-        return $this->starts_at->format('M j') . ' - ' . $this->ends_at->format('M j, Y');
+        return $this->starts_at->format('M j').' - '.$this->ends_at->format('M j, Y');
     }
 
     public function getFormattedTimeAttribute(): string
     {
         if ($this->starts_at && $this->ends_at) {
-            return $this->starts_at->format('g:i A') . ' - ' . $this->ends_at->format('g:i A');
+            return $this->starts_at->format('g:i A').' - '.$this->ends_at->format('g:i A');
         }
 
         return $this->starts_at ? $this->starts_at->format('g:i A') : 'TBA';
@@ -256,7 +257,7 @@ class Event extends Model
             $this->venue_name,
             $this->venue_address,
             $this->city,
-            $this->country
+            $this->country,
         ]);
 
         return implode(', ', $parts);
@@ -266,23 +267,23 @@ class Event extends Model
     public function isAttendedBy(User $user): bool
     {
         return $this->attendees()
-                   ->where('user_id', $user->id)
-                   ->whereIn('status', ['confirmed', 'pending'])
-                   ->exists();
+            ->where('user_id', $user->id)
+            ->whereIn('status', ['confirmed', 'pending'])
+            ->exists();
     }
 
     public function getAttendeeStatus(User $user): ?string
     {
         $attendee = $this->attendees()
-                        ->where('user_id', $user->id)
-                        ->first();
+            ->where('user_id', $user->id)
+            ->first();
 
         return $attendee?->status;
     }
 
     public function canUserRegister(User $user): bool
     {
-        if ($this->is_past || !$this->is_active) {
+        if ($this->is_past || ! $this->is_active) {
             return false;
         }
 
@@ -303,7 +304,7 @@ class Event extends Model
 
     public function register(User $user, array $data = []): EventAttendee
     {
-        if (!$this->canUserRegister($user)) {
+        if (! $this->canUserRegister($user)) {
             throw new \Exception('Cannot register for this event');
         }
 
@@ -311,7 +312,7 @@ class Event extends Model
             'user_id' => $user->id,
             'status' => $this->is_free ? 'confirmed' : 'pending',
             'registration_data' => $data,
-            'registered_at' => now()
+            'registered_at' => now(),
         ]);
     }
 
@@ -319,22 +320,22 @@ class Event extends Model
     {
         $this->update([
             'status' => 'published',
-            'published_at' => now()
+            'published_at' => now(),
         ]);
     }
 
     public function unpublish(): void
     {
         $this->update([
-            'status' => 'draft'
+            'status' => 'draft',
         ]);
     }
 
-    public function cancel(string $reason = null): void
+    public function cancel(?string $reason = null): void
     {
         $this->update([
             'status' => 'cancelled',
-            'cancellation_reason' => $reason
+            'cancellation_reason' => $reason,
         ]);
 
         // Notify attendees
@@ -342,9 +343,9 @@ class Event extends Model
             $attendee->user->notifications()->create([
                 'type' => 'event_cancelled',
                 'title' => 'Event Cancelled',
-                'message' => "The event '{$this->title}' has been cancelled." . ($reason ? " Reason: {$reason}" : ''),
+                'message' => "The event '{$this->title}' has been cancelled.".($reason ? " Reason: {$reason}" : ''),
                 'data' => ['event_id' => $this->id],
-                'action_url' => route('frontend.events.show', $this->id)
+                'action_url' => route('frontend.events.show', $this->id),
             ]);
         });
     }
@@ -363,15 +364,15 @@ class Event extends Model
     public function getTotalRevenueAttribute(): float
     {
         return $this->attendees()
-                   ->where('payment_status', 'completed')
-                   ->sum('amount_paid');
+            ->where('payment_status', 'completed')
+            ->sum('amount_paid');
     }
 
     public function getConfirmedAttendeesCountAttribute(): int
     {
         return $this->attendees()
-                   ->whereIn('status', ['confirmed', 'checked_in'])
-                   ->count();
+            ->whereIn('status', ['confirmed', 'checked_in'])
+            ->count();
     }
 
     public function getPendingAttendeesCountAttribute(): int
@@ -409,7 +410,7 @@ class Event extends Model
         $cheapest = $this->cheapest_ticket_price;
         $expensive = $this->most_expensive_ticket_price;
 
-        if (!$cheapest && !$expensive) {
+        if (! $cheapest && ! $expensive) {
             return 'No tickets available';
         }
 
@@ -418,14 +419,14 @@ class Event extends Model
         }
 
         if ($cheapest == $expensive) {
-            return 'UGX ' . number_format($cheapest, 0);
+            return 'UGX '.number_format($cheapest, 0);
         }
 
         if ($cheapest == 0) {
-            return 'Free - UGX ' . number_format($expensive, 0);
+            return 'Free - UGX '.number_format($expensive, 0);
         }
 
-        return 'UGX ' . number_format($cheapest, 0) . ' - UGX ' . number_format($expensive, 0);
+        return 'UGX '.number_format($cheapest, 0).' - UGX '.number_format($expensive, 0);
     }
 
     public function createDefaultTicket(): EventTicket
@@ -437,7 +438,7 @@ class Event extends Model
             'quantity_available' => $this->capacity,
             'max_per_order' => 10,
             'is_active' => true,
-            'sort_order' => 1
+            'sort_order' => 1,
         ]);
     }
 
@@ -450,11 +451,11 @@ class Event extends Model
             'total_tickets_available' => $tickets->sum('quantity_available'),
             'total_tickets_sold' => $tickets->sum('quantity_sold'),
             'total_revenue' => $this->total_revenue,
-            'tickets_remaining' => $tickets->sum(function($ticket) {
+            'tickets_remaining' => $tickets->sum(function ($ticket) {
                 return $ticket->quantity_available ? $ticket->quantity_remaining : 0;
             }),
             'sales_progress' => $this->capacity ?
-                ($this->total_tickets_sold / $this->capacity) * 100 : 0
+                ($this->total_tickets_sold / $this->capacity) * 100 : 0,
         ];
     }
 
@@ -473,7 +474,7 @@ class Event extends Model
      */
     public function requiresLoyaltyTier(): bool
     {
-        return !empty($this->required_loyalty_tier);
+        return ! empty($this->required_loyalty_tier);
     }
 
     /**
@@ -481,13 +482,13 @@ class Event extends Model
      */
     public function userMeetsTierRequirement(User $user): bool
     {
-        if (!$this->requiresLoyaltyTier()) {
+        if (! $this->requiresLoyaltyTier()) {
             return true;
         }
 
         $tierService = app(\App\Services\Loyalty\TierAccessService::class);
         $access = $tierService->canAccessEvent($user, $this);
-        
+
         return $access['can_access'] ?? false;
     }
 
@@ -497,6 +498,7 @@ class Event extends Model
     public function getTierAccessForUser(User $user): array
     {
         $tierService = app(\App\Services\Loyalty\TierAccessService::class);
+
         return $tierService->canAccessEvent($user, $this);
     }
 
@@ -506,6 +508,7 @@ class Event extends Model
     public function scopeAccessibleByUser($query, User $user)
     {
         $tierService = app(\App\Services\Loyalty\TierAccessService::class);
+
         return $tierService->scopeAccessibleEvents($query, $user);
     }
 
@@ -530,10 +533,10 @@ class Event extends Model
      */
     public function shouldHideFromUser(User $user): bool
     {
-        if (!$this->hide_from_non_qualifying) {
+        if (! $this->hide_from_non_qualifying) {
             return false;
         }
 
-        return !$this->userMeetsTierRequirement($user);
+        return ! $this->userMeetsTierRequirement($user);
     }
 }

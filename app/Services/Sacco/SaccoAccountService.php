@@ -3,9 +3,9 @@
 namespace App\Services\Sacco;
 
 use App\Models\Sacco\SaccoAccount;
+use App\Models\Sacco\SaccoAuditLog;
 use App\Models\Sacco\SaccoMember;
 use App\Models\Sacco\SaccoTransaction;
-use App\Models\Sacco\SaccoAuditLog;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -14,10 +14,6 @@ class SaccoAccountService
     /**
      * Open a new account for a member
      *
-     * @param SaccoMember $member
-     * @param string $accountType
-     * @param array $data
-     * @return SaccoAccount
      * @throws \Exception
      */
     public function openAccount(SaccoMember $member, string $accountType, array $data = []): SaccoAccount
@@ -51,10 +47,8 @@ class SaccoAccountService
     /**
      * Deposit funds into an account
      *
-     * @param SaccoAccount $account
-     * @param float $amount
-     * @param array $metadata [description, payment_method, reference]
-     * @return SaccoTransaction
+     * @param  array  $metadata  [description, payment_method, reference]
+     *
      * @throws \Exception
      */
     public function deposit(SaccoAccount $account, float $amount, array $metadata = []): SaccoTransaction
@@ -107,10 +101,6 @@ class SaccoAccountService
     /**
      * Withdraw funds from an account
      *
-     * @param SaccoAccount $account
-     * @param float $amount
-     * @param string $description
-     * @return SaccoTransaction
      * @throws \Exception
      */
     public function withdraw(SaccoAccount $account, float $amount, string $description): SaccoTransaction
@@ -120,7 +110,7 @@ class SaccoAccountService
             throw new \Exception('Withdrawal amount must be greater than zero');
         }
 
-        if (!$account->canWithdraw($amount)) {
+        if (! $account->canWithdraw($amount)) {
             throw new \Exception('Insufficient available balance for withdrawal');
         }
 
@@ -161,11 +151,8 @@ class SaccoAccountService
     /**
      * Transfer funds between accounts
      *
-     * @param SaccoAccount $fromAccount
-     * @param SaccoAccount $toAccount
-     * @param float $amount
-     * @param string $description
      * @return array [from_transaction, to_transaction]
+     *
      * @throws \Exception
      */
     public function transfer(SaccoAccount $fromAccount, SaccoAccount $toAccount, float $amount, string $description = 'Internal Transfer'): array
@@ -175,7 +162,7 @@ class SaccoAccountService
             throw new \Exception('Transfer amount must be greater than zero');
         }
 
-        if (!$fromAccount->canWithdraw($amount)) {
+        if (! $fromAccount->canWithdraw($amount)) {
             throw new \Exception('Insufficient balance in source account');
         }
 
@@ -184,7 +171,7 @@ class SaccoAccountService
         }
 
         return DB::transaction(function () use ($fromAccount, $toAccount, $amount, $description) {
-            $transferReference = 'TRF-' . Str::upper(Str::random(10));
+            $transferReference = 'TRF-'.Str::upper(Str::random(10));
 
             // Debit source account
             $fromAccount = SaccoAccount::lockForUpdate()->find($fromAccount->id);
@@ -196,7 +183,7 @@ class SaccoAccountService
                 'balance_before' => $fromAccount->balance,
                 'balance_after' => $fromAccount->balance - $amount,
                 'transaction_reference' => $transferReference,
-                'description' => $description . ' (Debit)',
+                'description' => $description.' (Debit)',
                 'processed_by' => auth()->id(),
             ]);
 
@@ -213,7 +200,7 @@ class SaccoAccountService
                 'balance_before' => $toAccount->balance,
                 'balance_after' => $toAccount->balance + $amount,
                 'transaction_reference' => $transferReference,
-                'description' => $description . ' (Credit)',
+                'description' => $description.' (Credit)',
                 'processed_by' => auth()->id(),
             ]);
 
@@ -235,9 +222,6 @@ class SaccoAccountService
 
     /**
      * Calculate and credit interest to account
-     *
-     * @param SaccoAccount $account
-     * @return SaccoTransaction|null
      */
     public function calculateInterest(SaccoAccount $account): ?SaccoTransaction
     {
@@ -274,10 +258,6 @@ class SaccoAccountService
 
     /**
      * Freeze account (prevent transactions)
-     *
-     * @param SaccoAccount $account
-     * @param string $reason
-     * @return void
      */
     public function freezeAccount(SaccoAccount $account, string $reason): void
     {
@@ -294,9 +274,6 @@ class SaccoAccountService
 
     /**
      * Unfreeze account
-     *
-     * @param SaccoAccount $account
-     * @return void
      */
     public function unfreezeAccount(SaccoAccount $account): void
     {
@@ -315,8 +292,6 @@ class SaccoAccountService
     /**
      * Close account
      *
-     * @param SaccoAccount $account
-     * @return void
      * @throws \Exception
      */
     public function closeAccount(SaccoAccount $account): void
@@ -338,8 +313,6 @@ class SaccoAccountService
     /**
      * Get account transaction history
      *
-     * @param SaccoAccount $account
-     * @param int $limit
      * @return \Illuminate\Database\Eloquent\Collection
      */
     public function getTransactionHistory(SaccoAccount $account, int $limit = 50)
@@ -354,10 +327,8 @@ class SaccoAccountService
     /**
      * Get account statement for date range
      *
-     * @param SaccoAccount $account
-     * @param \Carbon\Carbon $startDate
-     * @param \Carbon\Carbon $endDate
-     * @return array
+     * @param  \Carbon\Carbon  $startDate
+     * @param  \Carbon\Carbon  $endDate
      */
     public function getAccountStatement(SaccoAccount $account, $startDate, $endDate): array
     {

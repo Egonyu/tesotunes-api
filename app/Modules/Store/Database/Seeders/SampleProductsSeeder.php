@@ -2,8 +2,10 @@
 
 namespace App\Modules\Store\Database\Seeders;
 
+use App\Modules\Store\Models\Product;
+use App\Modules\Store\Models\ProductCategory;
+use App\Modules\Store\Models\Store;
 use Illuminate\Database\Seeder;
-use App\Modules\Store\Models\{Store, Product, ProductCategory};
 use Illuminate\Support\Str;
 
 class SampleProductsSeeder extends Seeder
@@ -14,9 +16,10 @@ class SampleProductsSeeder extends Seeder
     public function run(): void
     {
         $stores = Store::where('status', 'active')->get();
-        
+
         if ($stores->isEmpty()) {
             $this->command->error('No active stores found. Run SampleStoresSeeder first.');
+
             return;
         }
 
@@ -201,6 +204,6 @@ class SampleProductsSeeder extends Seeder
             }
         }
 
-        $this->command->info('✓ Created ' . Product::count() . ' sample products');
+        $this->command->info('✓ Created '.Product::count().' sample products');
     }
 }

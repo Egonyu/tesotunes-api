@@ -4,7 +4,8 @@ namespace App\Modules\Store\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany, BelongsToMany};
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -74,16 +75,24 @@ class Product extends Model
 
     // Product type constants
     const TYPE_PHYSICAL = 'physical';
+
     const TYPE_DIGITAL = 'digital';
+
     const TYPE_SERVICE = 'service';
+
     const TYPE_EXPERIENCE = 'experience';
+
     const TYPE_TICKET = 'ticket';
+
     const TYPE_PROMOTION = 'promotion';
 
     // Status constants
     const STATUS_DRAFT = 'draft';
+
     const STATUS_ACTIVE = 'active';
+
     const STATUS_ARCHIVED = 'archived';
+
     const STATUS_OUT_OF_STOCK = 'out_of_stock';
 
     /*
@@ -163,8 +172,8 @@ class Product extends Model
     {
         return $query->where(function ($q) {
             $q->where('track_inventory', false)
-              ->orWhere('inventory_quantity', '>', 0)
-              ->orWhere('allow_backorder', true);
+                ->orWhere('inventory_quantity', '>', 0)
+                ->orWhere('allow_backorder', true);
         });
     }
 
@@ -217,21 +226,22 @@ class Product extends Model
 
     public function getFeaturedImageUrlAttribute(): ?string
     {
-        if (!$this->featured_image) {
+        if (! $this->featured_image) {
             return null;
         }
 
         try {
             $disk = config('store.storage.disk', 'public');
-            
+
             // Check if disk exists and is configured
-            if (!config("filesystems.disks.{$disk}")) {
+            if (! config("filesystems.disks.{$disk}")) {
                 $disk = 'public';
             }
-            
+
             return \Storage::disk($disk)->url($this->featured_image);
         } catch (\Exception $e) {
-            \Log::warning("Failed to get featured image URL: " . $e->getMessage());
+            \Log::warning('Failed to get featured image URL: '.$e->getMessage());
+
             // Fallback to public disk
             return \Storage::disk('public')->url($this->featured_image);
         }
@@ -239,23 +249,24 @@ class Product extends Model
 
     public function getImageUrlsAttribute(): array
     {
-        if (!$this->images) {
+        if (! $this->images) {
             return [];
         }
 
         try {
             $disk = config('store.storage.disk', 'public');
-            
+
             // Check if disk exists and is configured
-            if (!config("filesystems.disks.{$disk}")) {
+            if (! config("filesystems.disks.{$disk}")) {
                 $disk = 'public';
             }
-            
+
             return array_map(function ($image) use ($disk) {
                 return \Storage::disk($disk)->url($image);
             }, $this->images);
         } catch (\Exception $e) {
-            \Log::warning("Failed to get image URLs: " . $e->getMessage());
+            \Log::warning('Failed to get image URLs: '.$e->getMessage());
+
             // Fallback to public disk
             return array_map(function ($image) {
                 return \Storage::disk('public')->url($image);
@@ -265,22 +276,23 @@ class Product extends Model
 
     public function getDigitalFileUrlAttribute(): ?string
     {
-        if (!$this->is_digital || !$this->digital_file_path) {
+        if (! $this->is_digital || ! $this->digital_file_path) {
             return null;
         }
 
         try {
             $disk = config('store.storage.disk', 'public');
-            
+
             // Check if disk exists and is configured
-            if (!config("filesystems.disks.{$disk}")) {
+            if (! config("filesystems.disks.{$disk}")) {
                 $disk = 'public';
             }
-            
+
             // Return signed URL for security (expires in 15 minutes)
             return \Storage::disk($disk)->temporaryUrl($this->digital_file_path, now()->addMinutes(15));
         } catch (\Exception $e) {
-            \Log::warning("Failed to get digital file URL: " . $e->getMessage());
+            \Log::warning('Failed to get digital file URL: '.$e->getMessage());
+
             // Fallback to public disk
             return \Storage::disk('public')->temporaryUrl($this->digital_file_path, now()->addMinutes(15));
         }
@@ -294,18 +306,19 @@ class Product extends Model
     public function getIsOnSaleAttribute(): bool
     {
         $pricing = $this->pricing;
+
         return $pricing && $pricing->compare_at_price_ugx > 0
             && $pricing->compare_at_price_ugx > $pricing->price_ugx;
     }
 
     public function getDiscountPercentageAttribute(): int
     {
-        if (!$this->is_on_sale) {
+        if (! $this->is_on_sale) {
             return 0;
         }
 
         $pricing = $this->pricing;
-        if (!$pricing) {
+        if (! $pricing) {
             return 0;
         }
 
@@ -315,7 +328,7 @@ class Product extends Model
     public function getIsInStockAttribute(): bool
     {
         $inventory = $this->inventory;
-        if (!$inventory || $inventory->track_inventory !== 'track') {
+        if (! $inventory || $inventory->track_inventory !== 'track') {
             return true;
         }
 
@@ -325,7 +338,7 @@ class Product extends Model
     public function getStockStatusAttribute(): string
     {
         $inventory = $this->inventory;
-        if (!$inventory || $inventory->track_inventory !== 'track') {
+        if (! $inventory || $inventory->track_inventory !== 'track') {
             return 'available';
         }
 
@@ -357,7 +370,7 @@ class Product extends Model
         if (is_numeric($value)) {
             return $this->where('id', $value)->firstOrFail();
         }
-        
+
         return $this->where('slug', $value)->firstOrFail();
     }
 
@@ -374,6 +387,7 @@ class Product extends Model
         if (isset($this->attributes['price_ugx']) && $this->attributes['price_ugx'] !== null) {
             return $this->attributes['price_ugx'];
         }
+
         return $this->pricing ? $this->pricing->price_ugx : null;
     }
 
@@ -383,6 +397,7 @@ class Product extends Model
         if (isset($this->attributes['price_credits']) && $this->attributes['price_credits'] !== null) {
             return $this->attributes['price_credits'];
         }
+
         return $this->pricing ? $this->pricing->price_credits : null;
     }
 
@@ -400,8 +415,9 @@ class Product extends Model
     {
         // Direct column for promotions/services takes priority
         if (isset($this->attributes['allow_credit_payment'])) {
-            return (bool)$this->attributes['allow_credit_payment'];
+            return (bool) $this->attributes['allow_credit_payment'];
         }
+
         return $this->pricing ? $this->pricing->accepts_credits : false;
     }
 
@@ -409,8 +425,9 @@ class Product extends Model
     {
         // Direct column for promotions/services takes priority
         if (isset($this->attributes['allow_hybrid_payment'])) {
-            return (bool)$this->attributes['allow_hybrid_payment'];
+            return (bool) $this->attributes['allow_hybrid_payment'];
         }
+
         return $this->pricing ? $this->pricing->allow_hybrid_payment : false;
     }
 
@@ -421,8 +438,9 @@ class Product extends Model
     {
         // Direct attribute takes priority (for tests and direct updates)
         if (array_key_exists('accepts_credits', $this->attributes)) {
-            return (bool)$this->attributes['accepts_credits'];
+            return (bool) $this->attributes['accepts_credits'];
         }
+
         return $this->pricing ? $this->pricing->accepts_credits : false;
     }
 
@@ -431,12 +449,13 @@ class Product extends Model
     {
         // Try relation first if it's loaded, then check direct attribute
         if ($this->relationLoaded('inventory') && $this->inventory) {
-            return (int)$this->inventory->stock_quantity;
+            return (int) $this->inventory->stock_quantity;
         }
         // Direct attribute as fallback (for convenience column)
         if (array_key_exists('stock_quantity', $this->attributes) && $this->attributes['stock_quantity'] !== null && $this->attributes['stock_quantity'] > 0) {
-            return (int)$this->attributes['stock_quantity'];
+            return (int) $this->attributes['stock_quantity'];
         }
+
         // Load from relation
         return $this->inventory ? $this->inventory->stock_quantity : 0;
     }
@@ -455,8 +474,9 @@ class Product extends Model
         }
         // Direct attribute as fallback
         if (array_key_exists('track_inventory', $this->attributes)) {
-            return (bool)$this->attributes['track_inventory'];
+            return (bool) $this->attributes['track_inventory'];
         }
+
         return $this->inventory ? ($this->inventory->track_inventory === 'track') : false;
     }
 
@@ -478,9 +498,10 @@ class Product extends Model
 
     public function getDimensionsAttribute()
     {
-        if (!$this->physicalSpecs) {
+        if (! $this->physicalSpecs) {
             return null;
         }
+
         return [
             'length' => $this->physicalSpecs->length,
             'width' => $this->physicalSpecs->width,
@@ -507,7 +528,7 @@ class Product extends Model
 
     public function getPriceInCurrency(string $currency): float|int
     {
-        return match($currency) {
+        return match ($currency) {
             'ugx' => $this->price_ugx,
             'credits' => $this->price_credits ?? 0,
             default => $this->price_ugx,
@@ -528,7 +549,7 @@ class Product extends Model
 
     public function calculateHybridPayment(int $availableCredits): array
     {
-        if (!$this->canPurchaseWithHybrid()) {
+        if (! $this->canPurchaseWithHybrid()) {
             return [
                 'credits' => 0,
                 'ugx' => $this->price_ugx,
@@ -548,34 +569,37 @@ class Product extends Model
     public function decrementInventory(int $quantity): bool
     {
         $inventory = $this->inventory;
-        if (!$inventory || $inventory->track_inventory !== 'track') {
+        if (! $inventory || $inventory->track_inventory !== 'track') {
             return true;
         }
 
-        if ($inventory->stock_quantity < $quantity && !$inventory->allow_backorder) {
+        if ($inventory->stock_quantity < $quantity && ! $inventory->allow_backorder) {
             throw new \Exception('Insufficient inventory');
         }
 
         $inventory->stock_quantity -= $quantity;
         $inventory->updateAvailableQuantity();
+
         return true;
     }
 
     public function incrementInventory(int $quantity): bool
     {
         $inventory = $this->inventory;
-        if (!$inventory || $inventory->track_inventory !== 'track') {
+        if (! $inventory || $inventory->track_inventory !== 'track') {
             return true;
         }
 
         $inventory->stock_quantity += $quantity;
         $inventory->updateAvailableQuantity();
+
         return true;
     }
 
     public function requiresStock(): bool
     {
         $inventory = $this->inventory;
+
         return $inventory && $inventory->track_inventory === 'track';
     }
 
@@ -587,6 +611,7 @@ class Product extends Model
     public function hasMultiplePaymentOptions(): bool
     {
         $pricing = $this->pricing;
+
         return $pricing && $pricing->price_ugx > 0 && $pricing->price_credits > 0;
     }
 
@@ -633,12 +658,12 @@ class Product extends Model
         }
 
         // Physical products must have weight
-        if ($this->requires_shipping && $this->product_type === self::TYPE_PHYSICAL && !$this->weight) {
+        if ($this->requires_shipping && $this->product_type === self::TYPE_PHYSICAL && ! $this->weight) {
             return false;
         }
 
         // Digital products must have file
-        if ($this->is_digital && !$this->digital_file_path) {
+        if ($this->is_digital && ! $this->digital_file_path) {
             return false;
         }
 
@@ -647,83 +672,85 @@ class Product extends Model
 
     public function activate(): bool
     {
-        if (!$this->canBeActivated()) {
+        if (! $this->canBeActivated()) {
             throw new \Exception('Product cannot be activated. Check required fields.');
         }
 
         return $this->update(['status' => self::STATUS_ACTIVE]);
     }
-    
+
     public function isLowStock(): bool
     {
-        if (!$this->track_inventory) {
+        if (! $this->track_inventory) {
             return false;
         }
-        
+
         $threshold = $this->low_stock_threshold ?? 5;
+
         return $this->stock_quantity <= $threshold && $this->stock_quantity > 0;
     }
-    
+
     public function isDigital(): bool
     {
         return $this->type === 'digital' || $this->product_type === 'digital' || $this->is_digital;
     }
-    
+
     public function isService(): bool
     {
         return $this->type === 'service' || $this->product_type === 'service';
     }
+
     // Backward compatibility accessors/mutators for tests
     public function getTypeAttribute()
     {
         return $this->product_type;
     }
-    
+
     public function setTypeAttribute($value)
     {
         $this->attributes['product_type'] = $value;
     }
-    
+
     public function getPriceAttribute()
     {
         return $this->price_ugx;
     }
-    
+
     public function setPriceAttribute($value)
     {
         $this->attributes['price_ugx'] = $value;
     }
-    
+
     public function getCreditPriceAttribute()
     {
         return $this->price_credits;
     }
-    
+
     public function setCreditPriceAttribute($value)
     {
         $this->attributes['price_credits'] = $value;
     }
-    
+
     public function getPriceDisplayAttribute()
     {
         return $this->price_ugx / 100;
     }
-    
+
     public function getCompareAtPriceAttribute()
     {
         return $this->compare_at_price_ugx;
     }
-    
+
     public function setCompareAtPriceAttribute($value)
     {
         $this->attributes['compare_at_price_ugx'] = $value;
     }
-    
+
     public function getVariantMetadataAttribute()
     {
         return $this->metadata['variants'] ?? [];
     }
-    
+
     public function setVariantMetadataAttribute($value)
     {
         $metadata = $this->metadata ?? [];
@@ -731,7 +758,6 @@ class Product extends Model
         $this->attributes['metadata'] = json_encode($metadata);
     }
 
-    
     protected static function newFactory()
     {
         return \Database\Factories\ProductFactory::new();
@@ -748,26 +774,26 @@ class Product extends Model
         parent::boot();
 
         static::creating(function ($product) {
-            if (!$product->uuid) {
+            if (! $product->uuid) {
                 $product->uuid = \Str::uuid();
             }
 
-            if (!$product->sku) {
-                $product->sku = 'SKU-' . strtoupper(\Str::random(8));
+            if (! $product->sku) {
+                $product->sku = 'SKU-'.strtoupper(\Str::random(8));
             }
 
             // Auto-generate slug from name if not provided
-            if (!$product->slug && $product->name) {
+            if (! $product->slug && $product->name) {
                 $baseSlug = \Str::slug($product->name);
                 $slug = $baseSlug;
                 $counter = 1;
-                
+
                 // Ensure slug is unique by adding counter if needed
                 while (static::where('slug', $slug)->exists()) {
-                    $slug = $baseSlug . '-' . $counter;
+                    $slug = $baseSlug.'-'.$counter;
                     $counter++;
                 }
-                
+
                 $product->slug = $slug;
             }
         });

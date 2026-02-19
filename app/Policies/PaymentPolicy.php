@@ -2,9 +2,9 @@
 
 namespace App\Policies;
 
+use App\Models\AuditLog;
 use App\Models\Payment;
 use App\Models\User;
-use App\Models\AuditLog;
 
 class PaymentPolicy
 {
@@ -28,7 +28,7 @@ class PaymentPolicy
         }
 
         // Finance and admins can view any payment
-        return $user->hasAnyRole(['super_admin', 'admin', 'finance']) && 
+        return $user->hasAnyRole(['super_admin', 'admin', 'finance']) &&
                $user->hasPermission('payment.view');
     }
 
@@ -47,11 +47,12 @@ class PaymentPolicy
     public function update(User $user, Payment $payment): bool
     {
         // Must have payment.manage permission
-        if (!$user->hasPermission('payment.manage')) {
+        if (! $user->hasPermission('payment.manage')) {
             AuditLog::logActivity($user->id, 'unauthorized_payment_update_attempt', [
                 'payment_id' => $payment->id,
                 'amount' => $payment->amount,
             ]);
+
             return false;
         }
 
@@ -70,11 +71,12 @@ class PaymentPolicy
     public function delete(User $user, Payment $payment): bool
     {
         // Must have payment.manage permission
-        if (!$user->hasPermission('payment.manage')) {
+        if (! $user->hasPermission('payment.manage')) {
             AuditLog::logActivity($user->id, 'unauthorized_payment_delete_attempt', [
                 'payment_id' => $payment->id,
                 'amount' => $payment->amount,
             ]);
+
             return false;
         }
 
@@ -93,7 +95,7 @@ class PaymentPolicy
     public function approve(User $user, Payment $payment): bool
     {
         // Must have payment.approve permission
-        if (!$user->hasPermission('payment.approve')) {
+        if (! $user->hasPermission('payment.approve')) {
             return false;
         }
 
@@ -112,7 +114,7 @@ class PaymentPolicy
     public function processPayout(User $user, Payment $payment): bool
     {
         // Must have payment.manage permission
-        if (!$user->hasPermission('payment.manage')) {
+        if (! $user->hasPermission('payment.manage')) {
             return false;
         }
 
@@ -136,7 +138,7 @@ class PaymentPolicy
         }
 
         // Only super admin and finance can issue refunds
-        return $user->hasAnyRole(['super_admin', 'finance']) && 
+        return $user->hasAnyRole(['super_admin', 'finance']) &&
                $user->hasPermission('payment.manage');
     }
 

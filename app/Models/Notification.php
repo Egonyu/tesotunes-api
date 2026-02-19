@@ -133,7 +133,7 @@ class Notification extends Model
         }
 
         // Otherwise, derive from type
-        return match($this->type ?? 'default') {
+        return match ($this->type ?? 'default') {
             'new_follower' => 'user-plus',
             'playlist_activity' => 'music',
             'artist_release' => 'disc',
@@ -149,7 +149,7 @@ class Notification extends Model
 
     public function getColorClassAttribute(): string
     {
-        return match($this->type ?? 'default') {
+        return match ($this->type ?? 'default') {
             'new_follower' => 'text-blue-600',
             'playlist_activity' => 'text-green-600',
             'artist_release' => 'text-purple-600',
@@ -181,7 +181,7 @@ class Notification extends Model
     // Helper methods
     public function markAsRead(): void
     {
-        if (!$this->is_read) {
+        if (! $this->is_read) {
             $this->update([
                 'is_read' => true,
                 'read_at' => now(),

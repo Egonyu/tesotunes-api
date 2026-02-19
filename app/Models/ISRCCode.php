@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Carbon\Carbon;
 
 class ISRCCode extends Model
 {
@@ -130,6 +129,7 @@ class ISRCCode extends Model
     public function scopeByYear($query, int $year)
     {
         $yearCode = substr($year, 2, 2);
+
         return $query->where('year_code', $yearCode);
     }
 
@@ -146,15 +146,16 @@ class ISRCCode extends Model
     // Mutators and Accessors
     public function getCodeAttribute(): ?string
     {
-        if (!$this->country_code || !$this->registrant_code || !$this->year_code || !$this->designation_code) {
+        if (! $this->country_code || ! $this->registrant_code || ! $this->year_code || ! $this->designation_code) {
             return null;
         }
-        return $this->country_code . '-' . $this->registrant_code . '-' . $this->year_code . '-' . $this->designation_code;
+
+        return $this->country_code.'-'.$this->registrant_code.'-'.$this->year_code.'-'.$this->designation_code;
     }
 
     public function getFormattedIsrcAttribute(): string
     {
-        return $this->country_code . '-' . $this->registrant_code . '-' . $this->year_code . '-' . $this->designation_code;
+        return $this->country_code.'-'.$this->registrant_code.'-'.$this->year_code.'-'.$this->designation_code;
     }
 
     public function getAgeInYearsAttribute(): int
@@ -164,7 +165,7 @@ class ISRCCode extends Model
 
     public function getRegistrationStatusBadgeAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'pending' => '⏳ Pending',
             'registered' => '✅ Registered',
             'disputed' => '⚠️ Disputed',
@@ -178,6 +179,7 @@ class ISRCCode extends Model
         if ($this->cleared_for_distribution) {
             return '✅ Cleared';
         }
+
         return '⏳ Pending Clearance';
     }
 
@@ -214,7 +216,7 @@ class ISRCCode extends Model
 
     public function canBeDistributedTo(string $territory): bool
     {
-        if (!$this->isClearedForDistribution()) {
+        if (! $this->isClearedForDistribution()) {
             return false;
         }
 
@@ -224,14 +226,14 @@ class ISRCCode extends Model
         }
 
         // Check if international registration is required
-        if ($territory !== 'Uganda' && !$this->hasInternationalRegistration()) {
+        if ($territory !== 'Uganda' && ! $this->hasInternationalRegistration()) {
             return false;
         }
 
         return true;
     }
 
-    public function markAsRegistered(string $registrationReference = null): void
+    public function markAsRegistered(?string $registrationReference = null): void
     {
         $this->update([
             'status' => 'registered',
@@ -252,7 +254,7 @@ class ISRCCode extends Model
     public function addTerritorialRestriction(string $territory): void
     {
         $restrictions = $this->territorial_restrictions ?? [];
-        if (!in_array($territory, $restrictions)) {
+        if (! in_array($territory, $restrictions)) {
             $restrictions[] = $territory;
             $this->update(['territorial_restrictions' => $restrictions]);
         }
@@ -286,8 +288,8 @@ class ISRCCode extends Model
         $designationCode = self::generateDesignationCode($yearCode);
 
         // Format: UGA6525NNNNN (12 chars) or UG-A65-25-NNNNN (with dashes)
-        $isrcCode = $countryCode . $registrantCode . $yearCode . $designationCode;
-        $formattedIsrc = $countryCode . '-' . $registrantCode . '-' . $yearCode . '-' . $designationCode;
+        $isrcCode = $countryCode.$registrantCode.$yearCode.$designationCode;
+        $formattedIsrc = $countryCode.'-'.$registrantCode.'-'.$yearCode.'-'.$designationCode;
 
         return self::create([
             'isrc_code' => $isrcCode,
@@ -343,10 +345,10 @@ class ISRCCode extends Model
         if (strlen($clean) !== 12) {
             return $isrc;
         }
-        
-        return substr($clean, 0, 2) . '-' . 
-               substr($clean, 2, 3) . '-' . 
-               substr($clean, 5, 2) . '-' . 
+
+        return substr($clean, 0, 2).'-'.
+               substr($clean, 2, 3).'-'.
+               substr($clean, 5, 2).'-'.
                substr($clean, 7, 5);
     }
 
@@ -356,7 +358,7 @@ class ISRCCode extends Model
     public static function getStatistics(): array
     {
         $currentYear = substr(now()->year, 2, 2);
-        
+
         return [
             'total_codes' => self::count(),
             'codes_this_year' => self::where('year_code', $currentYear)->count(),
@@ -364,7 +366,7 @@ class ISRCCode extends Model
             'pending_codes' => self::where('status', 'pending')->count(),
             'cleared_for_distribution' => self::where('cleared_for_distribution', true)->count(),
             'next_designation_code' => self::generateDesignationCode($currentYear),
-            'prefix' => config('music.isrc.country_code') . '-' . config('music.isrc.registrant_code'),
+            'prefix' => config('music.isrc.country_code').'-'.config('music.isrc.registrant_code'),
         ];
     }
 
@@ -378,7 +380,7 @@ class ISRCCode extends Model
     {
         $clean = str_replace('-', '', strtoupper($isrc));
 
-        if (!self::validateISRCFormat($clean)) {
+        if (! self::validateISRCFormat($clean)) {
             throw new \InvalidArgumentException('Invalid ISRC format');
         }
 
@@ -387,7 +389,7 @@ class ISRCCode extends Model
             'registrant_code' => substr($clean, 2, 3),
             'year_code' => substr($clean, 5, 2),
             'designation_code' => substr($clean, 7, 5),
-            'full_year' => '20' . substr($clean, 5, 2),
+            'full_year' => '20'.substr($clean, 5, 2),
         ];
     }
 
@@ -400,6 +402,7 @@ class ISRCCode extends Model
                 $codes[] = self::generateForSong($song);
             }
         }
+
         return $codes;
     }
 }

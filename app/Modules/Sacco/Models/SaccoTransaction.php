@@ -17,11 +17,11 @@ class SaccoTransaction extends Model
                 $tx->uuid = (string) Str::uuid();
             }
             if (empty($tx->transaction_code)) {
-                $tx->transaction_code = 'TXN' . strtoupper(Str::random(10));
+                $tx->transaction_code = 'TXN'.strtoupper(Str::random(10));
             }
         });
     }
-    
+
     /**
      * Fillable fields matching actual sacco_savings_transactions table:
      * uuid, transaction_code, account_id, member_id, type (enum: deposit,withdrawal,interest,fee,transfer_in,transfer_out),
@@ -77,7 +77,7 @@ class SaccoTransaction extends Model
      */
     public function getFormattedAmountAttribute(): string
     {
-        return 'UGX ' . number_format($this->amount, 2);
+        return 'UGX '.number_format($this->amount, 2);
     }
 
     /**
@@ -85,7 +85,7 @@ class SaccoTransaction extends Model
      */
     public function getTypeLabelAttribute(): string
     {
-        return match($this->transaction_type) {
+        return match ($this->transaction_type) {
             'deposit' => 'Deposit',
             'withdrawal' => 'Withdrawal',
             'loan_disbursement' => 'Loan Disbursement',
@@ -102,7 +102,7 @@ class SaccoTransaction extends Model
      */
     public function getStatusColorAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'pending' => 'warning',
             'processing' => 'info',
             'completed' => 'success',

@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Sacco;
 
-use Illuminate\Foundation\Http\FormRequest;
 use App\Modules\Sacco\Models\SaccoAccount;
+use Illuminate\Foundation\Http\FormRequest;
 
 class DepositRequest extends FormRequest
 {
@@ -28,8 +28,8 @@ class DepositRequest extends FormRequest
             'amount' => [
                 'required',
                 'numeric',
-                'min:' . config('sacco.minimum_deposit', 1000),
-                'max:' . config('sacco.maximum_deposit', 100000000),
+                'min:'.config('sacco.minimum_deposit', 1000),
+                'max:'.config('sacco.maximum_deposit', 100000000),
             ],
             'payment_method' => [
                 'required',
@@ -75,8 +75,8 @@ class DepositRequest extends FormRequest
         return [
             'account_id.required' => 'Please select an account',
             'account_id.exists' => 'Invalid account selected',
-            'amount.min' => 'Minimum deposit amount is UGX ' . number_format(config('sacco.minimum_deposit', 1000)),
-            'amount.max' => 'Maximum deposit amount is UGX ' . number_format(config('sacco.maximum_deposit', 100000000)),
+            'amount.min' => 'Minimum deposit amount is UGX '.number_format(config('sacco.minimum_deposit', 1000)),
+            'amount.max' => 'Maximum deposit amount is UGX '.number_format(config('sacco.maximum_deposit', 100000000)),
             'payment_method.required' => 'Please select a payment method',
             'payment_method.in' => 'Invalid payment method selected',
             'payment_reference.required_if' => 'Payment reference is required for this payment method',
@@ -111,7 +111,7 @@ class DepositRequest extends FormRequest
             // Verify account belongs to the authenticated member
             if ($this->account_id) {
                 $account = SaccoAccount::find($this->account_id);
-                
+
                 if ($account && $account->member->user_id !== auth()->id()) {
                     $validator->errors()->add('account_id', 'This account does not belong to you');
                 }
@@ -120,12 +120,12 @@ class DepositRequest extends FormRequest
                 if ($account) {
                     $accountTypeCode = strtoupper(substr($account->account_number ?? '', 0, 3));
                     $accountType = \App\Models\Sacco\SaccoAccountType::where('code', $accountTypeCode)->first();
-                    
-                    if ($accountType && !$accountType->allow_deposits) {
+
+                    if ($accountType && ! $accountType->allow_deposits) {
                         $validator->errors()->add('account_id', 'This account type does not accept deposits');
                     }
-                    
-                    if ($accountType && !$accountType->is_active) {
+
+                    if ($accountType && ! $accountType->is_active) {
                         $validator->errors()->add('account_id', 'This account type is currently inactive');
                     }
                 }
@@ -138,7 +138,7 @@ class DepositRequest extends FormRequest
 
             // Additional daily limit check for mobile money
             if ($this->payment_method === 'mobile_money' && $this->amount > config('sacco.mobile_money_daily_limit', 5000000)) {
-                $validator->errors()->add('amount', 'Mobile money deposits are limited to UGX ' . number_format(config('sacco.mobile_money_daily_limit', 5000000)) . ' per transaction');
+                $validator->errors()->add('amount', 'Mobile money deposits are limited to UGX '.number_format(config('sacco.mobile_money_daily_limit', 5000000)).' per transaction');
             }
         });
     }

@@ -2,16 +2,12 @@
 
 namespace App\Services;
 
-use App\Models\Song;
-use App\Models\Distribution;
-use App\Models\DistributionPlatform;
-use App\Models\User;
 use App\Models\Artist;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Database\Eloquent\Collection;
+use App\Models\Distribution;
+use App\Models\Song;
 use Exception;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Service class for handling music distribution to external platforms
@@ -42,10 +38,15 @@ class DistributionService
 
     // Distribution statuses
     const STATUS_PENDING = 'pending';
+
     const STATUS_PROCESSING = 'processing';
+
     const STATUS_LIVE = 'live';
+
     const STATUS_FAILED = 'failed';
+
     const STATUS_REJECTED = 'rejected';
+
     const STATUS_REMOVED = 'removed';
 
     public function __construct(MusicStorageService $storageService)
@@ -70,7 +71,7 @@ class DistributionService
             $distributions = [];
 
             foreach ($platforms as $platformCode) {
-                if (!array_key_exists($platformCode, self::PLATFORMS)) {
+                if (! array_key_exists($platformCode, self::PLATFORMS)) {
                     throw new Exception("Unsupported platform: {$platformCode}");
                 }
 
@@ -110,10 +111,10 @@ class DistributionService
             self::STATUS_LIVE,
             self::STATUS_FAILED,
             self::STATUS_REJECTED,
-            self::STATUS_REMOVED
+            self::STATUS_REMOVED,
         ];
 
-        if (!in_array($status, $validStatuses)) {
+        if (! in_array($status, $validStatuses)) {
             throw new Exception("Invalid distribution status: {$status}");
         }
 
@@ -142,7 +143,7 @@ class DistributionService
                 break;
         }
 
-        if (!empty($metadata)) {
+        if (! empty($metadata)) {
             $updateData['platform_metadata'] = array_merge(
                 $distribution->platform_metadata ?? [],
                 $metadata
@@ -167,7 +168,7 @@ class DistributionService
         $query = Distribution::where('song_id', $song->id)
             ->whereIn('status', [self::STATUS_LIVE, self::STATUS_PROCESSING]);
 
-        if (!empty($platforms)) {
+        if (! empty($platforms)) {
             $query->whereIn('platform_code', $platforms);
         }
 
@@ -188,14 +189,14 @@ class DistributionService
                 $results[] = [
                     'platform' => $distribution->platform_code,
                     'status' => 'removal_queued',
-                    'message' => 'Removal request submitted'
+                    'message' => 'Removal request submitted',
                 ];
 
             } catch (Exception $e) {
                 $results[] = [
                     'platform' => $distribution->platform_code,
                     'status' => 'error',
-                    'message' => $e->getMessage()
+                    'message' => $e->getMessage(),
                 ];
             }
         }
@@ -266,14 +267,14 @@ class DistributionService
             return [
                 'success' => true,
                 'message' => 'Distribution data synced successfully',
-                'data' => $syncData
+                'data' => $syncData,
             ];
 
         } catch (Exception $e) {
             return [
                 'success' => false,
                 'message' => 'Failed to sync distribution data',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ];
         }
     }
@@ -317,7 +318,7 @@ class DistributionService
     public function generateDistributionReport(Artist $artist, string $startDate, string $endDate): array
     {
         $distributions = $this->getArtistDistributions($artist)
-            ->filter(function($distribution) use ($startDate, $endDate) {
+            ->filter(function ($distribution) use ($startDate, $endDate) {
                 return $distribution->created_at >= $startDate &&
                        $distribution->created_at <= $endDate;
             });
@@ -345,7 +346,7 @@ class DistributionService
             $report['summary']['total_streams'] += $analytics['streams'];
 
             // Platform breakdown
-            if (!isset($report['platform_breakdown'][$distribution->platform_code])) {
+            if (! isset($report['platform_breakdown'][$distribution->platform_code])) {
                 $report['platform_breakdown'][$distribution->platform_code] = [
                     'platform_name' => self::PLATFORMS[$distribution->platform_code],
                     'songs_count' => 0,
@@ -405,11 +406,11 @@ class DistributionService
             throw new Exception('Artist distribution privileges are suspended');
         }
 
-        if (!$artist->hasDistributionRights()) {
+        if (! $artist->hasDistributionRights()) {
             throw new Exception('Artist does not have distribution rights');
         }
 
-        if (!$artist->hasCompletedProfile()) {
+        if (! $artist->hasCompletedProfile()) {
             throw new Exception('Artist profile must be completed before distribution');
         }
     }
@@ -461,7 +462,7 @@ class DistributionService
     {
         $serviceClass = "\\App\\Services\\Distribution\\{$platformCode}Service";
 
-        if (!class_exists($serviceClass)) {
+        if (! class_exists($serviceClass)) {
             throw new Exception("Platform service not found: {$platformCode}");
         }
 
@@ -531,7 +532,7 @@ class DistributionService
         ];
 
         $artist = $distribution->song->artist;
-        
+
         $artist->user->notifications()->create([
             'user_id' => $artist->user_id,
             'notification_type' => 'distribution_status_change',

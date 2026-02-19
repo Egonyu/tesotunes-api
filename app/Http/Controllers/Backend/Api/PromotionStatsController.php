@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Backend\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 
 class PromotionStatsController extends Controller
 {
@@ -11,7 +10,7 @@ class PromotionStatsController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data' => []
+            'data' => [],
         ]);
     }
 }

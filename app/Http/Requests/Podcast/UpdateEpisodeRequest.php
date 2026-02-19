@@ -12,6 +12,7 @@ class UpdateEpisodeRequest extends FormRequest
     public function authorize(): bool
     {
         $episode = $this->route('episode');
+
         return $episode && $episode->podcast->isOwnedBy(auth()->user());
     }
 
@@ -33,14 +34,14 @@ class UpdateEpisodeRequest extends FormRequest
                 'nullable',
                 'file',
                 'mimes:mp3,m4a,wav',
-                'max:' . (config('podcast.storage.limits.max_episode_size') / 1024),
+                'max:'.(config('podcast.storage.limits.max_episode_size') / 1024),
             ],
             'artwork' => [
                 'nullable',
                 'image',
                 'mimes:jpeg,png,jpg',
                 'max:10240',
-                'dimensions:min_width=1400,min_height=1400,max_width=3000,max_height=3000'
+                'dimensions:min_width=1400,min_height=1400,max_width=3000,max_height=3000',
             ],
             'scheduled_for' => ['nullable', 'date', 'after:now'],
         ];

@@ -15,10 +15,10 @@ class CheckStoreModuleEnabled
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (!config('modules.store.enabled', false)) {
+        if (! config('modules.store.enabled', false)) {
             if ($request->expectsJson()) {
                 return response()->json([
-                    'message' => 'Store module is currently disabled.'
+                    'message' => 'Store module is currently disabled.',
                 ], 503);
             }
 

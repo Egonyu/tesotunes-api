@@ -4,7 +4,6 @@ namespace App\Modules\Sacco\Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class SaccoSeeder extends Seeder
 {
@@ -249,7 +248,7 @@ class SaccoSeeder extends Seeder
 
         DB::table('sacco_loan_products')->insert($loanProducts);
 
-        $this->command->info('Seeded ' . count($loanProducts) . ' loan products');
+        $this->command->info('Seeded '.count($loanProducts).' loan products');
     }
 
     /**
@@ -529,6 +528,6 @@ class SaccoSeeder extends Seeder
 
         DB::table('sacco_settings')->insert($settings);
 
-        $this->command->info('Seeded ' . count($settings) . ' SACCO settings');
+        $this->command->info('Seeded '.count($settings).' SACCO settings');
     }
 }

@@ -3,22 +3,23 @@
 namespace App\Jobs;
 
 use App\Models\Album;
+use App\Models\ContentReview;
 use App\Models\MusicUpload;
 use App\Models\Song;
-use App\Models\ContentReview;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ProcessAlbumBatch implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public $timeout = 1800; // 30 minutes for large albums
+
     public $tries = 3;
 
     public function __construct(
@@ -56,8 +57,9 @@ class ProcessAlbumBatch implements ShouldQueue
 
             // If not all uploads are processed, wait for them
             if ($processedUploads->count() < $uploads->count() - $failedUploads->count()) {
-                Log::info("Not all uploads processed yet, retrying in 60 seconds");
+                Log::info('Not all uploads processed yet, retrying in 60 seconds');
                 $this->release(60); // Retry in 1 minute
+
                 return;
             }
 
@@ -65,11 +67,11 @@ class ProcessAlbumBatch implements ShouldQueue
             $validUploads = $processedUploads->filter(function ($upload) {
                 return $upload->ready_for_distribution &&
                        $upload->audio_quality_score >= 70 &&
-                       !$upload->hasAudioIssues();
+                       ! $upload->hasAudioIssues();
             });
 
             if ($validUploads->isEmpty()) {
-                throw new \Exception("No valid uploads found for album creation");
+                throw new \Exception('No valid uploads found for album creation');
             }
 
             // Analyze album content for Uganda-specific features
@@ -99,7 +101,7 @@ class ProcessAlbumBatch implements ShouldQueue
             Log::info("Album batch processing completed for album: {$this->album->id}");
 
         } catch (\Exception $e) {
-            Log::error("Album batch processing failed for album {$this->album->id}: " . $e->getMessage());
+            Log::error("Album batch processing failed for album {$this->album->id}: ".$e->getMessage());
 
             $this->album->update([
                 'batch_upload_status' => 'failed',
@@ -212,7 +214,7 @@ class ProcessAlbumBatch implements ShouldQueue
                     'artist_id' => $this->album->artist_id,
                     'album_id' => $this->album->id,
                     'title' => $upload->detected_title ?: "Track {$trackNumber}",
-                    'slug' => \Illuminate\Support\Str::slug($upload->detected_title ?: "track-{$trackNumber}-" . $this->album->title),
+                    'slug' => \Illuminate\Support\Str::slug($upload->detected_title ?: "track-{$trackNumber}-".$this->album->title),
                     'audio_file' => $upload->file_path,
                     'duration' => $upload->duration_seconds ?? 0,
                     'track_number' => $trackNumber,
@@ -253,6 +255,7 @@ class ProcessAlbumBatch implements ShouldQueue
             }
 
             DB::commit();
+
             return $createdSongs;
 
         } catch (\Exception $e) {
@@ -263,9 +266,11 @@ class ProcessAlbumBatch implements ShouldQueue
 
     private function mapQualityScore(?float $score): string
     {
-        if (!$score) return 'standard';
+        if (! $score) {
+            return 'standard';
+        }
 
-        return match(true) {
+        return match (true) {
             $score >= 95 => 'master',
             $score >= 85 => 'hi_res',
             $score >= 75 => 'cd',
@@ -275,17 +280,25 @@ class ProcessAlbumBatch implements ShouldQueue
 
     private function determineSongLanguage(?array $languages): string
     {
-        if (!$languages) return 'English';
+        if (! $languages) {
+            return 'English';
+        }
 
-        if (in_array('Luganda', $languages)) return 'Luganda';
-        if (in_array('Swahili', $languages)) return 'Swahili';
+        if (in_array('Luganda', $languages)) {
+            return 'Luganda';
+        }
+        if (in_array('Swahili', $languages)) {
+            return 'Swahili';
+        }
 
         return $languages[0] ?? 'English';
     }
 
     private function generateUPCCode(): void
     {
-        if ($this->album->upc_code) return;
+        if ($this->album->upc_code) {
+            return;
+        }
 
         // Generate UPC-A (12-digit) code for Uganda
         // Format: Country(3) + Company(4) + Product(4) + Check(1)
@@ -293,10 +306,10 @@ class ProcessAlbumBatch implements ShouldQueue
         $companyCode = str_pad($this->album->artist_id, 4, '0', STR_PAD_LEFT);
         $productCode = str_pad($this->album->id, 4, '0', STR_PAD_LEFT);
 
-        $upcWithoutCheck = $countryCode . $companyCode . $productCode;
+        $upcWithoutCheck = $countryCode.$companyCode.$productCode;
         $checkDigit = $this->calculateUPCCheckDigit($upcWithoutCheck);
 
-        $this->album->update(['upc_code' => $upcWithoutCheck . $checkDigit]);
+        $this->album->update(['upc_code' => $upcWithoutCheck.$checkDigit]);
     }
 
     private function calculateUPCCheckDigit(string $code): int
@@ -306,6 +319,7 @@ class ProcessAlbumBatch implements ShouldQueue
             $digit = (int) $code[$i];
             $sum += ($i % 2 === 0) ? $digit * 3 : $digit;
         }
+
         return (10 - ($sum % 10)) % 10;
     }
 
@@ -345,7 +359,7 @@ class ProcessAlbumBatch implements ShouldQueue
 
         // Determine priority
         $priority = 'medium';
-        if (!empty($violations)) {
+        if (! empty($violations)) {
             $priority = 'urgent';
         } elseif ($analysis['contains_local_content']) {
             $priority = 'medium'; // Local content gets standard priority
@@ -375,7 +389,7 @@ class ProcessAlbumBatch implements ShouldQueue
         Log::error("ProcessAlbumBatch job failed for album {$this->album->id}", [
             'batch_id' => $this->batchId,
             'exception' => $exception->getMessage(),
-            'trace' => $exception->getTraceAsString()
+            'trace' => $exception->getTraceAsString(),
         ]);
 
         $this->album->update([

@@ -18,7 +18,7 @@ class ContentDiversityService
 
         foreach ($items as $item) {
             $groupKey = is_array($item) ? ($item[$key] ?? 'unknown') : ($item->$key ?? 'unknown');
-            if (!isset($groups[$groupKey])) {
+            if (! isset($groups[$groupKey])) {
                 $groups[$groupKey] = 0;
             }
             if ($groups[$groupKey] < $maxPerGroup) {

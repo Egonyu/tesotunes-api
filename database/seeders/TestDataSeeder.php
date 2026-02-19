@@ -2,14 +2,13 @@
 
 namespace Database\Seeders;
 
+use App\Models\Album;
 use App\Models\Artist;
 use App\Models\Genre;
-use App\Models\Song;
-use App\Models\Album;
 use App\Models\Playlist;
+use App\Models\Song;
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Schema;
 
 class TestDataSeeder extends Seeder
@@ -19,8 +18,9 @@ class TestDataSeeder extends Seeder
         $artistUser = User::where('email', 'artist@tesotunes.com')->first();
         $regularUser = User::where('email', 'user@tesotunes.com')->first();
 
-        if (!$artistUser || !$regularUser) {
+        if (! $artistUser || ! $regularUser) {
             $this->command->warn('Test users not found – run UserSeeder first.');
+
             return;
         }
 

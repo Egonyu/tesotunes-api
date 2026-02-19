@@ -12,13 +12,13 @@ class StoreModuleSeeder extends Seeder
     public function run(): void
     {
         $this->command->info('🏪 Seeding Store Module...');
-        
+
         $this->call([
             StoreCategoriesSeeder::class,
             SampleStoresSeeder::class,
             SampleProductsSeeder::class,
         ]);
-        
+
         $this->command->info('✅ Store Module seeding complete!');
     }
 }

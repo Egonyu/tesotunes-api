@@ -19,10 +19,10 @@ class SongResource extends JsonResource
             'slug' => $this->slug,
 
             // Media
-            'artwork_url' => $this->artwork_url ?? ($this->artwork ? url('storage/' . $this->artwork) : null),
+            'artwork_url' => $this->artwork_url ?? ($this->artwork ? url('storage/'.$this->artwork) : null),
             'audio_url' => $this->when(
                 $this->canStreamFor($request->user()),
-                fn () => $this->audio_file_320 ? url('storage/' . $this->audio_file_320) : null
+                fn () => $this->audio_file_320 ? url('storage/'.$this->audio_file_320) : null
             ),
 
             // Metadata
@@ -45,9 +45,10 @@ class SongResource extends JsonResource
                         'id' => $this->artist->id,
                         'name' => $this->artist->stage_name,
                         'slug' => $this->artist->slug,
-                        'avatar_url' => $this->artist->avatar ? url('storage/' . $this->artist->avatar) : null,
+                        'avatar_url' => $this->artist->avatar ? url('storage/'.$this->artist->avatar) : null,
                     ];
                 }
+
                 // Fallback for raw DB queries
                 return [
                     'id' => $this->artist_id ?? null,
@@ -60,7 +61,7 @@ class SongResource extends JsonResource
                     'id' => $this->album->id,
                     'title' => $this->album->title,
                     'slug' => $this->album->slug,
-                    'artwork_url' => $this->album->artwork ? url('storage/' . $this->album->artwork) : null,
+                    'artwork_url' => $this->album->artwork ? url('storage/'.$this->album->artwork) : null,
                 ];
             }),
             'genre' => $this->when($this->relationLoaded('primaryGenre') && $this->primaryGenre, function () {
@@ -93,7 +94,7 @@ class SongResource extends JsonResource
             return true;
         }
 
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 

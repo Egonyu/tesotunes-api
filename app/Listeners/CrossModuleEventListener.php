@@ -174,7 +174,7 @@ class CrossModuleEventListener implements ShouldQueue
                 ->whereJsonContains('data->type', 'multi_module_creator')
                 ->exists();
 
-            if (!$existingNotification) {
+            if (! $existingNotification) {
                 $this->notificationService->sendAchievementNotification(
                     $user,
                     'multi_module_creator'
@@ -193,10 +193,10 @@ class CrossModuleEventListener implements ShouldQueue
             'royalty_payment',
             'payment_received',
             'sponsor_payment',
-            'subscription_payment'
+            'subscription_payment',
         ];
 
-        if (!in_array($event->type, $revenueEvents)) {
+        if (! in_array($event->type, $revenueEvents)) {
             return;
         }
 
@@ -219,7 +219,7 @@ class CrossModuleEventListener implements ShouldQueue
                         ->whereJsonContains('data->amount', $milestone)
                         ->exists();
 
-                    if (!$existingNotification) {
+                    if (! $existingNotification) {
                         $this->notificationService->sendRevenueMilestoneNotification(
                             $user,
                             $milestone,
@@ -230,7 +230,7 @@ class CrossModuleEventListener implements ShouldQueue
                 }
             }
         } catch (\Exception $e) {
-            \Log::warning('Could not check revenue milestones: ' . $e->getMessage());
+            \Log::warning('Could not check revenue milestones: '.$e->getMessage());
         }
     }
 
@@ -242,19 +242,19 @@ class CrossModuleEventListener implements ShouldQueue
         // Only process on revenue events
         $revenueEvents = ['royalty_payment', 'payment_received'];
 
-        if (!in_array($event->type, $revenueEvents)) {
+        if (! in_array($event->type, $revenueEvents)) {
             return;
         }
 
         $user = $event->user;
 
         // Check if user has SACCO membership and active loan
-        if (!method_exists($user, 'saccoMembership')) {
+        if (! method_exists($user, 'saccoMembership')) {
             return;
         }
 
         $saccoMembership = $user->saccoMembership;
-        if (!$saccoMembership || !$saccoMembership->activeLoan) {
+        if (! $saccoMembership || ! $saccoMembership->activeLoan) {
             return;
         }
 
@@ -283,7 +283,7 @@ class CrossModuleEventListener implements ShouldQueue
                 );
             }
         } catch (\Exception $e) {
-            \Log::warning('Could not process automated loan payment: ' . $e->getMessage());
+            \Log::warning('Could not process automated loan payment: '.$e->getMessage());
         }
     }
 

@@ -15,28 +15,30 @@ class AdminMiddleware
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Authentication required'
+                    'message' => 'Authentication required',
                 ], 401);
             }
+
             return redirect()->route('admin.login');
         }
 
-        if (!$user->isActive()) {
+        if (! $user->isActive()) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Account is suspended'
+                    'message' => 'Account is suspended',
                 ], 403);
             }
+
             return redirect()->route('admin.login')->with('error', 'Account is suspended');
         }
 
         // Allow admin and moderator access
-        if (!$user->isAdmin() && !$user->isModerator()) {
+        if (! $user->isAdmin() && ! $user->isModerator()) {
             abort(403, 'Admin or moderator access required');
         }
 

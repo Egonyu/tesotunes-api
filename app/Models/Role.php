@@ -29,14 +29,14 @@ class Role extends Model
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'user_roles')
-                    ->withPivot(['assigned_at', 'assigned_by', 'is_active'])
-                    ->withTimestamps();
+            ->withPivot(['assigned_at', 'assigned_by', 'is_active'])
+            ->withTimestamps();
     }
 
     public function permissions(): BelongsToMany
     {
         return $this->belongsToMany(Permission::class, 'role_permissions')
-                    ->withTimestamps();
+            ->withTimestamps();
     }
 
     public function userRoles(): HasMany
@@ -54,7 +54,7 @@ class Role extends Model
     public function addPermission(string $permission): void
     {
         $permissions = $this->permissions ?? [];
-        if (!in_array($permission, $permissions)) {
+        if (! in_array($permission, $permissions)) {
             $permissions[] = $permission;
             $this->update(['permissions' => $permissions]);
         }
@@ -63,7 +63,7 @@ class Role extends Model
     public function removePermission(string $permission): void
     {
         $permissions = $this->permissions ?? [];
-        $permissions = array_filter($permissions, fn($p) => $p !== $permission);
+        $permissions = array_filter($permissions, fn ($p) => $p !== $permission);
         $this->update(['permissions' => array_values($permissions)]);
     }
 
@@ -80,14 +80,18 @@ class Role extends Model
 
     // Predefined role constants
     public const USER = 'user';
+
     public const ARTIST = 'artist';
+
     public const MODERATOR = 'moderator';
+
     public const ADMIN = 'admin';
+
     public const SUPER_ADMIN = 'super_admin';
 
     public static function getDefaultPermissions(string $roleName): array
     {
-        return match($roleName) {
+        return match ($roleName) {
             self::USER => [
                 'music.play',
                 'music.like',

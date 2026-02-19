@@ -1,8 +1,8 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\GenreController;
 use App\Http\Controllers\Api\MoodController;
+use Illuminate\Support\Facades\Route;
 
 // Genre API Routes
 Route::prefix('genres')->name('api.genres.')->group(function () {

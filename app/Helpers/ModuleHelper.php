@@ -1,14 +1,11 @@
 <?php
 
-use App\Models\ModuleSetting;
 use App\Helpers\CacheHelper;
+use App\Models\ModuleSetting;
 
-if (!function_exists('moduleEnabled')) {
+if (! function_exists('moduleEnabled')) {
     /**
      * Check if a module is enabled
-     *
-     * @param string $moduleName
-     * @return bool
      */
     function moduleEnabled(string $moduleName): bool
     {
@@ -16,20 +13,18 @@ if (!function_exists('moduleEnabled')) {
             ['modules'],
             "module:enabled:{$moduleName}",
             3600,
-            fn() => ModuleSetting::where('module_name', $moduleName)
-                        ->where('is_enabled', true)
-                        ->exists()
+            fn () => ModuleSetting::where('module_name', $moduleName)
+                ->where('is_enabled', true)
+                ->exists()
         );
     }
 }
 
-if (!function_exists('moduleConfig')) {
+if (! function_exists('moduleConfig')) {
     /**
      * Get module configuration value
      *
-     * @param string $moduleName
-     * @param string $key
-     * @param mixed $default
+     * @param  mixed  $default
      * @return mixed
      */
     function moduleConfig(string $moduleName, string $key, $default = null)
@@ -38,9 +33,9 @@ if (!function_exists('moduleConfig')) {
             ['modules'],
             "module:config:{$moduleName}",
             3600,
-            fn() => ModuleSetting::where('module_name', $moduleName)->first()
+            fn () => ModuleSetting::where('module_name', $moduleName)->first()
         );
-        
+
         return $setting?->configuration[$key] ?? $default;
     }
 }

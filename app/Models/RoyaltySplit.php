@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Carbon\Carbon;
 
 class RoyaltySplit extends Model
 {
@@ -112,11 +112,11 @@ class RoyaltySplit extends Model
     public function scopeActive($query)
     {
         return $query->where('status', 'active')
-                    ->where('effective_from', '<=', now())
-                    ->where(function($q) {
-                        $q->whereNull('effective_until')
-                          ->orWhere('effective_until', '>=', now());
-                    });
+            ->where('effective_from', '<=', now())
+            ->where(function ($q) {
+                $q->whereNull('effective_until')
+                    ->orWhere('effective_until', '>=', now());
+            });
     }
 
     public function scopePending($query)
@@ -146,26 +146,26 @@ class RoyaltySplit extends Model
 
     public function scopeByTerritory($query, string $territory)
     {
-        return $query->where(function($q) use ($territory) {
+        return $query->where(function ($q) use ($territory) {
             $q->where('worldwide', true)
-              ->orWhereJsonContains('territorial_scope', $territory);
+                ->orWhereJsonContains('territorial_scope', $territory);
         });
     }
 
     public function scopeDueForPayout($query)
     {
         return $query->where('auto_payout_enabled', true)
-                    ->where('pending_payout', '>=', function($q) {
-                        $q->selectRaw('minimum_payout_amount');
-                    });
+            ->where('pending_payout', '>=', function ($q) {
+                $q->selectRaw('minimum_payout_amount');
+            });
     }
 
-    public function scopeOverduePayouts($query, string $frequency = null)
+    public function scopeOverduePayouts($query, ?string $frequency = null)
     {
         $query->where('pending_payout', '>', 0);
 
         if ($frequency) {
-            $lastPayoutThreshold = match($frequency) {
+            $lastPayoutThreshold = match ($frequency) {
                 'realtime' => now()->subMinutes(5),
                 'daily' => now()->subDay(),
                 'weekly' => now()->subWeek(),
@@ -174,9 +174,9 @@ class RoyaltySplit extends Model
                 default => now()->subMonth()
             };
 
-            $query->where(function($q) use ($lastPayoutThreshold) {
+            $query->where(function ($q) use ($lastPayoutThreshold) {
                 $q->whereNull('last_payout_at')
-                  ->orWhere('last_payout_at', '<', $lastPayoutThreshold);
+                    ->orWhere('last_payout_at', '<', $lastPayoutThreshold);
             });
         }
 
@@ -192,7 +192,7 @@ class RoyaltySplit extends Model
 
         $now = now();
         $started = $this->effective_from <= $now;
-        $notExpired = !$this->effective_until || $this->effective_until >= $now;
+        $notExpired = ! $this->effective_until || $this->effective_until >= $now;
 
         return $started && $notExpired;
     }
@@ -214,7 +214,7 @@ class RoyaltySplit extends Model
 
     public function appliesToRevenueType(string $type): bool
     {
-        return match($type) {
+        return match ($type) {
             'streaming' => $this->applies_to_streaming,
             'downloads' => $this->applies_to_downloads,
             'physical' => $this->applies_to_physical,
@@ -246,7 +246,7 @@ class RoyaltySplit extends Model
             return false;
         }
 
-        $threshold = match($this->payout_frequency) {
+        $threshold = match ($this->payout_frequency) {
             'realtime' => now()->subMinutes(5),
             'daily' => now()->subDay(),
             'weekly' => now()->subWeek(),
@@ -255,7 +255,7 @@ class RoyaltySplit extends Model
             default => now()->subMonth()
         };
 
-        return !$this->last_payout_at || $this->last_payout_at < $threshold;
+        return ! $this->last_payout_at || $this->last_payout_at < $threshold;
     }
 
     public function calculateSplitAmount(float $totalRevenue, int $plays = 0): float
@@ -265,7 +265,7 @@ class RoyaltySplit extends Model
             return 0.0;
         }
 
-        return match($this->split_type) {
+        return match ($this->split_type) {
             'percentage' => $totalRevenue * ($this->percentage / 100),
             'fixed' => min($this->fixed_amount * $plays, $totalRevenue),
             'hybrid' => min(
@@ -278,7 +278,7 @@ class RoyaltySplit extends Model
 
     public function calculateTaxWithholding(float $amount): float
     {
-        if (!$this->tax_withholding_required) {
+        if (! $this->tax_withholding_required) {
             return 0.0;
         }
 
@@ -288,12 +288,13 @@ class RoyaltySplit extends Model
     public function getNetPayoutAmount(float $grossAmount): float
     {
         $taxWithholding = $this->calculateTaxWithholding($grossAmount);
+
         return $grossAmount - $taxWithholding;
     }
 
     public function getRoleDisplayAttribute(): string
     {
-        return match($this->recipient_role) {
+        return match ($this->recipient_role) {
             'artist' => 'Primary Artist',
             'songwriter' => 'Songwriter',
             'producer' => 'Producer',
@@ -314,7 +315,7 @@ class RoyaltySplit extends Model
             return '⏰ Expired';
         }
 
-        return match($this->status) {
+        return match ($this->status) {
             'active' => '✅ Active',
             'pending_approval' => '⏳ Pending',
             'disputed' => '⚠️ Disputed',
@@ -326,17 +327,17 @@ class RoyaltySplit extends Model
 
     public function getSplitTypeDisplayAttribute(): string
     {
-        return match($this->split_type) {
-            'percentage' => $this->percentage . '% of revenue',
-            'fixed' => 'UGX ' . number_format($this->fixed_amount, 0) . ' per play',
-            'hybrid' => $this->percentage . '% or UGX ' . number_format($this->fixed_amount, 0) . ' per play (whichever is lower)',
+        return match ($this->split_type) {
+            'percentage' => $this->percentage.'% of revenue',
+            'fixed' => 'UGX '.number_format($this->fixed_amount, 0).' per play',
+            'hybrid' => $this->percentage.'% or UGX '.number_format($this->fixed_amount, 0).' per play (whichever is lower)',
             default => 'Unknown split type'
         };
     }
 
     public function getPayoutFrequencyDisplayAttribute(): string
     {
-        return match($this->payout_frequency) {
+        return match ($this->payout_frequency) {
             'realtime' => 'Real-time',
             'daily' => 'Daily',
             'weekly' => 'Weekly',
@@ -355,7 +356,7 @@ class RoyaltySplit extends Model
         ]);
     }
 
-    public function suspend(string $reason = null): void
+    public function suspend(?string $reason = null): void
     {
         $this->update([
             'status' => 'suspended',
@@ -371,7 +372,7 @@ class RoyaltySplit extends Model
         ]);
     }
 
-    public function terminate(string $reason = null): void
+    public function terminate(?string $reason = null): void
     {
         $this->update([
             'status' => 'terminated',
@@ -406,7 +407,7 @@ class RoyaltySplit extends Model
 
     public function updateSplitPercentage(float $newPercentage): void
     {
-        if (!self::validateTotalPercentage($this->song_id, $newPercentage, $this->id)) {
+        if (! self::validateTotalPercentage($this->song_id, $newPercentage, $this->id)) {
             throw new \Exception('Total split percentages would exceed 100%');
         }
 
@@ -414,26 +415,27 @@ class RoyaltySplit extends Model
     }
 
     // Validation methods
-    public static function validateTotalPercentage(int $songId, float $newPercentage, int $excludeId = null): bool
+    public static function validateTotalPercentage(int $songId, float $newPercentage, ?int $excludeId = null): bool
     {
         $query = self::where('song_id', $songId)
-                    ->where('status', 'active')
-                    ->where('split_type', 'percentage');
+            ->where('status', 'active')
+            ->where('split_type', 'percentage');
 
         if ($excludeId) {
             $query->where('id', '!=', $excludeId);
         }
 
         $currentTotal = $query->sum('percentage');
+
         return ($currentTotal + $newPercentage) <= 100.0;
     }
 
     public static function getTotalSplitPercentage(int $songId): float
     {
         return self::where('song_id', $songId)
-                  ->where('status', 'active')
-                  ->where('split_type', 'percentage')
-                  ->sum('percentage');
+            ->where('status', 'active')
+            ->where('split_type', 'percentage')
+            ->sum('percentage');
     }
 
     public static function getAvailablePercentage(int $songId): float

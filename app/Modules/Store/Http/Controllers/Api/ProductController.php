@@ -5,8 +5,8 @@ namespace App\Modules\Store\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Modules\Store\Models\Product;
 use App\Modules\Store\Models\Store;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
  * Product API Controller
@@ -24,7 +24,7 @@ class ProductController extends Controller
         if ($search = $request->search) {
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -55,7 +55,7 @@ class ProductController extends Controller
         if ($request->boolean('in_stock')) {
             $query->where(function ($q) {
                 $q->where('track_inventory', false)
-                  ->orWhere('inventory_quantity', '>', 0);
+                    ->orWhere('inventory_quantity', '>', 0);
             });
         }
 
@@ -164,7 +164,7 @@ class ProductController extends Controller
      */
     public function checkAvailability(Product $product): JsonResponse
     {
-        $available = !$product->track_inventory ||
+        $available = ! $product->track_inventory ||
                     $product->inventory_quantity > 0 ||
                     $product->allow_backorder;
 

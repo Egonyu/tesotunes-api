@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Backend\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 
 class StatsController extends Controller
 {
@@ -14,8 +13,8 @@ class StatsController extends Controller
             'data' => [
                 'users' => 100,
                 'songs' => 200,
-                'credits' => 5000
-            ]
+                'credits' => 5000,
+            ],
         ]);
     }
 
@@ -23,7 +22,7 @@ class StatsController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data' => []
+            'data' => [],
         ]);
     }
 
@@ -31,7 +30,7 @@ class StatsController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data' => []
+            'data' => [],
         ]);
     }
 
@@ -39,7 +38,7 @@ class StatsController extends Controller
     {
         return response()->json([
             'success' => true,
-            'data' => []
+            'data' => [],
         ]);
     }
 }

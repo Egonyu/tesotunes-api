@@ -2,10 +2,10 @@
 
 namespace Database\Factories;
 
-use App\Models\UserSubscription;
-use App\Models\User;
-use App\Models\SubscriptionPlan;
 use App\Models\Payment;
+use App\Models\SubscriptionPlan;
+use App\Models\User;
+use App\Models\UserSubscription;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class UserSubscriptionFactory extends Factory
@@ -80,7 +80,7 @@ class UserSubscriptionFactory extends Factory
                 'Technical issues',
                 'Customer service issues',
                 'Payment failed',
-                'User request'
+                'User request',
             ]),
         ]);
     }
@@ -95,7 +95,7 @@ class UserSubscriptionFactory extends Factory
                 'Traveling',
                 'Not using service',
                 'Technical issues',
-                'User request'
+                'User request',
             ]),
         ]);
     }
@@ -149,7 +149,7 @@ class UserSubscriptionFactory extends Factory
                 'Service disruption compensation',
                 'Customer retention',
                 'Billing error correction',
-                'Special offer'
+                'Special offer',
             ]),
             'expires_at' => $this->faker->dateTimeBetween('+1 month', '+3 months'),
         ]);
@@ -174,7 +174,7 @@ class UserSubscriptionFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'metadata' => array_merge($attributes['metadata'] ?? [], [
-                'referral_code' => 'REF-' . strtoupper($this->faker->bothify('????-####')),
+                'referral_code' => 'REF-'.strtoupper($this->faker->bothify('????-####')),
                 'referred_by' => User::factory()->create()->id,
                 'referral_credit_applied' => $this->faker->randomFloat(2, 5, 50),
             ]),
@@ -234,7 +234,7 @@ class UserSubscriptionFactory extends Factory
                         'Kyambogo University',
                         'Mbarara University',
                         'Gulu University',
-                        'Uganda Christian University'
+                        'Uganda Christian University',
                     ]),
                     'discount_percentage' => 50,
                     'original_price' => $plan ? $plan->price_local : 40000,

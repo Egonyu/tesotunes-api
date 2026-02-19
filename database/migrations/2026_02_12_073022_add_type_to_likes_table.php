@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         // Skip if likes table doesn't exist (base schema missing)
-        if (!Schema::hasTable('likes')) {
+        if (! Schema::hasTable('likes')) {
             return;
         }
 
@@ -33,7 +33,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        if (!Schema::hasTable('likes') || !Schema::hasColumn('likes', 'type')) {
+        if (! Schema::hasTable('likes') || ! Schema::hasColumn('likes', 'type')) {
             return;
         }
 

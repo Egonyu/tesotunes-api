@@ -29,12 +29,12 @@ class PodcastResource extends JsonResource
             'copyright' => $this->copyright,
             'website_url' => $this->website_url,
             'tags' => $this->tags ?? [],
-            
+
             // Statistics
             'total_episodes' => $this->total_episodes,
             'total_listens' => $this->total_listen_count,
             'total_subscribers' => $this->subscriber_count,
-            
+
             // Relationships
             'creator' => [
                 'id' => $this->creator->id,
@@ -51,17 +51,17 @@ class PodcastResource extends JsonResource
                     'name' => $this->subcategory->name,
                 ];
             }),
-            
+
             // Platform links
             'spotify_url' => $this->spotify_url,
             'apple_podcasts_url' => $this->apple_podcasts_url,
             'google_podcasts_url' => $this->google_podcasts_url,
-            
+
             // Timestamps
             'published_at' => $this->published_at?->toIso8601String(),
             'created_at' => $this->created_at->toIso8601String(),
             'updated_at' => $this->updated_at->toIso8601String(),
-            
+
             // API URLs
             'links' => [
                 'self' => route('api.podcast.show', $this->uuid),

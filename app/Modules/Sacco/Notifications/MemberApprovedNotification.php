@@ -2,10 +2,10 @@
 
 namespace App\Modules\Sacco\Notifications;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Notification;
-use Illuminate\Notifications\Messages\MailMessage;
 use App\Modules\Sacco\Models\SaccoMember;
+use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
 
 class MemberApprovedNotification extends Notification
 {
@@ -44,7 +44,7 @@ class MemberApprovedNotification extends Notification
             'type' => 'member_approved',
             'member_id' => $this->member->id,
             'member_number' => $this->member->member_number,
-            'message' => 'Your SACCO membership has been approved'
+            'message' => 'Your SACCO membership has been approved',
         ];
     }
 }

@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Builder;
 
 class DeviceToken extends Model
 {
@@ -28,7 +28,9 @@ class DeviceToken extends Model
 
     // Platform constants
     const PLATFORM_IOS = 'ios';
+
     const PLATFORM_ANDROID = 'android';
+
     const PLATFORM_WEB = 'web';
 
     // Relationships
@@ -148,11 +150,11 @@ class DeviceToken extends Model
     public static function deactivateUserTokens(int $userId, ?string $exceptToken = null): int
     {
         $query = static::where('user_id', $userId);
-        
+
         if ($exceptToken) {
             $query->where('device_token', '!=', $exceptToken);
         }
-        
+
         return $query->update(['is_active' => false]);
     }
 

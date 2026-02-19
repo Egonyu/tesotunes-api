@@ -4,7 +4,8 @@ namespace App\Modules\Store\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * NOTE: Store-specific promotions use the products table with TYPE_PROMOTION.
  * This model maps to promotion_campaigns for platform-wide promotions.
  * For store-specific promotions, use Product::scopePromotions() instead.
- * 
+ *
  * @see \App\Models\PromotionCampaign for platform-wide campaigns
  * @see \App\Modules\Store\Models\Product::scopePromotions() for store promotions
  */
@@ -73,24 +74,37 @@ class Promotion extends Model
 
     // Campaign type constants
     const TYPE_DISCOUNT = 'discount';
+
     const TYPE_FREE_SHIPPING = 'free_shipping';
+
     const TYPE_BUY_X_GET_Y = 'buy_x_get_y';
+
     const TYPE_BUNDLE = 'bundle';
+
     const TYPE_LOYALTY = 'loyalty';
+
     const TYPE_REFERRAL = 'referral';
+
     const TYPE_SEASONAL = 'seasonal';
 
     // Discount type constants
     const DISCOUNT_PERCENTAGE = 'percentage';
+
     const DISCOUNT_FIXED = 'fixed_amount';
+
     const DISCOUNT_FREE_SHIPPING = 'free_shipping';
 
     // Status constants
     const STATUS_DRAFT = 'draft';
+
     const STATUS_SCHEDULED = 'scheduled';
+
     const STATUS_ACTIVE = 'active';
+
     const STATUS_PAUSED = 'paused';
+
     const STATUS_EXPIRED = 'expired';
+
     const STATUS_COMPLETED = 'completed';
 
     /*
@@ -163,7 +177,7 @@ class Promotion extends Model
      */
     public function calculateDiscount(float $amount): float
     {
-        if (!$this->isValid()) {
+        if (! $this->isValid()) {
             return 0;
         }
 
@@ -171,7 +185,7 @@ class Promotion extends Model
             return 0;
         }
 
-        $discount = match($this->discount_type) {
+        $discount = match ($this->discount_type) {
             self::DISCOUNT_PERCENTAGE => $amount * ($this->discount_value / 100),
             self::DISCOUNT_FIXED => $this->discount_value,
             default => 0,

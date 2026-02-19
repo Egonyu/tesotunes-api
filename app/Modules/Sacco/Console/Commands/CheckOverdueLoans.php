@@ -2,18 +2,20 @@
 
 namespace App\Modules\Sacco\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Modules\Sacco\Services\SaccoLoanService;
+use Illuminate\Console\Command;
 
 class CheckOverdueLoans extends Command
 {
     protected $signature = 'sacco:check-overdue';
+
     protected $description = 'Check and mark overdue loans';
 
     public function handle(SaccoLoanService $loanService): int
     {
-        if (!config('sacco.enabled', false)) {
+        if (! config('sacco.enabled', false)) {
             $this->warn('SACCO module is disabled');
+
             return 1;
         }
 

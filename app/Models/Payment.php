@@ -54,14 +54,14 @@ class Payment extends Model
         'failed_at',
         'refunded_at',
     ];
-    
+
     /**
      * Boot the model
      */
     protected static function boot()
     {
         parent::boot();
-        
+
         // Auto-generate UUID if not provided
         static::creating(function ($payment) {
             if (empty($payment->uuid)) {
@@ -86,14 +86,20 @@ class Payment extends Model
 
     // Payment statuses
     const STATUS_PENDING = 'pending';
+
     const STATUS_PROCESSING = 'processing';
+
     const STATUS_COMPLETED = 'completed';
+
     const STATUS_FAILED = 'failed';
+
     const STATUS_CANCELLED = 'cancelled';
+
     const STATUS_REFUNDED = 'refunded';
 
     // Payment methods
     const METHOD_MOBILE_MONEY = 'mobile_money'; // legacy, kept for existing records
+
     const METHOD_ZENGAPAY = 'zengapay';
 
     // Payment provider — ZengaPay only
@@ -109,17 +115,17 @@ class Payment extends Model
     {
         return $this->morphTo();
     }
-    
+
     public function subscriptionPlan(): BelongsTo
     {
         return $this->belongsTo(SubscriptionPlan::class);
     }
-    
+
     public function song(): BelongsTo
     {
         return $this->belongsTo(Song::class);
     }
-    
+
     public function userSubscription()
     {
         return $this->hasOne(UserSubscription::class, 'payment_id');
@@ -170,12 +176,12 @@ class Payment extends Model
     // Accessors
     public function getFormattedAmountAttribute(): string
     {
-        return 'UGX ' . number_format($this->amount, 0);
+        return 'UGX '.number_format($this->amount, 0);
     }
 
     public function getStatusTextAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             self::STATUS_PENDING => 'Pending',
             self::STATUS_PROCESSING => 'Processing',
             self::STATUS_COMPLETED => 'Completed',
@@ -188,7 +194,7 @@ class Payment extends Model
 
     public function getStatusColorAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             self::STATUS_PENDING => 'text-yellow-400',
             self::STATUS_PROCESSING => 'text-blue-400',
             self::STATUS_COMPLETED => 'text-green-400',
@@ -203,7 +209,7 @@ class Payment extends Model
     {
         $provider = $this->payment_provider ?? $this->provider;
 
-        return match($provider) {
+        return match ($provider) {
             self::PROVIDER_ZENGAPAY, 'zengapay' => 'ZengaPay',
             // Legacy providers (for historical records)
             'mtn', 'mtn_mobile_money' => 'MTN Mobile Money (legacy)',
@@ -264,7 +270,7 @@ class Payment extends Model
     {
         $this->forceFill([
             'status' => self::STATUS_PROCESSING,
-            'initiated_at' => now()
+            'initiated_at' => now(),
         ])->save();
     }
 
@@ -272,7 +278,7 @@ class Payment extends Model
     {
         $updateData = [
             'status' => self::STATUS_COMPLETED,
-            'completed_at' => now()
+            'completed_at' => now(),
         ];
 
         if (isset($data['external_transaction_id'])) {
@@ -295,12 +301,12 @@ class Payment extends Model
         }
     }
 
-    public function markAsFailed(string $reason = null, array $data = []): void
+    public function markAsFailed(?string $reason = null, array $data = []): void
     {
         $updateData = [
             'status' => self::STATUS_FAILED,
             'failed_at' => now(),
-            'failure_reason' => $reason
+            'failure_reason' => $reason,
         ];
 
         if (isset($data['payment_data'])) {
@@ -314,7 +320,7 @@ class Payment extends Model
     {
         $this->forceFill([
             'status' => self::STATUS_CANCELLED,
-            'failed_at' => now()
+            'failed_at' => now(),
         ])->save();
     }
 
@@ -329,7 +335,7 @@ class Payment extends Model
     // Generate transaction ID
     public static function generateTransactionId(): string
     {
-        return 'PAY_' . strtoupper(uniqid()) . '_' . time();
+        return 'PAY_'.strtoupper(uniqid()).'_'.time();
     }
 
     // Create payment for attendee
@@ -354,31 +360,32 @@ class Payment extends Model
             'ticket_type' => $attendee->eventTicket->ticket_type,
             'quantity' => $attendee->quantity,
             'user_agent' => request()->userAgent(),
-            'ip_address' => request()->ip()
+            'ip_address' => request()->ip(),
         ];
 
         $payment->save();
+
         return $payment;
     }
 
     // SACCO Integration - Convert completed payment to SACCO deposit
     public function canDepositToSacco(): bool
     {
-        return $this->isCompleted() 
+        return $this->isCompleted()
             && $this->user?->isSaccoMember()
             && $this->amount > 0;
     }
 
     public function depositToSacco(string $accountType = 'savings'): ?\App\Models\Sacco\SaccoTransaction
     {
-        if (!$this->canDepositToSacco()) {
+        if (! $this->canDepositToSacco()) {
             return null;
         }
 
         $member = $this->user->saccoMember;
         $account = $member->accounts()->where('account_type', $accountType)->first();
 
-        if (!$account) {
+        if (! $account) {
             // Auto-create account if doesn't exist
             $account = \App\Models\Sacco\SaccoAccount::create([
                 'member_id' => $member->id,
@@ -394,12 +401,12 @@ class Payment extends Model
             'account_id' => $account->id,
             'member_id' => $member->id,
             'transaction_type' => 'deposit',
-            'transaction_reference' => 'PAY-' . $this->transaction_id,
+            'transaction_reference' => 'PAY-'.$this->transaction_id,
             'amount' => $this->amount,
             'balance_before' => $balanceBefore,
             'balance_after' => $account->fresh()->balance,
-            'description' => 'Mobile Money deposit via ' . $this->provider_name,
-            'notes' => 'Auto-deposit from payment #' . $this->id,
+            'description' => 'Mobile Money deposit via '.$this->provider_name,
+            'notes' => 'Auto-deposit from payment #'.$this->id,
             'processed_by' => $this->user_id,
         ]);
     }
@@ -412,10 +419,12 @@ class Payment extends Model
         if ($this->status === 'refunded' && $this->notes) {
             // Extract refund reason from notes (format: "Refund: reason | Amount: 50000")
             if (str_contains($this->notes, ' | Amount:')) {
-                return trim(str_replace(['Refund: ', ' | Amount:' . $this->refund_amount], '', explode(' | Amount:', $this->notes)[0]));
+                return trim(str_replace(['Refund: ', ' | Amount:'.$this->refund_amount], '', explode(' | Amount:', $this->notes)[0]));
             }
+
             return str_replace('Refund: ', '', $this->notes);
         }
+
         return null;
     }
 
@@ -427,8 +436,10 @@ class Payment extends Model
         if ($this->status === 'refunded' && $this->notes && str_contains($this->notes, ' | Amount:')) {
             // Extract amount from notes (format: "Refund: reason | Amount: 50000")
             preg_match('/Amount:\s*([0-9.]+)/', $this->notes, $matches);
-            return isset($matches[1]) ? (float)$matches[1] : $this->amount;
+
+            return isset($matches[1]) ? (float) $matches[1] : $this->amount;
         }
+
         return $this->amount ?? null;
     }
 }

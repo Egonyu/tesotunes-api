@@ -62,8 +62,8 @@ class PodcastCategory extends Model
     public function scopeActive($query)
     {
         return $query->where('is_active', true)
-                     ->orderBy('sort_order')
-                     ->orderBy('name');
+            ->orderBy('sort_order')
+            ->orderBy('name');
     }
 
     /**

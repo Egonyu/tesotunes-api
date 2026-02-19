@@ -2,16 +2,15 @@
 
 namespace App\Services\Settings;
 
-use App\Models\Setting;
-use App\Models\User;
 use App\Models\Artist;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\DB;
+use App\Models\Setting;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Artist Settings Service
- * 
+ *
  * Handles all business logic related to artist management settings.
  * This service centralizes artist configuration management and provides
  * reusable methods for artist-related business rules.
@@ -20,8 +19,6 @@ class ArtistSettingsService
 {
     /**
      * Get all artist-related settings.
-     * 
-     * @return array
      */
     public function getSettings(): array
     {
@@ -33,7 +30,7 @@ class ArtistSettingsService
                 'artist_max_uploads' => Setting::get('artist_max_uploads', 20),
                 'verification_review_period' => Setting::get('verification_review_period', 3),
                 'require_government_id' => Setting::get('require_government_id', true),
-                
+
                 // Monetization settings
                 'monetization_enabled' => Setting::get('artist_monetization_enabled', true),
                 'artist_revenue_share' => Setting::get('artist_revenue_share', 70),
@@ -41,14 +38,14 @@ class ArtistSettingsService
                 'auto_payout' => Setting::get('artist_auto_payout', false),
                 'payout_frequency' => Setting::get('artist_payout_frequency', 'monthly'),
                 'require_tax_info' => Setting::get('artist_require_tax_info', false),
-                
+
                 // Restrictions settings
                 'max_pending_uploads' => Setting::get('artist_max_pending_uploads', 10),
                 'upload_cooldown_hours' => Setting::get('artist_upload_cooldown_hours', 0),
                 'require_admin_review' => Setting::get('artist_require_admin_review', true),
                 'auto_publish_after_review' => Setting::get('artist_auto_publish_after_review', true),
                 'max_collaborators_per_song' => Setting::get('artist_max_collaborators_per_song', 5),
-                
+
                 // Profile settings
                 'require_artist_bio' => Setting::get('artist_require_bio', false),
                 'min_bio_length' => Setting::get('artist_min_bio_length', 50),
@@ -60,9 +57,6 @@ class ArtistSettingsService
 
     /**
      * Update artist verification settings.
-     * 
-     * @param array $data
-     * @return bool
      */
     public function updateVerificationSettings(array $data): bool
     {
@@ -98,7 +92,7 @@ class ArtistSettingsService
 
             Log::info('Artist verification settings updated', [
                 'admin_id' => auth()->id(),
-                'settings' => array_keys($settings)
+                'settings' => array_keys($settings),
             ]);
 
             return true;
@@ -106,7 +100,7 @@ class ArtistSettingsService
             DB::rollBack();
             Log::error('Failed to update artist verification settings', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
             throw $e;
         }
@@ -114,9 +108,6 @@ class ArtistSettingsService
 
     /**
      * Update artist monetization settings.
-     * 
-     * @param array $data
-     * @return bool
      */
     public function updateMonetizationSettings(array $data): bool
     {
@@ -144,14 +135,14 @@ class ArtistSettingsService
 
             // Validate payout frequency
             $validFrequencies = ['weekly', 'bi-weekly', 'monthly', 'quarterly'];
-            if (!in_array($settings['artist_payout_frequency'], $validFrequencies)) {
+            if (! in_array($settings['artist_payout_frequency'], $validFrequencies)) {
                 throw new \Exception('Invalid payout frequency');
             }
 
             // Save settings
             foreach ($settings as $key => $value) {
-                $type = is_bool($value) 
-                    ? Setting::TYPE_BOOLEAN 
+                $type = is_bool($value)
+                    ? Setting::TYPE_BOOLEAN
                     : (is_numeric($value) ? Setting::TYPE_NUMBER : Setting::TYPE_STRING);
                 Setting::set($key, $value, $type, Setting::GROUP_ARTISTS);
             }
@@ -162,7 +153,7 @@ class ArtistSettingsService
             Log::info('Artist monetization settings updated', [
                 'admin_id' => auth()->id(),
                 'settings' => array_keys($settings),
-                'revenue_share' => $settings['artist_revenue_share']
+                'revenue_share' => $settings['artist_revenue_share'],
             ]);
 
             return true;
@@ -170,7 +161,7 @@ class ArtistSettingsService
             DB::rollBack();
             Log::error('Failed to update artist monetization settings', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
             throw $e;
         }
@@ -178,9 +169,6 @@ class ArtistSettingsService
 
     /**
      * Update artist restrictions settings.
-     * 
-     * @param array $data
-     * @return bool
      */
     public function updateRestrictionsSettings(array $data): bool
     {
@@ -221,7 +209,7 @@ class ArtistSettingsService
 
             Log::info('Artist restrictions settings updated', [
                 'admin_id' => auth()->id(),
-                'settings' => array_keys($settings)
+                'settings' => array_keys($settings),
             ]);
 
             return true;
@@ -229,7 +217,7 @@ class ArtistSettingsService
             DB::rollBack();
             Log::error('Failed to update artist restrictions settings', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
             throw $e;
         }
@@ -239,8 +227,6 @@ class ArtistSettingsService
 
     /**
      * Check if artist verification is required.
-     * 
-     * @return bool
      */
     public function isVerificationRequired(): bool
     {
@@ -249,8 +235,6 @@ class ArtistSettingsService
 
     /**
      * Check if artist auto-approval is enabled.
-     * 
-     * @return bool
      */
     public function isAutoApprovalEnabled(): bool
     {
@@ -259,8 +243,6 @@ class ArtistSettingsService
 
     /**
      * Get maximum uploads allowed per month for an artist.
-     * 
-     * @return int
      */
     public function getMaxUploadsPerMonth(): int
     {
@@ -269,8 +251,6 @@ class ArtistSettingsService
 
     /**
      * Get verification review period in days.
-     * 
-     * @return int
      */
     public function getVerificationReviewPeriod(): int
     {
@@ -279,8 +259,6 @@ class ArtistSettingsService
 
     /**
      * Check if monetization is enabled for artists.
-     * 
-     * @return bool
      */
     public function isMonetizationEnabled(): bool
     {
@@ -289,8 +267,6 @@ class ArtistSettingsService
 
     /**
      * Get artist revenue share percentage.
-     * 
-     * @return float
      */
     public function getRevenueShare(): float
     {
@@ -299,8 +275,6 @@ class ArtistSettingsService
 
     /**
      * Get minimum payout amount.
-     * 
-     * @return float
      */
     public function getMinimumPayout(): float
     {
@@ -309,8 +283,6 @@ class ArtistSettingsService
 
     /**
      * Check if auto-payout is enabled.
-     * 
-     * @return bool
      */
     public function isAutoPayoutEnabled(): bool
     {
@@ -319,8 +291,6 @@ class ArtistSettingsService
 
     /**
      * Get payout frequency.
-     * 
-     * @return string
      */
     public function getPayoutFrequency(): string
     {
@@ -329,8 +299,6 @@ class ArtistSettingsService
 
     /**
      * Get maximum pending uploads allowed.
-     * 
-     * @return int
      */
     public function getMaxPendingUploads(): int
     {
@@ -339,8 +307,6 @@ class ArtistSettingsService
 
     /**
      * Get upload cooldown period in hours.
-     * 
-     * @return int
      */
     public function getUploadCooldownHours(): int
     {
@@ -349,8 +315,6 @@ class ArtistSettingsService
 
     /**
      * Check if admin review is required for uploads.
-     * 
-     * @return bool
      */
     public function requiresAdminReview(): bool
     {
@@ -359,8 +323,6 @@ class ArtistSettingsService
 
     /**
      * Get maximum collaborators allowed per song.
-     * 
-     * @return int
      */
     public function getMaxCollaboratorsPerSong(): int
     {
@@ -369,19 +331,18 @@ class ArtistSettingsService
 
     /**
      * Check if artist can upload more songs.
-     * 
-     * @param int $artistId
+     *
      * @return array ['can_upload' => bool, 'reason' => string|null, 'remaining' => int]
      */
     public function canArtistUpload(int $artistId): array
     {
         $artist = Artist::find($artistId);
-        if (!$artist) {
+        if (! $artist) {
             return ['can_upload' => false, 'reason' => 'Artist not found', 'remaining' => 0];
         }
 
         // Check if artist is verified (if verification is required)
-        if ($this->isVerificationRequired() && !$artist->is_verified) {
+        if ($this->isVerificationRequired() && ! $artist->is_verified) {
             return ['can_upload' => false, 'reason' => 'Artist verification required', 'remaining' => 0];
         }
 
@@ -395,7 +356,7 @@ class ArtistSettingsService
             return [
                 'can_upload' => false,
                 'reason' => 'Monthly upload limit reached',
-                'remaining' => 0
+                'remaining' => 0,
             ];
         }
 
@@ -409,7 +370,7 @@ class ArtistSettingsService
             return [
                 'can_upload' => false,
                 'reason' => 'Too many pending uploads. Please wait for approval.',
-                'remaining' => 0
+                'remaining' => 0,
             ];
         }
 
@@ -422,48 +383,47 @@ class ArtistSettingsService
 
             if ($lastUpload && $lastUpload->created_at->diffInHours(now()) < $cooldownHours) {
                 $hoursRemaining = $cooldownHours - $lastUpload->created_at->diffInHours(now());
+
                 return [
                     'can_upload' => false,
                     'reason' => "Upload cooldown active. Try again in {$hoursRemaining} hours.",
-                    'remaining' => 0
+                    'remaining' => 0,
                 ];
             }
         }
 
         $remaining = $maxUploads - $uploadsThisMonth;
+
         return [
             'can_upload' => true,
             'reason' => null,
-            'remaining' => $remaining
+            'remaining' => $remaining,
         ];
     }
 
     /**
      * Calculate artist revenue from a given amount.
-     * 
-     * @param float $totalRevenue
-     * @return float
      */
     public function calculateArtistRevenue(float $totalRevenue): float
     {
         $revenueShare = $this->getRevenueShare();
+
         return $totalRevenue * ($revenueShare / 100);
     }
 
     /**
      * Check if artist is eligible for payout.
-     * 
-     * @param int $artistId
+     *
      * @return array ['eligible' => bool, 'reason' => string|null, 'amount' => float]
      */
     public function isEligibleForPayout(int $artistId): array
     {
-        if (!$this->isMonetizationEnabled()) {
+        if (! $this->isMonetizationEnabled()) {
             return ['eligible' => false, 'reason' => 'Monetization is disabled', 'amount' => 0];
         }
 
         $artist = Artist::find($artistId);
-        if (!$artist) {
+        if (! $artist) {
             return ['eligible' => false, 'reason' => 'Artist not found', 'amount' => 0];
         }
 
@@ -475,39 +435,37 @@ class ArtistSettingsService
             return [
                 'eligible' => false,
                 'reason' => "Minimum payout amount not reached. Current: $pendingEarnings, Required: $minPayout",
-                'amount' => $pendingEarnings
+                'amount' => $pendingEarnings,
             ];
         }
 
         // Check if payment information is set
-        if (!$artist->hasPaymentInfo()) {
+        if (! $artist->hasPaymentInfo()) {
             return [
                 'eligible' => false,
                 'reason' => 'Payment information not configured',
-                'amount' => $pendingEarnings
+                'amount' => $pendingEarnings,
             ];
         }
 
         // Check if tax info is required and set
-        if (Setting::get('artist_require_tax_info', false) && !$artist->hasTaxInfo()) {
+        if (Setting::get('artist_require_tax_info', false) && ! $artist->hasTaxInfo()) {
             return [
                 'eligible' => false,
                 'reason' => 'Tax information required',
-                'amount' => $pendingEarnings
+                'amount' => $pendingEarnings,
             ];
         }
 
         return [
             'eligible' => true,
             'reason' => null,
-            'amount' => $pendingEarnings
+            'amount' => $pendingEarnings,
         ];
     }
 
     /**
      * Get artist verification statistics.
-     * 
-     * @return array
      */
     public function getVerificationStatistics(): array
     {
@@ -520,21 +478,19 @@ class ArtistSettingsService
             'unverified_artists' => Artist::where('is_verified', false)
                 ->whereNull('verification_requested_at')
                 ->count(),
-            'verification_rate' => Artist::count() > 0 
-                ? round((Artist::where('is_verified', true)->count() / Artist::count()) * 100, 2) 
+            'verification_rate' => Artist::count() > 0
+                ? round((Artist::where('is_verified', true)->count() / Artist::count()) * 100, 2)
                 : 0,
         ];
     }
 
     /**
      * Get artist monetization statistics.
-     * 
-     * @return array
      */
     public function getMonetizationStatistics(): array
     {
         $artists = Artist::with('songs')->get();
-        
+
         $totalEarnings = $artists->sum(function ($artist) {
             return $artist->songs->sum('revenue_generated');
         });
@@ -549,8 +505,8 @@ class ArtistSettingsService
             'artists_earning' => $artists->filter(function ($artist) {
                 return $artist->songs->sum('revenue_generated') > 0;
             })->count(),
-            'average_artist_earnings' => $artists->count() > 0 
-                ? round($artistShare / $artists->count(), 2) 
+            'average_artist_earnings' => $artists->count() > 0
+                ? round($artistShare / $artists->count(), 2)
                 : 0,
         ];
     }

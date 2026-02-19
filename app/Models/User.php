@@ -2,27 +2,26 @@
 
 namespace App\Models;
 
+use App\Helpers\StorageHelper;
+use App\Modules\Podcast\Traits\HasPodcast;
+use App\Modules\Sacco\Traits\HasSaccoMembership;
+use App\Modules\Store\Traits\HasStore;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Auth;
-use App\Helpers\StorageHelper;
-use App\Models\KYCDocument;
-use App\Modules\Sacco\Traits\HasSaccoMembership;
-use App\Modules\Store\Traits\HasStore;
-use App\Modules\Podcast\Traits\HasPodcast;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, SoftDeletes, HasSaccoMembership, HasStore, HasPodcast, HasApiTokens;
+    use HasApiTokens, HasFactory, HasPodcast, HasSaccoMembership, HasStore, Notifiable, SoftDeletes;
 
     /**
      * Temporary storage for credit balance before user creation
@@ -139,7 +138,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'theme_preference',
 
         // Meta
-        'created_by'
+        'created_by',
     ];
 
     /**
@@ -207,26 +206,26 @@ class User extends Authenticatable implements MustVerifyEmail
                 $user->uuid = \Illuminate\Support\Str::uuid();
             }
         });
-        
+
         static::created(function (User $user) {
             // Auto-create user profile (NEW - for normalized structure)
             // Disabled until user_profiles migration is added
             // if (!$user->profile) {
             //     UserProfile::createDefault($user);
             // }
-            
+
             // Auto-create default user settings
             // Disabled - user_settings uses key-value structure
             // if (!$user->settings) {
             //     UserSetting::createDefault($user);
             // }
-            
+
             // Set credit balance from temporary storage if set
             $hash = spl_object_hash($user);
             if (isset(self::$pendingCreditBalances[$hash])) {
                 $balance = self::$pendingCreditBalances[$hash];
                 unset(self::$pendingCreditBalances[$hash]);
-                
+
                 $wallet = $user->creditWallet()->firstOrCreate(
                     ['user_id' => $user->id],
                     ['balance' => $balance]
@@ -240,7 +239,7 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     // Relationships
-    
+
     // NEW: Core user relationships for normalized structure
     // DEPRECATED: Profile relationship removed - all profile data is in users table
     // public function profile(): HasOne
@@ -453,8 +452,8 @@ class User extends Authenticatable implements MustVerifyEmail
     public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class, 'user_roles')
-                    ->withPivot(['assigned_at', 'assigned_by'])
-                    ->withTimestamps();
+            ->withPivot(['assigned_at', 'assigned_by'])
+            ->withTimestamps();
     }
 
     /**
@@ -463,15 +462,16 @@ class User extends Authenticatable implements MustVerifyEmail
     public function getRoleAttribute(): ?string
     {
         $role = $this->roles()->first();
+
         return $role ? $role->name : null;
     }
 
     public function activeRoles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class, 'user_roles')
-                    ->withPivot(['assigned_at', 'assigned_by', 'is_active'])
-                    ->wherePivot('is_active', 1)
-                    ->withTimestamps();
+            ->withPivot(['assigned_at', 'assigned_by', 'is_active'])
+            ->wherePivot('is_active', 1)
+            ->withTimestamps();
     }
 
     public function userRoles(): HasMany
@@ -500,10 +500,11 @@ class User extends Authenticatable implements MustVerifyEmail
         }
 
         do {
-            $code = strtoupper(substr(md5(uniqid()), 0, 4) . '-' . $this->id);
+            $code = strtoupper(substr(md5(uniqid()), 0, 4).'-'.$this->id);
         } while (self::where('referral_code', $code)->exists());
 
         $this->update(['referral_code' => $code]);
+
         return $code;
     }
 
@@ -513,7 +514,8 @@ class User extends Authenticatable implements MustVerifyEmail
     public function getReferralLinkAttribute(): string
     {
         $code = $this->referral_code ?? $this->generateReferralCode();
-        return url('/register?ref=' . $code);
+
+        return url('/register?ref='.$code);
     }
 
     /**
@@ -521,7 +523,7 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function wasReferred(): bool
     {
-        return !is_null($this->referrer_id);
+        return ! is_null($this->referrer_id);
     }
 
     /**
@@ -644,7 +646,7 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     // Accessors & Mutators
-    
+
     /**
      * Get the user's name (backward compatibility)
      * Falls back to display_name since 'name' column doesn't exist in DB
@@ -655,11 +657,11 @@ class User extends Authenticatable implements MustVerifyEmail
         if ($value !== null && $value !== '') {
             return $value;
         }
-        
+
         // Otherwise fall back to display_name accessor
         return $this->getDisplayNameAttribute();
     }
-    
+
     /**
      * Set the user's name - maps to display_name since 'name' column doesn't exist
      */
@@ -667,7 +669,7 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         $this->attributes['display_name'] = $value;
     }
-    
+
     // Backward compatibility accessors for profile fields (NEW)
     public function getBioAttribute($value)
     {
@@ -675,6 +677,7 @@ class User extends Authenticatable implements MustVerifyEmail
         if ($value !== null) {
             return $value;
         }
+
         // Otherwise, get from profile (new structure)
         return $this->profile?->bio;
     }
@@ -694,6 +697,7 @@ class User extends Authenticatable implements MustVerifyEmail
     public function getAvatarUrlAttribute(): string
     {
         $avatar = $this->attributes['avatar'] ?? null;
+
         return StorageHelper::avatarUrl($avatar, $this->name);
     }
 
@@ -719,7 +723,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function getLastSeenFormattedAttribute(): string
     {
-        if (!$this->last_seen_at) {
+        if (! $this->last_seen_at) {
             return 'Never';
         }
 
@@ -762,7 +766,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function follow(User $user): void
     {
-        if (!$this->isFollowing($user)) {
+        if (! $this->isFollowing($user)) {
             $this->following()->create([
                 'following_id' => $user->id,
                 'type' => 'user',
@@ -796,7 +800,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function like($likeable): void
     {
-        if (!$this->hasLiked($likeable)) {
+        if (! $this->hasLiked($likeable)) {
             $this->likes()->create([
                 'likeable_type' => get_class($likeable),
                 'likeable_id' => $likeable->id,
@@ -835,7 +839,7 @@ class User extends Authenticatable implements MustVerifyEmail
     public function canDownload(): bool
     {
         // Free tier users can download but with limits
-        if (!$this->hasActiveSubscription()) {
+        if (! $this->hasActiveSubscription()) {
             $todayDownloads = Download::where('user_id', $this->id)
                 ->whereDate('downloaded_at', today())
                 ->count();
@@ -909,7 +913,7 @@ class User extends Authenticatable implements MustVerifyEmail
         $cacheKey = "user:{$this->id}:roles";
 
         $userRoles = cache()->remember($cacheKey, 3600, function () {
-            return $this->activeRoles()->pluck('name')->map(fn($name) => $this->normalizeRoleName($name))->toArray();
+            return $this->activeRoles()->pluck('name')->map(fn ($name) => $this->normalizeRoleName($name))->toArray();
         });
 
         return in_array($this->normalizeRoleName($roleName), $userRoles);
@@ -921,13 +925,13 @@ class User extends Authenticatable implements MustVerifyEmail
         $cacheKey = "user:{$this->id}:roles";
 
         $userRoles = cache()->remember($cacheKey, 3600, function () {
-            return $this->activeRoles()->pluck('name')->map(fn($name) => $this->normalizeRoleName($name))->toArray();
+            return $this->activeRoles()->pluck('name')->map(fn ($name) => $this->normalizeRoleName($name))->toArray();
         });
 
         // Normalize requested roles for comparison
-        $rolesNormalized = array_map(fn($role) => $this->normalizeRoleName($role), $roles);
+        $rolesNormalized = array_map(fn ($role) => $this->normalizeRoleName($role), $roles);
 
-        return !empty(array_intersect($rolesNormalized, $userRoles));
+        return ! empty(array_intersect($rolesNormalized, $userRoles));
     }
 
     /**
@@ -997,13 +1001,14 @@ class User extends Authenticatable implements MustVerifyEmail
         }
 
         $pattern = str_replace('*', '.*', preg_quote($pattern, '/'));
-        return preg_match('/^' . $pattern . '$/', $permission);
+
+        return preg_match('/^'.$pattern.'$/', $permission);
     }
 
     public function assignRole(string $roleName, ?int $assignedBy = null, ?\DateTimeInterface $expiresAt = null): void
     {
         $role = Role::where('name', $roleName)->first();
-        if (!$role) {
+        if (! $role) {
             throw new \InvalidArgumentException("Role '{$roleName}' not found");
         }
 
@@ -1011,7 +1016,7 @@ class User extends Authenticatable implements MustVerifyEmail
             $role->id => [
                 'assigned_at' => now(),
                 'assigned_by' => $assignedBy,
-            ]
+            ],
         ]);
 
         // Clear cache
@@ -1055,7 +1060,7 @@ class User extends Authenticatable implements MustVerifyEmail
     public function addPermission(string $permission): void
     {
         $permissions = $this->permissions ?? [];
-        if (!in_array($permission, $permissions)) {
+        if (! in_array($permission, $permissions)) {
             $permissions[] = $permission;
             $this->update(['permissions' => $permissions]);
         }
@@ -1064,7 +1069,7 @@ class User extends Authenticatable implements MustVerifyEmail
     public function removePermission(string $permission): void
     {
         $permissions = $this->permissions ?? [];
-        $permissions = array_filter($permissions, fn($p) => $p !== $permission);
+        $permissions = array_filter($permissions, fn ($p) => $p !== $permission);
         $this->update(['permissions' => array_values($permissions)]);
     }
 
@@ -1097,9 +1102,9 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function isAdmin(): bool
     {
-        return $this->hasRole('Super Admin') 
-            || $this->hasRole('Admin') 
-            || $this->hasRole('super_admin') 
+        return $this->hasRole('Super Admin')
+            || $this->hasRole('Admin')
+            || $this->hasRole('super_admin')
             || $this->hasRole('admin');
     }
 
@@ -1124,11 +1129,11 @@ class User extends Authenticatable implements MustVerifyEmail
             return true;
         }
 
-        if ($this->isAdmin() && !$user->isSuperAdmin()) {
+        if ($this->isAdmin() && ! $user->isSuperAdmin()) {
             return true;
         }
 
-        if ($this->isModerator() && !$user->isAdmin() && !$user->isSuperAdmin()) {
+        if ($this->isModerator() && ! $user->isAdmin() && ! $user->isSuperAdmin()) {
             return true;
         }
 
@@ -1216,7 +1221,7 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasAnyRole(['super_admin', 'admin', 'moderator', 'finance']);
     }
 
-    public function approve(User $approver, string $notes = null): void
+    public function approve(User $approver, ?string $notes = null): void
     {
         $this->update([
             'status' => 'verified',
@@ -1226,7 +1231,7 @@ class User extends Authenticatable implements MustVerifyEmail
         ]);
 
         // Assign artist role if not already assigned
-        if (!$this->hasRole('artist')) {
+        if (! $this->hasRole('artist')) {
             $this->assignRole('artist', $approver->id);
         }
     }
@@ -1328,7 +1333,7 @@ class User extends Authenticatable implements MustVerifyEmail
     // Status display methods
     public function getStatusBadgeAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'pending' => '⏳ Pending Verification',
             'verified' => '✅ Verified',
             'rejected' => '❌ Rejected',
@@ -1362,14 +1367,12 @@ class User extends Authenticatable implements MustVerifyEmail
         if ($this->attributes['display_name'] ?? null) {
             return $this->attributes['display_name'];
         }
-        
+
         $firstName = $this->attributes['first_name'] ?? '';
         $lastName = $this->attributes['last_name'] ?? '';
-        
-        return trim($firstName . ' ' . $lastName) ?: 'User';
+
+        return trim($firstName.' '.$lastName) ?: 'User';
     }
-
-
 
     public function canRequestPayout(): bool
     {
@@ -1410,7 +1413,7 @@ class User extends Authenticatable implements MustVerifyEmail
         // Artists who are verified can join SACCO
         return $this->isVerified()
             && $this->hasRole('artist')
-            && !$this->isSaccoMember();
+            && ! $this->isSaccoMember();
     }
 
     public function getSaccoAccountsAttribute()
@@ -1434,7 +1437,7 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         $member = $this->saccoMember;
 
-        if (!$member || $member->status !== 'active') {
+        if (! $member || $member->status !== 'active') {
             return [
                 'eligible' => false,
                 'reason' => 'Not an active SACCO member',
@@ -1479,7 +1482,7 @@ class User extends Authenticatable implements MustVerifyEmail
         ];
 
         foreach ($requiredTypes as $type) {
-            if (!$this->hasVerifiedKYC($type)) {
+            if (! $this->hasVerifiedKYC($type)) {
                 return false;
             }
         }
@@ -1515,7 +1518,7 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function isSocialUser(): bool
     {
-        return !empty($this->provider) && !empty($this->provider_id);
+        return ! empty($this->provider) && ! empty($this->provider_id);
     }
 
     /**
@@ -1533,12 +1536,12 @@ class User extends Authenticatable implements MustVerifyEmail
     public function requiresPhoneVerification(): bool
     {
         // Artists must verify phone
-        if ($this->hasRole('artist') && !$this->isPhoneVerified()) {
+        if ($this->hasRole('artist') && ! $this->isPhoneVerified()) {
             return true;
         }
 
         // Check if 2FA is enabled and phone not verified
-        if ($this->two_factor_enabled && !$this->isPhoneVerified()) {
+        if ($this->two_factor_enabled && ! $this->isPhoneVerified()) {
             return true;
         }
 
@@ -1555,16 +1558,36 @@ class User extends Authenticatable implements MustVerifyEmail
         $totalSteps = 10;
         $completed = 0;
 
-        if ($this->name) $completed++;
-        if ($this->email) $completed++;
-        if ($this->avatar) $completed++;
-        if ($this->bio) $completed++;
-        if ($this->phone) $completed++;
-        if ($this->isPhoneVerified()) $completed++;
-        if ($this->country) $completed++;
-        if ($this->city) $completed++;
-        if ($this->date_of_birth) $completed++;
-        if ($this->isSocialUser() || $this->password) $completed++;
+        if ($this->name) {
+            $completed++;
+        }
+        if ($this->email) {
+            $completed++;
+        }
+        if ($this->avatar) {
+            $completed++;
+        }
+        if ($this->bio) {
+            $completed++;
+        }
+        if ($this->phone) {
+            $completed++;
+        }
+        if ($this->isPhoneVerified()) {
+            $completed++;
+        }
+        if ($this->country) {
+            $completed++;
+        }
+        if ($this->city) {
+            $completed++;
+        }
+        if ($this->date_of_birth) {
+            $completed++;
+        }
+        if ($this->isSocialUser() || $this->password) {
+            $completed++;
+        }
 
         return (int) (($completed / $totalSteps) * 100);
     }
@@ -1577,12 +1600,24 @@ class User extends Authenticatable implements MustVerifyEmail
         $percentage = $this->calculateProfileCompletion();
         $steps = [];
 
-        if ($this->email && $this->email_verified_at) $steps[] = 'email_verified';
-        if ($this->phone && $this->phone_verified_at) $steps[] = 'phone_verified';
-        if ($this->avatar) $steps[] = 'avatar_uploaded';
-        if ($this->bio) $steps[] = 'bio_added';
-        if ($this->country && $this->city) $steps[] = 'location_added';
-        if ($this->date_of_birth) $steps[] = 'dob_added';
+        if ($this->email && $this->email_verified_at) {
+            $steps[] = 'email_verified';
+        }
+        if ($this->phone && $this->phone_verified_at) {
+            $steps[] = 'phone_verified';
+        }
+        if ($this->avatar) {
+            $steps[] = 'avatar_uploaded';
+        }
+        if ($this->bio) {
+            $steps[] = 'bio_added';
+        }
+        if ($this->country && $this->city) {
+            $steps[] = 'location_added';
+        }
+        if ($this->date_of_birth) {
+            $steps[] = 'dob_added';
+        }
 
         $this->update([
             'profile_completion_percentage' => $percentage,
@@ -1599,4 +1634,3 @@ class User extends Authenticatable implements MustVerifyEmail
         $this->notify(new \App\Notifications\VerifyEmailNotification);
     }
 }
-

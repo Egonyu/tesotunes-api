@@ -12,7 +12,7 @@ class UpdateStoreRequest extends FormRequest
     public function authorize(): bool
     {
         $store = $this->route('store');
-        
+
         return $this->user()->can('update', $store);
     }
 

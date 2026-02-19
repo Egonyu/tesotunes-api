@@ -15,6 +15,7 @@ class CartItem extends Model
     {
         return CartItemFactory::new();
     }
+
     protected $fillable = [
         'cart_id',
         'product_id',
@@ -62,7 +63,7 @@ class CartItem extends Model
         if ($this->variant_id && $this->variant) {
             return $this->variant->getFinalPrice();
         }
-        
+
         return $this->product->pricing?->price_ugx ?? 0;
     }
 
@@ -108,7 +109,7 @@ class CartItem extends Model
      */
     public function isAvailable(): bool
     {
-        if (!$this->product) {
+        if (! $this->product) {
             return false;
         }
 
@@ -119,16 +120,17 @@ class CartItem extends Model
 
         // If variant selected, check variant stock
         if ($this->variant_id && $this->variant) {
-            return $this->variant->isInStock() && 
+            return $this->variant->isInStock() &&
                    $this->variant->stock_quantity >= $this->quantity;
         }
 
         // Check product stock for physical products
         if ($this->product->product_type === 'physical') {
             $inventory = $this->product->inventory;
-            if (!$inventory) {
+            if (! $inventory) {
                 return false;
             }
+
             return $inventory->stock_quantity >= $this->quantity;
         }
 
@@ -150,9 +152,10 @@ class CartItem extends Model
         // Check product stock
         if ($this->product->product_type === 'physical') {
             $inventory = $this->product->inventory;
-            if (!$inventory) {
+            if (! $inventory) {
                 return false;
             }
+
             return $inventory->stock_quantity >= $newQuantity;
         }
 
@@ -177,7 +180,7 @@ class CartItem extends Model
         // Check product stock
         elseif ($this->product->product_type === 'physical') {
             $inventory = $this->product->inventory;
-            if (!$inventory || $quantity > $inventory->stock_quantity) {
+            if (! $inventory || $quantity > $inventory->stock_quantity) {
                 return false;
             }
         }

@@ -3,13 +3,16 @@
 namespace App\Modules\Store\Services;
 
 use App\Models\User;
-use App\Modules\Store\Models\{Store, Product, Order, StoreReview};
-use Illuminate\Support\Facades\DB;
+use App\Modules\Store\Models\Order;
+use App\Modules\Store\Models\Product;
+use App\Modules\Store\Models\Store;
+use App\Modules\Store\Models\StoreReview;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Review Service
- * 
+ *
  * Handles store and product reviews
  */
 class ReviewService
@@ -22,7 +25,7 @@ class ReviewService
         // Check if user has purchased this product
         $hasPurchased = Order::where('user_id', $user->id)
             ->where('payment_status', 'paid')
-            ->whereHas('items', fn($q) => $q->where('product_id', $product->id))
+            ->whereHas('items', fn ($q) => $q->where('product_id', $product->id))
             ->exists();
 
         return DB::transaction(function () use ($user, $product, $data, $hasPurchased) {
@@ -133,18 +136,20 @@ class ReviewService
     public function approveReview(StoreReview $review): StoreReview
     {
         $review->update(['status' => 'approved']);
+
         return $review;
     }
 
     /**
      * Reject review (admin/moderator)
      */
-    public function rejectReview(StoreReview $review, string $reason = null): StoreReview
+    public function rejectReview(StoreReview $review, ?string $reason = null): StoreReview
     {
         $review->update([
             'status' => 'rejected',
-            'metadata' => array_merge($review->metadata ?? [], ['rejection_reason' => $reason])
+            'metadata' => array_merge($review->metadata ?? [], ['rejection_reason' => $reason]),
         ]);
+
         return $review;
     }
 
@@ -163,7 +168,7 @@ class ReviewService
             $review->user,
             'store_seller_response',
             'Seller Responded to Your Review',
-            "The seller responded to your review on \"" . ($review->product->name ?? $review->store->name) . "\"",
+            'The seller responded to your review on "'.($review->product->name ?? $review->store->name).'"',
             ['review_id' => $review->id],
             route('store.reviews.show', $review->id)
         );
@@ -243,7 +248,7 @@ class ReviewService
 
         // Sort
         if (isset($filters['sort'])) {
-            match($filters['sort']) {
+            match ($filters['sort']) {
                 'helpful' => $query->orderByDesc('helpful_count'),
                 'recent' => $query->orderByDesc('created_at'),
                 'rating_high' => $query->orderByDesc('rating'),
@@ -322,10 +327,10 @@ class ReviewService
         $hasPurchased = Order::where('user_id', $user->id)
             ->where('payment_status', 'paid')
             ->where('status', 'delivered')
-            ->whereHas('items', fn($q) => $q->where('product_id', $product->id))
+            ->whereHas('items', fn ($q) => $q->where('product_id', $product->id))
             ->exists();
 
-        if (!$hasPurchased && config('store.reviews.require_purchase', false)) {
+        if (! $hasPurchased && config('store.reviews.require_purchase', false)) {
             return [
                 'can_review' => false,
                 'reason' => 'You must purchase this product before reviewing',

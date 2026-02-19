@@ -22,12 +22,12 @@ class PerformanceTracking
     public function handle(Request $request, Closure $next): Response
     {
         $startTime = microtime(true);
-        
+
         $response = $next($request);
-        
+
         $endTime = microtime(true);
         $duration = ($endTime - $startTime) * 1000; // Convert to milliseconds
-        
+
         // Track performance based on request type
         if ($request->is('api/*')) {
             $this->performanceMonitor->trackApiCall(
@@ -41,13 +41,13 @@ class PerformanceTracking
                 $duration
             );
         }
-        
+
         // Add performance headers for debugging (only in non-production)
-        if (!app()->isProduction()) {
-            $response->headers->set('X-Response-Time', round($duration, 2) . 'ms');
-            $response->headers->set('X-Memory-Usage', round(memory_get_peak_usage(true) / 1024 / 1024, 2) . 'MB');
+        if (! app()->isProduction()) {
+            $response->headers->set('X-Response-Time', round($duration, 2).'ms');
+            $response->headers->set('X-Memory-Usage', round(memory_get_peak_usage(true) / 1024 / 1024, 2).'MB');
         }
-        
+
         return $response;
     }
 }

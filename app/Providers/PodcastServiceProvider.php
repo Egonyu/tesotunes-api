@@ -2,10 +2,10 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\ServiceProvider;
 
 class PodcastServiceProvider extends ServiceProvider
 {
@@ -15,7 +15,7 @@ class PodcastServiceProvider extends ServiceProvider
     public function register(): void
     {
         // Early exit if module is disabled
-        if (!config('podcast.enabled', false)) {
+        if (! config('podcast.enabled', false)) {
             return;
         }
 
@@ -24,7 +24,7 @@ class PodcastServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\Podcast\EpisodeService::class);
         $this->app->singleton(\App\Services\Podcast\RssFeedService::class);
         $this->app->singleton(\App\Services\Podcast\AnalyticsService::class);
-        
+
         // Register transcription service if enabled
         if (config('podcast.processing.transcription.enabled')) {
             $this->app->singleton(\App\Services\Podcast\TranscriptionService::class);
@@ -32,7 +32,7 @@ class PodcastServiceProvider extends ServiceProvider
 
         // Merge configuration
         $this->mergeConfigFrom(
-            __DIR__ . '/../../config/podcast.php',
+            __DIR__.'/../../config/podcast.php',
             'podcast'
         );
     }
@@ -43,7 +43,7 @@ class PodcastServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Early exit if module is disabled
-        if (!config('podcast.enabled', false)) {
+        if (! config('podcast.enabled', false)) {
             return;
         }
 
@@ -51,34 +51,34 @@ class PodcastServiceProvider extends ServiceProvider
         if ($this->routeFilesExist()) {
             $this->registerRoutes();
         }
-        
+
         // Load migrations only if directory exists
-        $migrationsPath = __DIR__ . '/../../database/migrations/podcast';
+        $migrationsPath = __DIR__.'/../../database/migrations/podcast';
         if (is_dir($migrationsPath)) {
             $this->loadMigrationsFrom($migrationsPath);
         }
-        
+
         // Load views only if directory exists
-        $viewsPath = __DIR__ . '/../../resources/views/podcast';
+        $viewsPath = __DIR__.'/../../resources/views/podcast';
         if (is_dir($viewsPath)) {
             $this->loadViewsFrom($viewsPath, 'podcast');
         }
-        
+
         // Publish configuration
         $this->publishes([
-            __DIR__ . '/../../config/podcast.php' => config_path('podcast.php'),
+            __DIR__.'/../../config/podcast.php' => config_path('podcast.php'),
         ], 'podcast-config');
-        
+
         // Publish migrations only if source exists
         if (is_dir($migrationsPath)) {
             $this->publishes([
                 $migrationsPath => database_path('migrations'),
             ], 'podcast-migrations');
         }
-        
+
         // Register Blade components
         $this->registerBladeComponents();
-        
+
         // Register policies
         $this->registerPolicies();
     }
@@ -88,7 +88,7 @@ class PodcastServiceProvider extends ServiceProvider
      */
     protected function routeFilesExist(): bool
     {
-        return file_exists(base_path('routes/podcast.php')) && 
+        return file_exists(base_path('routes/podcast.php')) &&
                file_exists(base_path('routes/podcast-api.php'));
     }
 
@@ -104,7 +104,7 @@ class PodcastServiceProvider extends ServiceProvider
                 ->name('podcast.')
                 ->group(base_path('routes/podcast.php'));
         }
-        
+
         // API routes
         if (file_exists(base_path('routes/podcast-api.php'))) {
             Route::middleware('api')
@@ -112,7 +112,7 @@ class PodcastServiceProvider extends ServiceProvider
                 ->name('api.podcast.')
                 ->group(base_path('routes/podcast-api.php'));
         }
-        
+
         // Admin routes - now handled in routes/admin/podcasts.php
         // Route::middleware(['web', 'auth', 'role:admin,super_admin'])
         //     ->prefix('admin/podcasts')
@@ -126,7 +126,7 @@ class PodcastServiceProvider extends ServiceProvider
     protected function registerBladeComponents(): void
     {
         Blade::componentNamespace('App\\View\\Components\\Podcast', 'podcast');
-        
+
         // Register individual components when they're created
         // Blade::component('podcast::components.player', 'podcast-player');
         // Blade::component('podcast::components.episode-card', 'podcast-episode-card');

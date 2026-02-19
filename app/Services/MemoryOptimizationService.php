@@ -2,26 +2,28 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Memory Optimization Service
- * 
+ *
  * Monitors and optimizes memory usage throughout the application
  * Provides memory profiling and leak detection
  */
 class MemoryOptimizationService
 {
     private array $memorySnapshots = [];
+
     private float $startMemory;
+
     private int $peakMemory = 0;
-    
+
     public function __construct()
     {
         $this->startMemory = memory_get_usage(true);
     }
-    
+
     /**
      * Take a memory snapshot at a specific point
      */
@@ -29,19 +31,19 @@ class MemoryOptimizationService
     {
         $current = memory_get_usage(true);
         $peak = memory_get_peak_usage(true);
-        
+
         $this->memorySnapshots[$label] = [
             'current' => $current,
             'peak' => $peak,
             'delta' => $current - $this->startMemory,
             'timestamp' => microtime(true),
         ];
-        
+
         if ($peak > $this->peakMemory) {
             $this->peakMemory = $peak;
         }
     }
-    
+
     /**
      * Get all memory snapshots
      */
@@ -49,7 +51,7 @@ class MemoryOptimizationService
     {
         return $this->memorySnapshots;
     }
-    
+
     /**
      * Get current memory usage report
      */
@@ -58,7 +60,7 @@ class MemoryOptimizationService
         $current = memory_get_usage(true);
         $peak = memory_get_peak_usage(true);
         $limit = $this->getMemoryLimit();
-        
+
         return [
             'current_mb' => round($current / 1024 / 1024, 2),
             'peak_mb' => round($peak / 1024 / 1024, 2),
@@ -68,14 +70,14 @@ class MemoryOptimizationService
             'snapshots' => $this->formatSnapshots(),
         ];
     }
-    
+
     /**
      * Format snapshots for human readability
      */
     private function formatSnapshots(): array
     {
         $formatted = [];
-        
+
         foreach ($this->memorySnapshots as $label => $data) {
             $formatted[$label] = [
                 'current_mb' => round($data['current'] / 1024 / 1024, 2),
@@ -83,25 +85,25 @@ class MemoryOptimizationService
                 'delta_mb' => round($data['delta'] / 1024 / 1024, 2),
             ];
         }
-        
+
         return $formatted;
     }
-    
+
     /**
      * Get memory limit in MB
      */
     private function getMemoryLimit(): int
     {
         $limit = ini_get('memory_limit');
-        
+
         if ($limit === '-1') {
             return 0; // Unlimited
         }
-        
+
         $limit = trim($limit);
         $last = strtolower($limit[strlen($limit) - 1]);
         $limit = (int) $limit;
-        
+
         switch ($last) {
             case 'g':
                 $limit *= 1024;
@@ -114,7 +116,7 @@ class MemoryOptimizationService
                 return $limit / 1024 / 1024;
         }
     }
-    
+
     /**
      * Detect potential memory leaks
      */
@@ -122,14 +124,14 @@ class MemoryOptimizationService
     {
         $leaks = [];
         $snapshots = array_values($this->memorySnapshots);
-        
+
         for ($i = 1; $i < count($snapshots); $i++) {
             $prev = $snapshots[$i - 1];
             $current = $snapshots[$i];
-            
+
             $deltaSize = $current['current'] - $prev['current'];
             $deltaTime = $current['timestamp'] - $prev['timestamp'];
-            
+
             // Leak indicator: > 10MB increase in < 1 second
             if ($deltaSize > (10 * 1024 * 1024) && $deltaTime < 1.0) {
                 $leaks[] = [
@@ -141,10 +143,10 @@ class MemoryOptimizationService
                 ];
             }
         }
-        
+
         return $leaks;
     }
-    
+
     /**
      * Force garbage collection
      */
@@ -152,12 +154,12 @@ class MemoryOptimizationService
     {
         $beforeCycles = gc_collect_cycles();
         $beforeMemory = memory_get_usage(true);
-        
+
         gc_collect_cycles();
-        
+
         $afterMemory = memory_get_usage(true);
         $freed = $beforeMemory - $afterMemory;
-        
+
         return [
             'cycles_collected' => $beforeCycles,
             'memory_freed_mb' => round($freed / 1024 / 1024, 2),
@@ -165,7 +167,7 @@ class MemoryOptimizationService
             'after_mb' => round($afterMemory / 1024 / 1024, 2),
         ];
     }
-    
+
     /**
      * Optimize large collection processing
      */
@@ -175,35 +177,35 @@ class MemoryOptimizationService
         int $chunkSize = 100
     ): array {
         $this->snapshot('chunk_start');
-        
+
         $processed = 0;
         $errors = 0;
-        
+
         $query()->chunk($chunkSize, function ($items) use ($processor, &$processed, &$errors) {
             try {
                 $processor($items);
                 $processed += $items->count();
-                
+
                 // Clear Eloquent model cache
                 $items->each->unsetRelations();
-                
+
                 // Force GC every 10 chunks
                 if ($processed % ($chunkSize * 10) === 0) {
                     gc_collect_cycles();
                     $this->snapshot("chunk_{$processed}");
                 }
-                
+
             } catch (\Exception $e) {
                 $errors++;
                 Log::error('Chunk processing error', [
                     'error' => $e->getMessage(),
-                    'chunk_size' => $items->count()
+                    'chunk_size' => $items->count(),
                 ]);
             }
         });
-        
+
         $this->snapshot('chunk_end');
-        
+
         return [
             'processed' => $processed,
             'errors' => $errors,
@@ -211,42 +213,42 @@ class MemoryOptimizationService
             'memory_report' => $this->getMemoryReport(),
         ];
     }
-    
+
     /**
      * Clear all caches to free memory
      */
     public function clearCachesForMemory(): array
     {
         $beforeMemory = memory_get_usage(true);
-        
+
         try {
             // Clear various caches
             Cache::flush();
-            
+
             if (function_exists('opcache_reset')) {
                 opcache_reset();
             }
-            
+
             gc_collect_cycles();
-            
+
             $afterMemory = memory_get_usage(true);
             $freed = $beforeMemory - $afterMemory;
-            
+
             return [
                 'success' => true,
                 'memory_freed_mb' => round($freed / 1024 / 1024, 2),
             ];
-            
+
         } catch (\Exception $e) {
             Log::error('Cache clearing failed', ['error' => $e->getMessage()]);
-            
+
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
             ];
         }
     }
-    
+
     /**
      * Get memory optimization recommendations
      */
@@ -256,10 +258,10 @@ class MemoryOptimizationService
         $current = memory_get_usage(true);
         $peak = memory_get_peak_usage(true);
         $limit = $this->getMemoryLimit();
-        
+
         $peakMB = $peak / 1024 / 1024;
         $usagePercent = $limit > 0 ? ($peakMB / $limit) * 100 : 0;
-        
+
         // High memory usage
         if ($usagePercent > 80) {
             $recommendations[] = [
@@ -274,18 +276,18 @@ class MemoryOptimizationService
                 'recommendation' => 'Monitor memory usage and consider optimizations',
             ];
         }
-        
+
         // Check for large memory deltas
         $leaks = $this->detectMemoryLeaks();
-        if (!empty($leaks)) {
+        if (! empty($leaks)) {
             $recommendations[] = [
                 'severity' => 'warning',
-                'issue' => count($leaks) . ' potential memory leaks detected',
+                'issue' => count($leaks).' potential memory leaks detected',
                 'recommendation' => 'Review code sections with rapid memory growth',
                 'details' => $leaks,
             ];
         }
-        
+
         // Garbage collection recommendations
         if (gc_enabled() === false) {
             $recommendations[] = [
@@ -294,10 +296,10 @@ class MemoryOptimizationService
                 'recommendation' => 'Enable garbage collection with gc_enable()',
             ];
         }
-        
+
         return $recommendations;
     }
-    
+
     /**
      * Log memory report to application logs
      */
@@ -305,7 +307,7 @@ class MemoryOptimizationService
     {
         $report = $this->getMemoryReport();
         $leaks = $this->detectMemoryLeaks();
-        
+
         Log::info('Memory usage report', [
             'context' => $context,
             'report' => $report,

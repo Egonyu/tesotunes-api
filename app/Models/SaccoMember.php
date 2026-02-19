@@ -42,13 +42,18 @@ class SaccoMember extends Model
 
     // Membership statuses
     const STATUS_PENDING = 'pending_approval';
+
     const STATUS_ACTIVE = 'active';
+
     const STATUS_INACTIVE = 'inactive';
+
     const STATUS_SUSPENDED = 'suspended';
 
     // Membership types
     const TYPE_REGULAR = 'regular';
+
     const TYPE_ASSOCIATE = 'associate';
+
     const TYPE_HONORARY = 'honorary';
 
     /**
@@ -112,7 +117,7 @@ class SaccoMember extends Model
      */
     public function canApplyForLoan(): bool
     {
-        return $this->status === self::STATUS_ACTIVE 
+        return $this->status === self::STATUS_ACTIVE
             && $this->total_shares >= config('sacco.minimum_shares_for_loan', 100000);
     }
 
@@ -120,6 +125,7 @@ class SaccoMember extends Model
     {
         // Typically 3x shares value
         $multiplier = config('sacco.loan_eligibility_multiplier', 3);
+
         return $this->total_shares * $multiplier;
     }
 

@@ -52,6 +52,7 @@ class ArtworkHelper
     public static function getTailwindGradient($id)
     {
         $index = $id ? abs(crc32($id)) % count(self::$ugandaTailwindGradients) : 0;
+
         return self::$ugandaTailwindGradients[$index];
     }
 
@@ -90,7 +91,7 @@ class ArtworkHelper
                 $pixels[] = [
                     'color' => "rgb($r, $g, $b)",
                     'row' => $row,
-                    'col' => $col
+                    'col' => $col,
                 ];
             }
         }

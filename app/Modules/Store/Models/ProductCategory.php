@@ -4,18 +4,19 @@ namespace App\Modules\Store\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany};
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * ProductCategory Model
- * 
+ *
  * Hierarchical product categories
  * Supports parent/child relationships
  */
 class ProductCategory extends Model
 {
     use HasFactory;
-    
+
     protected static function newFactory()
     {
         return \Database\Factories\ProductCategoryFactory::new();
@@ -102,7 +103,7 @@ class ProductCategory extends Model
             return $this->name;
         }
 
-        return $this->parent->name . ' → ' . $this->name;
+        return $this->parent->name.' → '.$this->name;
     }
 
     public function getProductCountAttribute(): int

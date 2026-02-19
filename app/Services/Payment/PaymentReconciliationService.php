@@ -5,8 +5,8 @@ namespace App\Services\Payment;
 use App\Models\Payment;
 use App\Models\PaymentIssue;
 use App\Services\Payment\Adapters\ZengaPayGatewayAdapter;
-use Illuminate\Support\Facades\Log;
 use Exception;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Payment Reconciliation Service
@@ -24,7 +24,7 @@ class PaymentReconciliationService
 
     public function __construct()
     {
-        $this->gateway = new ZengaPayGatewayAdapter();
+        $this->gateway = new ZengaPayGatewayAdapter;
     }
 
     /**
@@ -39,7 +39,7 @@ class PaymentReconciliationService
         // 1. Find stuck processing payments (older than 15 minutes)
         $stuckPayments = Payment::where('status', 'processing')
             ->where('initiated_at', '<', now()->subMinutes(15))
-            ->whereDoesntHave('issues', fn($q) => $q->unresolved())
+            ->whereDoesntHave('issues', fn ($q) => $q->unresolved())
             ->get();
 
         foreach ($stuckPayments as $payment) {
@@ -54,7 +54,7 @@ class PaymentReconciliationService
         // 2. Find pending payments older than 30 minutes
         $stalePending = Payment::where('status', 'pending')
             ->where('created_at', '<', now()->subMinutes(30))
-            ->whereDoesntHave('issues', fn($q) => $q->unresolved())
+            ->whereDoesntHave('issues', fn ($q) => $q->unresolved())
             ->get();
 
         foreach ($stalePending as $payment) {
@@ -121,7 +121,7 @@ class PaymentReconciliationService
     {
         $payment = $issue->payment;
 
-        if (!$payment) {
+        if (! $payment) {
             return ['success' => false, 'message' => 'Payment not found for this issue'];
         }
 
@@ -130,7 +130,7 @@ class PaymentReconciliationService
         // Check with ZengaPay for current status
         $transactionId = $payment->provider_transaction_id ?? $payment->transaction_reference;
 
-        if (!$transactionId) {
+        if (! $transactionId) {
             return [
                 'success' => false,
                 'message' => 'No transaction ID available for provider lookup',
@@ -140,10 +140,10 @@ class PaymentReconciliationService
         try {
             $result = $this->gateway->getTransactionStatus($transactionId);
 
-            if (!$result['success']) {
+            if (! $result['success']) {
                 return [
                     'success' => false,
-                    'message' => 'Could not retrieve status from ZengaPay: ' . ($result['message'] ?? 'Unknown'),
+                    'message' => 'Could not retrieve status from ZengaPay: '.($result['message'] ?? 'Unknown'),
                 ];
             }
 
@@ -159,12 +159,12 @@ class PaymentReconciliationService
 
                 $issue->markAsResolved(
                     PaymentIssue::RESOLUTION_AUTO_RESOLVED,
-                    "Provider confirmed payment as completed. Auto-reconciled."
+                    'Provider confirmed payment as completed. Auto-reconciled.'
                 );
 
                 return [
                     'success' => true,
-                    'message' => "Payment auto-resolved: provider confirmed completed",
+                    'message' => 'Payment auto-resolved: provider confirmed completed',
                 ];
             }
 
@@ -173,12 +173,12 @@ class PaymentReconciliationService
 
                 $issue->markAsResolved(
                     PaymentIssue::RESOLUTION_AUTO_RESOLVED,
-                    "Provider confirmed payment as failed."
+                    'Provider confirmed payment as failed.'
                 );
 
                 return [
                     'success' => true,
-                    'message' => "Payment confirmed failed by provider. Issue resolved.",
+                    'message' => 'Payment confirmed failed by provider. Issue resolved.',
                 ];
             }
 
@@ -207,7 +207,7 @@ class PaymentReconciliationService
 
             return [
                 'success' => false,
-                'message' => 'Investigation failed: ' . $e->getMessage(),
+                'message' => 'Investigation failed: '.$e->getMessage(),
             ];
         }
     }
@@ -256,16 +256,18 @@ class PaymentReconciliationService
         foreach ($stuckPayments as $payment) {
             $transactionId = $payment->provider_transaction_id ?? $payment->transaction_reference;
 
-            if (!$transactionId) {
+            if (! $transactionId) {
                 $results['errors']++;
+
                 continue;
             }
 
             try {
                 $status = $this->gateway->getTransactionStatus($transactionId);
 
-                if (!$status['success']) {
+                if (! $status['success']) {
                     $results['errors']++;
+
                     continue;
                 }
 
@@ -277,7 +279,7 @@ class PaymentReconciliationService
                         ]);
                         $results['resolved']++;
                     })(),
-                    'failed', 'cancelled' => (function () use ($payment, $status, &$results) {
+                    'failed', 'cancelled' => (function () use ($payment, &$results) {
                         $payment->markAsFailed('Confirmed failed/cancelled during reconciliation');
                         $results['failed']++;
                     })(),

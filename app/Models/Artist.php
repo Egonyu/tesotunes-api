@@ -2,19 +2,19 @@
 
 namespace App\Models;
 
+use App\Models\Traits\Featurable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\Traits\Featurable;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
 
 class Artist extends Model implements HasMedia
 {
-    use HasFactory, SoftDeletes, Featurable, InteractsWithMedia;
+    use Featurable, HasFactory, InteractsWithMedia, SoftDeletes;
 
     protected static function booted(): void
     {
@@ -262,7 +262,7 @@ class Artist extends Model implements HasMedia
      */
     public function getBannerUrlAttribute(): ?string
     {
-        if (!$this->banner) {
+        if (! $this->banner) {
             return null;
         }
 
@@ -386,7 +386,7 @@ class Artist extends Model implements HasMedia
             return 9999;
         }
 
-        $cacheKey = "artist_uploads_{$this->id}_" . now()->format('Y_m');
+        $cacheKey = "artist_uploads_{$this->id}_".now()->format('Y_m');
 
         $currentMonthUploads = cache()->remember($cacheKey, now()->addHour(), function () {
             return $this->songs()
@@ -423,7 +423,7 @@ class Artist extends Model implements HasMedia
         ]);
 
         // Clear upload cache for this artist
-        cache()->forget("artist_uploads_{$this->id}_" . now()->format('Y_m'));
+        cache()->forget("artist_uploads_{$this->id}_".now()->format('Y_m'));
     }
 
     /**
@@ -432,7 +432,7 @@ class Artist extends Model implements HasMedia
     public function getCachedStats(): array
     {
         // If stats are stale (older than 1 hour), refresh them
-        if (!$this->stats_last_updated_at || $this->stats_last_updated_at->isBefore(now()->subHour())) {
+        if (! $this->stats_last_updated_at || $this->stats_last_updated_at->isBefore(now()->subHour())) {
             $this->refreshCachedStats();
         }
 
@@ -453,7 +453,7 @@ class Artist extends Model implements HasMedia
     {
         return $query->with([
             'user:id,display_name,email',
-            'profile:id,artist_id,bio,location,website'
+            'profile:id,artist_id,bio,location,website',
         ]);
     }
 
@@ -466,7 +466,7 @@ class Artist extends Model implements HasMedia
             'songs',
             'songs as published_songs_count' => function ($q) {
                 $q->where('status', 'published');
-            }
+            },
         ]);
     }
 
@@ -496,7 +496,7 @@ class Artist extends Model implements HasMedia
      */
     public function hasDistributionRights(): bool
     {
-        return $this->is_verified && !$this->distribution_suspended;
+        return $this->is_verified && ! $this->distribution_suspended;
     }
 
     /**
@@ -504,8 +504,8 @@ class Artist extends Model implements HasMedia
      */
     public function hasCompletedProfile(): bool
     {
-        return !empty($this->stage_name) &&
-               !empty($this->bio) &&
-               !empty($this->user_id);
+        return ! empty($this->stage_name) &&
+               ! empty($this->bio) &&
+               ! empty($this->user_id);
     }
 }

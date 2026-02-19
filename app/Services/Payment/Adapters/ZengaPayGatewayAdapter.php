@@ -2,9 +2,9 @@
 
 namespace App\Services\Payment\Adapters;
 
+use Exception;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Exception;
 
 /**
  * ZengaPay Gateway Adapter
@@ -20,7 +20,9 @@ use Exception;
 class ZengaPayGatewayAdapter
 {
     protected string $apiKey;
+
     protected string $baseUrl;
+
     protected string $environment;
 
     public function __construct()
@@ -41,7 +43,7 @@ class ZengaPayGatewayAdapter
      *
      * Used by PaymentService::processZengaPayPayment() and processMethodRefund()
      *
-     * @param array $data [amount, phone, reference, description]
+     * @param  array  $data  [amount, phone, reference, description]
      * @return array [success, transaction_id, reference, message]
      */
     public function charge(array $data): array
@@ -89,7 +91,7 @@ class ZengaPayGatewayAdapter
      *
      * Used by PaymentService::processZengaPayPayout() and processMethodRefund()
      *
-     * @param array $data [amount, phone, reference, description]
+     * @param  array  $data  [amount, phone, reference, description]
      * @return array [success, transaction_id, reference, message]
      */
     public function payout(array $data): array
@@ -137,7 +139,7 @@ class ZengaPayGatewayAdapter
      *
      * Used by PaymentService::checkZengaPayStatus()
      *
-     * @param string $transactionId ZengaPay transaction ID
+     * @param  string  $transactionId  ZengaPay transaction ID
      * @return array [success, status, data]
      */
     public function getTransactionStatus(string $transactionId): array
@@ -230,11 +232,11 @@ class ZengaPayGatewayAdapter
      */
     protected function makeRequest(string $method, string $endpoint, array $data = []): array
     {
-        $url = rtrim($this->baseUrl, '/') . '/' . ltrim($endpoint, '/');
+        $url = rtrim($this->baseUrl, '/').'/'.ltrim($endpoint, '/');
 
         try {
             $http = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
+                'Authorization' => 'Bearer '.$this->apiKey,
                 'Accept' => 'application/json',
                 'Content-Type' => 'application/json',
             ])->timeout(30);
@@ -289,12 +291,12 @@ class ZengaPayGatewayAdapter
 
         // Handle Ugandan numbers
         if (str_starts_with($phone, '0') && strlen($phone) === 10) {
-            $phone = '256' . substr($phone, 1);
+            $phone = '256'.substr($phone, 1);
         }
 
         // If no country code, assume Uganda
         if (strlen($phone) === 9) {
-            $phone = '256' . $phone;
+            $phone = '256'.$phone;
         }
 
         // Remove leading + if present in the original

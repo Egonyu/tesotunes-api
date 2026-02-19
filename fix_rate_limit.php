@@ -1,5 +1,6 @@
 <?php
-$file = __DIR__ . '/bootstrap/app.php';
+
+$file = __DIR__.'/bootstrap/app.php';
 $content = file_get_contents($file);
 
 if (empty($content)) {

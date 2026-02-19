@@ -32,7 +32,7 @@ class NewPodcastPublished implements ShouldBroadcast
     {
         return [
             new Channel('podcasts'),
-            new Channel('user.' . $this->podcast->creator_id),
+            new Channel('user.'.$this->podcast->creator_id),
         ];
     }
 

@@ -31,8 +31,8 @@ class NewEpisodePublished implements ShouldBroadcast
     public function broadcastOn(): array
     {
         return [
-            new Channel('podcast.' . $this->episode->podcast_id),
-            new Channel('user.' . $this->episode->podcast->creator_id),
+            new Channel('podcast.'.$this->episode->podcast_id),
+            new Channel('user.'.$this->episode->podcast->creator_id),
         ];
     }
 

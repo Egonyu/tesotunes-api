@@ -26,7 +26,7 @@ class MobileMoneyService
                 'client_id' => env('AIRTEL_MONEY_CLIENT_ID'),
                 'client_secret' => env('AIRTEL_MONEY_CLIENT_SECRET'),
                 'environment' => env('AIRTEL_MONEY_ENVIRONMENT', 'demo'),
-            ]
+            ],
         ];
     }
 
@@ -38,7 +38,7 @@ class MobileMoneyService
     {
         try {
             // Validate parameters
-            if (!isset($params['amount']) || !isset($params['payment_method'])) {
+            if (! isset($params['amount']) || ! isset($params['payment_method'])) {
                 return [
                     'success' => false,
                     'message' => 'Missing required payment parameters',
@@ -46,27 +46,28 @@ class MobileMoneyService
             }
 
             $provider = $params['payment_method'];
-            
+
             // Make HTTP request to provider API (will be faked in tests)
-            $apiUrl = $provider === 'mtn' 
-                ? $this->config['mtn']['api_url'] 
+            $apiUrl = $provider === 'mtn'
+                ? $this->config['mtn']['api_url']
                 : $this->config['airtel']['api_url'];
-            
+
             $response = Http::post("{$apiUrl}/collection", [
                 'amount' => $params['amount'],
                 'phone_number' => $params['phone_number'] ?? null,
             ]);
-            
+
             if ($response->successful()) {
                 $data = $response->json();
+
                 return [
                     'success' => true,
                     'message' => 'Payment processed successfully',
-                    'transaction_id' => $data['transactionId'] ?? 'TXN_' . uniqid(),
-                    'reference' => strtoupper($provider) . '_REF_' . uniqid(),
+                    'transaction_id' => $data['transactionId'] ?? 'TXN_'.uniqid(),
+                    'reference' => strtoupper($provider).'_REF_'.uniqid(),
                 ];
             }
-            
+
             return [
                 'success' => false,
                 'message' => 'Payment processing failed',
@@ -74,12 +75,12 @@ class MobileMoneyService
         } catch (\Exception $e) {
             Log::error('Payment processing failed', [
                 'params' => $params,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return [
                 'success' => false,
-                'message' => 'Payment processing failed: ' . $e->getMessage(),
+                'message' => 'Payment processing failed: '.$e->getMessage(),
             ];
         }
     }
@@ -92,10 +93,10 @@ class MobileMoneyService
         try {
             $payment->markAsProcessing();
 
-            $response = match($payment->provider) {
+            $response = match ($payment->provider) {
                 Payment::PROVIDER_MTN => $this->initiateMtnPayment($payment),
                 Payment::PROVIDER_AIRTEL => $this->initiateAirtelPayment($payment),
-                default => throw new \Exception('Unsupported mobile money provider: ' . $payment->provider)
+                default => throw new \Exception('Unsupported mobile money provider: '.$payment->provider)
             };
 
             return $response;
@@ -104,15 +105,15 @@ class MobileMoneyService
             Log::error('Mobile money payment initiation failed', [
                 'payment_id' => $payment->id,
                 'provider' => $payment->provider,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             $payment->markAsFailed($e->getMessage());
 
             return [
                 'success' => false,
-                'message' => 'Payment initiation failed: ' . $e->getMessage(),
-                'error_code' => 'INITIATION_FAILED'
+                'message' => 'Payment initiation failed: '.$e->getMessage(),
+                'error_code' => 'INITIATION_FAILED',
             ];
         }
     }
@@ -123,10 +124,10 @@ class MobileMoneyService
     public function checkPaymentStatus(Payment $payment): array
     {
         try {
-            $response = match($payment->provider) {
+            $response = match ($payment->provider) {
                 Payment::PROVIDER_MTN => $this->checkMtnPaymentStatus($payment),
                 Payment::PROVIDER_AIRTEL => $this->checkAirtelPaymentStatus($payment),
-                default => throw new \Exception('Unsupported mobile money provider: ' . $payment->provider)
+                default => throw new \Exception('Unsupported mobile money provider: '.$payment->provider)
             };
 
             // Update payment status based on response
@@ -137,7 +138,7 @@ class MobileMoneyService
                         $payment->markAsCompleted([
                             'external_transaction_id' => $response['external_transaction_id'] ?? null,
                             'provider_reference' => $response['provider_reference'] ?? null,
-                            'payment_data' => ['status_check_response' => $response]
+                            'payment_data' => ['status_check_response' => $response],
                         ]);
                         break;
 
@@ -162,13 +163,13 @@ class MobileMoneyService
             Log::error('Mobile money status check failed', [
                 'payment_id' => $payment->id,
                 'provider' => $payment->provider,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return [
                 'success' => false,
-                'message' => 'Status check failed: ' . $e->getMessage(),
-                'error_code' => 'STATUS_CHECK_FAILED'
+                'message' => 'Status check failed: '.$e->getMessage(),
+                'error_code' => 'STATUS_CHECK_FAILED',
             ];
         }
     }
@@ -187,10 +188,10 @@ class MobileMoneyService
             'externalId' => $payment->transaction_id,
             'payer' => [
                 'partyIdType' => 'MSISDN',
-                'partyId' => $this->formatPhoneNumber($payment->phone_number, 'mtn')
+                'partyId' => $this->formatPhoneNumber($payment->phone_number, 'mtn'),
             ],
             'payerMessage' => 'Payment for event ticket',
-            'payeeNote' => 'Tesotunes event ticket purchase'
+            'payeeNote' => 'Tesotunes event ticket purchase',
         ];
 
         // For demo purposes, simulate API call
@@ -200,12 +201,12 @@ class MobileMoneyService
 
         // Real API implementation would go here
         $response = HttpClientFactory::make('mtn_momo')->withHeaders([
-            'Authorization' => 'Bearer ' . $this->getMtnAccessToken(),
+            'Authorization' => 'Bearer '.$this->getMtnAccessToken(),
             'X-Reference-Id' => $payment->transaction_id,
             'X-Target-Environment' => $this->config['mtn']['environment'],
             'Ocp-Apim-Subscription-Key' => $this->config['mtn']['subscription_key'],
-            'Content-Type' => 'application/json'
-        ])->post($this->config['mtn']['api_url'] . '/collection/v1_0/requesttopay', $requestData);
+            'Content-Type' => 'application/json',
+        ])->post($this->config['mtn']['api_url'].'/collection/v1_0/requesttopay', $requestData);
 
         if ($response->successful()) {
             return [
@@ -213,11 +214,11 @@ class MobileMoneyService
                 'message' => 'Payment initiated successfully. Please check your phone for the payment prompt.',
                 'transaction_id' => $payment->transaction_id,
                 'provider_reference' => $response->header('X-Reference-Id'),
-                'instructions' => 'Dial *165# or check your MTN MoMo app to complete the payment.'
+                'instructions' => 'Dial *165# or check your MTN MoMo app to complete the payment.',
             ];
         }
 
-        throw new \Exception('MTN API Error: ' . $response->body());
+        throw new \Exception('MTN API Error: '.$response->body());
     }
 
     /**
@@ -233,14 +234,14 @@ class MobileMoneyService
             'subscriber' => [
                 'country' => 'UG',
                 'currency' => $payment->currency,
-                'msisdn' => $this->formatPhoneNumber($payment->phone_number, 'airtel')
+                'msisdn' => $this->formatPhoneNumber($payment->phone_number, 'airtel'),
             ],
             'transaction' => [
                 'amount' => $payment->amount,
                 'country' => 'UG',
                 'currency' => $payment->currency,
-                'id' => $payment->transaction_id
-            ]
+                'id' => $payment->transaction_id,
+            ],
         ];
 
         // For demo purposes, simulate API call
@@ -252,24 +253,25 @@ class MobileMoneyService
         $accessToken = $this->getAirtelAccessToken();
 
         $response = HttpClientFactory::make('airtel_money')->withHeaders([
-            'Authorization' => 'Bearer ' . $accessToken,
+            'Authorization' => 'Bearer '.$accessToken,
             'Content-Type' => 'application/json',
             'X-Country' => 'UG',
-            'X-Currency' => 'UGX'
-        ])->post($this->config['airtel']['api_url'] . '/merchant/v1/payments/', $requestData);
+            'X-Currency' => 'UGX',
+        ])->post($this->config['airtel']['api_url'].'/merchant/v1/payments/', $requestData);
 
         if ($response->successful()) {
             $data = $response->json();
+
             return [
                 'success' => true,
                 'message' => 'Payment initiated successfully. Please check your phone for the payment prompt.',
                 'transaction_id' => $payment->transaction_id,
                 'provider_reference' => $data['data']['transaction']['id'] ?? null,
-                'instructions' => 'Check your Airtel Money app or dial *185# to complete the payment.'
+                'instructions' => 'Check your Airtel Money app or dial *185# to complete the payment.',
             ];
         }
 
-        throw new \Exception('Airtel API Error: ' . $response->body());
+        throw new \Exception('Airtel API Error: '.$response->body());
     }
 
     /**
@@ -282,23 +284,24 @@ class MobileMoneyService
         }
 
         $response = HttpClientFactory::make('mtn_momo')->withHeaders([
-            'Authorization' => 'Bearer ' . $this->getMtnAccessToken(),
+            'Authorization' => 'Bearer '.$this->getMtnAccessToken(),
             'X-Target-Environment' => $this->config['mtn']['environment'],
-            'Ocp-Apim-Subscription-Key' => $this->config['mtn']['subscription_key']
-        ])->get($this->config['mtn']['api_url'] . '/collection/v1_0/requesttopay/' . $payment->transaction_id);
+            'Ocp-Apim-Subscription-Key' => $this->config['mtn']['subscription_key'],
+        ])->get($this->config['mtn']['api_url'].'/collection/v1_0/requesttopay/'.$payment->transaction_id);
 
         if ($response->successful()) {
             $data = $response->json();
+
             return [
                 'success' => true,
                 'status' => $data['status'],
                 'external_transaction_id' => $data['financialTransactionId'] ?? null,
                 'provider_reference' => $data['externalId'] ?? null,
-                'failure_reason' => $data['reason'] ?? null
+                'failure_reason' => $data['reason'] ?? null,
             ];
         }
 
-        throw new \Exception('MTN Status Check Failed: ' . $response->body());
+        throw new \Exception('MTN Status Check Failed: '.$response->body());
     }
 
     /**
@@ -313,22 +316,23 @@ class MobileMoneyService
         $accessToken = $this->getAirtelAccessToken();
 
         $response = HttpClientFactory::make('airtel_money')->withHeaders([
-            'Authorization' => 'Bearer ' . $accessToken,
+            'Authorization' => 'Bearer '.$accessToken,
             'X-Country' => 'UG',
-            'X-Currency' => 'UGX'
-        ])->get($this->config['airtel']['api_url'] . '/standard/v1/payments/' . $payment->transaction_id);
+            'X-Currency' => 'UGX',
+        ])->get($this->config['airtel']['api_url'].'/standard/v1/payments/'.$payment->transaction_id);
 
         if ($response->successful()) {
             $data = $response->json();
+
             return [
                 'success' => true,
                 'status' => $data['data']['transaction']['status'],
                 'external_transaction_id' => $data['data']['transaction']['airtel_money_id'] ?? null,
-                'provider_reference' => $data['data']['transaction']['id'] ?? null
+                'provider_reference' => $data['data']['transaction']['id'] ?? null,
             ];
         }
 
-        throw new \Exception('Airtel Status Check Failed: ' . $response->body());
+        throw new \Exception('Airtel Status Check Failed: '.$response->body());
     }
 
     /**
@@ -353,8 +357,8 @@ class MobileMoneyService
             'success' => true,
             'message' => 'Payment initiated successfully (Demo Mode). Please check your phone.',
             'transaction_id' => $payment->transaction_id,
-            'provider_reference' => 'MTN_' . uniqid(),
-            'instructions' => 'Demo Mode: Payment will be automatically completed in 30 seconds.'
+            'provider_reference' => 'MTN_'.uniqid(),
+            'instructions' => 'Demo Mode: Payment will be automatically completed in 30 seconds.',
         ];
     }
 
@@ -370,8 +374,8 @@ class MobileMoneyService
             'success' => true,
             'message' => 'Payment initiated successfully (Demo Mode). Please check your phone.',
             'transaction_id' => $payment->transaction_id,
-            'provider_reference' => 'AIRTEL_' . uniqid(),
-            'instructions' => 'Demo Mode: Payment will be automatically completed in 30 seconds.'
+            'provider_reference' => 'AIRTEL_'.uniqid(),
+            'instructions' => 'Demo Mode: Payment will be automatically completed in 30 seconds.',
         ];
     }
 
@@ -384,14 +388,14 @@ class MobileMoneyService
             return [
                 'success' => true,
                 'status' => 'SUCCESSFUL',
-                'external_transaction_id' => 'MTN_' . uniqid(),
-                'provider_reference' => $payment->transaction_id
+                'external_transaction_id' => 'MTN_'.uniqid(),
+                'provider_reference' => $payment->transaction_id,
             ];
         }
 
         return [
             'success' => true,
-            'status' => 'PENDING'
+            'status' => 'PENDING',
         ];
     }
 
@@ -403,14 +407,14 @@ class MobileMoneyService
             return [
                 'success' => true,
                 'status' => 'SUCCESS',
-                'external_transaction_id' => 'AIRTEL_' . uniqid(),
-                'provider_reference' => $payment->transaction_id
+                'external_transaction_id' => 'AIRTEL_'.uniqid(),
+                'provider_reference' => $payment->transaction_id,
             ];
         }
 
         return [
             'success' => true,
-            'status' => 'PENDING'
+            'status' => 'PENDING',
         ];
     }
 
@@ -423,11 +427,11 @@ class MobileMoneyService
         $phone = preg_replace('/\D/', '', $phone);
 
         // Ensure it starts with country code (256 for Uganda)
-        if (!str_starts_with($phone, '256')) {
+        if (! str_starts_with($phone, '256')) {
             if (str_starts_with($phone, '0')) {
-                $phone = '256' . substr($phone, 1);
+                $phone = '256'.substr($phone, 1);
             } else {
-                $phone = '256' . $phone;
+                $phone = '256'.$phone;
             }
         }
 
@@ -454,7 +458,7 @@ class MobileMoneyService
     {
         $formatted = $this->formatPhoneNumber($phone, $provider);
 
-        return match($provider) {
+        return match ($provider) {
             Payment::PROVIDER_MTN => $this->isValidMtnNumber($formatted),
             Payment::PROVIDER_AIRTEL => $this->isValidAirtelNumber($formatted),
             default => false

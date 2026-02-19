@@ -2,14 +2,14 @@
 
 namespace App\Services;
 
-use App\Models\ArtistPayout;
 use App\Models\Artist;
-use App\Models\User;
+use App\Models\ArtistPayout;
 use App\Models\ArtistRevenue;
+use App\Models\User;
 use App\Services\Payment\MobileMoneyService;
+use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Exception;
 
 /**
  * Service class for handling artist payout processing with approval workflow
@@ -29,11 +29,14 @@ class PayoutService
 
     // Minimum payout thresholds (UGX)
     const MINIMUM_PAYOUT_AMOUNT = 50000; // UGX 50,000 (~$13 USD)
+
     const MAXIMUM_DAILY_PAYOUT = 10000000; // UGX 10,000,000 (~$2,666 USD)
+
     const MAXIMUM_SINGLE_PAYOUT = 5000000; // UGX 5,000,000 (~$1,333 USD)
 
     // Processing fees (percentages)
     const MOBILE_MONEY_FEE = 1.5; // 1.5%
+
     const BANK_TRANSFER_FEE = 0.5; // 0.5%
 
     public function __construct(MobileMoneyService $mobileMoneyService)
@@ -139,12 +142,12 @@ class PayoutService
     public function approvePayout(ArtistPayout $payout, User $approver, ?string $notes = null): array
     {
         // Verify approver has finance/admin role
-        if (!$approver->hasAnyRole(['finance', 'admin', 'super_admin'])) {
+        if (! $approver->hasAnyRole(['finance', 'admin', 'super_admin'])) {
             throw new Exception('Insufficient permissions to approve payouts');
         }
 
-        if (!$payout->canBeApproved()) {
-            throw new Exception('Payout cannot be approved in current status: ' . $payout->status);
+        if (! $payout->canBeApproved()) {
+            throw new Exception('Payout cannot be approved in current status: '.$payout->status);
         }
 
         DB::beginTransaction();
@@ -159,7 +162,7 @@ class PayoutService
 
             // Update notes if provided
             if ($notes) {
-                $payout->notes = ($payout->notes ? $payout->notes . "\n\n" : '') . 
+                $payout->notes = ($payout->notes ? $payout->notes."\n\n" : '').
                                "Approval Note: $notes";
                 $payout->save();
             }
@@ -210,12 +213,12 @@ class PayoutService
     public function rejectPayout(ArtistPayout $payout, User $rejector, string $reason): array
     {
         // Verify rejector has finance/admin role
-        if (!$rejector->hasAnyRole(['finance', 'admin', 'super_admin'])) {
+        if (! $rejector->hasAnyRole(['finance', 'admin', 'super_admin'])) {
             throw new Exception('Insufficient permissions to reject payouts');
         }
 
-        if (!$payout->canBeRejected()) {
-            throw new Exception('Payout cannot be rejected in current status: ' . $payout->status);
+        if (! $payout->canBeRejected()) {
+            throw new Exception('Payout cannot be rejected in current status: '.$payout->status);
         }
 
         DB::beginTransaction();
@@ -253,7 +256,7 @@ class PayoutService
      */
     public function processPayout(ArtistPayout $payout): array
     {
-        if (!$payout->isApproved()) {
+        if (! $payout->isApproved()) {
             throw new Exception('Only approved payouts can be processed');
         }
 
@@ -264,11 +267,11 @@ class PayoutService
             $payout->markAsProcessing();
 
             // Process based on payout method
-            $result = match($payout->payout_method) {
+            $result = match ($payout->payout_method) {
                 ArtistPayout::METHOD_MOBILE_MONEY => $this->processMobileMoneyPayout($payout),
                 ArtistPayout::METHOD_BANK_TRANSFER => $this->processBankTransferPayout($payout),
                 ArtistPayout::METHOD_PAYPAL => $this->processPayPalPayout($payout),
-                default => throw new Exception('Unsupported payout method: ' . $payout->payout_method)
+                default => throw new Exception('Unsupported payout method: '.$payout->payout_method)
             };
 
             if ($result['success']) {
@@ -342,8 +345,8 @@ class PayoutService
      */
     public function retryPayout(ArtistPayout $payout): array
     {
-        if (!$payout->canBeRetried()) {
-            throw new Exception('Payout cannot be retried in current status: ' . $payout->status);
+        if (! $payout->canBeRetried()) {
+            throw new Exception('Payout cannot be retried in current status: '.$payout->status);
         }
 
         // Reset to approved status for retry
@@ -366,8 +369,8 @@ class PayoutService
      */
     public function cancelPayout(ArtistPayout $payout, ?User $cancelledBy = null, ?string $reason = null): array
     {
-        if (!$payout->canBeCancelled()) {
-            throw new Exception('Payout cannot be cancelled in current status: ' . $payout->status);
+        if (! $payout->canBeCancelled()) {
+            throw new Exception('Payout cannot be cancelled in current status: '.$payout->status);
         }
 
         DB::beginTransaction();
@@ -446,18 +449,18 @@ class PayoutService
     {
         // Check minimum amount
         if ($amount < self::MINIMUM_PAYOUT_AMOUNT) {
-            throw new Exception("Minimum payout amount is UGX " . number_format(self::MINIMUM_PAYOUT_AMOUNT));
+            throw new Exception('Minimum payout amount is UGX '.number_format(self::MINIMUM_PAYOUT_AMOUNT));
         }
 
         // Check maximum single payout
         if ($amount > self::MAXIMUM_SINGLE_PAYOUT) {
-            throw new Exception("Maximum single payout is UGX " . number_format(self::MAXIMUM_SINGLE_PAYOUT));
+            throw new Exception('Maximum single payout is UGX '.number_format(self::MAXIMUM_SINGLE_PAYOUT));
         }
 
         // Check artist has sufficient balance
         $unpaidRevenue = $this->getUnpaidRevenueAmount($artist);
         if ($amount > $unpaidRevenue) {
-            throw new Exception("Insufficient balance. Available: UGX " . number_format($unpaidRevenue, 2));
+            throw new Exception('Insufficient balance. Available: UGX '.number_format($unpaidRevenue, 2));
         }
 
         // Check daily limit
@@ -467,7 +470,7 @@ class PayoutService
             ->sum('amount');
 
         if (($todayPayouts + $amount) > self::MAXIMUM_DAILY_PAYOUT) {
-            throw new Exception("Daily payout limit exceeded. Limit: UGX " . number_format(self::MAXIMUM_DAILY_PAYOUT));
+            throw new Exception('Daily payout limit exceeded. Limit: UGX '.number_format(self::MAXIMUM_DAILY_PAYOUT));
         }
 
         // Validate method-specific requirements
@@ -484,7 +487,7 @@ class PayoutService
                 if (empty($data['phone_number'])) {
                     throw new Exception('Phone number is required for mobile money payouts');
                 }
-                if (!preg_match('/^256[0-9]{9}$/', $data['phone_number'])) {
+                if (! preg_match('/^256[0-9]{9}$/', $data['phone_number'])) {
                     throw new Exception('Invalid phone number format. Must be 256XXXXXXXXX');
                 }
                 break;
@@ -523,7 +526,7 @@ class PayoutService
      */
     protected function calculatePayoutFees(float $amount, string $method): float
     {
-        return match($method) {
+        return match ($method) {
             ArtistPayout::METHOD_MOBILE_MONEY => $amount * (self::MOBILE_MONEY_FEE / 100),
             ArtistPayout::METHOD_BANK_TRANSFER => $amount * (self::BANK_TRANSFER_FEE / 100),
             ArtistPayout::METHOD_PAYPAL => $amount * 0.02, // 2%
@@ -540,7 +543,7 @@ class PayoutService
             $payout->phone_number,
             $payout->net_amount,
             $payout->currency,
-            "Artist payout: " . $payout->transaction_id
+            'Artist payout: '.$payout->transaction_id
         );
     }
 
@@ -590,11 +593,11 @@ class PayoutService
         $masked = $data;
 
         if (isset($masked['phone_number'])) {
-            $masked['phone_number'] = substr($masked['phone_number'], 0, 6) . '****';
+            $masked['phone_number'] = substr($masked['phone_number'], 0, 6).'****';
         }
 
         if (isset($masked['account_number'])) {
-            $masked['account_number'] = '****' . substr($masked['account_number'], -4);
+            $masked['account_number'] = '****'.substr($masked['account_number'], -4);
         }
 
         return $masked;

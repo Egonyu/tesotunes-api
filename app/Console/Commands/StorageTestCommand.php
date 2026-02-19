@@ -2,15 +2,14 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Services\MusicStorageService;
-use App\Models\Artist;
-use Illuminate\Http\UploadedFile;
+use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 
 class StorageTestCommand extends Command
 {
     protected $signature = 'music:test-storage {--driver=local : Storage driver to test}';
+
     protected $description = 'Test music storage functionality';
 
     public function handle()
@@ -22,10 +21,11 @@ class StorageTestCommand extends Command
 
         // Test storage service initialization
         try {
-            $storageService = new MusicStorageService();
+            $storageService = new MusicStorageService;
             $this->info('✓ MusicStorageService initialized successfully');
         } catch (\Exception $e) {
-            $this->error('✗ Failed to initialize MusicStorageService: ' . $e->getMessage());
+            $this->error('✗ Failed to initialize MusicStorageService: '.$e->getMessage());
+
             return Command::FAILURE;
         }
 
@@ -55,8 +55,8 @@ class StorageTestCommand extends Command
                 $diskInstance = Storage::disk($disk);
 
                 // Test basic operations
-                $testFile = 'test-' . time() . '.txt';
-                $testContent = 'Test content for ' . $disk;
+                $testFile = 'test-'.time().'.txt';
+                $testContent = 'Test content for '.$disk;
 
                 // Put test file
                 $success = $diskInstance->put($testFile, $testContent);
@@ -80,7 +80,7 @@ class StorageTestCommand extends Command
                 }
 
             } catch (\Exception $e) {
-                $this->error("✗ {$disk}: " . $e->getMessage());
+                $this->error("✗ {$disk}: ".$e->getMessage());
             }
         }
     }
@@ -94,13 +94,13 @@ class StorageTestCommand extends Command
 
             foreach ($stats as $driver => $stat) {
                 if (isset($stat['error'])) {
-                    $this->warn("⚠ {$driver}: " . $stat['error']);
+                    $this->warn("⚠ {$driver}: ".$stat['error']);
                 } else {
                     $this->info("✓ {$driver}: {$stat['file_count']} files, {$stat['total_size_mb']} MB total");
                 }
             }
         } catch (\Exception $e) {
-            $this->error('✗ Storage statistics failed: ' . $e->getMessage());
+            $this->error('✗ Storage statistics failed: '.$e->getMessage());
         }
     }
 
@@ -112,7 +112,7 @@ class StorageTestCommand extends Command
             'music/uploads',
             'music/processed',
             'artwork/covers',
-            'music/temp'
+            'music/temp',
         ];
 
         foreach (['music_private', 'music_public'] as $disk) {
@@ -120,7 +120,7 @@ class StorageTestCommand extends Command
                 $diskInstance = Storage::disk($disk);
 
                 foreach ($directories as $dir) {
-                    if (!$diskInstance->exists($dir)) {
+                    if (! $diskInstance->exists($dir)) {
                         $diskInstance->makeDirectory($dir);
                         $this->info("✓ Created directory: {$dir} on {$disk}");
                     } else {
@@ -128,7 +128,7 @@ class StorageTestCommand extends Command
                     }
                 }
             } catch (\Exception $e) {
-                $this->error("✗ Directory creation failed on {$disk}: " . $e->getMessage());
+                $this->error("✗ Directory creation failed on {$disk}: ".$e->getMessage());
             }
         }
     }

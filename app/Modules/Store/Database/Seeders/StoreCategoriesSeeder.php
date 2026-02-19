@@ -2,9 +2,8 @@
 
 namespace App\Modules\Store\Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Modules\Store\Models\ProductCategory;
-use Illuminate\Support\Str;
+use Illuminate\Database\Seeder;
 
 class StoreCategoriesSeeder extends Seeder
 {
@@ -25,7 +24,7 @@ class StoreCategoriesSeeder extends Seeder
                     ['name' => 'Hoodies', 'slug' => 'hoodies', 'icon' => 'checkroom'],
                     ['name' => 'Hats & Caps', 'slug' => 'hats-caps', 'icon' => 'checkroom'],
                     ['name' => 'Accessories', 'slug' => 'accessories', 'icon' => 'watch'],
-                ]
+                ],
             ],
             [
                 'name' => 'Digital Products',
@@ -38,7 +37,7 @@ class StoreCategoriesSeeder extends Seeder
                     ['name' => 'Samples', 'slug' => 'samples', 'icon' => 'library_music'],
                     ['name' => 'Instrumentals', 'slug' => 'instrumentals', 'icon' => 'piano'],
                     ['name' => 'Sound Packs', 'slug' => 'sound-packs', 'icon' => 'queue_music'],
-                ]
+                ],
             ],
             [
                 'name' => 'Services',
@@ -51,7 +50,7 @@ class StoreCategoriesSeeder extends Seeder
                     ['name' => 'Mixing & Mastering', 'slug' => 'mixing-mastering', 'icon' => 'tune'],
                     ['name' => 'Songwriting', 'slug' => 'songwriting', 'icon' => 'edit_note'],
                     ['name' => 'Consultation', 'slug' => 'consultation', 'icon' => 'psychology'],
-                ]
+                ],
             ],
             [
                 'name' => 'Experiences',
@@ -64,7 +63,7 @@ class StoreCategoriesSeeder extends Seeder
                     ['name' => 'Studio Visit', 'slug' => 'studio-visit', 'icon' => 'home_work'],
                     ['name' => 'Video Call', 'slug' => 'video-call', 'icon' => 'video_call'],
                     ['name' => 'Dinner Date', 'slug' => 'dinner-date', 'icon' => 'restaurant'],
-                ]
+                ],
             ],
             [
                 'name' => 'Promotions',
@@ -77,7 +76,7 @@ class StoreCategoriesSeeder extends Seeder
                     ['name' => 'DJ Shoutout', 'slug' => 'dj-shoutout', 'icon' => 'mic'],
                     ['name' => 'Social Media Post', 'slug' => 'social-media-post', 'icon' => 'share'],
                     ['name' => 'Playlist Placement', 'slug' => 'playlist-placement', 'icon' => 'playlist_add'],
-                ]
+                ],
             ],
             [
                 'name' => 'Event Tickets',
@@ -89,7 +88,7 @@ class StoreCategoriesSeeder extends Seeder
                     ['name' => 'Concerts', 'slug' => 'concerts', 'icon' => 'music_note'],
                     ['name' => 'Meet & Greet', 'slug' => 'meet-greet-tickets', 'icon' => 'handshake'],
                     ['name' => 'VIP Access', 'slug' => 'vip-access', 'icon' => 'workspace_premium'],
-                ]
+                ],
             ],
         ];
 
@@ -111,6 +110,6 @@ class StoreCategoriesSeeder extends Seeder
             }
         }
 
-        $this->command->info('✓ Created ' . ProductCategory::count() . ' product categories');
+        $this->command->info('✓ Created '.ProductCategory::count().' product categories');
     }
 }

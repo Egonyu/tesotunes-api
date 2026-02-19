@@ -13,7 +13,7 @@ return new class extends Migration
     public function up(): void
     {
         // Song-Genre many-to-many pivot table
-        if (!Schema::hasTable('song_genres')) {
+        if (! Schema::hasTable('song_genres')) {
             Schema::create('song_genres', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('song_id')->constrained()->cascadeOnDelete();
@@ -25,7 +25,7 @@ return new class extends Migration
         }
 
         // User settings table
-        if (!Schema::hasTable('user_settings')) {
+        if (! Schema::hasTable('user_settings')) {
             Schema::create('user_settings', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('user_id')->unique()->constrained()->cascadeOnDelete();
@@ -43,7 +43,7 @@ return new class extends Migration
         }
 
         // Failed jobs table (Laravel built-in)
-        if (!Schema::hasTable('failed_jobs')) {
+        if (! Schema::hasTable('failed_jobs')) {
             Schema::create('failed_jobs', function (Blueprint $table) {
                 $table->id();
                 $table->string('uuid')->unique();
@@ -56,7 +56,7 @@ return new class extends Migration
         }
 
         // Playlist-Song many-to-many pivot table
-        if (!Schema::hasTable('playlist_songs')) {
+        if (! Schema::hasTable('playlist_songs')) {
             Schema::create('playlist_songs', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('playlist_id')->constrained()->cascadeOnDelete();
@@ -71,7 +71,7 @@ return new class extends Migration
         }
 
         // Playlist collaborators table
-        if (!Schema::hasTable('playlist_collaborators')) {
+        if (! Schema::hasTable('playlist_collaborators')) {
             Schema::create('playlist_collaborators', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('playlist_id')->constrained()->cascadeOnDelete();
@@ -83,7 +83,7 @@ return new class extends Migration
         }
 
         // Store products table
-        if (!Schema::hasTable('store_products')) {
+        if (! Schema::hasTable('store_products')) {
             Schema::create('store_products', function (Blueprint $table) {
                 $table->id();
                 $table->string('uuid')->unique();
@@ -105,7 +105,7 @@ return new class extends Migration
         }
 
         // Store carts table
-        if (!Schema::hasTable('store_carts')) {
+        if (! Schema::hasTable('store_carts')) {
             Schema::create('store_carts', function (Blueprint $table) {
                 $table->id();
                 $table->string('uuid')->unique();
@@ -116,7 +116,7 @@ return new class extends Migration
         }
 
         // Store cart items table
-        if (!Schema::hasTable('store_cart_items')) {
+        if (! Schema::hasTable('store_cart_items')) {
             Schema::create('store_cart_items', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('cart_id')->constrained('store_carts')->cascadeOnDelete();
@@ -128,7 +128,7 @@ return new class extends Migration
         }
 
         // Store orders table
-        if (!Schema::hasTable('store_orders')) {
+        if (! Schema::hasTable('store_orders')) {
             Schema::create('store_orders', function (Blueprint $table) {
                 $table->id();
                 $table->string('uuid')->unique();
@@ -147,7 +147,7 @@ return new class extends Migration
         }
 
         // Store order items table
-        if (!Schema::hasTable('store_order_items')) {
+        if (! Schema::hasTable('store_order_items')) {
             Schema::create('store_order_items', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('order_id')->constrained('store_orders')->cascadeOnDelete();

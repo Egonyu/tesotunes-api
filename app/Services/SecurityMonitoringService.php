@@ -3,9 +3,9 @@
 namespace App\Services;
 
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class SecurityMonitoringService
 {
@@ -90,16 +90,16 @@ class SecurityMonitoringService
     private function storeSecurityEvent(array $data): void
     {
         try {
-            $severityScore = match($data['severity'] ?? 'info') {
+            $severityScore = match ($data['severity'] ?? 'info') {
                 'critical' => 100,
                 'error' => 75,
                 'warning' => 50,
                 'info' => 25,
                 default => 10,
             };
-            
+
             // Map type to valid event_type enum value
-            $eventType = match($data['type'] ?? 'unknown') {
+            $eventType = match ($data['type'] ?? 'unknown') {
                 'authentication_attempt' => $data['successful'] ?? false ? 'login_success' : 'login_failure',
                 'login' => 'login_attempt',
                 'logout' => 'logout',
@@ -112,7 +112,7 @@ class SecurityMonitoringService
                 'permission_violation' => 'permission_violation',
                 default => 'suspicious_activity',
             };
-            
+
             DB::table('security_logs')->insert([
                 'trace_id' => (string) \Illuminate\Support\Str::uuid(),
                 'audit_log_id' => 0,
@@ -123,7 +123,7 @@ class SecurityMonitoringService
                 'is_suspicious' => in_array($data['severity'] ?? '', ['warning', 'error', 'critical']),
                 'risk_score' => $severityScore,
                 'threat_indicators' => json_encode([$data['type'] ?? 'unknown']),
-                'narrative' => "Security Event: " . ($data['type'] ?? 'unknown'),
+                'narrative' => 'Security Event: '.($data['type'] ?? 'unknown'),
                 'metadata' => json_encode($data),
                 'is_blocked' => false,
                 'created_at' => now(),
@@ -143,7 +143,7 @@ class SecurityMonitoringService
         $userId = $data['user_id'];
 
         // Check for brute force attacks
-        if ($type === 'authentication_attempt' && !$data['successful']) {
+        if ($type === 'authentication_attempt' && ! $data['successful']) {
             $this->checkBruteForce($ip, $data['email']);
         }
 
@@ -228,7 +228,7 @@ class SecurityMonitoringService
 
         // Store alert for admin dashboard
         Cache::tags(['security_alerts'])->put(
-            "alert_" . now()->timestamp,
+            'alert_'.now()->timestamp,
             [
                 'activity' => $activity,
                 'details' => $details,
@@ -250,6 +250,7 @@ class SecurityMonitoringService
             return array_slice($cachedAlerts, 0, $limit);
         } catch (\Exception $e) {
             Log::error('Failed to retrieve security alerts', ['error' => $e->getMessage()]);
+
             return [];
         }
     }
@@ -280,6 +281,7 @@ class SecurityMonitoringService
             return $data;
         } catch (\Exception $e) {
             Log::error('Failed to generate security dashboard data', ['error' => $e->getMessage()]);
+
             return [];
         }
     }

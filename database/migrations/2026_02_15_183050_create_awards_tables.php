@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         // Awards (seasons/shows) - only create if doesn't exist
-        if (!Schema::hasTable('awards')) {
+        if (! Schema::hasTable('awards')) {
             Schema::create('awards', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique();
@@ -40,7 +40,7 @@ return new class extends Migration
         }
 
         // Award Categories - only create if doesn't exist
-        if (!Schema::hasTable('award_categories')) {
+        if (! Schema::hasTable('award_categories')) {
             Schema::create('award_categories', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique();
@@ -58,7 +58,7 @@ return new class extends Migration
         }
 
         // Award Nominations - only create if doesn't exist
-        if (!Schema::hasTable('award_nominations')) {
+        if (! Schema::hasTable('award_nominations')) {
             Schema::create('award_nominations', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique();
@@ -82,7 +82,7 @@ return new class extends Migration
         }
 
         // Award Votes - only create if doesn't exist
-        if (!Schema::hasTable('award_votes')) {
+        if (! Schema::hasTable('award_votes')) {
             Schema::create('award_votes', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique();

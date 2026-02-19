@@ -28,7 +28,7 @@ class ForumReplyResource extends JsonResource
                 return [
                     'id' => $this->user->id,
                     'name' => $this->user->name,
-                    'avatar' => $this->user->avatar ? url('storage/' . $this->user->avatar) : null,
+                    'avatar' => $this->user->avatar ? url('storage/'.$this->user->avatar) : null,
                 ];
             }),
 

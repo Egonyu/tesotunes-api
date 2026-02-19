@@ -5,8 +5,8 @@ namespace App\Modules\Store\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Modules\Store\Models\Store;
 use App\Modules\Store\Services\ReportingService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -44,7 +44,7 @@ class ReportController extends Controller
         ]);
 
         try {
-            $path = match($validated['following_type']) {
+            $path = match ($validated['following_type']) {
                 'sales' => $this->reportingService->generateSalesCSV($store, $validated['period'] ?? '30days'),
                 'products' => $this->reportingService->generateProductsCSV($store, $validated['period'] ?? '30days'),
                 'customers' => $this->reportingService->generateCustomersCSV($store, $validated['period'] ?? '30days'),
@@ -65,7 +65,7 @@ class ReportController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => 'Failed to generate report: ' . $e->getMessage(),
+                'message' => 'Failed to generate report: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -79,7 +79,7 @@ class ReportController extends Controller
 
         $path = "reports/{$store->id}/{$filename}";
 
-        if (!Storage::disk('local')->exists($path)) {
+        if (! Storage::disk('local')->exists($path)) {
             return response()->json([
                 'message' => 'Report not found.',
             ], 404);

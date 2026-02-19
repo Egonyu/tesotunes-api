@@ -21,9 +21,9 @@ class PlaylistFactory extends Factory
         return [
             'user_id' => \App\Models\User::factory(),
             'name' => $name,
-            'slug' => \Illuminate\Support\Str::slug($name) . '-' . fake()->unique()->numberBetween(1, 10000),
+            'slug' => \Illuminate\Support\Str::slug($name).'-'.fake()->unique()->numberBetween(1, 10000),
             'description' => fake()->paragraph(),
-            'artwork' => 'playlists/' . fake()->uuid() . '.jpg',
+            'artwork' => 'playlists/'.fake()->uuid().'.jpg',
             'visibility' => fake()->randomElement(['public', 'private', 'unlisted']),
             'is_collaborative' => fake()->boolean(20),
             'is_featured' => fake()->boolean(5),

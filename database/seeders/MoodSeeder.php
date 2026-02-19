@@ -16,7 +16,7 @@ class MoodSeeder extends Seeder
             ['name' => 'Chill',        'slug' => 'chill',       'description' => 'Relaxed and laid-back vibes',     'color' => '#06B6D4', 'sort_order' => 4],
             ['name' => 'Romantic',     'slug' => 'romantic',    'description' => 'Love and romance themed music',   'color' => '#EC4899', 'sort_order' => 5],
             ['name' => 'Party',        'slug' => 'party',       'description' => 'Dance and party anthems',         'color' => '#F97316', 'sort_order' => 6],
-            ['name' => 'Motivational', 'slug' => 'motivational','description' => 'Inspiring and uplifting music',   'color' => '#10B981', 'sort_order' => 7],
+            ['name' => 'Motivational', 'slug' => 'motivational', 'description' => 'Inspiring and uplifting music',   'color' => '#10B981', 'sort_order' => 7],
             ['name' => 'Worship',      'slug' => 'worship',     'description' => 'Spiritual and devotional music',  'color' => '#8B5CF6', 'sort_order' => 8],
             ['name' => 'Nostalgic',    'slug' => 'nostalgic',   'description' => 'Throwback and classic feel',      'color' => '#A855F7', 'sort_order' => 9],
             ['name' => 'Focus',        'slug' => 'focus',       'description' => 'Study and concentration music',   'color' => '#14B8A6', 'sort_order' => 10],

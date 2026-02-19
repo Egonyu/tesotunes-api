@@ -41,6 +41,7 @@ class FeaturedArtistsCast implements CastsAttributes
     ];
 
     const MAX_COLLABORATORS = 20; // Reasonable limit
+
     const MAX_SPLIT_PERCENTAGE = 100;
 
     /**
@@ -74,8 +75,8 @@ class FeaturedArtistsCast implements CastsAttributes
             return json_encode([]);
         }
 
-        if (!is_array($value)) {
-            throw new InvalidArgumentException("Featured artists must be an array");
+        if (! is_array($value)) {
+            throw new InvalidArgumentException('Featured artists must be an array');
         }
 
         $validated = $this->validate($value);
@@ -90,7 +91,7 @@ class FeaturedArtistsCast implements CastsAttributes
     {
         // Check collaborator count
         if (count($collaborators) > self::MAX_COLLABORATORS) {
-            throw new InvalidArgumentException("Cannot have more than " . self::MAX_COLLABORATORS . " collaborators");
+            throw new InvalidArgumentException('Cannot have more than '.self::MAX_COLLABORATORS.' collaborators');
         }
 
         $validated = [];
@@ -98,22 +99,22 @@ class FeaturedArtistsCast implements CastsAttributes
         $seenUserRoles = []; // Track user_id + role combinations
 
         foreach ($collaborators as $index => $collaborator) {
-            if (!is_array($collaborator)) {
+            if (! is_array($collaborator)) {
                 throw new InvalidArgumentException("Collaborator at index {$index} must be an array");
             }
 
             // Validate required fields
-            if (!isset($collaborator['user_id'])) {
+            if (! isset($collaborator['user_id'])) {
                 throw new InvalidArgumentException("Collaborator at index {$index} missing 'user_id'");
             }
 
-            if (!isset($collaborator['role'])) {
+            if (! isset($collaborator['role'])) {
                 throw new InvalidArgumentException("Collaborator at index {$index} missing 'role'");
             }
 
             // Validate user_id
             $userId = $collaborator['user_id'];
-            if (!is_int($userId) && !ctype_digit((string) $userId)) {
+            if (! is_int($userId) && ! ctype_digit((string) $userId)) {
                 throw new InvalidArgumentException("Collaborator user_id at index {$index} must be an integer");
             }
             $userId = (int) $userId;
@@ -124,8 +125,8 @@ class FeaturedArtistsCast implements CastsAttributes
 
             // Validate role
             $role = trim(strtolower($collaborator['role']));
-            if (!in_array($role, self::VALID_ROLES)) {
-                throw new InvalidArgumentException("Invalid collaborator role at index {$index}: '{$role}'. Must be one of: " . implode(', ', self::VALID_ROLES));
+            if (! in_array($role, self::VALID_ROLES)) {
+                throw new InvalidArgumentException("Invalid collaborator role at index {$index}: '{$role}'. Must be one of: ".implode(', ', self::VALID_ROLES));
             }
 
             // Check for duplicate user+role combination
@@ -145,7 +146,7 @@ class FeaturedArtistsCast implements CastsAttributes
             if (isset($collaborator['split_percentage'])) {
                 $splitPercentage = $collaborator['split_percentage'];
 
-                if (!is_numeric($splitPercentage)) {
+                if (! is_numeric($splitPercentage)) {
                     throw new InvalidArgumentException("Split percentage at index {$index} must be numeric");
                 }
 
@@ -189,7 +190,8 @@ class FeaturedArtistsCast implements CastsAttributes
     public static function getByRole(array $collaborators, string $role): array
     {
         $role = strtolower(trim($role));
-        return array_filter($collaborators, fn($c) => $c['role'] === $role);
+
+        return array_filter($collaborators, fn ($c) => $c['role'] === $role);
     }
 
     /**
@@ -201,6 +203,7 @@ class FeaturedArtistsCast implements CastsAttributes
         foreach ($collaborators as $collaborator) {
             $total += $collaborator['split_percentage'] ?? 0;
         }
+
         return round($total, 2);
     }
 
@@ -222,6 +225,7 @@ class FeaturedArtistsCast implements CastsAttributes
                 return true;
             }
         }
+
         return false;
     }
 
@@ -236,6 +240,7 @@ class FeaturedArtistsCast implements CastsAttributes
                 $roles[] = $collaborator['role'];
             }
         }
+
         return $roles;
     }
 
@@ -250,6 +255,7 @@ class FeaturedArtistsCast implements CastsAttributes
                 $total += $collaborator['split_percentage'] ?? 0;
             }
         }
+
         return round($total, 2);
     }
 
@@ -270,7 +276,7 @@ class FeaturedArtistsCast implements CastsAttributes
         $collaborators[] = $newCollaborator;
 
         // Re-validate entire array
-        $cast = new self();
+        $cast = new self;
         $validated = $cast->validate($collaborators);
 
         return $validated;
@@ -281,11 +287,12 @@ class FeaturedArtistsCast implements CastsAttributes
      */
     public static function removeCollaborator(array $collaborators, int $userId, ?string $role = null): array
     {
-        return array_values(array_filter($collaborators, function($c) use ($userId, $role) {
+        return array_values(array_filter($collaborators, function ($c) use ($userId, $role) {
             if ($role === null) {
                 return $c['user_id'] !== $userId;
             }
-            return !($c['user_id'] === $userId && $c['role'] === strtolower($role));
+
+            return ! ($c['user_id'] === $userId && $c['role'] === strtolower($role));
         }));
     }
 
@@ -298,7 +305,8 @@ class FeaturedArtistsCast implements CastsAttributes
             return '';
         }
 
-        $names = array_map(fn($c) => $c['name'] ?? "User #{$c['user_id']}", $collaborators);
+        $names = array_map(fn ($c) => $c['name'] ?? "User #{$c['user_id']}", $collaborators);
+
         return implode(', ', $names);
     }
 }

@@ -104,7 +104,7 @@ class CreditRate extends Model
 
     public function getDurationDisplay(): string
     {
-        if (!$this->duration_days) {
+        if (! $this->duration_days) {
             return 'Permanent';
         }
 

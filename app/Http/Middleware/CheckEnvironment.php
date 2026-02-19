@@ -15,7 +15,7 @@ class CheckEnvironment
      */
     public function handle(Request $request, Closure $next, string ...$environments): Response
     {
-        if (!empty($environments) && !in_array(app()->environment(), $environments)) {
+        if (! empty($environments) && ! in_array(app()->environment(), $environments)) {
             abort(403, 'This action is not available in the current environment.');
         }
 

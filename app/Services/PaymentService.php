@@ -2,18 +2,18 @@
 
 namespace App\Services;
 
+use App\Models\Artist;
 use App\Models\Payment;
+use App\Models\Payout;
+use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Models\UserSubscription;
-use App\Models\SubscriptionPlan;
-use App\Models\Payout;
-use App\Models\Artist;
 // ZengaPay is the sole payment provider
 use App\Services\Payment\Adapters\ZengaPayGatewayAdapter;
+use Exception;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Database\Eloquent\Collection;
-use Exception;
 
 /**
  * Service class for handling payment processing and subscription management
@@ -31,10 +31,15 @@ class PaymentService
 {
     // Payment statuses
     const STATUS_PENDING = 'pending';
+
     const STATUS_PROCESSING = 'processing';
+
     const STATUS_COMPLETED = 'completed';
+
     const STATUS_FAILED = 'failed';
+
     const STATUS_CANCELLED = 'cancelled';
+
     const STATUS_REFUNDED = 'refunded';
 
     // Payment method — ZengaPay only
@@ -42,6 +47,7 @@ class PaymentService
 
     // Payment method types (for payment_method column in DB)
     const PAYMENT_METHOD_ZENGAPAY = 'zengapay';
+
     const PAYMENT_METHOD_PLATFORM_CREDITS = 'platform_credits';
 
     // Payment provider — ZengaPay only
@@ -49,8 +55,11 @@ class PaymentService
 
     // Subscription statuses
     const SUBSCRIPTION_ACTIVE = 'active';
+
     const SUBSCRIPTION_EXPIRED = 'expired';
+
     const SUBSCRIPTION_CANCELLED = 'cancelled';
+
     const SUBSCRIPTION_PAUSED = 'paused';
 
     public function __construct()
@@ -94,12 +103,12 @@ class PaymentService
                     'completed_at' => now(),
                     'transaction_id' => $paymentResult['transaction_id'] ?? $payment->transaction_id,
                 ])->save();
-                
+
                 // Update fillable fields separately
                 $payment->update([
                     'provider_reference' => $paymentResult['reference'] ?? null,
                 ]);
-                
+
                 // Create or update subscription
                 $subscription = $this->createSubscription($user, $plan, $payment);
 
@@ -120,9 +129,9 @@ class PaymentService
                     'failed_at' => now(),
                     'failure_reason' => $paymentResult['message'] ?? 'Payment failed',
                 ])->save();
-                
+
                 DB::commit(); // Commit the failed payment record
-                
+
                 return [
                     'success' => false,
                     'message' => $paymentResult['message'] ?? 'Payment failed',
@@ -135,7 +144,7 @@ class PaymentService
             Log::error('Subscription payment failed', [
                 'user_id' => $user->id,
                 'plan_id' => $plan->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return [
@@ -180,12 +189,12 @@ class PaymentService
                     'completed_at' => now(),
                     'transaction_id' => $paymentResult['transaction_id'] ?? $payment->transaction_id,
                 ])->save();
-                
+
                 // Update fillable fields separately
                 $payment->update([
                     'provider_reference' => $paymentResult['reference'] ?? null,
                 ]);
-                
+
                 DB::commit();
 
                 return [
@@ -203,7 +212,7 @@ class PaymentService
             Log::error('One-time payment failed', [
                 'user_id' => $user->id,
                 'amount' => $amount,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return [
@@ -217,7 +226,7 @@ class PaymentService
     /**
      * Process refund
      */
-    public function processRefund(Payment $payment, float $amount = null, string $reason = ''): array
+    public function processRefund(Payment $payment, ?float $amount = null, string $reason = ''): array
     {
         if ($payment->status !== self::STATUS_COMPLETED) {
             throw new Exception('Only completed payments can be refunded');
@@ -240,12 +249,12 @@ class PaymentService
                 $metadata = $payment->metadata ?? [];
                 $metadata['refund_amount'] = $refundAmount;
                 $metadata['refund_reason'] = $reason;
-                
+
                 $payment->update([
                     'metadata' => $metadata,
                     'refunded_at' => now(),
                 ]);
-                
+
                 $payment->markAsRefunded();
 
                 // Cancel associated subscription if applicable
@@ -272,7 +281,7 @@ class PaymentService
             Log::error('Refund processing failed', [
                 'payment_id' => $payment->id,
                 'amount' => $refundAmount,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return [
@@ -288,7 +297,7 @@ class PaymentService
     public function processArtistPayout(Artist $artist, float $amount, string $method = 'mobile_money'): array
     {
         // Validate artist eligibility
-        if (!$this->isArtistEligibleForPayout($artist, $amount)) {
+        if (! $this->isArtistEligibleForPayout($artist, $amount)) {
             throw new Exception('Artist not eligible for payout or insufficient balance');
         }
 
@@ -409,7 +418,7 @@ class PaymentService
             'average_payment' => $payments->where('status', self::STATUS_COMPLETED)->avg('amount'),
             'payment_methods' => $payments->groupBy('payment_method')->map->count(),
             'daily_revenue' => $this->getDailyRevenue($payments),
-            'currency_breakdown' => $payments->groupBy('currency')->map(function($group) {
+            'currency_breakdown' => $payments->groupBy('currency')->map(function ($group) {
                 return [
                     'count' => $group->count(),
                     'total' => $group->where('status', self::STATUS_COMPLETED)->sum('amount'),
@@ -424,7 +433,7 @@ class PaymentService
     public function getSubscriptionAnalytics(): array
     {
         $subscriptions = UserSubscription::with('subscriptionPlan')->get();
-        
+
         $expiringThreshold = now()->addDays(7);
 
         return [
@@ -433,13 +442,13 @@ class PaymentService
             'expired_subscriptions' => $subscriptions->where('status', self::SUBSCRIPTION_EXPIRED)->count(),
             'cancelled_subscriptions' => $subscriptions->where('status', self::SUBSCRIPTION_CANCELLED)->count(),
             'expiring_soon' => $subscriptions
-                ->filter(function($sub) use ($expiringThreshold) {
+                ->filter(function ($sub) use ($expiringThreshold) {
                     return $sub->status === self::SUBSCRIPTION_ACTIVE
                         && $sub->expires_at !== null
                         && $sub->expires_at <= $expiringThreshold;
                 })->count(),
             'plan_distribution' => $subscriptions->groupBy('subscription_plan_id')
-                ->map(function($group) {
+                ->map(function ($group) {
                     return [
                         'plan_name' => $group->first()->subscriptionPlan->name ?? 'Unknown',
                         'count' => $group->count(),
@@ -467,7 +476,7 @@ class PaymentService
             throw new Exception('Phone number is required for ZengaPay payments');
         }
 
-        if (!preg_match('/^[0-9]{10,15}$/', preg_replace('/\D/', '', $data['phone_number']))) {
+        if (! preg_match('/^[0-9]{10,15}$/', preg_replace('/\D/', '', $data['phone_number']))) {
             throw new Exception('Invalid phone number format');
         }
     }
@@ -479,7 +488,7 @@ class PaymentService
     {
         // ZengaPay is the sole payment method
         $methodInfo = ['method' => 'zengapay', 'provider' => 'zengapay'];
-        
+
         $data = [
             'user_id' => $paymentData['user_id'],
             'payment_reference' => $this->generatePaymentReference(),
@@ -491,21 +500,21 @@ class PaymentService
             'description' => $paymentData['description'] ?? null,
             'metadata' => $paymentData['metadata'] ?? [],
         ];
-        
+
         // Handle subscription plan polymorphic relationship
         if (isset($paymentData['subscription_plan_id'])) {
             $data['payable_type'] = 'App\Models\SubscriptionPlan';
             $data['payable_id'] = $paymentData['subscription_plan_id'];
             $data['payment_type'] = 'subscription';
         }
-        
+
         $payment = new Payment($data);
         $payment->forceFill([
             'amount' => $paymentData['amount'],
             'status' => self::STATUS_PENDING,
         ]);
         $payment->save();
-        
+
         return $payment;
     }
 
@@ -531,7 +540,7 @@ class PaymentService
             ->update([
                 'status' => self::SUBSCRIPTION_CANCELLED,
                 'cancelled_at' => now(),
-                'cancellation_reason' => 'upgraded'
+                'cancellation_reason' => 'upgraded',
             ]);
 
         return UserSubscription::create([
@@ -558,7 +567,7 @@ class PaymentService
 
         return $artist->earnings_balance >= $amount &&
                $amount >= $minimumPayout &&
-               !empty($artist->payout_phone_number);
+               ! empty($artist->payout_phone_number);
     }
 
     /**
@@ -570,12 +579,12 @@ class PaymentService
     protected function processMethodRefund(Payment $payment, float $amount): array
     {
         try {
-            $zengapay = new ZengaPayGatewayAdapter();
+            $zengapay = new ZengaPayGatewayAdapter;
             // ZengaPay refund is processed as a payout back to the customer
             $result = $zengapay->payout([
                 'amount' => $amount,
                 'phone' => $payment->phone_number,
-                'reference' => 'REFUND-' . $payment->payment_reference,
+                'reference' => 'REFUND-'.$payment->payment_reference,
                 'description' => "Refund for payment #{$payment->id}",
             ]);
 
@@ -599,7 +608,7 @@ class PaymentService
      */
     protected function generatePaymentReference(): string
     {
-        return 'PAY_' . strtoupper(uniqid()) . '_' . time();
+        return 'PAY_'.strtoupper(uniqid()).'_'.time();
     }
 
     /**
@@ -608,13 +617,13 @@ class PaymentService
     protected function getDailyRevenue(Collection $payments): array
     {
         return $payments->where('status', self::STATUS_COMPLETED)
-            ->filter(function($payment) {
+            ->filter(function ($payment) {
                 return $payment->completed_at !== null;
             })
-            ->groupBy(function($payment) {
+            ->groupBy(function ($payment) {
                 return $payment->completed_at->format('Y-m-d');
             })
-            ->map(function($group) {
+            ->map(function ($group) {
                 return $group->sum('amount');
             })
             ->toArray();
@@ -646,7 +655,7 @@ class PaymentService
         return UserSubscription::where('status', self::SUBSCRIPTION_ACTIVE)
             ->with('subscriptionPlan')
             ->get()
-            ->sum(function($subscription) {
+            ->sum(function ($subscription) {
                 return $subscription->subscriptionPlan->price_usd /
                        ($subscription->subscriptionPlan->duration_days / 30);
             });
@@ -659,8 +668,8 @@ class PaymentService
     protected function processZengaPayPayment(Payment $payment, array $data): array
     {
         try {
-            $zengapay = new ZengaPayGatewayAdapter();
-            
+            $zengapay = new ZengaPayGatewayAdapter;
+
             // Prepare payment data
             $chargeData = [
                 'amount' => $payment->amount,
@@ -668,27 +677,27 @@ class PaymentService
                 'reference' => $payment->payment_reference,
                 'description' => $payment->description ?? "TesoTunes Payment #{$payment->id}",
             ];
-            
+
             // Initiate collection
             $result = $zengapay->charge($chargeData);
-            
+
             if ($result['success']) {
                 // Update payment with ZengaPay transaction ID
                 $payment->forceFill([
                     'status' => self::STATUS_PROCESSING,
                     'initiated_at' => now(),
                 ])->save();
-                
+
                 $payment->update([
                     'provider_transaction_id' => $result['transaction_id'] ?? null,
                     'transaction_reference' => $result['reference'] ?? $payment->payment_reference,
                 ]);
-                
+
                 Log::info('ZengaPay payment initiated', [
                     'payment_id' => $payment->id,
                     'transaction_id' => $result['transaction_id'] ?? null,
                 ]);
-                
+
                 return [
                     'success' => true,
                     'message' => $result['message'] ?? 'Payment request sent. Please approve on your phone.',
@@ -697,23 +706,23 @@ class PaymentService
                     'status' => 'pending',
                 ];
             }
-            
+
             Log::warning('ZengaPay payment failed', [
                 'payment_id' => $payment->id,
                 'error' => $result['message'] ?? 'Unknown error',
             ]);
-            
+
             return [
                 'success' => false,
                 'message' => $result['message'] ?? 'Payment request failed',
             ];
-            
+
         } catch (Exception $e) {
             Log::error('ZengaPay payment exception', [
                 'payment_id' => $payment->id,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return [
                 'success' => false,
                 'message' => 'Payment service temporarily unavailable. Please try again.',
@@ -727,47 +736,47 @@ class PaymentService
     public function processZengaPayPayout(Payout $payout): array
     {
         try {
-            $zengapay = new ZengaPayGatewayAdapter();
-            
+            $zengapay = new ZengaPayGatewayAdapter;
+
             $payoutData = [
                 'amount' => $payout->amount,
                 'phone' => $payout->phone_number,
-                'reference' => 'PAYOUT-' . $payout->id . '-' . time(),
+                'reference' => 'PAYOUT-'.$payout->id.'-'.time(),
                 'description' => "TesoTunes Artist Payout #{$payout->id}",
             ];
-            
+
             $result = $zengapay->payout($payoutData);
-            
+
             if ($result['success']) {
                 $payout->update([
                     'status' => 'processing',
                     'transaction_reference' => $result['transaction_id'] ?? null,
                     'provider_response' => $result,
                 ]);
-                
+
                 Log::info('ZengaPay payout initiated', [
                     'payout_id' => $payout->id,
                     'transaction_id' => $result['transaction_id'] ?? null,
                 ]);
-                
+
                 return [
                     'success' => true,
                     'message' => $result['message'] ?? 'Payout initiated successfully',
                     'transaction_id' => $result['transaction_id'] ?? null,
                 ];
             }
-            
+
             return [
                 'success' => false,
                 'message' => $result['message'] ?? 'Payout request failed',
             ];
-            
+
         } catch (Exception $e) {
             Log::error('ZengaPay payout exception', [
                 'payout_id' => $payout->id,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return [
                 'success' => false,
                 'message' => 'Payout service temporarily unavailable. Please try again.',
@@ -781,14 +790,15 @@ class PaymentService
     public function checkZengaPayStatus(string $transactionId): array
     {
         try {
-            $zengapay = new ZengaPayGatewayAdapter();
+            $zengapay = new ZengaPayGatewayAdapter;
+
             return $zengapay->getTransactionStatus($transactionId);
         } catch (Exception $e) {
             Log::error('ZengaPay status check failed', [
                 'transaction_id' => $transactionId,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return [
                 'success' => false,
                 'message' => 'Unable to check transaction status',
@@ -802,13 +812,14 @@ class PaymentService
     public function getZengaPayBalance(): array
     {
         try {
-            $zengapay = new ZengaPayGatewayAdapter();
+            $zengapay = new ZengaPayGatewayAdapter;
+
             return $zengapay->getBalance();
         } catch (Exception $e) {
             Log::error('ZengaPay balance check failed', [
                 'error' => $e->getMessage(),
             ]);
-            
+
             return [
                 'success' => false,
                 'message' => 'Unable to retrieve account balance',

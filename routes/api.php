@@ -1,9 +1,7 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Services\AdService;
-use Illuminate\Http\Request;
 use App\Http\Controllers\HealthCheckController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -22,28 +20,28 @@ Route::get('/health/detailed', [HealthCheckController::class, 'detailed']);
 Route::get('/health/system', [HealthCheckController::class, 'system']);
 
 // Wazuh SIEM Integration
-require __DIR__ . '/api/wazuh.php';
+require __DIR__.'/api/wazuh.php';
 
 // Authentication API Routes
-require __DIR__ . '/api/auth.php';
+require __DIR__.'/api/auth.php';
 
 // Music API Routes
-require __DIR__ . '/api/music.php';
+require __DIR__.'/api/music.php';
 
 // Engagement API Routes
-require __DIR__ . '/api/engagement.php';
+require __DIR__.'/api/engagement.php';
 
 // Payment API Routes (Day 4)
-require __DIR__ . '/api/payment.php';
+require __DIR__.'/api/payment.php';
 
 // Webhook API Routes (ZengaPay, etc.)
-require __DIR__ . '/api/webhooks.php';
+require __DIR__.'/api/webhooks.php';
 
 // E-commerce API Routes (Day 5)
-require __DIR__ . '/api/ecommerce.php';
+require __DIR__.'/api/ecommerce.php';
 
 // Social & Events API Routes (Day 6)
-require __DIR__ . '/api/social.php';
+require __DIR__.'/api/social.php';
 
 // Public Events API Routes (no auth required)
 Route::prefix('events')->name('api.events.')->group(function () {
@@ -116,7 +114,7 @@ Route::middleware('auth:sanctum')->prefix('artist')->name('api.artist.')->group(
 });
 
 // Loyalty (Artist Fan Clubs) API Routes
-require __DIR__ . '/api/loyalty.php';
+require __DIR__.'/api/loyalty.php';
 
 // Ad tracking endpoints (no auth required for impressions)
 Route::post('/ads/impression', [\App\Http\Controllers\Api\AdTrackingController::class, 'recordImpression']);
@@ -157,15 +155,15 @@ Route::middleware('auth:sanctum')->group(function () {
     // Like/Unlike any entity
     Route::post('/like/{type}/{id}', [\App\Http\Controllers\Api\ActivityInteractionController::class, 'toggleLike'])
         ->name('api.like.toggle');
-    
+
     // Bookmark/Unbookmark any entity
     Route::post('/bookmark/{type}/{id}', [\App\Http\Controllers\Api\ActivityInteractionController::class, 'toggleBookmark'])
         ->name('api.bookmark.toggle');
-    
+
     // Event interest
     Route::post('/events/{id}/interest', [\App\Http\Controllers\Api\ActivityInteractionController::class, 'toggleEventInterest'])
         ->name('api.events.interest');
-    
+
     // Poll voting
     Route::post('/polls/{poll}/vote', [\App\Http\Controllers\Api\PollVoteController::class, 'vote'])
         ->name('api.polls.vote');
@@ -189,11 +187,11 @@ Route::prefix('awards')->name('api.awards.')->group(function () {
 Route::middleware('auth:sanctum')->prefix('awards')->name('api.awards.auth.')->group(function () {
     Route::post('/{id}/nominations', [\App\Http\Controllers\Api\AwardsApiController::class, 'submitNomination'])->name('nominate');
     Route::post('/{id}/vote', [\App\Http\Controllers\Api\AwardsApiController::class, 'vote'])->name('vote');
-});// Content API (Genres & Moods)
-require __DIR__ . '/api/content.php';
+}); // Content API (Genres & Moods)
+require __DIR__.'/api/content.php';
 
 Route::prefix('v1')->name('api.v1.')->group(function () {
-    require __DIR__ . '/api/v1/api.php';
+    require __DIR__.'/api/v1/api.php';
 });
 
 // Store Module API Routes (if enabled)
@@ -204,7 +202,7 @@ if (config('store.enabled', false)) {
 }
 
 // Store API routes
-require __DIR__ . '/api/store.php';
+require __DIR__.'/api/store.php';
 
 // Admin Store Settings API
 // Admin Store API (temporarily without strict auth to match other admin routes)
@@ -212,7 +210,7 @@ Route::prefix('admin/store')->name('admin.store.api.')->group(function () {
     // TODO: Migrate store settings to a proper Api\Admin controller
     // Route::get('/settings', [...])->name('settings.get');
     // Route::post('/settings', [...])->name('settings.update');
-    
+
     // Store Management API (for admin/store dashboard)
     Route::get('/stats', [\App\Http\Controllers\Api\Admin\StoreApiController::class, 'stats'])->name('stats');
     Route::get('/products', [\App\Http\Controllers\Api\Admin\StoreApiController::class, 'products'])->name('products.index');
@@ -222,7 +220,7 @@ Route::prefix('admin/store')->name('admin.store.api.')->group(function () {
     Route::delete('/products/{product}', [\App\Http\Controllers\Api\Admin\StoreApiController::class, 'deleteProduct'])->name('products.delete');
     Route::get('/orders', [\App\Http\Controllers\Api\Admin\StoreApiController::class, 'orders'])->name('orders.index');
     Route::post('/orders/{order}/status', [\App\Http\Controllers\Api\Admin\StoreApiController::class, 'updateOrderStatus'])->name('orders.status');
-    
+
     // Shop management
     Route::get('/shops', [\App\Http\Controllers\Api\Admin\StoreApiController::class, 'shops'])->name('shops.index');
     Route::post('/shops', [\App\Http\Controllers\Api\Admin\StoreApiController::class, 'createShop'])->name('shops.store');
@@ -238,7 +236,6 @@ Route::prefix('admin/store')->name('admin.store.api.')->group(function () {
 
 // TODO: Backend Store API Routes - need migration to Api\Admin\StoreApiController
 // These were using deleted Backend\Store controllers and need proper API implementations
-
 
 // Cross-Module Notification API Routes
 Route::middleware('auth:sanctum')->prefix('notifications')->name('api.notifications.')->group(function () {
@@ -269,7 +266,7 @@ Route::prefix('mobile')->name('api.mobile.')->group(function () {
 });
 
 // Mobile App API Routes (React Native)
-require __DIR__ . '/api/mobile.php';
+require __DIR__.'/api/mobile.php';
 
 // Payment API Routes
 Route::middleware('auth:sanctum')->prefix('payments')->name('api.payments.')->group(function () {
@@ -299,11 +296,11 @@ Route::middleware(['auth:sanctum', 'role:admin,Super Admin'])->prefix('admin')->
     // Dashboard API
     Route::get('/dashboard/stats', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'stats'])->name('dashboard.stats');
     Route::get('/dashboard/recent-activity', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'recentActivity'])->name('dashboard.recent-activity');
-    
+
     // Settings API
     Route::get('/settings', [\App\Http\Controllers\Api\Admin\SettingsController::class, 'index'])->name('settings.index');
     Route::put('/settings', [\App\Http\Controllers\Api\Admin\SettingsController::class, 'update'])->name('settings.update');
-    
+
     // Users API
     Route::get('/users', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'index'])->name('users.index');
     Route::get('/users/statistics', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'statistics'])->name('users.statistics');
@@ -321,7 +318,7 @@ Route::middleware(['auth:sanctum', 'role:admin,Super Admin'])->prefix('admin')->
     Route::put('/events/{id}', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'update'])->name('events.update');
     Route::delete('/events/{id}', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'destroy'])->name('events.destroy');
     Route::get('/events/{id}/registrations', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'registrations'])->name('events.registrations');
-    
+
     // Campaigns API
     Route::get('/campaigns/stats', [\App\Http\Controllers\Api\Admin\CampaignsApiController::class, 'stats'])->name('campaigns.stats');
     Route::get('/campaigns', [\App\Http\Controllers\Api\Admin\CampaignsApiController::class, 'index'])->name('campaigns.index');
@@ -333,7 +330,7 @@ Route::middleware(['auth:sanctum', 'role:admin,Super Admin'])->prefix('admin')->
     Route::post('/campaigns/{id}/reject', [\App\Http\Controllers\Api\Admin\CampaignsApiController::class, 'reject'])->name('campaigns.reject');
     Route::get('/campaigns/{id}/pledges', [\App\Http\Controllers\Api\Admin\CampaignsApiController::class, 'pledges'])->name('campaigns.pledges');
     Route::get('/campaigns/{id}/updates', [\App\Http\Controllers\Api\Admin\CampaignsApiController::class, 'updates'])->name('campaigns.updates');
-    
+
     // Forums API — full CRUD
     Route::get('/forums/stats', [\App\Http\Controllers\Api\Admin\ForumsApiController::class, 'stats'])->name('forums.stats');
     Route::get('/forums/categories', [\App\Http\Controllers\Api\Admin\ForumsApiController::class, 'categories'])->name('forums.categories.index');
@@ -359,7 +356,7 @@ Route::middleware(['auth:sanctum', 'role:admin,Super Admin'])->prefix('admin')->
     Route::delete('/polls/{id}', [\App\Http\Controllers\Api\Admin\PollsApiController::class, 'destroy'])->name('polls.destroy');
     Route::post('/polls/{id}/close', [\App\Http\Controllers\Api\Admin\PollsApiController::class, 'close'])->name('polls.close');
     Route::post('/polls/{id}/reopen', [\App\Http\Controllers\Api\Admin\PollsApiController::class, 'reopen'])->name('polls.reopen');
-    
+
     // SACCO API
     Route::get('/sacco/stats', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'stats'])->name('sacco.stats');
     Route::get('/sacco/members', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'members'])->name('sacco.members');
@@ -370,7 +367,7 @@ Route::middleware(['auth:sanctum', 'role:admin,Super Admin'])->prefix('admin')->
     Route::post('/sacco/loans/{id}/disburse', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'disburseLoan'])->name('sacco.loans.disburse');
     Route::get('/sacco/loans/{id}/repayments', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'loanRepayments'])->name('sacco.loans.repayments');
     Route::get('/sacco/transactions', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'savingsTransactions'])->name('sacco.transactions');
-    
+
     // Songs API
     Route::get('/songs/statistics', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'statistics'])->name('songs.statistics');
     Route::post('/songs/bulk-approve', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'bulkApprove'])->name('songs.bulk-approve');
@@ -440,7 +437,7 @@ Route::middleware('auth:sanctum')->prefix('songs')->name('api.songs.')->group(fu
     // Route::post('/', [...])->name('store');
     // Route::put('/{song}', [...])->name('update');
     // Route::delete('/{song}', [...])->name('destroy');
-    
+
     // Distribution
     Route::post('/{song}/distribute', [\App\Http\Controllers\DistributionController::class, 'submitSongDistribution'])->name('distribute');
     Route::get('/{song}/distributions', [\App\Http\Controllers\DistributionController::class, 'getSongDistributions'])->name('distributions');
@@ -461,7 +458,7 @@ Route::middleware('auth:sanctum')->prefix('distributions')->name('api.distributi
 
 Route::middleware('auth:sanctum')->prefix('artist')->name('api.artist.')->group(function () {
     Route::get('/distribution-analytics', [\App\Http\Controllers\DistributionController::class, 'getAnalytics'])->name('distribution-analytics');
-    
+
     // Artist Application Routes
     Route::get('/application-status', [\App\Http\Controllers\Api\ArtistApplicationApiController::class, 'status'])->name('application-status');
     Route::post('/apply', [\App\Http\Controllers\Api\ArtistApplicationApiController::class, 'store'])->name('apply');
@@ -481,7 +478,7 @@ Route::prefix('activities')->name('api.activities.')->group(function () {
     // Like/Unlike activity (requires auth)
     Route::middleware('auth:sanctum')->post('/{activity}/like', [\App\Http\Controllers\Api\ActivityController::class, 'like'])->name('like');
     Route::middleware('auth:sanctum')->delete('/{activity}/like', [\App\Http\Controllers\Api\ActivityController::class, 'unlike'])->name('unlike');
-    
+
     // Comments (requires auth for creating)
     Route::get('/{activity}/comments', [\App\Http\Controllers\Api\ActivityController::class, 'getComments'])->name('comments');
     Route::middleware('auth:sanctum')->post('/{activity}/comments', [\App\Http\Controllers\Api\ActivityController::class, 'addComment'])->name('comments.add');
@@ -496,7 +493,7 @@ Route::prefix('podcasts')->name('api.podcast.')->group(function () {
     Route::get('/{podcast:uuid}', [\App\Http\Controllers\Api\Podcast\PodcastApiController::class, 'show']);
     Route::get('/{podcast:uuid}/episodes', [\App\Http\Controllers\Api\Podcast\EpisodeApiController::class, 'index']);
     Route::get('/{podcast:uuid}/rss', [\App\Http\Controllers\Api\Podcast\PodcastApiController::class, 'rssFeed'])->name('rss');
-    
+
     // Authenticated endpoints
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{podcast:uuid}/subscribe', [\App\Http\Controllers\Api\Podcast\PodcastApiController::class, 'subscribe']);
@@ -517,7 +514,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/episodes/{episode:uuid}/play', [\App\Http\Controllers\Api\Podcast\PlayerApiController::class, 'play']);
     Route::post('/episodes/{episode:uuid}/progress', [\App\Http\Controllers\Api\Podcast\PlayerApiController::class, 'updateProgress']);
     Route::post('/episodes/{episode:uuid}/complete', [\App\Http\Controllers\Api\Podcast\PlayerApiController::class, 'markComplete']);
-    
+
     Route::get('/my-podcast-subscriptions', [\App\Http\Controllers\Api\Podcast\PodcastApiController::class, 'mySubscriptions']);
     Route::get('/my-listening-queue', [\App\Http\Controllers\Api\Podcast\PlayerApiController::class, 'listeningQueue']);
     Route::get('/my-recent-podcasts', [\App\Http\Controllers\Api\Podcast\PlayerApiController::class, 'recentlyPlayed']);
@@ -528,14 +525,14 @@ Route::prefix('sacco')
     ->middleware(['auth:sanctum'])
     ->name('api.sacco.')
     ->group(function () {
-        
+
         // Membership
         Route::get('members', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'index'])->name('members.index');
         Route::post('members', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'store'])->name('members.store');
         Route::get('members/{member}', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'show'])->name('members.show');
         Route::put('members/{member}', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'update'])->name('members.update');
         Route::patch('members/{member}/status', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'updateStatus'])->name('members.status');
-        
+
         // Savings
         Route::prefix('savings')->name('savings.')->group(function () {
             Route::post('accounts', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'openAccount'])->name('accounts.open');
@@ -545,7 +542,7 @@ Route::prefix('sacco')
             Route::get('transactions/{account}', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'transactions'])->name('transactions');
             Route::get('balance/{account}', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'balance'])->name('balance');
         });
-        
+
         // Loans
         Route::prefix('loans')->name('loans.')->group(function () {
             Route::post('apply', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'apply'])->name('apply');
@@ -557,7 +554,7 @@ Route::prefix('sacco')
             Route::get('{loan}/schedule', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'schedule'])->name('schedule');
             Route::get('{loan}/balance', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'balance'])->name('balance');
         });
-        
+
         // Shares
         Route::prefix('shares')->name('shares.')->group(function () {
             Route::post('purchase', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'purchase'])->name('purchase');
@@ -565,7 +562,7 @@ Route::prefix('sacco')
             Route::get('member/{member}', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'memberShares'])->name('member');
             Route::get('value', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'currentValue'])->name('value');
         });
-        
+
         // Reports
         Route::prefix('reports')->name('reports.')->group(function () {
             Route::get('membership', [\App\Http\Controllers\Api\Sacco\SaccoReportsController::class, 'membership'])->name('membership');
@@ -576,7 +573,7 @@ Route::prefix('sacco')
             Route::get('member/{member}', [\App\Http\Controllers\Api\Sacco\SaccoReportsController::class, 'memberStatement'])->name('member');
             Route::get('overdue', [\App\Http\Controllers\Api\Sacco\SaccoReportsController::class, 'overdue'])->name('overdue');
         });
-        
+
         // Analytics
         Route::prefix('analytics')->name('analytics.')->group(function () {
             Route::get('dashboard', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'dashboard'])->name('dashboard');

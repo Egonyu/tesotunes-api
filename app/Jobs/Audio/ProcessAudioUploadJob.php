@@ -18,7 +18,9 @@ class ProcessAudioUploadJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public $tries = 3;
+
     public $timeout = 900; // 15 minutes
+
     public $backoff = [120, 300, 600];
 
     /**
@@ -37,9 +39,9 @@ class ProcessAudioUploadJob implements ShouldQueue
     public function handle(FFmpegService $ffmpeg, MusicStorageService $storage): void
     {
         try {
-            Log::info("Starting audio upload processing", [
+            Log::info('Starting audio upload processing', [
                 'song_id' => $this->song->id,
-                'temp_path' => $this->tempFilePath
+                'temp_path' => $this->tempFilePath,
             ]);
 
             // 1. Extract metadata from uploaded file
@@ -55,10 +57,10 @@ class ProcessAudioUploadJob implements ShouldQueue
                     'file_size' => $metadata['size'],
                 ]);
 
-                Log::info("Extracted audio metadata", [
+                Log::info('Extracted audio metadata', [
                     'song_id' => $this->song->id,
                     'duration' => $metadata['duration'],
-                    'bitrate' => $metadata['bitrate']
+                    'bitrate' => $metadata['bitrate'],
                 ]);
             }
 
@@ -67,33 +69,33 @@ class ProcessAudioUploadJob implements ShouldQueue
 
             // Ensure directory exists
             $originalDir = dirname(Storage::disk('local')->path($originalPath));
-            if (!is_dir($originalDir)) {
+            if (! is_dir($originalDir)) {
                 mkdir($originalDir, 0755, true);
             }
 
             Storage::disk('local')->move($this->tempFilePath, $originalPath);
 
             $this->song->update([
-                'audio_file' => $originalPath
+                'audio_file' => $originalPath,
             ]);
 
             // 3. Upload original to DigitalOcean Spaces (if configured)
             if (config('filesystems.disks.digitalocean')) {
-                $doPath = "songs/{$this->song->user_id}/{$this->song->id}/original/" . basename($originalPath);
+                $doPath = "songs/{$this->song->user_id}/{$this->song->id}/original/".basename($originalPath);
 
                 Storage::disk('digitalocean')->put(
                     $doPath,
                     Storage::disk('local')->get($originalPath)
                 );
 
-                Log::info("Uploaded original to DigitalOcean Spaces", [
+                Log::info('Uploaded original to DigitalOcean Spaces', [
                     'song_id' => $this->song->id,
-                    'path' => $doPath
+                    'path' => $doPath,
                 ]);
             }
 
             // 4. Queue transcoding jobs
-            Log::info("Queueing transcoding jobs", ['song_id' => $this->song->id]);
+            Log::info('Queueing transcoding jobs', ['song_id' => $this->song->id]);
 
             TranscodeAudioJob::dispatch($this->song, '320kbps')
                 ->onQueue('high');
@@ -118,19 +120,19 @@ class ProcessAudioUploadJob implements ShouldQueue
                     '320kbps' => 'pending',
                     '128kbps' => 'pending',
                     'preview' => 'pending',
-                    'waveform' => 'pending'
-                ]
+                    'waveform' => 'pending',
+                ],
             ]);
 
-            Log::info("Audio upload processing completed, transcoding queued", [
-                'song_id' => $this->song->id
+            Log::info('Audio upload processing completed, transcoding queued', [
+                'song_id' => $this->song->id,
             ]);
 
         } catch (\Exception $e) {
-            Log::error("Audio upload processing failed", [
+            Log::error('Audio upload processing failed', [
                 'song_id' => $this->song->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             // Update song status to failed
@@ -138,8 +140,8 @@ class ProcessAudioUploadJob implements ShouldQueue
                 'status' => 'failed',
                 'processing_status' => [
                     'upload' => 'failed',
-                    'error' => $e->getMessage()
-                ]
+                    'error' => $e->getMessage(),
+                ],
             ]);
 
             throw $e;
@@ -151,17 +153,17 @@ class ProcessAudioUploadJob implements ShouldQueue
      */
     public function failed(\Throwable $exception): void
     {
-        Log::error("Audio upload processing job permanently failed", [
+        Log::error('Audio upload processing job permanently failed', [
             'song_id' => $this->song->id,
-            'error' => $exception->getMessage()
+            'error' => $exception->getMessage(),
         ]);
 
         $this->song->update([
             'status' => 'failed',
             'processing_status' => [
                 'upload' => 'failed',
-                'error' => $exception->getMessage()
-            ]
+                'error' => $exception->getMessage(),
+            ],
         ]);
     }
 }

@@ -4,7 +4,6 @@ namespace App\Modules\Store\Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class ProductCategorySeeder extends Seeder
 {
@@ -13,7 +12,7 @@ class ProductCategorySeeder extends Seeder
      */
     public function run(): void
     {
-        if (!config('store.enabled', false)) {
+        if (! config('store.enabled', false)) {
             return;
         }
 
@@ -34,7 +33,7 @@ class ProductCategorySeeder extends Seeder
                     ['name' => 'Stickers', 'slug' => 'stickers', 'icon' => 'sticker'],
                 ],
             ],
-            
+
             // Experience Categories
             [
                 'name' => 'Experiences',
@@ -50,7 +49,7 @@ class ProductCategorySeeder extends Seeder
                     ['name' => 'Private Performance', 'slug' => 'private-performance', 'icon' => 'music'],
                 ],
             ],
-            
+
             // Promotional Services
             [
                 'name' => 'Promotional Services',
@@ -66,7 +65,7 @@ class ProductCategorySeeder extends Seeder
                     ['name' => 'Blog Features', 'slug' => 'blog-features', 'icon' => 'newspaper'],
                 ],
             ],
-            
+
             // Digital Products
             [
                 'name' => 'Digital Products',
@@ -82,7 +81,7 @@ class ProductCategorySeeder extends Seeder
                     ['name' => 'Tutorials', 'slug' => 'tutorials', 'icon' => 'book-open'],
                 ],
             ],
-            
+
             // Event Tickets
             [
                 'name' => 'Event Tickets',
@@ -97,7 +96,7 @@ class ProductCategorySeeder extends Seeder
                     ['name' => 'VIP Passes', 'slug' => 'vip-passes', 'icon' => 'award'],
                 ],
             ],
-            
+
             // Services
             [
                 'name' => 'Services',
@@ -118,19 +117,19 @@ class ProductCategorySeeder extends Seeder
         foreach ($categories as $category) {
             $children = $category['children'] ?? [];
             unset($category['children']);
-            
+
             $category['created_at'] = now();
             $category['updated_at'] = now();
-            
+
             $parentId = DB::table('product_categories')->insertGetId($category);
-            
+
             // Insert children
             foreach ($children as $child) {
                 $child['parent_id'] = $parentId;
                 $child['sort_order'] = 0;
                 $child['created_at'] = now();
                 $child['updated_at'] = now();
-                
+
                 DB::table('product_categories')->insert($child);
             }
         }

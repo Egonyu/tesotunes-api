@@ -56,7 +56,7 @@ class SaccoSavingsAccount extends Model
                 $account->uuid = (string) Str::uuid();
             }
             if (empty($account->account_number)) {
-                $account->account_number = 'SAV' . now()->format('Ymd') . rand(10000, 99999);
+                $account->account_number = 'SAV'.now()->format('Ymd').rand(10000, 99999);
             }
         });
     }
@@ -87,6 +87,7 @@ class SaccoSavingsAccount extends Model
     public function canWithdraw(float $amount): bool
     {
         $availableBalance = $this->balance_ugx - ($this->minimum_balance_ugx ?? 0);
+
         return $this->status === 'active' && $availableBalance >= $amount && $amount > 0;
     }
 }

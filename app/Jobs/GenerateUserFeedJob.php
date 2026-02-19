@@ -10,16 +10,17 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
-use Carbon\Carbon;
 
 class GenerateUserFeedJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $timeout = 120;
+
     public int $tries = 3;
 
     protected User $user;
+
     protected array $pages;
 
     /**
@@ -51,7 +52,7 @@ class GenerateUserFeedJob implements ShouldQueue
                     ->withRecommendations()
                     ->paginate($page);
 
-                Log::info("Pre-generated feed for user", [
+                Log::info('Pre-generated feed for user', [
                     'user_id' => $this->user->id,
                     'page' => $page,
                     'items_count' => $feed->count(),
@@ -65,7 +66,7 @@ class GenerateUserFeedJob implements ShouldQueue
             ]);
 
         } catch (\Exception $e) {
-            Log::error("Failed to generate feed for user", [
+            Log::error('Failed to generate feed for user', [
                 'user_id' => $this->user->id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -80,7 +81,7 @@ class GenerateUserFeedJob implements ShouldQueue
      */
     public function failed(\Throwable $exception): void
     {
-        Log::error("Feed generation job failed permanently", [
+        Log::error('Feed generation job failed permanently', [
             'user_id' => $this->user->id,
             'error' => $exception->getMessage(),
         ]);

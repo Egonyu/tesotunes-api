@@ -2,14 +2,13 @@
 
 namespace App\Services\Auth;
 
-use App\Models\User;
 use App\Models\Artist;
-use App\Models\KYCDocument;
-use App\Models\Genre;
 use App\Models\AuditLog;
+use App\Models\KYCDocument;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 /**
@@ -26,9 +25,7 @@ class ArtistVerificationService
     /**
      * Apply for artist status
      *
-     * @param User $user
-     * @param array $data Application data including documents
-     * @return Artist
+     * @param  array  $data  Application data including documents
      */
     public function applyForArtistStatus(User $user, array $data): Artist
     {
@@ -129,11 +126,6 @@ class ArtistVerificationService
 
     /**
      * Approve artist application
-     *
-     * @param Artist $artist
-     * @param User $admin
-     * @param string|null $notes
-     * @return void
      */
     public function approveArtist(Artist $artist, User $admin, ?string $notes = null): void
     {
@@ -210,11 +202,6 @@ class ArtistVerificationService
 
     /**
      * Reject artist application
-     *
-     * @param Artist $artist
-     * @param User $admin
-     * @param string $reason
-     * @return void
      */
     public function rejectArtist(Artist $artist, User $admin, string $reason): void
     {
@@ -283,12 +270,6 @@ class ArtistVerificationService
 
     /**
      * Request more information from artist
-     *
-     * @param Artist $artist
-     * @param User $admin
-     * @param array $missingDocuments
-     * @param string $notes
-     * @return void
      */
     public function requestMoreInfo(Artist $artist, User $admin, array $missingDocuments, string $notes): void
     {
@@ -361,7 +342,7 @@ class ArtistVerificationService
             ->with([
                 'user.kycDocuments',
                 'primaryGenre',
-                'songs' => fn($q) => $q->latest()->limit(5),
+                'songs' => fn ($q) => $q->latest()->limit(5),
             ])
             ->latest('created_at')
             ->paginate($perPage);
@@ -395,7 +376,7 @@ class ArtistVerificationService
         $counter = 1;
 
         while (Artist::where('slug', $slug)->exists()) {
-            $slug = $originalSlug . '-' . $counter;
+            $slug = $originalSlug.'-'.$counter;
             $counter++;
         }
 
@@ -421,7 +402,7 @@ class ArtistVerificationService
                     'assigned_at' => now(),
                     'assigned_by' => $admin->id,
                     'is_active' => true,
-                ]
+                ],
             ]);
 
             // Clear permission cache

@@ -2,13 +2,13 @@
 
 namespace App\Services;
 
+use App\Models\SaccoAccount;
+use App\Models\SaccoAuditLog;
 use App\Models\SaccoDividend;
 use App\Models\SaccoMember;
 use App\Models\SaccoMemberDividend;
-use App\Models\SaccoAccount;
-use App\Models\SaccoAuditLog;
-use Illuminate\Support\Facades\DB;
 use Exception;
+use Illuminate\Support\Facades\DB;
 
 class SaccoDividendService
 {
@@ -21,16 +21,14 @@ class SaccoDividendService
 
     /**
      * Declare annual dividend
-     * 
-     * @param array $data
-     * @return SaccoDividend
+     *
      * @throws Exception
      */
     public function declareDividend(array $data): SaccoDividend
     {
         // Validation
         $year = $data['dividend_year'];
-        
+
         if (SaccoDividend::where('dividend_year', $year)->exists()) {
             throw new Exception("Dividend for year {$year} has already been declared.");
         }
@@ -44,7 +42,7 @@ class SaccoDividendService
         }
 
         DB::beginTransaction();
-        
+
         try {
             // Create dividend declaration
             $dividend = SaccoDividend::create([
@@ -55,10 +53,10 @@ class SaccoDividendService
                 'payment_date' => $data['payment_date'] ?? now()->addDays(30),
                 'status' => SaccoDividend::STATUS_DECLARED,
             ]);
-            
+
             // Calculate and create member dividends
             $this->calculateMemberDividends($dividend);
-            
+
             // Log declaration
             SaccoAuditLog::log(
                 action: SaccoAuditLog::ACTION_CREATED,
@@ -66,11 +64,11 @@ class SaccoDividendService
                 modelId: $dividend->id,
                 newValues: $dividend->toArray()
             );
-            
+
             DB::commit();
-            
+
             return $dividend->fresh(['memberDividends']);
-            
+
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;
@@ -79,8 +77,7 @@ class SaccoDividendService
 
     /**
      * Calculate dividends for all eligible members
-     * 
-     * @param SaccoDividend $dividend
+     *
      * @return int Number of members processed
      */
     private function calculateMemberDividends(SaccoDividend $dividend): int
@@ -89,13 +86,13 @@ class SaccoDividendService
         $members = SaccoMember::active()
             ->where('total_shares', '>', 0)
             ->get();
-        
+
         $count = 0;
-        
+
         foreach ($members as $member) {
             $sharesAmount = $member->total_shares;
             $dividendAmount = $dividend->calculateMemberDividend($sharesAmount);
-            
+
             if ($dividendAmount > 0) {
                 SaccoMemberDividend::create([
                     'dividend_id' => $dividend->id,
@@ -104,38 +101,35 @@ class SaccoDividendService
                     'dividend_amount' => $dividendAmount, // Protected - set explicitly
                     'status' => 'pending',
                 ]);
-                
+
                 $count++;
             }
         }
-        
+
         return $count;
     }
 
     /**
      * Distribute dividends to members
-     * 
-     * @param SaccoDividend $dividend
-     * @param array $options
-     * @return array
+     *
      * @throws Exception
      */
     public function distributeDividends(SaccoDividend $dividend, array $options = []): array
     {
         if ($dividend->status !== SaccoDividend::STATUS_DECLARED) {
-            throw new Exception('Only declared dividends can be distributed. Current status: ' . $dividend->status);
+            throw new Exception('Only declared dividends can be distributed. Current status: '.$dividend->status);
         }
 
         $autoDeposit = $options['auto_deposit'] ?? true;
-        
+
         DB::beginTransaction();
-        
+
         try {
             $memberDividends = $dividend->memberDividends()
                 ->where('status', 'pending')
                 ->with('member')
                 ->get();
-            
+
             $stats = [
                 'total_processed' => 0,
                 'total_amount' => 0,
@@ -143,18 +137,18 @@ class SaccoDividendService
                 'failed' => 0,
                 'errors' => [],
             ];
-            
+
             foreach ($memberDividends as $memberDividend) {
                 try {
                     $member = $memberDividend->member;
-                    
+
                     if ($autoDeposit) {
                         // Deposit to member's shares account
                         $sharesAccount = $member->accounts()
                             ->where('account_type', SaccoAccount::TYPE_SHARES)
                             ->active()
                             ->first();
-                        
+
                         if ($sharesAccount) {
                             $this->transactionService->deposit(
                                 $sharesAccount,
@@ -164,15 +158,15 @@ class SaccoDividendService
                             );
                         }
                     }
-                    
+
                     // Mark as paid
                     $memberDividend->status = 'paid';
                     $memberDividend->paid_at = now();
                     $memberDividend->save();
-                    
+
                     $stats['successful']++;
                     $stats['total_amount'] += $memberDividend->dividend_amount;
-                    
+
                 } catch (Exception $e) {
                     $stats['failed']++;
                     $stats['errors'][] = [
@@ -180,16 +174,16 @@ class SaccoDividendService
                         'error' => $e->getMessage(),
                     ];
                 }
-                
+
                 $stats['total_processed']++;
             }
-            
+
             // Update dividend status if all distributed
             if ($stats['failed'] === 0) {
                 $dividend->status = SaccoDividend::STATUS_PAID;
                 $dividend->save();
             }
-            
+
             // Log distribution
             SaccoAuditLog::log(
                 action: 'distributed',
@@ -197,11 +191,11 @@ class SaccoDividendService
                 modelId: $dividend->id,
                 newValues: $stats
             );
-            
+
             DB::commit();
-            
+
             return $stats;
-            
+
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;
@@ -210,10 +204,7 @@ class SaccoDividendService
 
     /**
      * Pay specific member dividend
-     * 
-     * @param SaccoMemberDividend $memberDividend
-     * @param bool $autoDeposit
-     * @return SaccoMemberDividend
+     *
      * @throws Exception
      */
     public function payMemberDividend(
@@ -225,21 +216,21 @@ class SaccoDividendService
         }
 
         DB::beginTransaction();
-        
+
         try {
             $member = $memberDividend->member;
-            
+
             if ($autoDeposit) {
                 // Deposit to shares account
                 $sharesAccount = $member->accounts()
                     ->where('account_type', SaccoAccount::TYPE_SHARES)
                     ->active()
                     ->first();
-                
-                if (!$sharesAccount) {
+
+                if (! $sharesAccount) {
                     throw new Exception('No active shares account found for member.');
                 }
-                
+
                 $this->transactionService->deposit(
                     $sharesAccount,
                     $memberDividend->dividend_amount,
@@ -247,12 +238,12 @@ class SaccoDividendService
                     ['member_dividend_id' => $memberDividend->id]
                 );
             }
-            
+
             // Mark as paid
             $memberDividend->status = 'paid';
             $memberDividend->paid_at = now();
             $memberDividend->save();
-            
+
             // Log payment
             SaccoAuditLog::log(
                 action: 'paid',
@@ -260,11 +251,11 @@ class SaccoDividendService
                 modelId: $memberDividend->id,
                 newValues: $memberDividend->toArray()
             );
-            
+
             DB::commit();
-            
+
             return $memberDividend->fresh();
-            
+
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;
@@ -273,23 +264,20 @@ class SaccoDividendService
 
     /**
      * Get dividend summary for a year
-     * 
-     * @param int $year
-     * @return array
      */
     public function getDividendSummary(int $year): array
     {
         $dividend = SaccoDividend::where('dividend_year', $year)->first();
-        
-        if (!$dividend) {
+
+        if (! $dividend) {
             return [
                 'declared' => false,
                 'year' => $year,
             ];
         }
-        
+
         $memberDividends = $dividend->memberDividends;
-        
+
         return [
             'declared' => true,
             'year' => $year,
@@ -309,9 +297,6 @@ class SaccoDividendService
 
     /**
      * Get member dividend history
-     * 
-     * @param SaccoMember $member
-     * @return array
      */
     public function getMemberDividendHistory(SaccoMember $member): array
     {
@@ -319,7 +304,7 @@ class SaccoDividendService
             ->with('dividend')
             ->orderBy('created_at', 'desc')
             ->get();
-        
+
         return [
             'total_earned' => $dividends->where('status', 'paid')->sum('dividend_amount'),
             'total_pending' => $dividends->where('status', 'pending')->sum('dividend_amount'),
@@ -339,19 +324,15 @@ class SaccoDividendService
 
     /**
      * Project next year's dividend
-     * 
-     * @param float $estimatedProfit
-     * @param float $dividendRate
-     * @return array
      */
     public function projectDividend(float $estimatedProfit, float $dividendRate): array
     {
         $activeMembers = SaccoMember::active()->where('total_shares', '>', 0)->get();
-        
+
         $totalShares = $activeMembers->sum('total_shares');
         $projectedDividends = [];
         $totalProjected = 0;
-        
+
         foreach ($activeMembers as $member) {
             $projectedAmount = ($member->total_shares * $dividendRate) / 100;
             $projectedDividends[] = [
@@ -362,7 +343,7 @@ class SaccoDividendService
             ];
             $totalProjected += $projectedAmount;
         }
-        
+
         return [
             'estimated_profit' => $estimatedProfit,
             'dividend_rate' => $dividendRate,
@@ -376,10 +357,7 @@ class SaccoDividendService
 
     /**
      * Cancel dividend declaration
-     * 
-     * @param SaccoDividend $dividend
-     * @param string $reason
-     * @return SaccoDividend
+     *
      * @throws Exception
      */
     public function cancelDividend(SaccoDividend $dividend, string $reason): SaccoDividend
@@ -394,18 +372,18 @@ class SaccoDividendService
         }
 
         DB::beginTransaction();
-        
+
         try {
             $oldValues = $dividend->toArray();
-            
+
             $dividend->status = SaccoDividend::STATUS_CANCELLED;
             $dividend->save();
-            
+
             // Cancel all pending member dividends
             $dividend->memberDividends()
                 ->where('status', 'pending')
                 ->update(['status' => 'cancelled']);
-            
+
             SaccoAuditLog::log(
                 action: 'cancelled',
                 modelType: SaccoDividend::class,
@@ -413,11 +391,11 @@ class SaccoDividendService
                 oldValues: $oldValues,
                 newValues: array_merge($dividend->toArray(), ['cancellation_reason' => $reason])
             );
-            
+
             DB::commit();
-            
+
             return $dividend->fresh();
-            
+
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;

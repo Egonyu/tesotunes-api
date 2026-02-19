@@ -37,7 +37,10 @@ class PlaylistResource extends JsonResource
             // Owner
             'owner' => $this->when($this->relationLoaded('owner') || $this->relationLoaded('user'), function () {
                 $owner = $this->owner ?? $this->user;
-                if (!$owner) return null;
+                if (! $owner) {
+                    return null;
+                }
+
                 return [
                     'id' => $owner->id,
                     'name' => $owner->name,

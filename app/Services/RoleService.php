@@ -4,11 +4,11 @@ namespace App\Services;
 
 use App\Models\Role;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
+use Exception;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
-use Exception;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Service class for handling role and permission management
@@ -25,9 +25,13 @@ class RoleService
 {
     // System role constants
     const ROLE_SUPER_ADMIN = 'super_admin';
+
     const ROLE_ADMIN = 'admin';
+
     const ROLE_MODERATOR = 'moderator';
+
     const ROLE_ARTIST = 'artist';
+
     const ROLE_USER = 'user';
 
     // Permission categories
@@ -52,10 +56,10 @@ class RoleService
         // Apply search filter
         if (isset($filters['search'])) {
             $search = $filters['search'];
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('display_name', 'LIKE', "%{$search}%")
-                  ->orWhere('description', 'LIKE', "%{$search}%");
+                    ->orWhere('display_name', 'LIKE', "%{$search}%")
+                    ->orWhere('description', 'LIKE', "%{$search}%");
             });
         }
 
@@ -177,7 +181,7 @@ class RoleService
     public function assignRole(User $user, Role $role, ?User $assignedBy = null): bool
     {
         // Check if role is active
-        if (!$role->is_active) {
+        if (! $role->is_active) {
             throw new Exception('Cannot assign inactive role');
         }
 
@@ -187,7 +191,7 @@ class RoleService
         }
 
         // Check assignment permissions
-        if ($assignedBy && !$this->canAssignRole($assignedBy, $role)) {
+        if ($assignedBy && ! $this->canAssignRole($assignedBy, $role)) {
             throw new Exception('You do not have permission to assign this role');
         }
 
@@ -224,7 +228,7 @@ class RoleService
         }
 
         // Check removal permissions
-        if ($removedBy && !$this->canRemoveRole($removedBy, $role)) {
+        if ($removedBy && ! $this->canRemoveRole($removedBy, $role)) {
             throw new Exception('You do not have permission to remove this role');
         }
 
@@ -253,7 +257,7 @@ class RoleService
     {
         $cacheKey = "user_permissions_{$user->id}";
 
-        $userPermissions = Cache::remember($cacheKey, 3600, function() use ($user) {
+        $userPermissions = Cache::remember($cacheKey, 3600, function () use ($user) {
             return $this->getUserPermissions($user);
         });
 
@@ -301,7 +305,7 @@ class RoleService
      */
     public function getUsersWithRole(string $roleName): Collection
     {
-        return User::whereHas('roles', function($query) use ($roleName) {
+        return User::whereHas('roles', function ($query) use ($roleName) {
             $query->where('name', $roleName)->where('is_active', true);
         })->get();
     }
@@ -328,14 +332,14 @@ class RoleService
                             'user_id' => $userId,
                             'role_id' => $roleId,
                             'success' => true,
-                            'message' => 'Role assigned successfully'
+                            'message' => 'Role assigned successfully',
                         ];
                     } catch (Exception $e) {
                         $results[] = [
                             'user_id' => $userId,
                             'role_id' => $roleId,
                             'success' => false,
-                            'message' => $e->getMessage()
+                            'message' => $e->getMessage(),
                         ];
                     }
                 }
@@ -366,17 +370,17 @@ class RoleService
                 self::ROLE_ADMIN,
                 self::ROLE_MODERATOR,
                 self::ROLE_ARTIST,
-                self::ROLE_USER
+                self::ROLE_USER,
             ])->count(),
             'custom_roles' => $roles->whereNotIn('name', [
                 self::ROLE_SUPER_ADMIN,
                 self::ROLE_ADMIN,
                 self::ROLE_MODERATOR,
                 self::ROLE_ARTIST,
-                self::ROLE_USER
+                self::ROLE_USER,
             ])->count(),
             'total_assignments' => DB::table('user_roles')->count(),
-            'role_distribution' => $roles->mapWithKeys(function($role) {
+            'role_distribution' => $roles->mapWithKeys(function ($role) {
                 return [$role->name => $role->users_count];
             }),
         ];
@@ -539,7 +543,7 @@ class RoleService
             self::ROLE_ADMIN,
             self::ROLE_MODERATOR,
             self::ROLE_ARTIST,
-            self::ROLE_USER
+            self::ROLE_USER,
         ]);
     }
 
@@ -552,7 +556,7 @@ class RoleService
             throw new Exception('Role name is required');
         }
 
-        if (!preg_match('/^[a-z_]+$/', $data['name'])) {
+        if (! preg_match('/^[a-z_]+$/', $data['name'])) {
             throw new Exception('Role name must contain only lowercase letters and underscores');
         }
 
@@ -560,7 +564,7 @@ class RoleService
             throw new Exception('Display name is required');
         }
 
-        if (isset($data['permissions']) && !is_array($data['permissions'])) {
+        if (isset($data['permissions']) && ! is_array($data['permissions'])) {
             throw new Exception('Permissions must be an array');
         }
     }
@@ -577,7 +581,7 @@ class RoleService
 
         // Prevent deactivating system roles
         if (in_array($role->name, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN])) {
-            if (isset($updateData['is_active']) && !$updateData['is_active']) {
+            if (isset($updateData['is_active']) && ! $updateData['is_active']) {
                 throw new Exception('Essential system roles cannot be deactivated');
             }
         }
@@ -591,7 +595,7 @@ class RoleService
         $allowedFields = ['display_name', 'description', 'priority', 'permissions'];
 
         // Only allow name and is_active updates for non-system roles
-        if (!$this->isSystemRole($role->name)) {
+        if (! $this->isSystemRole($role->name)) {
             $allowedFields[] = 'name';
             $allowedFields[] = 'is_active';
         }
@@ -610,12 +614,12 @@ class RoleService
     protected function canAssignRole(User $user, Role $role): bool
     {
         // Only admins and super admins can assign roles
-        if (!$user->hasRole(self::ROLE_ADMIN) && !$user->hasRole(self::ROLE_SUPER_ADMIN)) {
+        if (! $user->hasRole(self::ROLE_ADMIN) && ! $user->hasRole(self::ROLE_SUPER_ADMIN)) {
             return false;
         }
 
         // Only super admins can assign super admin role
-        if ($role->name === self::ROLE_SUPER_ADMIN && !$user->hasRole(self::ROLE_SUPER_ADMIN)) {
+        if ($role->name === self::ROLE_SUPER_ADMIN && ! $user->hasRole(self::ROLE_SUPER_ADMIN)) {
             return false;
         }
 

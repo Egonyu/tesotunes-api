@@ -187,13 +187,13 @@ class SongUploadRequest extends FormRequest
         // Clean up arrays
         if ($this->has('moods') && is_array($this->moods)) {
             $this->merge([
-                'moods' => array_filter($this->moods, fn($mood) => !empty($mood))
+                'moods' => array_filter($this->moods, fn ($mood) => ! empty($mood)),
             ]);
         }
 
         if ($this->has('tags') && is_array($this->tags)) {
             $this->merge([
-                'tags' => array_filter($this->tags, fn($tag) => !empty($tag))
+                'tags' => array_filter($this->tags, fn ($tag) => ! empty($tag)),
             ]);
         }
     }

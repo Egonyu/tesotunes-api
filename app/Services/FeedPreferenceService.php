@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
-use App\Models\User;
 use App\Models\Activity;
 use App\Models\FeedItem;
 use App\Models\FeedPreference;
+use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -38,10 +38,10 @@ class FeedPreferenceService
     public function markNotInterestedItem(User $user, FeedItem $item, ?string $reason = null, array $metadata = []): void
     {
         try {
-            if (!class_exists(\App\Models\FeedPreference::class)) {
+            if (! class_exists(\App\Models\FeedPreference::class)) {
                 return; // Model not yet created
             }
-            
+
             FeedPreference::create([
                 'user_id' => $user->id,
                 'feed_item_id' => $item->id,
@@ -76,10 +76,10 @@ class FeedPreferenceService
     public function hideItem(User $user, FeedItem $item): void
     {
         try {
-            if (!class_exists(\App\Models\FeedPreference::class)) {
+            if (! class_exists(\App\Models\FeedPreference::class)) {
                 return;
             }
-            
+
             FeedPreference::create([
                 'user_id' => $user->id,
                 'feed_item_id' => $item->id,
@@ -111,10 +111,10 @@ class FeedPreferenceService
     public function saveItem(User $user, FeedItem $item): void
     {
         try {
-            if (!class_exists(\App\Models\FeedPreference::class)) {
+            if (! class_exists(\App\Models\FeedPreference::class)) {
                 return;
             }
-            
+
             FeedPreference::firstOrCreate([
                 'user_id' => $user->id,
                 'feed_item_id' => $item->id,
@@ -132,16 +132,17 @@ class FeedPreferenceService
     public function unsaveItem(User $user, FeedItem $item): bool
     {
         try {
-            if (!class_exists(\App\Models\FeedPreference::class)) {
+            if (! class_exists(\App\Models\FeedPreference::class)) {
                 return true;
             }
-            
+
             return FeedPreference::where('user_id', $user->id)
                 ->where('feed_item_id', $item->id)
                 ->where('preference_type', 'saved')
                 ->delete() > 0;
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::debug('FeedPreference storage failed', ['error' => $e->getMessage()]);
+
             return true;
         }
     }
@@ -152,10 +153,10 @@ class FeedPreferenceService
     public function getSavedItemIds(User $user): array
     {
         try {
-            if (!class_exists(\App\Models\FeedPreference::class)) {
+            if (! class_exists(\App\Models\FeedPreference::class)) {
                 return [];
             }
-            
+
             return FeedPreference::where('user_id', $user->id)
                 ->where('preference_type', 'saved')
                 ->whereNotNull('feed_item_id')
@@ -189,21 +190,21 @@ class FeedPreferenceService
     public function getUserPreferences(User $user): array
     {
         try {
-            if (!class_exists(\App\Models\FeedPreference::class)) {
+            if (! class_exists(\App\Models\FeedPreference::class)) {
                 return $this->getEmptyPreferences();
             }
-            
+
             $cacheKey = "user:{$user->id}:feed_preferences";
-            
+
             // Use regular cache if tags not supported
-            if (!$this->supportsTagging()) {
-                return Cache::remember($cacheKey, 3600, fn() => $this->buildPreferences($user));
+            if (! $this->supportsTagging()) {
+                return Cache::remember($cacheKey, 3600, fn () => $this->buildPreferences($user));
             }
-            
+
             return Cache::tags(['user', $user->id])->remember(
                 $cacheKey,
                 3600,
-                fn() => $this->buildPreferences($user)
+                fn () => $this->buildPreferences($user)
             );
         } catch (\Throwable $e) {
             return $this->getEmptyPreferences();
@@ -216,6 +217,7 @@ class FeedPreferenceService
     protected function supportsTagging(): bool
     {
         $driver = config('cache.default');
+
         return in_array($driver, ['redis', 'memcached', 'array']);
     }
 
@@ -286,7 +288,7 @@ class FeedPreferenceService
      */
     protected function learnFromFeedback(User $user, Activity $activity, ?string $reason): void
     {
-        if (!$reason) {
+        if (! $reason) {
             return;
         }
 
@@ -330,7 +332,7 @@ class FeedPreferenceService
         $category = $this->getActivityCategory($activity);
         $settings = $user->feedSettings;
 
-        if (!$settings) {
+        if (! $settings) {
             $settings = $user->feedSettings()->create([
                 'show_social_activities' => true,
                 'show_event_updates' => true,
@@ -360,7 +362,7 @@ class FeedPreferenceService
         $contentType = $activity->subject_type;
         $settings = $user->feedSettings;
 
-        if (!$settings) {
+        if (! $settings) {
             return;
         }
 
@@ -382,7 +384,7 @@ class FeedPreferenceService
         }
 
         $settings = $user->feedSettings;
-        if (!$settings) {
+        if (! $settings) {
             return;
         }
 
@@ -399,24 +401,24 @@ class FeedPreferenceService
      */
     protected function adjustGenrePreference(User $user, Activity $activity, float $adjustment): void
     {
-        if (!in_array($activity->subject_type, ['Song', 'Album'])) {
+        if (! in_array($activity->subject_type, ['Song', 'Album'])) {
             return;
         }
 
         $subject = $activity->subject;
-        if (!$subject || !isset($subject->genre_id)) {
+        if (! $subject || ! isset($subject->genre_id)) {
             return;
         }
 
         $settings = $user->feedSettings;
-        if (!$settings) {
+        if (! $settings) {
             return;
         }
 
         $genreFilters = $settings->genre_filters ?? [];
 
         // If adjustment is negative and strong enough, add to filter list
-        if ($adjustment < -0.15 && !in_array($subject->genre_id, $genreFilters)) {
+        if ($adjustment < -0.15 && ! in_array($subject->genre_id, $genreFilters)) {
             $genreFilters[] = $subject->genre_id;
             $settings->update(['genre_filters' => $genreFilters]);
         }
@@ -441,7 +443,7 @@ class FeedPreferenceService
             }
         } catch (\Exception $e) {
             // Log the issue but don't fail the entire operation
-            Log::warning('Failed to create moderation flag: ' . $e->getMessage());
+            Log::warning('Failed to create moderation flag: '.$e->getMessage());
         }
     }
 

@@ -40,13 +40,13 @@ class OrderPolicy
     public function create(User $user): bool
     {
         // Must have verified email
-        if (!$user->email_verified_at) {
+        if (! $user->email_verified_at) {
             return false;
         }
 
         // Must have items in cart
         $cart = $user->cart;
-        if (!$cart || $cart->items->isEmpty()) {
+        if (! $cart || $cart->items->isEmpty()) {
             return false;
         }
 

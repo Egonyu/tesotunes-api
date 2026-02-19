@@ -2,10 +2,9 @@
 
 namespace Database\Factories;
 
+use App\Models\ArtistProfile;
 use App\Models\Distribution;
 use App\Models\Song;
-use App\Models\ArtistProfile;
-use App\Models\DistributionPlatform;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class DistributionFactory extends Factory
@@ -23,7 +22,7 @@ class DistributionFactory extends Factory
             'tidal',
             'pandora',
             'soundcloud',
-            'bandcamp'
+            'bandcamp',
         ]);
 
         $platformNames = [
@@ -44,7 +43,7 @@ class DistributionFactory extends Factory
             'live',
             'failed',
             'rejected',
-            'removed'
+            'removed',
         ]);
 
         return [
@@ -61,7 +60,7 @@ class DistributionFactory extends Factory
                     'east_africa',
                     'africa',
                     'north_america',
-                    'europe'
+                    'europe',
                 ], $this->faker->numberBetween(1, 3)),
                 'content_advisory' => $this->faker->randomElement(['clean', 'explicit']),
                 'genre' => $this->faker->randomElement([
@@ -70,7 +69,7 @@ class DistributionFactory extends Factory
                     'Hip Hop',
                     'R&B',
                     'Gospel',
-                    'Traditional'
+                    'Traditional',
                 ]),
                 'language' => $this->faker->randomElement(['en', 'lg', 'sw']),
                 'price_tier' => $this->faker->randomElement(['free', 'standard', 'premium']),
@@ -86,14 +85,14 @@ class DistributionFactory extends Factory
                 'Copyright infringement detected',
                 'Missing metadata',
                 'Invalid file format',
-                'Explicit content not properly labeled'
+                'Explicit content not properly labeled',
             ]) : null,
             'removed_date' => $status === 'removed' ? $this->faker->dateTimeBetween('-3 months', 'now') : null,
             'removal_reason' => $status === 'removed' ? $this->faker->randomElement([
                 'Artist request',
                 'Copyright claim',
                 'Platform policy violation',
-                'Technical issues'
+                'Technical issues',
             ]) : null,
             'removal_requested_at' => null,
             'last_updated' => $this->faker->dateTimeBetween('-1 month', 'now'),
@@ -109,7 +108,7 @@ class DistributionFactory extends Factory
     private function generatePlatformMetadata(string $platformCode, string $status): array
     {
         $baseMetadata = [
-            'submission_id' => strtoupper($platformCode . '_' . $this->faker->bothify('???###???')),
+            'submission_id' => strtoupper($platformCode.'_'.$this->faker->bothify('???###???')),
             'submission_date' => $this->faker->dateTimeBetween('-3 months', 'now')->format('Y-m-d'),
         ];
 
@@ -130,7 +129,7 @@ class DistributionFactory extends Factory
                 'METADATA_MISSING',
                 'COPYRIGHT_ISSUE',
                 'FORMAT_INVALID',
-                'CONTENT_POLICY_VIOLATION'
+                'CONTENT_POLICY_VIOLATION',
             ]);
         }
 
@@ -141,7 +140,7 @@ class DistributionFactory extends Factory
     {
         $trackId = $this->faker->bothify('??????????????');
 
-        return match($platformCode) {
+        return match ($platformCode) {
             'spotify' => "https://open.spotify.com/track/{$trackId}",
             'apple_music' => "https://music.apple.com/song/{$trackId}",
             'youtube_music' => "https://music.youtube.com/watch?v={$trackId}",
@@ -156,11 +155,11 @@ class DistributionFactory extends Factory
 
     private function generatePlatformId(string $platformCode): string
     {
-        return match($platformCode) {
-            'spotify' => 'spotify:track:' . $this->faker->bothify('??????????????????'),
+        return match ($platformCode) {
+            'spotify' => 'spotify:track:'.$this->faker->bothify('??????????????????'),
             'apple_music' => $this->faker->numerify('##########'),
             'youtube_music' => $this->faker->bothify('???????????'),
-            'amazon_music' => 'AMZN_' . $this->faker->bothify('??????????'),
+            'amazon_music' => 'AMZN_'.$this->faker->bothify('??????????'),
             'deezer' => $this->faker->numerify('########'),
             'tidal' => $this->faker->numerify('########'),
             'soundcloud' => $this->faker->numerify('########'),
@@ -222,7 +221,7 @@ class DistributionFactory extends Factory
                 'Network timeout during upload',
                 'Invalid audio file format',
                 'Metadata validation failed',
-                'Platform API temporarily unavailable'
+                'Platform API temporarily unavailable',
             ]),
             'retry_count' => $this->faker->numberBetween(1, 3),
         ]);
@@ -240,7 +239,7 @@ class DistributionFactory extends Factory
                 'Explicit content not properly labeled',
                 'Audio quality below platform standards',
                 'Metadata incomplete or incorrect',
-                'Duplicate content already exists'
+                'Duplicate content already exists',
             ]),
         ]);
     }
@@ -255,7 +254,7 @@ class DistributionFactory extends Factory
                 'Copyright claim',
                 'Platform policy violation',
                 'Technical issues',
-                'End of distribution agreement'
+                'End of distribution agreement',
             ]),
         ]);
     }
@@ -291,7 +290,7 @@ class DistributionFactory extends Factory
                 'listeners' => $this->faker->numberBetween(1000, 50000),
                 'conversion_rate' => $this->faker->randomFloat(2, 0.01, 0.15),
                 'top_countries' => $this->faker->randomElements([
-                    'Uganda', 'Kenya', 'Tanzania', 'Nigeria', 'Ghana', 'South Africa', 'USA', 'UK'
+                    'Uganda', 'Kenya', 'Tanzania', 'Nigeria', 'Ghana', 'South Africa', 'USA', 'UK',
                 ], 3),
             ]),
         ]);

@@ -2,18 +2,18 @@
 
 namespace App\Models;
 
+use App\Models\Traits\Featurable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\Traits\Featurable;
 use Illuminate\Support\Str;
 
 class Playlist extends Model
 {
-    use HasFactory, SoftDeletes, Featurable;
+    use Featurable, HasFactory, SoftDeletes;
 
     protected $fillable = [
         'uuid',
@@ -65,14 +65,14 @@ class Playlist extends Model
             }
 
             // Auto-generate slug from name
-            if (!$playlist->slug && $playlist->name) {
+            if (! $playlist->slug && $playlist->name) {
                 $playlist->slug = Str::slug($playlist->name);
 
                 // Ensure uniqueness
                 $originalSlug = $playlist->slug;
                 $count = 1;
                 while (static::where('slug', $playlist->slug)->where('user_id', $playlist->user_id)->exists()) {
-                    $playlist->slug = $originalSlug . '-' . $count++;
+                    $playlist->slug = $originalSlug.'-'.$count++;
                 }
             }
         });
@@ -81,8 +81,6 @@ class Playlist extends Model
     /**
      * Get the route key for the model.
      * Uses slug for clean URLs on frontend, but admin routes can still use ID via explicit binding.
-     *
-     * @return string
      */
     public function getRouteKeyName(): string
     {
@@ -254,12 +252,13 @@ class Playlist extends Model
         if ($hours > 0) {
             return sprintf('%d hr %d min', $hours, $minutes);
         }
+
         return sprintf('%d min', $minutes);
     }
 
     public function getIsLikedByUserAttribute(): bool
     {
-        if (!auth()->check()) {
+        if (! auth()->check()) {
             return false;
         }
 
@@ -268,7 +267,7 @@ class Playlist extends Model
 
     public function getIsFollowedByUserAttribute(): bool
     {
-        if (!auth()->check()) {
+        if (! auth()->check()) {
             return false;
         }
 
@@ -298,7 +297,7 @@ class Playlist extends Model
             return true;
         }
 
-        if (!$this->is_collaborative) {
+        if (! $this->is_collaborative) {
             return false;
         }
 

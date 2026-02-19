@@ -3,7 +3,6 @@
 namespace App\Services\Store;
 
 use App\Modules\Store\Models\Store;
-use App\Modules\Store\Models\Order;
 use Illuminate\Support\Facades\DB;
 
 class StoreService
@@ -16,7 +15,7 @@ class StoreService
         $paidOrderCount = $store->orders()
             ->where('payment_status', 'paid')
             ->count();
-        
+
         return [
             'total_products' => $store->products()->count(),
             'total_orders' => $store->orders()->count(),
@@ -39,7 +38,7 @@ class StoreService
         return DB::transaction(function () use ($store) {
             // Delete associated products
             $store->products()->delete();
-            
+
             // Delete the store
             return $store->delete();
         });
@@ -75,7 +74,7 @@ class StoreService
         $views = $store->views()
             ->where('created_at', '>=', $startDate)
             ->count();
-        
+
         $orders = $store->orders()
             ->where('created_at', '>=', $startDate)
             ->count();
@@ -88,7 +87,7 @@ class StoreService
      */
     protected function getStartDate(string $period): \Carbon\Carbon
     {
-        return match($period) {
+        return match ($period) {
             '7days' => now()->subDays(7),
             '30days' => now()->subDays(30),
             '90days' => now()->subDays(90),

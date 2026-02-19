@@ -5,13 +5,13 @@ namespace App\Modules\Store\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Modules\Store\Models\Order;
 use App\Notifications\Store\StorePaymentNotification;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Payment API Controller
- * 
+ *
  * Handles payment processing for store orders
  */
 class PaymentController extends Controller
@@ -39,8 +39,8 @@ class PaymentController extends Controller
         try {
             if ($validated['payment_method'] === 'zengapay') {
                 // Process via ZengaPay
-                $paymentReference = 'PMT-' . strtoupper(uniqid());
-                
+                $paymentReference = 'PMT-'.strtoupper(uniqid());
+
                 $order->update([
                     'payment_reference' => $paymentReference,
                     'payment_provider' => 'zengapay',
@@ -78,7 +78,7 @@ class PaymentController extends Controller
             }
         } catch (\Exception $e) {
             return response()->json([
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -109,23 +109,24 @@ class PaymentController extends Controller
     public function webhook(Request $request): JsonResponse
     {
         // ✅ SECURITY FIX: Verify webhook signature before processing
-        if (!$this->verifyWebhookSignature($request)) {
+        if (! $this->verifyWebhookSignature($request)) {
             Log::warning('Store: Invalid webhook signature', [
                 'ip' => $request->ip(),
-                'provider' => $request->header('X-Payment-Provider')
+                'provider' => $request->header('X-Payment-Provider'),
             ]);
+
             return response()->json([
                 'message' => 'Invalid signature.',
             ], 401);
         }
-        
+
         $provider = $request->header('X-Payment-Provider');
         $paymentReference = $request->input('reference');
         $status = $request->input('status');
 
         $order = Order::where('payment_reference', $paymentReference)->first();
 
-        if (!$order) {
+        if (! $order) {
             return response()->json([
                 'message' => 'Order not found.',
             ], 404);
@@ -152,7 +153,7 @@ class PaymentController extends Controller
             Log::info('Store payment successful', [
                 'order_id' => $order->id,
                 'order_number' => $order->order_number,
-                'provider' => $provider
+                'provider' => $provider,
             ]);
         } elseif ($status === 'failed') {
             $order->update([
@@ -162,7 +163,7 @@ class PaymentController extends Controller
             Log::warning('Store payment failed', [
                 'order_id' => $order->id,
                 'order_number' => $order->order_number,
-                'provider' => $provider
+                'provider' => $provider,
             ]);
         }
 
@@ -180,19 +181,21 @@ class PaymentController extends Controller
         $payload = $request->getContent();
         $provider = $request->header('X-Payment-Provider');
 
-        if (!$signature) {
+        if (! $signature) {
             return false;
         }
 
         // Get secret key for ZengaPay
         $secretKey = config('services.zengapay.webhook_secret', config('services.payment.webhook_secret'));
 
-        if (!$secretKey) {
+        if (! $secretKey) {
             // In development, allow if no secret is set (log warning)
             if (config('app.env') === 'local') {
                 Log::warning('Store: Webhook signature verification skipped in development');
+
                 return true;
             }
+
             return false;
         }
 
@@ -246,7 +249,7 @@ class PaymentController extends Controller
         foreach ($sellerIds as $seller) {
             // Calculate seller's portion of the order
             $sellerTotal = $order->items()
-                ->whereHas('product', fn($q) => $q->where('user_id', $seller->id))
+                ->whereHas('product', fn ($q) => $q->where('user_id', $seller->id))
                 ->sum('total');
 
             $seller->notify(new StorePaymentNotification(

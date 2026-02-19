@@ -18,7 +18,9 @@ class TranscodeAudioJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public $tries = 3;
+
     public $timeout = 600; // 10 minutes
+
     public $backoff = [60, 120, 300]; // Retry delays in seconds
 
     /**
@@ -37,15 +39,15 @@ class TranscodeAudioJob implements ShouldQueue
     public function handle(FFmpegService $ffmpeg, MusicStorageService $storage): void
     {
         try {
-            Log::info("Starting audio transcoding", [
+            Log::info('Starting audio transcoding', [
                 'song_id' => $this->song->id,
-                'quality' => $this->quality
+                'quality' => $this->quality,
             ]);
 
             // Get original file path
             $originalPath = $storage->getSongPath($this->song, 'original');
 
-            if (!Storage::disk('local')->exists($originalPath)) {
+            if (! Storage::disk('local')->exists($originalPath)) {
                 throw new \Exception("Original audio file not found: {$originalPath}");
             }
 
@@ -55,7 +57,7 @@ class TranscodeAudioJob implements ShouldQueue
 
             // Ensure directory exists
             $outputDir = dirname(Storage::disk('local')->path($outputPath));
-            if (!is_dir($outputDir)) {
+            if (! is_dir($outputDir)) {
                 mkdir($outputDir, 0755, true);
             }
 
@@ -70,40 +72,40 @@ class TranscodeAudioJob implements ShouldQueue
                 44100 // Sample rate
             );
 
-            if (!$success) {
+            if (! $success) {
                 throw new \Exception("Transcoding failed for quality: {$this->quality}");
             }
 
             // Upload to DigitalOcean Spaces if configured
             if (config('filesystems.disks.digitalocean')) {
-                $doPath = "songs/{$this->song->user_id}/{$this->song->id}/{$qualityDir}/" . basename($outputPath);
+                $doPath = "songs/{$this->song->user_id}/{$this->song->id}/{$qualityDir}/".basename($outputPath);
 
                 Storage::disk('digitalocean')->put(
                     $doPath,
                     Storage::disk('local')->get($outputPath)
                 );
 
-                Log::info("Uploaded transcoded audio to DigitalOcean", [
+                Log::info('Uploaded transcoded audio to DigitalOcean', [
                     'song_id' => $this->song->id,
                     'quality' => $this->quality,
-                    'path' => $doPath
+                    'path' => $doPath,
                 ]);
             }
 
             // Update song metadata
             $this->updateSongMetadata();
 
-            Log::info("Audio transcoding completed", [
+            Log::info('Audio transcoding completed', [
                 'song_id' => $this->song->id,
-                'quality' => $this->quality
+                'quality' => $this->quality,
             ]);
 
         } catch (\Exception $e) {
-            Log::error("Audio transcoding failed", [
+            Log::error('Audio transcoding failed', [
                 'song_id' => $this->song->id,
                 'quality' => $this->quality,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             throw $e;
@@ -119,7 +121,7 @@ class TranscodeAudioJob implements ShouldQueue
         $processingStatus[$this->quality] = 'completed';
 
         $this->song->update([
-            'processing_status' => $processingStatus
+            'processing_status' => $processingStatus,
         ]);
     }
 
@@ -128,10 +130,10 @@ class TranscodeAudioJob implements ShouldQueue
      */
     public function failed(\Throwable $exception): void
     {
-        Log::error("Transcoding job permanently failed", [
+        Log::error('Transcoding job permanently failed', [
             'song_id' => $this->song->id,
             'quality' => $this->quality,
-            'error' => $exception->getMessage()
+            'error' => $exception->getMessage(),
         ]);
 
         // Update processing status to failed
@@ -139,7 +141,7 @@ class TranscodeAudioJob implements ShouldQueue
         $processingStatus[$this->quality] = 'failed';
 
         $this->song->update([
-            'processing_status' => $processingStatus
+            'processing_status' => $processingStatus,
         ]);
     }
 }

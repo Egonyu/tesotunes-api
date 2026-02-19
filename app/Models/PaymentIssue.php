@@ -12,24 +12,37 @@ class PaymentIssue extends Model
 
     // Issue types
     const TYPE_STUCK_PROCESSING = 'stuck_processing';
+
     const TYPE_PROVIDER_ERROR = 'provider_error';
+
     const TYPE_AMOUNT_MISMATCH = 'amount_mismatch';
+
     const TYPE_DUPLICATE_CHARGE = 'duplicate_charge';
+
     const TYPE_TIMEOUT = 'timeout';
+
     const TYPE_WEBHOOK_MISSING = 'webhook_missing';
 
     // Issue statuses
     const STATUS_OPEN = 'open';
+
     const STATUS_INVESTIGATING = 'investigating';
+
     const STATUS_RESOLVED = 'resolved';
+
     const STATUS_ESCALATED = 'escalated';
+
     const STATUS_CLOSED = 'closed';
 
     // Resolution types
     const RESOLUTION_AUTO_RESOLVED = 'auto_resolved';
+
     const RESOLUTION_MANUAL = 'manual';
+
     const RESOLUTION_REFUNDED = 'refunded';
+
     const RESOLUTION_RETRIED = 'retried';
+
     const RESOLUTION_FALSE_POSITIVE = 'false_positive';
 
     protected $fillable = [

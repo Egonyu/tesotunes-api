@@ -4,7 +4,6 @@ namespace Database\Factories;
 
 use App\Models\Payment;
 use App\Models\User;
-use App\Models\SubscriptionPlan;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -25,14 +24,14 @@ class PaymentFactory extends Factory
             ['method' => 'bank_transfer', 'provider' => 'bank'],
             ['method' => 'platform_credits', 'provider' => 'internal'],
         ];
-        
+
         // Randomly select a valid combination
         $combo = $this->faker->randomElement($methodProviderCombos);
-        
+
         // Ensure payment_method and payment_provider are correctly separated
         $paymentMethod = $combo['method'];
         $paymentProvider = $combo['provider'];
-        
+
         // Determine payable type (what the payment is for)
         $payableTypes = [
             'App\\Models\\UserSubscription',
@@ -42,13 +41,13 @@ class PaymentFactory extends Factory
             'App\\Models\\EventTicket',
             'App\\Models\\CreditPurchase',
         ];
-        
+
         return [
             'uuid' => Str::uuid()->toString(),
             'user_id' => User::factory(),
             'payable_type' => $this->faker->randomElement($payableTypes),
             'payable_id' => 1, // Will be overridden in tests
-            'transaction_id' => 'TXN_' . strtoupper($this->faker->unique()->bothify('??###??###')),
+            'transaction_id' => 'TXN_'.strtoupper($this->faker->unique()->bothify('??###??###')),
             'amount' => $this->faker->randomFloat(2, 1000, 100000),
             'currency' => 'UGX',
             'payment_method' => $paymentMethod,
@@ -107,7 +106,7 @@ class PaymentFactory extends Factory
                     'Customer request',
                     'Duplicate payment',
                     'Technical error',
-                    'Subscription cancelled'
+                    'Subscription cancelled',
                 ]),
                 'refund_amount' => $attributes['amount'] ?? 0,
             ]),
@@ -121,7 +120,7 @@ class PaymentFactory extends Factory
             'payment_provider' => 'mtn_mobile_money',
             'payment_details' => array_merge($attributes['payment_details'] ?? [], [
                 'network' => 'MTN',
-                'phone_number' => '+256' . $this->faker->numerify('70#######'),
+                'phone_number' => '+256'.$this->faker->numerify('70#######'),
             ]),
         ]);
     }
@@ -133,7 +132,7 @@ class PaymentFactory extends Factory
             'payment_provider' => 'airtel_money',
             'payment_details' => array_merge($attributes['payment_details'] ?? [], [
                 'network' => 'Airtel',
-                'phone_number' => '+256' . $this->faker->numerify('75#######'),
+                'phone_number' => '+256'.$this->faker->numerify('75#######'),
             ]),
         ]);
     }
@@ -145,7 +144,7 @@ class PaymentFactory extends Factory
             'payment_provider' => 'stripe',
             'currency' => 'USD',
             'payment_details' => array_merge($attributes['payment_details'] ?? [], [
-                'stripe_payment_intent' => 'pi_' . $this->faker->bothify('????????????????'),
+                'stripe_payment_intent' => 'pi_'.$this->faker->bothify('????????????????'),
                 'card_last_four' => $this->faker->numerify('####'),
                 'card_brand' => $this->faker->randomElement(['visa', 'mastercard', 'amex']),
             ]),

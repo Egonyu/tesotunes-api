@@ -2,8 +2,10 @@
 
 namespace App\Modules\Store\Database\Seeders;
 
+use App\Modules\Store\Models\Product;
+use App\Modules\Store\Models\ProductCategory;
+use App\Modules\Store\Models\Store;
 use Illuminate\Database\Seeder;
-use App\Modules\Store\Models\{Store, Product, ProductCategory};
 use Illuminate\Support\Str;
 
 class RealWorldProductsSeeder extends Seeder
@@ -14,9 +16,10 @@ class RealWorldProductsSeeder extends Seeder
     public function run(): void
     {
         $stores = Store::where('status', 'active')->get();
-        
+
         if ($stores->isEmpty()) {
             $this->command->error('No active stores found. Run RealWorldStoresSeeder first.');
+
             return;
         }
 
@@ -87,7 +90,7 @@ class RealWorldProductsSeeder extends Seeder
             $this->createBebeProducts($bebeStore, $categories);
         }
 
-        $this->command->info('✓ Created ' . Product::count() . ' real-world products');
+        $this->command->info('✓ Created '.Product::count().' real-world products');
     }
 
     private function createNavioProducts($store, $categories)

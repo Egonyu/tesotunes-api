@@ -57,7 +57,7 @@ class CampaignResource extends JsonResource
                 'id' => $this->user->id,
                 'name' => $this->user->name,
                 'username' => $this->user->username,
-                'avatar' => $this->user->avatar ? url('storage/' . $this->user->avatar) : null,
+                'avatar' => $this->user->avatar ? url('storage/'.$this->user->avatar) : null,
             ]),
 
             // Approval/Rejection info (admin only)

@@ -20,7 +20,7 @@ class StorePolicy
      */
     public function view(?User $user, Store $store): bool
     {
-        return $store->status === 'active' || 
+        return $store->status === 'active' ||
                ($user && ($user->id === $store->user_id || $user->hasAnyRole(['admin', 'super_admin'])));
     }
 
@@ -30,7 +30,7 @@ class StorePolicy
     public function create(User $user): bool
     {
         // Check if store module is enabled
-        if (!config('store.enabled', false)) {
+        if (! config('store.enabled', false)) {
             return false;
         }
 
@@ -40,7 +40,7 @@ class StorePolicy
         }
 
         // Check email verification
-        if (!$user->email_verified_at) {
+        if (! $user->email_verified_at) {
             return false;
         }
 
@@ -57,7 +57,7 @@ class StorePolicy
      */
     public function update(User $user, Store $store): bool
     {
-        return $user->id === $store->user_id || 
+        return $user->id === $store->user_id ||
                $user->hasAnyRole(['admin', 'super_admin']);
     }
 
@@ -66,7 +66,7 @@ class StorePolicy
      */
     public function delete(User $user, Store $store): bool
     {
-        return $user->id === $store->user_id || 
+        return $user->id === $store->user_id ||
                $user->hasAnyRole(['admin', 'super_admin']);
     }
 
@@ -75,7 +75,7 @@ class StorePolicy
      */
     public function manageOrders(User $user, Store $store): bool
     {
-        return $user->id === $store->user_id || 
+        return $user->id === $store->user_id ||
                $user->hasAnyRole(['admin', 'super_admin']);
     }
 
@@ -84,7 +84,7 @@ class StorePolicy
      */
     public function viewAnalytics(User $user, Store $store): bool
     {
-        return $user->id === $store->user_id || 
+        return $user->id === $store->user_id ||
                $user->hasAnyRole(['admin', 'super_admin', 'finance']);
     }
 }

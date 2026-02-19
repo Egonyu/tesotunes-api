@@ -2,9 +2,9 @@
 
 namespace App\Modules\Store\Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Modules\Store\Models\Store;
 use App\Models\User;
+use App\Modules\Store\Models\Store;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
 class SampleStoresSeeder extends Seeder
@@ -15,19 +15,20 @@ class SampleStoresSeeder extends Seeder
     public function run(): void
     {
         // Get users with artist role or create test users
-        $artists = User::whereHas('roles', function($q) {
+        $artists = User::whereHas('roles', function ($q) {
             $q->where('name', 'artist');
         })->take(5)->get();
 
         if ($artists->isEmpty()) {
             $this->command->warn('No artists found. Using first available user...');
             $firstUser = User::first();
-            
-            if (!$firstUser) {
+
+            if (! $firstUser) {
                 $this->command->error('No users found in database. Please create at least one user first.');
+
                 return;
             }
-            
+
             $artists = collect([$firstUser]);
         }
 
@@ -81,7 +82,7 @@ class SampleStoresSeeder extends Seeder
 
         foreach ($storeData as $index => $data) {
             $artist = $artists[$index % $artists->count()];
-            
+
             Store::create([
                 'uuid' => Str::uuid(),
                 'user_id' => $artist->id,
@@ -103,6 +104,6 @@ class SampleStoresSeeder extends Seeder
             ]);
         }
 
-        $this->command->info('✓ Created ' . Store::count() . ' sample stores');
+        $this->command->info('✓ Created '.Store::count().' sample stores');
     }
 }

@@ -11,7 +11,7 @@ return new class extends Migration
         // ==========================================
         // ROLES
         // ==========================================
-        if (!Schema::hasTable('roles')) {
+        if (! Schema::hasTable('roles')) {
             Schema::create('roles', function (Blueprint $table) {
                 $table->id();
                 $table->string('name', 100)->unique();
@@ -27,7 +27,7 @@ return new class extends Migration
         // ==========================================
         // PERMISSIONS
         // ==========================================
-        if (!Schema::hasTable('permissions')) {
+        if (! Schema::hasTable('permissions')) {
             Schema::create('permissions', function (Blueprint $table) {
                 $table->id();
                 $table->string('name', 100)->unique();
@@ -42,7 +42,7 @@ return new class extends Migration
         // ==========================================
         // ROLE_PERMISSIONS (Pivot)
         // ==========================================
-        if (!Schema::hasTable('role_permissions')) {
+        if (! Schema::hasTable('role_permissions')) {
             Schema::create('role_permissions', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('role_id')->constrained()->cascadeOnDelete();
@@ -56,7 +56,7 @@ return new class extends Migration
         // ==========================================
         // USER_ROLES (Pivot)
         // ==========================================
-        if (!Schema::hasTable('user_roles')) {
+        if (! Schema::hasTable('user_roles')) {
             Schema::create('user_roles', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('user_id')->constrained()->cascadeOnDelete();
@@ -73,7 +73,7 @@ return new class extends Migration
         // ==========================================
         // GENRES
         // ==========================================
-        if (!Schema::hasTable('genres')) {
+        if (! Schema::hasTable('genres')) {
             Schema::create('genres', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique();
@@ -97,7 +97,7 @@ return new class extends Migration
         // ==========================================
         // ARTISTS
         // ==========================================
-        if (!Schema::hasTable('artists')) {
+        if (! Schema::hasTable('artists')) {
             Schema::create('artists', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique();
@@ -135,7 +135,7 @@ return new class extends Migration
         // ==========================================
         // ALBUMS
         // ==========================================
-        if (!Schema::hasTable('albums')) {
+        if (! Schema::hasTable('albums')) {
             Schema::create('albums', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique();
@@ -166,7 +166,7 @@ return new class extends Migration
         // ==========================================
         // SONGS
         // ==========================================
-        if (!Schema::hasTable('songs')) {
+        if (! Schema::hasTable('songs')) {
             Schema::create('songs', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique();
@@ -209,7 +209,7 @@ return new class extends Migration
         // ==========================================
         // LIKES (Polymorphic)
         // ==========================================
-        if (!Schema::hasTable('likes')) {
+        if (! Schema::hasTable('likes')) {
             Schema::create('likes', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('user_id')->constrained()->cascadeOnDelete();
@@ -224,7 +224,7 @@ return new class extends Migration
         // ==========================================
         // USER FOLLOWS
         // ==========================================
-        if (!Schema::hasTable('user_follows')) {
+        if (! Schema::hasTable('user_follows')) {
             Schema::create('user_follows', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('follower_id')->constrained('users')->cascadeOnDelete();
@@ -239,7 +239,7 @@ return new class extends Migration
         // ==========================================
         // PLAY_HISTORY
         // ==========================================
-        if (!Schema::hasTable('play_history')) {
+        if (! Schema::hasTable('play_history')) {
             Schema::create('play_history', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('user_id')->constrained()->cascadeOnDelete();
@@ -258,7 +258,7 @@ return new class extends Migration
         // ==========================================
         // DOWNLOADS
         // ==========================================
-        if (!Schema::hasTable('downloads')) {
+        if (! Schema::hasTable('downloads')) {
             Schema::create('downloads', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('user_id')->constrained()->cascadeOnDelete();
@@ -274,7 +274,7 @@ return new class extends Migration
         // ==========================================
         // PLAYLISTS
         // ==========================================
-        if (!Schema::hasTable('playlists')) {
+        if (! Schema::hasTable('playlists')) {
             Schema::create('playlists', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique();
@@ -296,7 +296,7 @@ return new class extends Migration
         }
 
         // Playlist songs pivot
-        if (!Schema::hasTable('playlist_song')) {
+        if (! Schema::hasTable('playlist_song')) {
             Schema::create('playlist_song', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('playlist_id')->constrained()->cascadeOnDelete();
@@ -312,7 +312,7 @@ return new class extends Migration
         // ==========================================
         // EVENTS
         // ==========================================
-        if (!Schema::hasTable('events')) {
+        if (! Schema::hasTable('events')) {
             Schema::create('events', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique();
@@ -382,7 +382,7 @@ return new class extends Migration
         // ==========================================
         // EVENT LOCATIONS
         // ==========================================
-        if (!Schema::hasTable('event_locations')) {
+        if (! Schema::hasTable('event_locations')) {
             Schema::create('event_locations', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique();
@@ -403,7 +403,7 @@ return new class extends Migration
         // ==========================================
         // EVENT TICKETS
         // ==========================================
-        if (!Schema::hasTable('event_tickets')) {
+        if (! Schema::hasTable('event_tickets')) {
             Schema::create('event_tickets', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique();
@@ -430,7 +430,7 @@ return new class extends Migration
         // ==========================================
         // EVENT ATTENDEES
         // ==========================================
-        if (!Schema::hasTable('event_attendees')) {
+        if (! Schema::hasTable('event_attendees')) {
             Schema::create('event_attendees', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('event_id')->constrained()->cascadeOnDelete();
@@ -448,7 +448,7 @@ return new class extends Migration
         // ==========================================
         // NOTIFICATIONS
         // ==========================================
-        if (!Schema::hasTable('notifications')) {
+        if (! Schema::hasTable('notifications')) {
             Schema::create('notifications', function (Blueprint $table) {
                 $table->uuid('id')->primary();
                 $table->string('type');
@@ -464,7 +464,7 @@ return new class extends Migration
         // ==========================================
         // PAYMENTS & TRANSACTIONS
         // ==========================================
-        if (!Schema::hasTable('payments')) {
+        if (! Schema::hasTable('payments')) {
             Schema::create('payments', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique();
@@ -487,7 +487,7 @@ return new class extends Migration
         // ==========================================
         // USER CREDITS
         // ==========================================
-        if (!Schema::hasTable('user_credits')) {
+        if (! Schema::hasTable('user_credits')) {
             Schema::create('user_credits', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('user_id')->constrained()->cascadeOnDelete();
@@ -502,7 +502,7 @@ return new class extends Migration
         // ==========================================
         // CREDIT TRANSACTIONS
         // ==========================================
-        if (!Schema::hasTable('credit_transactions')) {
+        if (! Schema::hasTable('credit_transactions')) {
             Schema::create('credit_transactions', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique();
@@ -523,7 +523,7 @@ return new class extends Migration
         // ==========================================
         // ARTIST REVENUES
         // ==========================================
-        if (!Schema::hasTable('artist_revenues')) {
+        if (! Schema::hasTable('artist_revenues')) {
             Schema::create('artist_revenues', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique();
@@ -546,7 +546,7 @@ return new class extends Migration
         // ==========================================
         // ROYALTY SPLITS
         // ==========================================
-        if (!Schema::hasTable('royalty_splits')) {
+        if (! Schema::hasTable('royalty_splits')) {
             Schema::create('royalty_splits', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('song_id')->constrained()->cascadeOnDelete();
@@ -564,7 +564,7 @@ return new class extends Migration
         // ==========================================
         // SUBSCRIPTION PLANS
         // ==========================================
-        if (!Schema::hasTable('subscription_plans')) {
+        if (! Schema::hasTable('subscription_plans')) {
             Schema::create('subscription_plans', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique();
@@ -589,7 +589,7 @@ return new class extends Migration
         // ==========================================
         // USER SUBSCRIPTIONS
         // ==========================================
-        if (!Schema::hasTable('user_subscriptions')) {
+        if (! Schema::hasTable('user_subscriptions')) {
             Schema::create('user_subscriptions', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('user_id')->constrained()->cascadeOnDelete();

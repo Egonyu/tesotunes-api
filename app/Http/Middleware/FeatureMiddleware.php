@@ -2,9 +2,9 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Setting;
 use Closure;
 use Illuminate\Http\Request;
-use App\Models\Setting;
 use Symfony\Component\HttpFoundation\Response;
 
 class FeatureMiddleware
@@ -19,7 +19,7 @@ class FeatureMiddleware
         // Check if the feature is enabled in settings
         $isEnabled = $this->isFeatureEnabled($feature);
 
-        if (!$isEnabled) {
+        if (! $isEnabled) {
             // If the feature is disabled, return 404 or redirect based on the feature
             return $this->handleDisabledFeature($request, $feature);
         }
@@ -83,7 +83,7 @@ class FeatureMiddleware
         if ($request->expectsJson()) {
             return response()->json([
                 'error' => 'Feature not available',
-                'message' => "The {$feature} feature is currently disabled."
+                'message' => "The {$feature} feature is currently disabled.",
             ], 404);
         }
 
@@ -94,6 +94,7 @@ class FeatureMiddleware
                 if (auth()->check()) {
                     return redirect()->route('frontend.dashboard');
                 }
+
                 return redirect()->route('login'); // Use global auth route name
 
             case 'awards':

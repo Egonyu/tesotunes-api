@@ -2,8 +2,8 @@
 
 namespace App\Policies;
 
-use App\Models\User;
 use App\Models\AuditLog;
+use App\Models\User;
 
 class UserPolicy
 {
@@ -50,11 +50,12 @@ class UserPolicy
         }
 
         // Must have user.edit permission
-        if (!$user->hasPermission('user.edit')) {
+        if (! $user->hasPermission('user.edit')) {
             AuditLog::logActivity($user->id, 'unauthorized_user_edit_attempt', [
                 'target_user_id' => $model->id,
                 'target_user_email' => $model->email,
             ]);
+
             return false;
         }
 
@@ -64,7 +65,7 @@ class UserPolicy
         }
 
         // Admin can edit non-admins
-        if ($user->hasRole('admin') && !$model->hasAnyRole(['super_admin', 'admin'])) {
+        if ($user->hasRole('admin') && ! $model->hasAnyRole(['super_admin', 'admin'])) {
             return true;
         }
 
@@ -87,21 +88,22 @@ class UserPolicy
         }
 
         // Must have user.delete permission
-        if (!$user->hasPermission('user.delete')) {
+        if (! $user->hasPermission('user.delete')) {
             AuditLog::logActivity($user->id, 'unauthorized_user_delete_attempt', [
                 'target_user_id' => $model->id,
                 'target_user_email' => $model->email,
             ]);
+
             return false;
         }
 
         // Super admin can delete anyone except other super admins
         if ($user->hasRole('super_admin')) {
-            return !$model->hasRole('super_admin') || $user->id !== $model->id;
+            return ! $model->hasRole('super_admin') || $user->id !== $model->id;
         }
 
         // Admin can delete non-admins
-        if ($user->hasRole('admin') && !$model->hasAnyRole(['super_admin', 'admin'])) {
+        if ($user->hasRole('admin') && ! $model->hasAnyRole(['super_admin', 'admin'])) {
             return true;
         }
 
@@ -119,7 +121,7 @@ class UserPolicy
         }
 
         // Must have user.moderate or user.ban permission
-        if (!$user->hasPermission('user.moderate') && !$user->hasPermission('user.ban')) {
+        if (! $user->hasPermission('user.moderate') && ! $user->hasPermission('user.ban')) {
             return false;
         }
 
@@ -128,7 +130,7 @@ class UserPolicy
             return false;
         }
 
-        if ($model->hasRole('admin') && !$user->hasRole('super_admin')) {
+        if ($model->hasRole('admin') && ! $user->hasRole('super_admin')) {
             return false;
         }
 
@@ -159,7 +161,7 @@ class UserPolicy
     public function assignRoles(User $user, User $model): bool
     {
         // Need user.manage_roles permission
-        if (!$user->hasPermission('user.manage_roles')) {
+        if (! $user->hasPermission('user.manage_roles')) {
             return false;
         }
 
@@ -174,13 +176,13 @@ class UserPolicy
         }
 
         // Admins can assign roles to non-admins
-        if ($user->hasRole('admin') && !$model->hasAnyRole(['super_admin', 'admin'])) {
+        if ($user->hasRole('admin') && ! $model->hasAnyRole(['super_admin', 'admin'])) {
             return true;
         }
 
         return false;
     }
-    
+
     /**
      * Determine whether the user can manage modules.
      */

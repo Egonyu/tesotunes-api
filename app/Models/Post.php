@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Post extends Model
@@ -27,14 +26,14 @@ class Post extends Model
         'comments_count',
         'shares_count',
         'views_count',
-        'published_at'
+        'published_at',
     ];
 
     protected $casts = [
         'metadata' => 'array',
         'is_featured' => 'boolean',
         'is_pinned' => 'boolean',
-        'published_at' => 'datetime'
+        'published_at' => 'datetime',
     ];
 
     // Relationships
@@ -81,14 +80,14 @@ class Post extends Model
         $followingIds->push($user->id); // Include user's own posts
 
         return $query->whereIn('user_id', $followingIds)
-                    ->where(function ($q) use ($user) {
-                        $q->where('privacy', 'public')
-                          ->orWhere(function ($q2) use ($user) {
-                              $q2->where('privacy', 'followers')
-                                 ->whereIn('user_id', $user->following()->pluck('following_id'));
-                          })
-                          ->orWhere('user_id', $user->id); // Always show own posts
-                    });
+            ->where(function ($q) use ($user) {
+                $q->where('privacy', 'public')
+                    ->orWhere(function ($q2) use ($user) {
+                        $q2->where('privacy', 'followers')
+                            ->whereIn('user_id', $user->following()->pluck('following_id'));
+                    })
+                    ->orWhere('user_id', $user->id); // Always show own posts
+            });
     }
 
     public function scopeByType($query, string $type)
@@ -114,8 +113,8 @@ class Post extends Model
     public function scopePopular($query, int $days = 7)
     {
         return $query->where('created_at', '>=', now()->subDays($days))
-                    ->orderByDesc('likes_count')
-                    ->orderByDesc('comments_count');
+            ->orderByDesc('likes_count')
+            ->orderByDesc('comments_count');
     }
 
     // Accessors
@@ -144,12 +143,12 @@ class Post extends Model
 
     public function getExcerptAttribute(): string
     {
-        if (!$this->content) {
+        if (! $this->content) {
             return '';
         }
 
         return strlen($this->content) > 150
-            ? substr($this->content, 0, 150) . '...'
+            ? substr($this->content, 0, 150).'...'
             : $this->content;
     }
 
@@ -176,7 +175,7 @@ class Post extends Model
             // New like
             $this->likes()->create([
                 'user_id' => $user->id,
-                'reaction_type' => $reactionType
+                'reaction_type' => $reactionType,
             ]);
             $this->increment('likes_count');
         }
@@ -196,7 +195,7 @@ class Post extends Model
         $comment = $this->allComments()->create([
             'user_id' => $user->id,
             'parent_id' => $parentId,
-            'content' => $content
+            'content' => $content,
         ]);
 
         $this->increment('comments_count');
@@ -208,7 +207,7 @@ class Post extends Model
                 'title' => 'New Comment',
                 'message' => "{$user->name} commented on your post",
                 'data' => ['post_id' => $this->id, 'comment_id' => $comment->id],
-                'action_url' => route('frontend.social.post', $this->id)
+                'action_url' => route('frontend.social.post', $this->id),
             ]);
         }
 
@@ -223,10 +222,10 @@ class Post extends Model
             'type' => 'share',
             'metadata' => [
                 'shared_post_id' => $this->id,
-                'original_user_id' => $this->user_id
+                'original_user_id' => $this->user_id,
             ],
             'privacy' => 'public',
-            'published_at' => now()
+            'published_at' => now(),
         ]);
 
         $this->increment('shares_count');
@@ -238,7 +237,7 @@ class Post extends Model
                 'title' => 'Post Shared',
                 'message' => "{$user->name} shared your post",
                 'data' => ['post_id' => $this->id, 'shared_post_id' => $sharedPost->id],
-                'action_url' => route('frontend.social.post', $sharedPost->id)
+                'action_url' => route('frontend.social.post', $sharedPost->id),
             ]);
         }
 
@@ -253,14 +252,14 @@ class Post extends Model
     public function publish(): void
     {
         $this->update([
-            'published_at' => now()
+            'published_at' => now(),
         ]);
     }
 
     public function unpublish(): void
     {
         $this->update([
-            'published_at' => null
+            'published_at' => null,
         ]);
     }
 
@@ -302,7 +301,7 @@ class Post extends Model
             'content' => $content,
             'type' => 'text',
             'privacy' => $privacy,
-            'published_at' => now()
+            'published_at' => now(),
         ]);
     }
 
@@ -315,10 +314,10 @@ class Post extends Model
             'metadata' => [
                 'song_id' => $song->id,
                 'song_title' => $song->title,
-                'artist_name' => $song->artist->stage_name ?? $song->artist->name
+                'artist_name' => $song->artist->stage_name ?? $song->artist->name,
             ],
             'privacy' => $privacy,
-            'published_at' => now()
+            'published_at' => now(),
         ]);
     }
 
@@ -331,10 +330,10 @@ class Post extends Model
             'metadata' => [
                 'event_id' => $event->id,
                 'event_title' => $event->title,
-                'event_date' => $event->starts_at?->format('Y-m-d')
+                'event_date' => $event->starts_at?->format('Y-m-d'),
             ],
             'privacy' => $privacy,
-            'published_at' => now()
+            'published_at' => now(),
         ]);
     }
 }

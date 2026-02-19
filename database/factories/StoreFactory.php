@@ -2,8 +2,8 @@
 
 namespace Database\Factories;
 
-use App\Modules\Store\Models\Store;
 use App\Models\User;
+use App\Modules\Store\Models\Store;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -23,7 +23,7 @@ class StoreFactory extends Factory
     {
         $name = fake()->company();
         $user = User::factory()->create();
-        
+
         return [
             'uuid' => Str::uuid(),
             'user_id' => $user->id,

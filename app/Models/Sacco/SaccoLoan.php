@@ -35,16 +35,50 @@ class SaccoLoan extends Model
         'guarantors_required' => 2, 'guarantors_approved' => 0, 'loan_type' => 'personal',
     ];
 
-    public function member(): BelongsTo { return $this->belongsTo(SaccoMember::class, 'member_id'); }
-    public function guarantors(): HasMany { return $this->hasMany(SaccoLoanGuarantor::class, 'loan_id'); }
-    public function repayments(): HasMany { return $this->hasMany(SaccoLoanRepayment::class, 'loan_id'); }
-    
-    public function scopePending($query) { return $query->where('status', 'pending'); }
-    public function scopeApproved($query) { return $query->where('status', 'approved'); }
-    public function scopeActive($query) { return $query->whereIn('status', ['disbursed', 'active']); }
-    public function scopeCompleted($query) { return $query->where('status', 'completed'); }
-    public function scopeDefaulted($query) { return $query->where('status', 'defaulted'); }
-    public function scopeByType($query, string $type) { return $query->where('loan_type', $type); }
+    public function member(): BelongsTo
+    {
+        return $this->belongsTo(SaccoMember::class, 'member_id');
+    }
+
+    public function guarantors(): HasMany
+    {
+        return $this->hasMany(SaccoLoanGuarantor::class, 'loan_id');
+    }
+
+    public function repayments(): HasMany
+    {
+        return $this->hasMany(SaccoLoanRepayment::class, 'loan_id');
+    }
+
+    public function scopePending($query)
+    {
+        return $query->where('status', 'pending');
+    }
+
+    public function scopeApproved($query)
+    {
+        return $query->where('status', 'approved');
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->whereIn('status', ['disbursed', 'active']);
+    }
+
+    public function scopeCompleted($query)
+    {
+        return $query->where('status', 'completed');
+    }
+
+    public function scopeDefaulted($query)
+    {
+        return $query->where('status', 'defaulted');
+    }
+
+    public function scopeByType($query, string $type)
+    {
+        return $query->where('loan_type', $type);
+    }
 
     public function calculateTotals(): void
     {
@@ -54,18 +88,31 @@ class SaccoLoan extends Model
         $this->balance_remaining_ugx = $this->total_payable_ugx - $this->amount_paid_ugx;
     }
 
-    public function hasAllGuarantors(): bool { return $this->guarantors_approved >= $this->guarantors_required; }
-    public function isFullyPaid(): bool { return $this->amount_paid_ugx >= $this->total_payable_ugx; }
+    public function hasAllGuarantors(): bool
+    {
+        return $this->guarantors_approved >= $this->guarantors_required;
+    }
+
+    public function isFullyPaid(): bool
+    {
+        return $this->amount_paid_ugx >= $this->total_payable_ugx;
+    }
 
     protected static function boot()
     {
         parent::boot();
         static::creating(function ($loan) {
-            if (empty($loan->uuid)) $loan->uuid = (string) Str::uuid();
-            if (empty($loan->loan_number)) $loan->loan_number = 'LOAN' . now()->format('Ymd') . rand(10000, 99999);
+            if (empty($loan->uuid)) {
+                $loan->uuid = (string) Str::uuid();
+            }
+            if (empty($loan->loan_number)) {
+                $loan->loan_number = 'LOAN'.now()->format('Ymd').rand(10000, 99999);
+            }
         });
         static::saving(function ($loan) {
-            if ($loan->isDirty(['principal_amount_ugx', 'interest_rate', 'tenure_months'])) $loan->calculateTotals();
+            if ($loan->isDirty(['principal_amount_ugx', 'interest_rate', 'tenure_months'])) {
+                $loan->calculateTotals();
+            }
         });
     }
 }

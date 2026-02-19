@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 class PublishPendingSongs extends Command
 {
     protected $signature = 'songs:publish-pending {--dry-run : Show what would be published without making changes}';
+
     protected $description = 'Publish all pending songs and sync genre pivot entries';
 
     public function handle(): int
@@ -26,7 +27,7 @@ class PublishPendingSongs extends Command
                 $this->line("  - [{$song->id}] {$song->title} (artist_id: {$song->artist_id})");
             }
 
-            if (!$dryRun) {
+            if (! $dryRun) {
                 Song::where('status', 'pending')->update(['status' => 'published']);
                 $this->info("Published {$pendingSongs->count()} songs.");
             } else {
@@ -44,9 +45,9 @@ class PublishPendingSongs extends Command
                 ->where('genre_id', $song->primary_genre_id)
                 ->exists();
 
-            if (!$exists) {
+            if (! $exists) {
                 $this->line("  Missing pivot: song #{$song->id} ({$song->title}) → genre #{$song->primary_genre_id}");
-                if (!$dryRun) {
+                if (! $dryRun) {
                     DB::table('song_genres')->insert([
                         'song_id' => $song->id,
                         'genre_id' => $song->primary_genre_id,
@@ -60,13 +61,13 @@ class PublishPendingSongs extends Command
         }
 
         if ($synced > 0) {
-            $this->info("Synced {$synced} genre pivot entries" . ($dryRun ? ' (dry run).' : '.'));
+            $this->info("Synced {$synced} genre pivot entries".($dryRun ? ' (dry run).' : '.'));
         } else {
             $this->info('All genre pivots are in sync.');
         }
 
         // 3. Refresh artist stats
-        if (!$dryRun) {
+        if (! $dryRun) {
             $artistIds = Song::distinct()->pluck('artist_id');
             foreach ($artistIds as $artistId) {
                 $artist = \App\Models\Artist::find($artistId);

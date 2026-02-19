@@ -14,8 +14,8 @@ class CommentObserver
     {
         // Log comment activity
         if ($comment->user && $comment->commentable) {
-            $action = 'commented_' . strtolower(class_basename($comment->commentable_type));
-            
+            $action = 'commented_'.strtolower(class_basename($comment->commentable_type));
+
             ActivityService::log(
                 actor: $comment->user,
                 action: $action,
@@ -26,13 +26,13 @@ class CommentObserver
                     'commentable_title' => $comment->commentable->title ?? $comment->commentable->name ?? null,
                 ]
             );
-            
+
             // Increment comment count on the activity if it exists
             $activity = \App\Models\Activity::where('subject_type', get_class($comment->commentable))
                 ->where('subject_id', $comment->commentable->id)
                 ->latest()
                 ->first();
-                
+
             if ($activity) {
                 ActivityService::incrementEngagement($activity, 'comments');
             }
@@ -49,7 +49,7 @@ class CommentObserver
             ->where('subject_id', $comment->commentable->id)
             ->latest()
             ->first();
-            
+
         if ($activity && $activity->comments_count > 0) {
             ActivityService::incrementEngagement($activity, 'comments', -1);
         }

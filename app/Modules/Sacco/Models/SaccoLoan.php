@@ -22,7 +22,7 @@ class SaccoLoan extends Model
                 $loan->uuid = (string) Str::uuid();
             }
             if (empty($loan->loan_number)) {
-                $loan->loan_number = 'LOAN' . now()->format('Ymd') . strtoupper(Str::random(6));
+                $loan->loan_number = 'LOAN'.now()->format('Ymd').strtoupper(Str::random(6));
             }
             // Always calculate totals based on principal, rate, and tenure
             static::calculateLoanTotals($loan);
@@ -44,7 +44,7 @@ class SaccoLoan extends Model
         if ($loan->principal_amount_ugx && $loan->interest_rate && $loan->tenure_months) {
             $interest = ($loan->principal_amount_ugx * $loan->interest_rate * $loan->tenure_months) / (100 * 12);
             $totalPayable = $loan->principal_amount_ugx + $interest;
-            
+
             $loan->total_interest_ugx = $interest;
             $loan->total_payable_ugx = $totalPayable;
             $loan->balance_remaining_ugx = $totalPayable - ($loan->amount_paid_ugx ?? 0);
@@ -230,12 +230,12 @@ class SaccoLoan extends Model
      */
     public function isOverdue(): bool
     {
-        if (!$this->isActive()) {
+        if (! $this->isActive()) {
             return false;
         }
 
         $lastRepayment = $this->repayments()->latest('due_date')->first();
-        if (!$lastRepayment) {
+        if (! $lastRepayment) {
             return false;
         }
 
@@ -259,7 +259,7 @@ class SaccoLoan extends Model
      */
     public function getFormattedPrincipalAttribute(): string
     {
-        return 'UGX ' . number_format($this->principal_amount, 2);
+        return 'UGX '.number_format($this->principal_amount, 2);
     }
 
     /**
@@ -267,7 +267,7 @@ class SaccoLoan extends Model
      */
     public function getFormattedOutstandingAttribute(): string
     {
-        return 'UGX ' . number_format($this->outstanding_balance, 2);
+        return 'UGX '.number_format($this->outstanding_balance, 2);
     }
 
     /**
@@ -275,7 +275,7 @@ class SaccoLoan extends Model
      */
     public function getStatusColorAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'pending' => 'warning',
             'approved' => 'info',
             'active' => 'success',

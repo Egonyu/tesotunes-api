@@ -2,9 +2,8 @@
 
 namespace App\Policies\Store;
 
-use App\Modules\Store\Models\Product;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
+use App\Modules\Store\Models\Product;
 
 class ProductPolicy
 {

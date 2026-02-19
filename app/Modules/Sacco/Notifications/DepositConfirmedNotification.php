@@ -2,10 +2,10 @@
 
 namespace App\Modules\Sacco\Notifications;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Notification;
-use Illuminate\Notifications\Messages\MailMessage;
 use App\Modules\Sacco\Models\SaccoTransaction;
+use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
 
 class DepositConfirmedNotification extends Notification
 {
@@ -30,8 +30,8 @@ class DepositConfirmedNotification extends Notification
             ->greeting('Transaction Successful')
             ->line('Your deposit has been confirmed and credited to your account.')
             ->line("Transaction Number: {$this->transaction->transaction_number}")
-            ->line("Amount: UGX " . number_format($this->transaction->amount, 2))
-            ->line("New Balance: UGX " . number_format($this->transaction->balance_after, 2))
+            ->line('Amount: UGX '.number_format($this->transaction->amount, 2))
+            ->line('New Balance: UGX '.number_format($this->transaction->balance_after, 2))
             ->action('View Transaction', route('sacco.transactions'))
             ->line('Thank you for your continued savings!');
     }
@@ -43,7 +43,7 @@ class DepositConfirmedNotification extends Notification
             'transaction_id' => $this->transaction->id,
             'amount' => $this->transaction->amount,
             'balance_after' => $this->transaction->balance_after,
-            'message' => 'Your deposit has been confirmed'
+            'message' => 'Your deposit has been confirmed',
         ];
     }
 }

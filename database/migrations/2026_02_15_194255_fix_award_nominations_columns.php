@@ -13,29 +13,29 @@ return new class extends Migration
     {
         Schema::table('award_nominations', function (Blueprint $table) {
             // Add award_id column if it doesn't exist
-            if (!Schema::hasColumn('award_nominations', 'award_id')) {
+            if (! Schema::hasColumn('award_nominations', 'award_id')) {
                 $table->foreignId('award_id')->nullable()->after('uuid')->constrained('awards')->cascadeOnDelete();
             }
 
             // Add category_id column if it doesn't exist (alias for award_category_id)
-            if (!Schema::hasColumn('award_nominations', 'category_id')) {
+            if (! Schema::hasColumn('award_nominations', 'category_id')) {
                 $table->foreignId('category_id')->nullable()->after('award_id')->constrained('award_categories')->cascadeOnDelete();
             }
 
             // Add nominee columns if they don't exist
-            if (!Schema::hasColumn('award_nominations', 'nominee_name')) {
+            if (! Schema::hasColumn('award_nominations', 'nominee_name')) {
                 $table->string('nominee_name')->nullable()->after('nominee_id');
             }
-            if (!Schema::hasColumn('award_nominations', 'nominee_artwork')) {
+            if (! Schema::hasColumn('award_nominations', 'nominee_artwork')) {
                 $table->string('nominee_artwork')->nullable()->after('nominee_name');
             }
-            if (!Schema::hasColumn('award_nominations', 'nominated_by_id')) {
+            if (! Schema::hasColumn('award_nominations', 'nominated_by_id')) {
                 $table->foreignId('nominated_by_id')->nullable()->after('nominee_artwork')->constrained('users')->nullOnDelete();
             }
-            if (!Schema::hasColumn('award_nominations', 'nomination_reason')) {
+            if (! Schema::hasColumn('award_nominations', 'nomination_reason')) {
                 $table->text('nomination_reason')->nullable()->after('nominated_by_id');
             }
-            if (!Schema::hasColumn('award_nominations', 'is_official')) {
+            if (! Schema::hasColumn('award_nominations', 'is_official')) {
                 $table->boolean('is_official')->default(false)->after('status');
             }
         });

@@ -38,7 +38,7 @@ class PromotionService
             $userUses = $promotion->redemptions()
                 ->where('user_id', $userId)
                 ->count();
-            
+
             if ($userUses >= $promotion->max_uses_per_user) {
                 return false;
             }
@@ -47,7 +47,7 @@ class PromotionService
         // Check if promotion has reached max redemptions
         if ($promotion->max_redemptions) {
             $totalUses = $promotion->redemptions()->count();
-            
+
             if ($totalUses >= $promotion->max_redemptions) {
                 return false;
             }
@@ -100,7 +100,7 @@ class PromotionService
             $promotion->increment('redemptions_count');
 
             // Log redemption
-            Log::info("Promotion redeemed", [
+            Log::info('Promotion redeemed', [
                 'promotion_id' => $promotion->id,
                 'user_id' => $userId,
                 'order_id' => $orderId,

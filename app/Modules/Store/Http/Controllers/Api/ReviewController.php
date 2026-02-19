@@ -3,10 +3,11 @@
 namespace App\Modules\Store\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Modules\Store\Models\{Product, Store, StoreReview};
+use App\Modules\Store\Models\Product;
+use App\Modules\Store\Models\StoreReview;
 use App\Modules\Store\Services\ReviewService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
  * Review API Controller
@@ -43,8 +44,8 @@ class ReviewController extends Controller
 
         // Check if user can review
         $canReview = $this->reviewService->canReviewProduct($request->user(), $product);
-        
-        if (!$canReview['can_review']) {
+
+        if (! $canReview['can_review']) {
             return response()->json([
                 'message' => $canReview['reason'],
             ], 422);
@@ -116,7 +117,7 @@ class ReviewController extends Controller
     public function markHelpful(Request $request, StoreReview $review): JsonResponse
     {
         $validated = $request->validate([
-            'helpful' => 'required|boolean'
+            'helpful' => 'required|boolean',
         ]);
 
         $this->reviewService->markHelpful($review, $request->user(), $validated['helpful']);
@@ -134,7 +135,7 @@ class ReviewController extends Controller
         $this->authorize('respond', $review);
 
         $validated = $request->validate([
-            'response' => 'required|string|max:500'
+            'response' => 'required|string|max:500',
         ]);
 
         $updated = $this->reviewService->addSellerResponse($review, $validated['response']);

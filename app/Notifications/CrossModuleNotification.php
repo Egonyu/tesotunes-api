@@ -5,7 +5,6 @@ namespace App\Notifications;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
-use Illuminate\Notifications\Messages\DatabaseMessage;
 use Illuminate\Notifications\Notification;
 
 class CrossModuleNotification extends Notification implements ShouldQueue
@@ -13,11 +12,17 @@ class CrossModuleNotification extends Notification implements ShouldQueue
     use Queueable;
 
     protected string $module;
+
     protected string $type;
+
     protected string $title;
+
     protected string $message;
+
     protected array $data;
+
     protected ?string $actionUrl;
+
     protected ?string $actionText;
 
     public function __construct(

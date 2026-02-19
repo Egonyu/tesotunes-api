@@ -2,13 +2,13 @@
 
 namespace App\Services\Podcast;
 
+use App\Events\Podcast\NewEpisodePublished;
 use App\Models\Podcast;
 use App\Models\PodcastEpisode;
-use App\Events\Podcast\NewEpisodePublished;
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class EpisodeService
 {
@@ -197,7 +197,7 @@ class EpisodeService
     {
         // Placeholder implementation
         // TODO: Use getID3 or FFmpeg to extract real metadata
-        
+
         return [
             'duration' => 1800, // 30 minutes placeholder
             'bitrate' => 128,
@@ -215,7 +215,7 @@ class EpisodeService
         $counter = 1;
 
         while ($this->slugExists($slug, $podcastId, $excludeId)) {
-            $slug = $originalSlug . '-' . $counter;
+            $slug = $originalSlug.'-'.$counter;
             $counter++;
         }
 

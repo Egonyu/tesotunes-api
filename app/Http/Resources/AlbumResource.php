@@ -20,7 +20,7 @@ class AlbumResource extends JsonResource
             'description' => $this->description,
 
             // Media
-            'artwork_url' => $this->artwork_url ?? ($this->artwork ? url('storage/' . $this->artwork) : null),
+            'artwork_url' => $this->artwork_url ?? ($this->artwork ? url('storage/'.$this->artwork) : null),
 
             // Metadata
             'album_type' => $this->album_type,
@@ -45,7 +45,7 @@ class AlbumResource extends JsonResource
                     'id' => $this->artist->id,
                     'name' => $this->artist->stage_name,
                     'slug' => $this->artist->slug,
-                    'avatar_url' => $this->artist->avatar ? url('storage/' . $this->artist->avatar) : null,
+                    'avatar_url' => $this->artist->avatar ? url('storage/'.$this->artist->avatar) : null,
                 ];
             }),
             'genre' => $this->when($this->relationLoaded('primaryGenre') && $this->primaryGenre, function () {

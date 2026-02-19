@@ -92,6 +92,7 @@ class Podcast extends Model
         if ($this->category_id) {
             return $this->belongsTo(PodcastCategory::class, 'category_id');
         }
+
         return $this->belongsTo(PodcastCategory::class, 'podcast_category_id');
     }
 
@@ -159,7 +160,7 @@ class Podcast extends Model
     public function scopePopular($query, int $minSubscribers = 100)
     {
         return $query->where('subscriber_count', '>', $minSubscribers)
-                     ->orderBy('subscriber_count', 'desc');
+            ->orderBy('subscriber_count', 'desc');
     }
 
     /**
@@ -168,7 +169,7 @@ class Podcast extends Model
     public function scopeRecent($query, int $days = 30)
     {
         return $query->where('created_at', '>=', now()->subDays($days))
-                     ->orderBy('created_at', 'desc');
+            ->orderBy('created_at', 'desc');
     }
 
     /**
@@ -221,7 +222,7 @@ class Podcast extends Model
             'subscriber_count' => $this->subscriptions()->count(),
         ]);
     }
-    
+
     /**
      * Accessor for explicit_content (alias for is_explicit)
      */
@@ -229,7 +230,7 @@ class Podcast extends Model
     {
         return $this->is_explicit;
     }
-    
+
     /**
      * Mutator for explicit_content (alias for is_explicit)
      */
@@ -237,7 +238,7 @@ class Podcast extends Model
     {
         $this->attributes['is_explicit'] = $value;
     }
-    
+
     /**
      * Accessor for cover_image (alias for artwork)
      */
@@ -245,7 +246,7 @@ class Podcast extends Model
     {
         return $this->artwork;
     }
-    
+
     /**
      * Mutator for cover_image (alias for artwork)
      */
@@ -253,7 +254,7 @@ class Podcast extends Model
     {
         $this->attributes['artwork'] = $value;
     }
-    
+
     /**
      * Accessor for total_listens (alias for total_listen_count)
      */

@@ -4,8 +4,8 @@ namespace App\Modules\Podcast\Traits;
 
 use App\Modules\Podcast\Models\Podcast;
 use App\Modules\Podcast\Models\PodcastCollaborator;
-use App\Modules\Podcast\Models\PodcastSubscription;
 use App\Modules\Podcast\Models\PodcastListen;
+use App\Modules\Podcast\Models\PodcastSubscription;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 trait HasPodcast

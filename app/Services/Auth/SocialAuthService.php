@@ -2,17 +2,17 @@
 
 namespace App\Services\Auth;
 
-use App\Models\User;
 use App\Models\AuditLog;
+use App\Models\User;
 use App\Services\ProfileCompletionService;
-use Laravel\Socialite\Facades\Socialite;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Laravel\Socialite\Facades\Socialite;
 
 /**
  * Social Authentication Service
- * 
+ *
  * Handles OAuth authentication with Google and Facebook
  * Integrates with existing auth system and modules (SACCO, Store, Podcast)
  */
@@ -32,17 +32,17 @@ class SocialAuthService
     {
         try {
             $socialUser = Socialite::driver($provider)->user();
-            
+
             // Find or create user
             $user = $this->findOrCreateUser($socialUser, $provider);
-            
+
             // Update last login tracking
             $user->updateLastLogin('web');
             $user->updateOnlineStatus();
-            
+
             // Calculate and update profile completion
             $this->profileService->updateCompletion($user);
-            
+
             // Log activity
             AuditLog::create([
                 'user_id' => $user->id,
@@ -56,16 +56,16 @@ class SocialAuthService
                 'url' => request()->fullUrl(),
                 'method' => request()->method(),
             ]);
-            
+
             // Return redirect URL based on profile completion and role
             return [
                 'user' => $user,
                 'redirect' => $this->getRedirectUrl($user),
                 'suggest_profile_completion' => $user->profile_completion_percentage < 70,
             ];
-            
+
         } catch (\Exception $e) {
-            Log::error('Social auth error: ' . $e->getMessage(), [
+            Log::error('Social auth error: '.$e->getMessage(), [
                 'provider' => $provider,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -90,13 +90,14 @@ class SocialAuthService
                 'provider_token' => $socialUser->token,
                 'provider_refresh_token' => $socialUser->refreshToken ?? null,
             ]);
+
             return $user;
         }
 
         // Check if user exists with this email (link social account)
         if ($socialUser->getEmail()) {
             $user = User::where('email', $socialUser->getEmail())->first();
-            
+
             if ($user) {
                 // Link social account to existing user
                 $user->update([
@@ -106,12 +107,12 @@ class SocialAuthService
                     'provider_refresh_token' => $socialUser->refreshToken ?? null,
                     'email_verified_at' => $user->email_verified_at ?? now(), // Verify if not already
                 ]);
-                
+
                 Log::info('Social account linked to existing user', [
                     'user_id' => $user->id,
                     'provider' => $provider,
                 ]);
-                
+
                 return $user;
             }
         }
@@ -127,13 +128,13 @@ class SocialAuthService
     {
         return DB::transaction(function () use ($socialUser, $provider) {
             // Generate unique name if needed
-            $name = $socialUser->getName() ?: 'User' . Str::random(6);
-            
+            $name = $socialUser->getName() ?: 'User'.Str::random(6);
+
             // Check if name already exists and make it unique
             $originalName = $name;
             $counter = 1;
             while (User::where('name', $name)->exists()) {
-                $name = $originalName . $counter;
+                $name = $originalName.$counter;
                 $counter++;
             }
 
@@ -229,12 +230,12 @@ class SocialAuthService
      */
     public function revokeSocialAuth(User $user): bool
     {
-        if (!$user->provider) {
+        if (! $user->provider) {
             return false;
         }
 
         // Check if user has a password set (can't unlink if no alternative auth)
-        if (!$user->password || $user->password === bcrypt(Str::random(32))) {
+        if (! $user->password || $user->password === bcrypt(Str::random(32))) {
             throw new \Exception('Cannot unlink social account without setting a password first');
         }
 
@@ -260,7 +261,7 @@ class SocialAuthService
      */
     public function refreshToken(User $user): ?string
     {
-        if (!$user->provider || !$user->provider_refresh_token) {
+        if (! $user->provider || ! $user->provider_refresh_token) {
             return null;
         }
 
@@ -282,6 +283,7 @@ class SocialAuthService
                 'provider' => $user->provider,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }

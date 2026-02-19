@@ -49,6 +49,7 @@ class CartService
         if (isset($cart[$itemId])) {
             unset($cart[$itemId]);
             $this->saveCart($cart);
+
             return true;
         }
 
@@ -69,6 +70,7 @@ class CartService
 
             $cart[$itemId]['quantity'] = $quantity;
             $this->saveCart($cart);
+
             return true;
         }
 
@@ -81,15 +83,15 @@ class CartService
     public function getCart($user = null): array
     {
         $cart = session($this->cartKey, []);
-        
+
         // Return with count for backward compatibility with tests
         if ($user !== null) {
             return [
                 'items' => $cart,
-                'count' => $this->getItemCount()
+                'count' => $this->getItemCount(),
             ];
         }
-        
+
         return $cart;
     }
 
@@ -173,6 +175,7 @@ class CartService
     private function generateItemId(Product $product, array $options = []): string
     {
         $optionsHash = md5(serialize($options));
+
         return "product_{$product->id}_{$optionsHash}";
     }
 

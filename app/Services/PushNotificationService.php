@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\DeviceToken;
 use App\Models\User;
 use App\Services\Monitoring\HttpClientFactory;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class PushNotificationService
@@ -26,6 +25,7 @@ class PushNotificationService
 
         if (empty($tokens)) {
             Log::info("No active device tokens found for user {$user->id}");
+
             return false;
         }
 
@@ -49,6 +49,7 @@ class PushNotificationService
 
         if (empty($tokens)) {
             Log::info('No active device tokens found for provided users');
+
             return false;
         }
 
@@ -74,7 +75,7 @@ class PushNotificationService
         $success = true;
 
         foreach ($chunks as $chunk) {
-            if (!$this->sendExpoNotification($chunk, $title, $body, $data, $options)) {
+            if (! $this->sendExpoNotification($chunk, $title, $body, $data, $options)) {
                 $success = false;
             }
         }
@@ -158,7 +159,7 @@ class PushNotificationService
         foreach ($tickets as $index => $ticket) {
             $token = $tokens[$index] ?? null;
 
-            if (!$token) {
+            if (! $token) {
                 continue;
             }
 
@@ -166,7 +167,7 @@ class PushNotificationService
                 $error = $ticket['details']['error'] ?? 'unknown';
 
                 Log::warning('Push notification failed for token', [
-                    'token' => substr($token, 0, 20) . '...',
+                    'token' => substr($token, 0, 20).'...',
                     'error' => $error,
                 ]);
 

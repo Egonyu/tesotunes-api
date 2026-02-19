@@ -8,9 +8,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * ArtistRevenue Model
- * 
+ *
  * Tracks all revenue earned by artists.
- * 
+ *
  * Database columns:
  * - id, artist_id, revenue_type, revenue_source_type, revenue_source_id,
  *   amount_ugx, amount_usd, currency, platform_fee, net_amount,
@@ -44,14 +44,20 @@ class ArtistRevenue extends Model
 
     // Type constants
     const TYPE_STREAM = 'stream';
+
     const TYPE_DOWNLOAD = 'download';
+
     const TYPE_DISTRIBUTION = 'distribution';
+
     const TYPE_TIP = 'tip';
+
     const TYPE_SALE = 'sale';
 
     // Status constants
     const STATUS_PENDING = 'pending';
+
     const STATUS_CONFIRMED = 'confirmed';
+
     const STATUS_PAID = 'paid';
 
     // Relationships
@@ -71,7 +77,7 @@ class ArtistRevenue extends Model
     // Helper Methods
     public function getRevenueTypeDisplayAttribute(): string
     {
-        return match($this->revenue_type) {
+        return match ($this->revenue_type) {
             'stream' => 'Streaming Revenue',
             'download' => 'Download',
             'distribution' => 'Platform Distribution',
@@ -83,7 +89,7 @@ class ArtistRevenue extends Model
 
     public function getFormattedAmountAttribute(): string
     {
-        return 'UGX ' . number_format($this->net_amount, 0);
+        return 'UGX '.number_format($this->net_amount, 0);
     }
 
     public function isPaid(): bool
@@ -115,13 +121,13 @@ class ArtistRevenue extends Model
     public function scopeThisMonth($query)
     {
         return $query->whereMonth('revenue_date', now()->month)
-                     ->whereYear('revenue_date', now()->year);
+            ->whereYear('revenue_date', now()->year);
     }
 
     public function scopeLastMonth($query)
     {
         return $query->whereMonth('revenue_date', now()->subMonth()->month)
-                     ->whereYear('revenue_date', now()->subMonth()->year);
+            ->whereYear('revenue_date', now()->subMonth()->year);
     }
 
     public function scopeThisWeek($query)

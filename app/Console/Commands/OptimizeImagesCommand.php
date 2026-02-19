@@ -51,15 +51,16 @@ class OptimizeImagesCommand extends Command
         };
 
         // Filter unoptimized or all if force
-        if (!$force) {
+        if (! $force) {
             $query->where('images_optimized', false)
-                  ->orWhereNull('images_optimized');
+                ->orWhereNull('images_optimized');
         }
 
         $total = $query->count();
-        
+
         if ($total === 0) {
             $this->info('No images to optimize!');
+
             return Command::SUCCESS;
         }
 
@@ -68,7 +69,7 @@ class OptimizeImagesCommand extends Command
 
         $progressBar = $this->output->createProgressBar($total);
         $progressBar->setFormat('verbose');
-        
+
         $processed = 0;
         $errors = 0;
 
@@ -76,11 +77,12 @@ class OptimizeImagesCommand extends Command
             foreach ($records as $record) {
                 try {
                     $imagePath = $record->{$field};
-                    
-                    if (!$imagePath || !Storage::exists($imagePath)) {
+
+                    if (! $imagePath || ! Storage::exists($imagePath)) {
                         $this->warn("\nSkipping {$record->id}: No image found");
                         $errors++;
                         $progressBar->advance();
+
                         continue;
                     }
 
@@ -97,7 +99,7 @@ class OptimizeImagesCommand extends Command
 
                     $processed++;
                 } catch (\Exception $e) {
-                    $this->error("\nError processing {$record->id}: " . $e->getMessage());
+                    $this->error("\nError processing {$record->id}: ".$e->getMessage());
                     $errors++;
                 }
 
@@ -109,14 +111,14 @@ class OptimizeImagesCommand extends Command
         $this->newLine(2);
 
         // Summary
-        $this->info("✅ Optimization complete!");
+        $this->info('✅ Optimization complete!');
         $this->table(
             ['Metric', 'Count'],
             [
                 ['Total Records', $total],
                 ['Successfully Processed', $processed],
                 ['Errors', $errors],
-                ['Success Rate', round(($processed / $total) * 100, 2) . '%'],
+                ['Success Rate', round(($processed / $total) * 100, 2).'%'],
             ]
         );
 

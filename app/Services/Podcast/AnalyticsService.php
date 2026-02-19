@@ -3,12 +3,12 @@
 namespace App\Services\Podcast;
 
 use App\Models\Podcast;
+use App\Models\PodcastDownload;
 use App\Models\PodcastEpisode;
 use App\Models\PodcastListen;
-use App\Models\PodcastDownload;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class AnalyticsService
 {
@@ -221,7 +221,7 @@ class AnalyticsService
         }
 
         $limit = config('podcast.freemium.free_episode_limit_per_month', 5);
-        
+
         $listenedCount = PodcastListen::where('user_id', $user->id)
             ->whereMonth('listened_at', now()->month)
             ->whereYear('listened_at', now()->year)

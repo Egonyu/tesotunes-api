@@ -42,6 +42,7 @@ class CreateSuperAdmin extends Command
 
         if ($validator->fails()) {
             $this->error('Invalid email address.');
+
             return 1;
         }
 
@@ -51,7 +52,7 @@ class CreateSuperAdmin extends Command
         if ($user) {
             // Update existing user
             $this->info("User found: {$user->name} ({$user->email})");
-            
+
             $updates = [
                 'role' => 'super_admin',
                 'status' => 'active',
@@ -65,7 +66,7 @@ class CreateSuperAdmin extends Command
 
             if ($this->confirm('Update this user to super admin?', true)) {
                 $user->update($updates);
-                
+
                 // Assign role if using role package
                 if (method_exists($user, 'syncRoles')) {
                     $user->syncRoles(['super_admin']);
@@ -87,24 +88,26 @@ class CreateSuperAdmin extends Command
                 return 0;
             } else {
                 $this->warn('Operation cancelled.');
+
                 return 1;
             }
         } else {
             // Create new user
-            if (!$password) {
+            if (! $password) {
                 $password = $this->secret('Enter password for new user');
-                
-                if (!$password) {
+
+                if (! $password) {
                     $this->error('Password is required for new users.');
+
                     return 1;
                 }
             }
 
-            if (!$name) {
+            if (! $name) {
                 $name = $this->ask('Enter name for new user', 'Super Admin');
             }
 
-            $this->info("Creating new super admin user...");
+            $this->info('Creating new super admin user...');
 
             if ($this->confirm('Create new super admin user?', true)) {
                 $user = User::create([
@@ -137,6 +140,7 @@ class CreateSuperAdmin extends Command
                 return 0;
             } else {
                 $this->warn('Operation cancelled.');
+
                 return 1;
             }
         }

@@ -12,7 +12,9 @@ class RefundNotification extends Notification implements ShouldQueue
     use Queueable;
 
     protected $order;
+
     protected float $amount;
+
     protected ?string $reason;
 
     /**
@@ -52,8 +54,8 @@ class RefundNotification extends Notification implements ShouldQueue
         }
 
         $mail->line('The refund will be credited to your original payment method within 3-5 business days.')
-             ->action('View Order Details', url("/store/orders/{$this->order->id}"))
-             ->line('If you have any questions, please contact our support team.');
+            ->action('View Order Details', url("/store/orders/{$this->order->id}"))
+            ->line('If you have any questions, please contact our support team.');
 
         return $mail->line('Thank you for your patience!');
     }
@@ -67,7 +69,7 @@ class RefundNotification extends Notification implements ShouldQueue
             'type' => 'refund',
             'icon' => '💰',
             'title' => 'Refund Processed',
-            'message' => "A refund of UGX " . number_format($this->amount) . " has been processed for order #{$this->order->order_number}.",
+            'message' => 'A refund of UGX '.number_format($this->amount)." has been processed for order #{$this->order->order_number}.",
             'order_id' => $this->order->id,
             'order_number' => $this->order->order_number ?? $this->order->id,
             'amount' => $this->amount,

@@ -2,13 +2,13 @@
 
 namespace App\Services\Podcast;
 
+use App\Events\Podcast\NewPodcastPublished;
 use App\Models\Podcast;
 use App\Models\User;
-use App\Events\Podcast\NewPodcastPublished;
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class PodcastService
 {
@@ -26,12 +26,12 @@ class PodcastService
             } else {
                 // Check if artist exists (in case it was just created)
                 $artist = \App\Models\Artist::where('user_id', $user->id)->first();
-                if (!$artist) {
+                if (! $artist) {
                     // Create an artist for the user if they don't have one
                     $artist = \App\Models\Artist::create([
                         'user_id' => $user->id,
                         'stage_name' => $user->name,
-                        'slug' => \Illuminate\Support\Str::slug($user->name) . '-' . $user->id,
+                        'slug' => \Illuminate\Support\Str::slug($user->name).'-'.$user->id,
                     ]);
                 }
                 $artistId = $artist->id;
@@ -39,13 +39,13 @@ class PodcastService
 
             // Generate UUID if not provided
             $uuid = $data['uuid'] ?? (string) Str::uuid();
-            
+
             // Generate author name
             $authorName = $data['author_name'] ?? $user->name;
-            
+
             // Generate copyright
-            $copyright = $data['copyright'] ?? '© ' . now()->year . ' ' . $authorName;
-            
+            $copyright = $data['copyright'] ?? '© '.now()->year.' '.$authorName;
+
             // Generate RSS feed URL
             $rssFeedUrl = $data['rss_feed_url'] ?? url("/podcasts/rss/{$uuid}");
 
@@ -202,7 +202,7 @@ class PodcastService
         $counter = 1;
 
         while ($this->slugExists($slug, $id)) {
-            $slug = $originalSlug . '-' . $counter;
+            $slug = $originalSlug.'-'.$counter;
             $counter++;
         }
 
@@ -242,7 +242,7 @@ class PodcastService
         $builder = Podcast::published()
             ->where(function ($q) use ($query) {
                 $q->where('title', 'LIKE', "%{$query}%")
-                  ->orWhere('description', 'LIKE', "%{$query}%");
+                    ->orWhere('description', 'LIKE', "%{$query}%");
             });
 
         if ($categoryId) {

@@ -15,13 +15,13 @@ class SaccoEnabled
      */
     public function handle(Request $request, Closure $next): Response
     {
-        if (!config('sacco.enabled', false)) {
+        if (! config('sacco.enabled', false)) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'SACCO module is currently disabled.',
                     'error' => 'MODULE_DISABLED',
-                    'code' => 503
+                    'code' => 503,
                 ], 503);
             }
 

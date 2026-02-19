@@ -2,20 +2,18 @@
 
 namespace App\Services\Music;
 
-use App\Models\Song;
 use App\Models\Artist;
+use App\Models\Song;
 use App\Models\User;
-use App\Models\MusicUpload;
 use App\Services\MusicStorageService;
-use App\Services\Music\ISRCService;
+use Exception;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Exception;
 
 /**
  * Song Upload Service
- * 
+ *
  * Handles the complete song upload workflow including:
  * - File validation and storage
  * - Audio processing and transcoding
@@ -26,7 +24,9 @@ use Exception;
 class SongUploadService
 {
     protected MusicStorageService $storageService;
+
     protected ISRCService $isrcService;
+
     protected AudioProcessingService $audioProcessor;
 
     public function __construct(
@@ -41,11 +41,12 @@ class SongUploadService
 
     /**
      * Process complete song upload
-     * 
-     * @param UploadedFile $file Audio file
-     * @param array $metadata Song metadata
-     * @param User $user Uploading user
+     *
+     * @param  UploadedFile  $file  Audio file
+     * @param  array  $metadata  Song metadata
+     * @param  User  $user  Uploading user
      * @return Song Created song model
+     *
      * @throws Exception
      */
     public function processUpload(UploadedFile $file, array $metadata, User $user): Song
@@ -94,7 +95,7 @@ class SongUploadService
 
         } catch (Exception $e) {
             DB::rollBack();
-            
+
             // Cleanup uploaded files on error
             if (isset($audioResult)) {
                 $this->storageService->deleteFile($audioResult['storage_path']);
@@ -106,7 +107,7 @@ class SongUploadService
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            throw new Exception('Song upload failed: ' . $e->getMessage());
+            throw new Exception('Song upload failed: '.$e->getMessage());
         }
     }
 
@@ -115,12 +116,12 @@ class SongUploadService
      */
     protected function validateUserCanUpload(User $user): void
     {
-        if (!$user->hasRole(['artist', 'admin', 'super_admin'])) {
+        if (! $user->hasRole(['artist', 'admin', 'super_admin'])) {
             throw new Exception('You must be an artist to upload music');
         }
 
         // Check if user has reached upload limit (if applicable)
-        if (!$user->hasActiveSubscription()) {
+        if (! $user->hasActiveSubscription()) {
             $uploadCount = Song::where('user_id', $user->id)
                 ->whereDate('created_at', today())
                 ->count();
@@ -145,7 +146,7 @@ class SongUploadService
             'audio/aac',
         ]);
 
-        if (!in_array($file->getMimeType(), $allowedMimes)) {
+        if (! in_array($file->getMimeType(), $allowedMimes)) {
             throw new Exception('Invalid audio file format. Supported formats: MP3, WAV, FLAC, AAC');
         }
 
@@ -170,7 +171,7 @@ class SongUploadService
     {
         $artist = $user->artist ?? Artist::where('user_id', $user->id)->first();
 
-        if (!$artist) {
+        if (! $artist) {
             throw new Exception('Please complete your artist profile before uploading music');
         }
 
@@ -189,8 +190,8 @@ class SongUploadService
             MusicStorageService::ACCESS_PRIVATE
         );
 
-        if (!$result['success']) {
-            throw new Exception('Failed to store audio file: ' . $result['error']);
+        if (! $result['success']) {
+            throw new Exception('Failed to store audio file: '.$result['error']);
         }
 
         return $result;
@@ -218,7 +219,7 @@ class SongUploadService
         $slug = $this->generateUniqueSlug($metadata['title'], $artist);
 
         // Determine status based on publish type
-        $status = match($metadata['publish_type'] ?? 'draft') {
+        $status = match ($metadata['publish_type'] ?? 'draft') {
             'now' => 'published',
             'schedule' => 'scheduled',
             default => 'draft',
@@ -298,12 +299,12 @@ class SongUploadService
 
         if ($artworkResult['success']) {
             $song->update([
-                'artwork' => $artworkResult['storage_path'] ?? $artworkResult['storage']['path'] ?? null
+                'artwork' => $artworkResult['storage_path'] ?? $artworkResult['storage']['path'] ?? null,
             ]);
         } else {
             \Log::warning('Artwork upload failed for song', [
                 'song_id' => $song->id,
-                'error' => $artworkResult['error']
+                'error' => $artworkResult['error'],
             ]);
         }
     }
@@ -319,7 +320,7 @@ class SongUploadService
 
             \Log::info('ISRC generated', [
                 'song_id' => $song->id,
-                'isrc_code' => $isrcCode
+                'isrc_code' => $isrcCode,
             ]);
         }
     }
@@ -332,7 +333,7 @@ class SongUploadService
         // High priority: Transcode to multiple bitrates
         \App\Jobs\TranscodeSongJob::dispatch($song, '320kbps')->onQueue('high');
         \App\Jobs\TranscodeSongJob::dispatch($song, '128kbps')->onQueue('high');
-        
+
         // High priority: Generate preview clip (30 seconds)
         \App\Jobs\GeneratePreviewJob::dispatch($song)->onQueue('high');
 
@@ -348,12 +349,12 @@ class SongUploadService
      */
     protected function generateUniqueSlug(string $title, Artist $artist): string
     {
-        $baseSlug = Str::slug($title . '-' . $artist->name);
+        $baseSlug = Str::slug($title.'-'.$artist->name);
         $slug = $baseSlug;
         $counter = 1;
 
         while (Song::where('slug', $slug)->exists()) {
-            $slug = $baseSlug . '-' . $counter;
+            $slug = $baseSlug.'-'.$counter;
             $counter++;
         }
 
@@ -362,9 +363,8 @@ class SongUploadService
 
     /**
      * Create upload record for tracking
-     * 
-     * @param array $data Upload data
-     * @return \App\Models\MusicUpload
+     *
+     * @param  array  $data  Upload data
      */
     public function createUploadRecord(array $data): \App\Models\MusicUpload
     {

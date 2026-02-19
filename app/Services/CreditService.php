@@ -2,12 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\User;
-use App\Models\UserCredit;
-use App\Models\CreditTransaction;
-use App\Models\UserActivityCredit;
 use App\Models\CreditRate;
-use Carbon\Carbon;
+use App\Models\CreditTransaction;
+use App\Models\User;
+use App\Models\UserActivityCredit;
+use App\Models\UserCredit;
 
 class CreditService
 {
@@ -68,7 +67,7 @@ class CreditService
 
         return $this->awardCredits($user, $credits, $source, 'Listened to music', [
             'song_id' => $songId,
-            'duration' => $listenDurationSeconds
+            'duration' => $listenDurationSeconds,
         ]);
     }
 
@@ -90,7 +89,7 @@ class CreditService
 
         return $this->awardCredits($user, $credits, $source, $description, [
             'action' => $action,
-            'target_id' => $targetId
+            'target_id' => $targetId,
         ]);
     }
 
@@ -126,11 +125,11 @@ class CreditService
             'activity_type' => $source,
             'activity_date' => $today,
             'credits_earned' => $credits,
-            'activity_data' => ['streak_days' => $streakDays]
+            'activity_data' => ['streak_days' => $streakDays],
         ]);
 
         return $this->awardCredits($user, $credits, $source, 'Daily login bonus', [
-            'streak_days' => $streakDays
+            'streak_days' => $streakDays,
         ]);
     }
 
@@ -145,12 +144,12 @@ class CreditService
         // Award to referrer
         $transaction = $this->awardCredits($referrer, $credits, $source, 'Friend referral bonus', [
             'referred_user_id' => $newUser->id,
-            'referred_user_name' => $newUser->name
+            'referred_user_name' => $newUser->name,
         ]);
 
         // Award welcome bonus to new user
         $this->awardCredits($newUser, $credits * 0.5, 'welcome_bonus', 'Welcome to the platform!', [
-            'referrer_id' => $referrer->id
+            'referrer_id' => $referrer->id,
         ]);
 
         return $transaction;
@@ -163,14 +162,14 @@ class CreditService
     {
         $wallet = $this->getUserWallet($user);
 
-        if (!$wallet->hasMinimumBalance($amount)) {
+        if (! $wallet->hasMinimumBalance($amount)) {
             return null;
         }
 
         return $wallet->spendCredits(
             $amount,
-            'promotion_' . $promotionType,
-            'Community promotion: ' . ucfirst(str_replace('_', ' ', $promotionType)),
+            'promotion_'.$promotionType,
+            'Community promotion: '.ucfirst(str_replace('_', ' ', $promotionType)),
             $metadata
         );
     }
@@ -181,6 +180,7 @@ class CreditService
     public function transferCredits(User $from, User $to, float $amount, string $description = ''): ?array
     {
         $fromWallet = $this->getUserWallet($from);
+
         return $fromWallet->transferCredits($to, $amount, $description ?: 'Credit transfer');
     }
 
@@ -198,6 +198,7 @@ class CreditService
     public function getBalance(User $user): float
     {
         $wallet = $this->getUserWallet($user);
+
         return $wallet->available_credits ?? 0;
     }
 
@@ -274,7 +275,7 @@ class CreditService
                 'description' => 'Get mentioned by popular artists',
                 'cost' => 25,
                 'benefit' => 'Social media mention + increased followers',
-                'available' => true
+                'available' => true,
             ];
         }
 
@@ -286,7 +287,7 @@ class CreditService
                 'description' => 'Get your music featured in popular playlists',
                 'cost' => 15,
                 'benefit' => 'Increased plays + discovery',
-                'available' => true
+                'available' => true,
             ];
         }
 
@@ -298,7 +299,7 @@ class CreditService
                 'description' => 'Boost your profile visibility for 24 hours',
                 'cost' => 20,
                 'benefit' => 'Increased profile views + followers',
-                'available' => true
+                'available' => true,
             ];
         }
 
@@ -309,6 +310,7 @@ class CreditService
     private function awardCredits(User $user, float $amount, string $source, string $description, array $metadata = []): CreditTransaction
     {
         $wallet = $this->getUserWallet($user);
+
         return $wallet->addCredits($amount, $source, $description, $metadata);
     }
 
@@ -324,8 +326,8 @@ class CreditService
     private function getRate(string $activity): float
     {
         return CreditRate::where('action', $activity)
-                         ->where('is_active', true)
-                         ->value('credits_earned') ?? (self::BASE_RATES[$activity] ?? 1.0);
+            ->where('is_active', true)
+            ->value('credits_earned') ?? (self::BASE_RATES[$activity] ?? 1.0);
     }
 
     private function getLoginStreak(User $user): int
@@ -406,7 +408,7 @@ class CreditService
 
     private function getMilestoneReward(int $milestone): string
     {
-        return match($milestone) {
+        return match ($milestone) {
             100 => 'Profile badge + 10 bonus credits',
             500 => 'Custom theme + 25 bonus credits',
             1000 => 'Priority support + 50 bonus credits',
@@ -419,7 +421,7 @@ class CreditService
 
     private function getSocialActionDescription(string $action): string
     {
-        return match($action) {
+        return match ($action) {
             'song_like' => 'Liked a song',
             'song_share' => 'Shared a song',
             'playlist_create' => 'Created a playlist',
@@ -452,8 +454,8 @@ class CreditService
             CreditRate::firstOrCreate(
                 ['action' => $activity],
                 [
-                    'credits_earned' => (int)$rate,
-                    'daily_limit' => $dailyLimit ? (int)$dailyLimit : null,
+                    'credits_earned' => (int) $rate,
+                    'daily_limit' => $dailyLimit ? (int) $dailyLimit : null,
                     'is_active' => true,
                 ]
             );
@@ -628,7 +630,7 @@ class CreditService
     {
         $result = $this->awardDailyLoginBonus($user);
 
-        if (!$result) {
+        if (! $result) {
             throw new \Exception('Daily bonus already claimed today');
         }
 

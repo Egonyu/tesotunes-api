@@ -24,7 +24,7 @@ class ApiRateLimitMiddleware
             return response()->json([
                 'success' => false,
                 'message' => 'Too many attempts. Please try again later.',
-                'retry_after' => $retryAfter
+                'retry_after' => $retryAfter,
             ], 429)->header('Retry-After', $retryAfter);
         }
 
@@ -36,11 +36,12 @@ class ApiRateLimitMiddleware
         if (method_exists($response, 'header')) {
             // JsonResponse and regular responses
             return $response->header('X-RateLimit-Limit', $maxAttempts)
-                           ->header('X-RateLimit-Remaining', RateLimiter::remaining($key, $maxAttempts));
+                ->header('X-RateLimit-Remaining', RateLimiter::remaining($key, $maxAttempts));
         } else {
             // BinaryFileResponse and other Symfony responses
             $response->headers->set('X-RateLimit-Limit', $maxAttempts);
             $response->headers->set('X-RateLimit-Remaining', RateLimiter::remaining($key, $maxAttempts));
+
             return $response;
         }
     }
@@ -54,6 +55,6 @@ class ApiRateLimitMiddleware
         $ip = $request->ip();
         $route = $request->route()?->getName() ?? $request->path();
 
-        return sha1($userId . '|' . $ip . '|' . $route);
+        return sha1($userId.'|'.$ip.'|'.$route);
     }
 }

@@ -92,7 +92,7 @@ class MusicUpload extends Model
     ];
 
     // Relationships
-    
+
     public function song(): BelongsTo
     {
         return $this->belongsTo(Song::class);
@@ -141,7 +141,7 @@ class MusicUpload extends Model
 
     public function needsReview(): bool
     {
-        return $this->processing_status === 'processed' && !$this->reviewed_at;
+        return $this->processing_status === 'processed' && ! $this->reviewed_at;
     }
 
     public function getFormattedFileSizeAttribute(): string
@@ -149,19 +149,19 @@ class MusicUpload extends Model
         $bytes = $this->file_size_bytes;
 
         if ($bytes >= 1073741824) {
-            return round($bytes / 1073741824, 2) . ' GB';
+            return round($bytes / 1073741824, 2).' GB';
         } elseif ($bytes >= 1048576) {
-            return round($bytes / 1048576, 2) . ' MB';
+            return round($bytes / 1048576, 2).' MB';
         } elseif ($bytes >= 1024) {
-            return round($bytes / 1024, 2) . ' KB';
+            return round($bytes / 1024, 2).' KB';
         }
 
-        return $bytes . ' bytes';
+        return $bytes.' bytes';
     }
 
     public function getFormattedDurationAttribute(): string
     {
-        if (!$this->duration_seconds) {
+        if (! $this->duration_seconds) {
             return 'Unknown';
         }
 
@@ -173,30 +173,39 @@ class MusicUpload extends Model
 
     public function getBitrateDisplayAttribute(): string
     {
-        return $this->bitrate ? $this->bitrate . ' kbps' : 'Unknown';
+        return $this->bitrate ? $this->bitrate.' kbps' : 'Unknown';
     }
 
     public function getSampleRateDisplayAttribute(): string
     {
-        return $this->sample_rate ? number_format($this->sample_rate) . ' Hz' : 'Unknown';
+        return $this->sample_rate ? number_format($this->sample_rate).' Hz' : 'Unknown';
     }
 
     public function getAudioQualityDisplayAttribute(): string
     {
-        if (!$this->audio_quality_score) {
+        if (! $this->audio_quality_score) {
             return 'Not analyzed';
         }
 
-        if ($this->audio_quality_score >= 90) return 'Excellent';
-        if ($this->audio_quality_score >= 80) return 'Very Good';
-        if ($this->audio_quality_score >= 70) return 'Good';
-        if ($this->audio_quality_score >= 60) return 'Fair';
+        if ($this->audio_quality_score >= 90) {
+            return 'Excellent';
+        }
+        if ($this->audio_quality_score >= 80) {
+            return 'Very Good';
+        }
+        if ($this->audio_quality_score >= 70) {
+            return 'Good';
+        }
+        if ($this->audio_quality_score >= 60) {
+            return 'Fair';
+        }
+
         return 'Poor';
     }
 
     public function getProcessingStatusBadgeAttribute(): string
     {
-        return match($this->processing_status) {
+        return match ($this->processing_status) {
             'uploaded' => '⏳ Uploaded',
             'processing' => '🔄 Processing',
             'processed' => '✅ Processed',
@@ -209,17 +218,17 @@ class MusicUpload extends Model
 
     public function hasAudioIssues(): bool
     {
-        return !empty($this->audio_issues);
+        return ! empty($this->audio_issues);
     }
 
     public function getAudioIssuesDisplayAttribute(): array
     {
-        if (!$this->audio_issues) {
+        if (! $this->audio_issues) {
             return [];
         }
 
         return array_map(function ($issue) {
-            return match($issue) {
+            return match ($issue) {
                 'clipping' => 'Audio clipping detected',
                 'noise' => 'Background noise detected',
                 'low_volume' => 'Low volume levels',
@@ -236,7 +245,7 @@ class MusicUpload extends Model
     {
         return $this->isProcessed() &&
                $this->ready_for_distribution &&
-               !$this->hasAudioIssues();
+               ! $this->hasAudioIssues();
     }
 
     public function getFileUrl(): string
@@ -264,7 +273,7 @@ class MusicUpload extends Model
         }
     }
 
-    public function approve(User $reviewer, string $notes = null): void
+    public function approve(User $reviewer, ?string $notes = null): void
     {
         $this->update([
             'processing_status' => 'approved',
@@ -290,7 +299,7 @@ class MusicUpload extends Model
     public function scopePendingReview($query)
     {
         return $query->where('processing_status', 'processed')
-                    ->whereNull('reviewed_at');
+            ->whereNull('reviewed_at');
     }
 
     public function scopeApproved($query)
@@ -321,7 +330,7 @@ class MusicUpload extends Model
     public function scopeWithAudioIssues($query)
     {
         return $query->whereNotNull('audio_issues')
-                    ->where('audio_issues', '!=', '[]');
+            ->where('audio_issues', '!=', '[]');
     }
 
     public function scopeHighQuality($query)
@@ -347,7 +356,7 @@ class MusicUpload extends Model
     // Static Methods
     public static function generateBatchId(): string
     {
-        return 'batch_' . now()->format('Ymd_His') . '_' . uniqid();
+        return 'batch_'.now()->format('Ymd_His').'_'.uniqid();
     }
 
     public static function getSupportedFormats(): array

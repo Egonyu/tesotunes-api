@@ -3,8 +3,8 @@
 namespace App\Services\Settings;
 
 use App\Models\Setting;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
 
 class AuthenticationSettingsService
 {
@@ -87,11 +87,11 @@ class AuthenticationSettingsService
     {
         try {
             if (isset($data['two_factor_enabled'])) {
-                Setting::set('auth_two_factor_enabled', (bool)$data['two_factor_enabled'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
+                Setting::set('auth_two_factor_enabled', (bool) $data['two_factor_enabled'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
             }
 
             if (isset($data['password_min_length'])) {
-                $length = (int)$data['password_min_length'];
+                $length = (int) $data['password_min_length'];
                 if ($length < 6 || $length > 32) {
                     throw new \InvalidArgumentException('Password minimum length must be between 6-32 characters');
                 }
@@ -99,28 +99,28 @@ class AuthenticationSettingsService
             }
 
             if (isset($data['password_require_special_char'])) {
-                Setting::set('auth_password_require_special_char', (bool)$data['password_require_special_char'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
+                Setting::set('auth_password_require_special_char', (bool) $data['password_require_special_char'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
             }
 
             if (isset($data['password_require_number'])) {
-                Setting::set('auth_password_require_number', (bool)$data['password_require_number'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
+                Setting::set('auth_password_require_number', (bool) $data['password_require_number'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
             }
 
             if (isset($data['password_require_uppercase'])) {
-                Setting::set('auth_password_require_uppercase', (bool)$data['password_require_uppercase'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
+                Setting::set('auth_password_require_uppercase', (bool) $data['password_require_uppercase'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
             }
 
             if (isset($data['session_lifetime'])) {
-                $lifetime = (int)$data['session_lifetime'];
+                $lifetime = (int) $data['session_lifetime'];
                 if ($lifetime < 1 || $lifetime > 1440) {
                     throw new \InvalidArgumentException('Session lifetime must be between 1-1440 minutes');
                 }
                 Setting::set('auth_session_lifetime', $lifetime, Setting::TYPE_NUMBER, Setting::GROUP_AUTHENTICATION);
-                $this->updateEnvFile('SESSION_LIFETIME', (string)$lifetime);
+                $this->updateEnvFile('SESSION_LIFETIME', (string) $lifetime);
             }
 
             if (isset($data['remember_me_enabled'])) {
-                Setting::set('auth_remember_me_enabled', (bool)$data['remember_me_enabled'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
+                Setting::set('auth_remember_me_enabled', (bool) $data['remember_me_enabled'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
             }
 
             // Clear cache
@@ -131,8 +131,9 @@ class AuthenticationSettingsService
         } catch (\Exception $e) {
             \Log::error('General authentication settings update failed', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return false;
         }
     }
@@ -144,15 +145,15 @@ class AuthenticationSettingsService
     {
         try {
             if (isset($data['email_login_enabled'])) {
-                Setting::set('auth_email_login_enabled', (bool)$data['email_login_enabled'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
+                Setting::set('auth_email_login_enabled', (bool) $data['email_login_enabled'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
             }
 
             if (isset($data['phone_login_enabled'])) {
-                Setting::set('auth_phone_login_enabled', (bool)$data['phone_login_enabled'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
+                Setting::set('auth_phone_login_enabled', (bool) $data['phone_login_enabled'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
             }
 
             if (isset($data['max_login_attempts'])) {
-                $attempts = (int)$data['max_login_attempts'];
+                $attempts = (int) $data['max_login_attempts'];
                 if ($attempts < 1 || $attempts > 20) {
                     throw new \InvalidArgumentException('Max login attempts must be between 1-20');
                 }
@@ -160,7 +161,7 @@ class AuthenticationSettingsService
             }
 
             if (isset($data['lockout_duration'])) {
-                $duration = (int)$data['lockout_duration'];
+                $duration = (int) $data['lockout_duration'];
                 if ($duration < 1 || $duration > 1440) {
                     throw new \InvalidArgumentException('Lockout duration must be between 1-1440 minutes');
                 }
@@ -168,7 +169,7 @@ class AuthenticationSettingsService
             }
 
             if (isset($data['require_email_verification'])) {
-                Setting::set('auth_require_email_verification', (bool)$data['require_email_verification'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
+                Setting::set('auth_require_email_verification', (bool) $data['require_email_verification'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
             }
 
             // Clear cache
@@ -179,8 +180,9 @@ class AuthenticationSettingsService
         } catch (\Exception $e) {
             \Log::error('User login settings update failed', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return false;
         }
     }
@@ -192,15 +194,15 @@ class AuthenticationSettingsService
     {
         try {
             if (isset($data['artist_verification_required'])) {
-                Setting::set('auth_artist_verification_required', (bool)$data['artist_verification_required'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
+                Setting::set('auth_artist_verification_required', (bool) $data['artist_verification_required'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
             }
 
             if (isset($data['artist_approval_required'])) {
-                Setting::set('auth_artist_approval_required', (bool)$data['artist_approval_required'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
+                Setting::set('auth_artist_approval_required', (bool) $data['artist_approval_required'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
             }
 
             if (isset($data['artist_kyc_required'])) {
-                Setting::set('auth_artist_kyc_required', (bool)$data['artist_kyc_required'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
+                Setting::set('auth_artist_kyc_required', (bool) $data['artist_kyc_required'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
             }
 
             // Clear cache
@@ -211,8 +213,9 @@ class AuthenticationSettingsService
         } catch (\Exception $e) {
             \Log::error('Artist login settings update failed', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return false;
         }
     }
@@ -224,15 +227,15 @@ class AuthenticationSettingsService
     {
         try {
             if (isset($data['google_login_enabled'])) {
-                Setting::set('auth_google_login_enabled', (bool)$data['google_login_enabled'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
+                Setting::set('auth_google_login_enabled', (bool) $data['google_login_enabled'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
             }
 
             if (isset($data['facebook_login_enabled'])) {
-                Setting::set('auth_facebook_login_enabled', (bool)$data['facebook_login_enabled'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
+                Setting::set('auth_facebook_login_enabled', (bool) $data['facebook_login_enabled'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
             }
 
             if (isset($data['twitter_login_enabled'])) {
-                Setting::set('auth_twitter_login_enabled', (bool)$data['twitter_login_enabled'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
+                Setting::set('auth_twitter_login_enabled', (bool) $data['twitter_login_enabled'], Setting::TYPE_BOOLEAN, Setting::GROUP_AUTHENTICATION);
             }
 
             if (isset($data['google_client_id'])) {
@@ -270,8 +273,9 @@ class AuthenticationSettingsService
         } catch (\Exception $e) {
             \Log::error('Social login settings update failed', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return false;
         }
     }
@@ -282,14 +286,14 @@ class AuthenticationSettingsService
     private function updateEnvFile(string $key, string $value): void
     {
         $envFile = base_path('.env');
-        
-        if (!file_exists($envFile)) {
+
+        if (! file_exists($envFile)) {
             return;
         }
-        
+
         $content = file_get_contents($envFile);
         $pattern = "/^{$key}=.*/m";
-        
+
         if (preg_match($pattern, $content)) {
             // Update existing key
             $content = preg_replace($pattern, "{$key}={$value}", $content);
@@ -297,7 +301,7 @@ class AuthenticationSettingsService
             // Add new key
             $content .= "\n{$key}={$value}";
         }
-        
+
         file_put_contents($envFile, $content);
     }
 }

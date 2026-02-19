@@ -15,6 +15,7 @@ class ScheduledArtistStatsUpdate implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $timeout = 600; // 10 minutes timeout
+
     public int $tries = 2;
 
     /**
@@ -30,13 +31,14 @@ class ScheduledArtistStatsUpdate implements ShouldQueue
 
             $staleArtistsQuery = Artist::where(function ($query) use ($staleThreshold) {
                 $query->whereNull('stats_last_updated_at')
-                      ->orWhere('stats_last_updated_at', '<', $staleThreshold);
+                    ->orWhere('stats_last_updated_at', '<', $staleThreshold);
             });
 
             $staleCount = $staleArtistsQuery->count();
 
             if ($staleCount === 0) {
                 Log::info('No artists with stale cached stats found');
+
                 return;
             }
 
@@ -59,13 +61,13 @@ class ScheduledArtistStatsUpdate implements ShouldQueue
 
             $duration = $startTime->diffInSeconds(now());
 
-            Log::info("Scheduled artist stats update completed", [
+            Log::info('Scheduled artist stats update completed', [
                 'artists_queued' => $processed,
                 'duration_seconds' => $duration,
             ]);
 
         } catch (\Exception $e) {
-            Log::error("Failed to schedule artist stats updates", [
+            Log::error('Failed to schedule artist stats updates', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
@@ -79,7 +81,7 @@ class ScheduledArtistStatsUpdate implements ShouldQueue
      */
     public function failed(\Throwable $exception): void
     {
-        Log::error("ScheduledArtistStatsUpdate job failed permanently", [
+        Log::error('ScheduledArtistStatsUpdate job failed permanently', [
             'error' => $exception->getMessage(),
         ]);
     }

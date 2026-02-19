@@ -2,8 +2,8 @@
 
 namespace Database\Factories\Modules\Forum;
 
-use App\Models\User;
 use App\Models\Modules\Forum\Poll;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class PollFactory extends Factory
@@ -16,7 +16,7 @@ class PollFactory extends Factory
             'user_id' => User::factory(),
             'pollable_type' => null,
             'pollable_id' => null,
-            'question' => $this->faker->sentence() . '?',
+            'question' => $this->faker->sentence().'?',
             'description' => $this->faker->optional()->paragraph(),
             'allow_multiple_choices' => false,
             'show_results_before_vote' => false,

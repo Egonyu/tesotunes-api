@@ -2,9 +2,9 @@
 
 namespace App\Services\Sacco;
 
-use App\Models\Sacco\SaccoMember;
 use App\Models\Sacco\SaccoAccount;
 use App\Models\Sacco\SaccoAuditLog;
+use App\Models\Sacco\SaccoMember;
 use App\Models\Sacco\SaccoSettings;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -14,9 +14,8 @@ class SaccoMembershipService
     /**
      * Register a new SACCO member
      *
-     * @param User $user
-     * @param array $data [membership_type, joined_date]
-     * @return SaccoMember
+     * @param  array  $data  [membership_type, joined_date]
+     *
      * @throws \Exception
      */
     public function registerMember(User $user, array $data = []): SaccoMember
@@ -48,9 +47,6 @@ class SaccoMembershipService
     /**
      * Approve a pending SACCO membership
      *
-     * @param SaccoMember $member
-     * @param User $admin
-     * @return void
      * @throws \Exception
      */
     public function approveMember(SaccoMember $member, User $admin): void
@@ -78,10 +74,6 @@ class SaccoMembershipService
 
     /**
      * Suspend a SACCO member
-     *
-     * @param SaccoMember $member
-     * @param string $reason
-     * @return void
      */
     public function suspendMember(SaccoMember $member, string $reason): void
     {
@@ -106,8 +98,6 @@ class SaccoMembershipService
     /**
      * Reactivate a suspended member
      *
-     * @param SaccoMember $member
-     * @return void
      * @throws \Exception
      */
     public function reactivateMember(SaccoMember $member): void
@@ -131,9 +121,6 @@ class SaccoMembershipService
 
     /**
      * Calculate comprehensive member statistics
-     *
-     * @param SaccoMember $member
-     * @return array
      */
     public function calculateMemberStats(SaccoMember $member): array
     {
@@ -177,9 +164,6 @@ class SaccoMembershipService
 
     /**
      * Create default accounts for new member
-     *
-     * @param SaccoMember $member
-     * @return void
      */
     protected function createDefaultAccounts(SaccoMember $member): void
     {
@@ -205,8 +189,6 @@ class SaccoMembershipService
 
     /**
      * Get membership statistics summary
-     *
-     * @return array
      */
     public function getMembershipSummary(): array
     {
@@ -224,7 +206,6 @@ class SaccoMembershipService
     /**
      * Validate membership eligibility
      *
-     * @param User $user
      * @return array ['eligible' => bool, 'reasons' => array]
      */
     public function checkEligibility(User $user): array
@@ -239,7 +220,7 @@ class SaccoMembershipService
         }
 
         // Check if user is verified
-        if (!$user->email_verified_at) {
+        if (! $user->email_verified_at) {
             $eligible = false;
             $reasons[] = 'Email verification required';
         }
@@ -253,7 +234,7 @@ class SaccoMembershipService
 
         // Check if user is an artist (optional requirement)
         $artistsOnly = SaccoSettings::getValue('artists_only_membership', false);
-        if ($artistsOnly && !$user->artist) {
+        if ($artistsOnly && ! $user->artist) {
             $eligible = false;
             $reasons[] = 'SACCO membership currently limited to verified artists';
         }
@@ -267,9 +248,6 @@ class SaccoMembershipService
     /**
      * Auto-create SACCO membership for users (tiered approach)
      * Phase 2: Tiered auto-enrollment implementation
-     *
-     * @param User $user
-     * @return SaccoMember|null
      */
     public function autoCreateMembership(User $user): ?SaccoMember
     {
@@ -279,7 +257,7 @@ class SaccoMembershipService
         }
 
         // Check if auto-enrollment is enabled
-        if (!config('sacco.auto_enrollment.enabled', true)) {
+        if (! config('sacco.auto_enrollment.enabled', true)) {
             return null;
         }
 
@@ -322,6 +300,7 @@ class SaccoMembershipService
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
             ]);
+
             return null;
         }
     }
@@ -329,9 +308,6 @@ class SaccoMembershipService
     /**
      * Determine membership tier based on user characteristics
      * Artists get 'associate' tier, regular users get 'regular'
-     *
-     * @param User $user
-     * @return string
      */
     protected function determineMembershipTier(User $user): string
     {
@@ -352,9 +328,6 @@ class SaccoMembershipService
     /**
      * Determine if user should be auto-approved for SACCO membership
      * Phase 2: Smart auto-approval logic
-     *
-     * @param User $user
-     * @return bool
      */
     protected function shouldAutoApprove(User $user): bool
     {
@@ -380,8 +353,6 @@ class SaccoMembershipService
     /**
      * Generate unique membership number
      * Format: SAC-YYYY-XXXXX (e.g., SAC-2025-00123)
-     *
-     * @return string
      */
     protected function generateMembershipNumber(): string
     {

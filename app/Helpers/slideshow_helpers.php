@@ -3,12 +3,12 @@
 use App\Models\Slide;
 use Illuminate\Support\Facades\Cache;
 
-if (!function_exists('getSlidesBySection')) {
+if (! function_exists('getSlidesBySection')) {
     /**
      * Get slides for a specific section
      *
-     * @param string $section Section name (home, discover, radio, etc.)
-     * @param bool $cache Whether to use cache
+     * @param  string  $section  Section name (home, discover, radio, etc.)
+     * @param  bool  $cache  Whether to use cache
      * @return \Illuminate\Database\Eloquent\Collection
      */
     function getSlidesBySection($section, $cache = true)
@@ -29,23 +29,23 @@ if (!function_exists('getSlidesBySection')) {
     }
 }
 
-if (!function_exists('getSlidesByGenre')) {
+if (! function_exists('getSlidesByGenre')) {
     /**
      * Get slides for a specific genre
      *
-     * @param int|string $genreId Genre ID or slug
-     * @param bool $cache Whether to use cache
+     * @param  int|string  $genreId  Genre ID or slug
+     * @param  bool  $cache  Whether to use cache
      * @return \Illuminate\Database\Eloquent\Collection
      */
     function getSlidesByGenre($genreId, $cache = true)
     {
         // If slug is passed, get the ID
-        if (!is_numeric($genreId)) {
+        if (! is_numeric($genreId)) {
             $genre = \App\Models\Genre::where('slug', $genreId)->first();
             $genreId = $genre ? $genre->id : null;
         }
 
-        if (!$genreId) {
+        if (! $genreId) {
             return collect([]);
         }
 
@@ -65,23 +65,23 @@ if (!function_exists('getSlidesByGenre')) {
     }
 }
 
-if (!function_exists('getSlidesByMood')) {
+if (! function_exists('getSlidesByMood')) {
     /**
      * Get slides for a specific mood
      *
-     * @param int|string $moodId Mood ID or slug
-     * @param bool $cache Whether to use cache
+     * @param  int|string  $moodId  Mood ID or slug
+     * @param  bool  $cache  Whether to use cache
      * @return \Illuminate\Database\Eloquent\Collection
      */
     function getSlidesByMood($moodId, $cache = true)
     {
         // If slug is passed, get the ID
-        if (!is_numeric($moodId)) {
+        if (! is_numeric($moodId)) {
             $mood = \App\Models\Mood::where('slug', $moodId)->first();
             $moodId = $mood ? $mood->id : null;
         }
 
-        if (!$moodId) {
+        if (! $moodId) {
             return collect([]);
         }
 
@@ -101,12 +101,12 @@ if (!function_exists('getSlidesByMood')) {
     }
 }
 
-if (!function_exists('getFeaturedSlides')) {
+if (! function_exists('getFeaturedSlides')) {
     /**
      * Get all visible featured slides
      *
-     * @param int $limit Number of slides to return
-     * @param bool $cache Whether to use cache
+     * @param  int  $limit  Number of slides to return
+     * @param  bool  $cache  Whether to use cache
      * @return \Illuminate\Database\Eloquent\Collection
      */
     function getFeaturedSlides($limit = 10, $cache = true)
@@ -127,7 +127,7 @@ if (!function_exists('getFeaturedSlides')) {
     }
 }
 
-if (!function_exists('clearSlidesCache')) {
+if (! function_exists('clearSlidesCache')) {
     /**
      * Clear all slides cache
      *
@@ -136,7 +136,7 @@ if (!function_exists('clearSlidesCache')) {
     function clearSlidesCache()
     {
         $sections = ['home', 'discover', 'radio', 'community', 'trending', 'channels'];
-        
+
         foreach ($sections as $section) {
             Cache::forget("slides.{$section}");
             Cache::forget("slides.api.{$section}");
@@ -147,17 +147,17 @@ if (!function_exists('clearSlidesCache')) {
     }
 }
 
-if (!function_exists('getSlideArtwork')) {
+if (! function_exists('getSlideArtwork')) {
     /**
      * Get slide artwork URL
      *
-     * @param \App\Models\Slide $slide
-     * @param string $conversion Size conversion (sm, md, lg)
+     * @param  \App\Models\Slide  $slide
+     * @param  string  $conversion  Size conversion (sm, md, lg)
      * @return string|null
      */
     function getSlideArtwork($slide, $conversion = 'lg')
     {
-        if (!$slide) {
+        if (! $slide) {
             return null;
         }
 
@@ -165,11 +165,11 @@ if (!function_exists('getSlideArtwork')) {
     }
 }
 
-if (!function_exists('formatSlideForDisplay')) {
+if (! function_exists('formatSlideForDisplay')) {
     /**
      * Format slide data for display
      *
-     * @param \App\Models\Slide $slide
+     * @param  \App\Models\Slide  $slide
      * @return array
      */
     function formatSlideForDisplay($slide)

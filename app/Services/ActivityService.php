@@ -12,12 +12,11 @@ class ActivityService
     /**
      * Log an activity
      *
-     * @param User|null $actor The user performing the action
-     * @param string $action The action being performed (uploaded_song, created_event, etc.)
-     * @param Model $subject The subject of the action (Song, Event, Album, etc.)
-     * @param array $metadata Additional data about the activity
-     * @param string $actorType The type of actor (User, Artist, System)
-     * @return Activity|null
+     * @param  User|null  $actor  The user performing the action
+     * @param  string  $action  The action being performed (uploaded_song, created_event, etc.)
+     * @param  Model  $subject  The subject of the action (Song, Event, Album, etc.)
+     * @param  array  $metadata  Additional data about the activity
+     * @param  string  $actorType  The type of actor (User, Artist, System)
      */
     public static function log(
         ?User $actor,
@@ -27,12 +26,12 @@ class ActivityService
         string $actorType = 'User'
     ): ?Activity {
         // Don't log if no actor (system actions can be logged separately)
-        if (!$actor && $actorType !== 'System') {
+        if (! $actor && $actorType !== 'System') {
             return null;
         }
 
         // Check user privacy settings
-        if ($actor && !self::shouldLogActivity($actor, $action)) {
+        if ($actor && ! self::shouldLogActivity($actor, $action)) {
             return null;
         }
 
@@ -59,11 +58,6 @@ class ActivityService
     /**
      * Log a system activity (no specific actor)
      * Note: System activities are currently skipped as the activities table requires a user_id
-     *
-     * @param string $action
-     * @param Model $subject
-     * @param array $metadata
-     * @return Activity|null
      */
     public static function logSystem(
         string $action,
@@ -77,15 +71,11 @@ class ActivityService
 
     /**
      * Check if activity should be logged based on user settings
-     *
-     * @param User $user
-     * @param string $action
-     * @return bool
      */
     private static function shouldLogActivity(User $user, string $action): bool
     {
         // Check if user has disabled activity tracking
-        if (!($user->settings->show_activity ?? true)) {
+        if (! ($user->settings->show_activity ?? true)) {
             return false;
         }
 
@@ -100,9 +90,6 @@ class ActivityService
 
     /**
      * Clear user's feed cache
-     *
-     * @param int $userId
-     * @return void
      */
     private static function clearUserFeedCache(int $userId): void
     {
@@ -111,9 +98,6 @@ class ActivityService
 
     /**
      * Clear feed cache for all followers of the user
-     *
-     * @param User $user
-     * @return void
      */
     private static function clearFollowersFeedCache(User $user): void
     {
@@ -128,8 +112,6 @@ class ActivityService
     /**
      * Get recent activities for a user (their own activities)
      *
-     * @param User $user
-     * @param int $limit
      * @return \Illuminate\Database\Eloquent\Collection
      */
     public static function getUserActivities(User $user, int $limit = 20)
@@ -144,8 +126,6 @@ class ActivityService
     /**
      * Get activities from users that the given user follows
      *
-     * @param User $user
-     * @param int $limit
      * @return \Illuminate\Database\Eloquent\Collection
      */
     public static function getFollowingActivities(User $user, int $limit = 20)
@@ -166,8 +146,6 @@ class ActivityService
     /**
      * Get activities of a specific type
      *
-     * @param string $action
-     * @param int $limit
      * @return \Illuminate\Database\Eloquent\Collection
      */
     public static function getActivitiesByAction(string $action, int $limit = 20)
@@ -182,7 +160,6 @@ class ActivityService
     /**
      * Delete old activities (cleanup job)
      *
-     * @param int $daysOld
      * @return int Number of deleted activities
      */
     public static function deleteOldActivities(int $daysOld = 90): int
@@ -193,10 +170,6 @@ class ActivityService
 
     /**
      * Get activity counts by action type
-     *
-     * @param User $user
-     * @param int $days
-     * @return array
      */
     public static function getActivityCounts(User $user, int $days = 7): array
     {
@@ -211,14 +184,11 @@ class ActivityService
     /**
      * Increment engagement count (likes, comments, shares)
      *
-     * @param Activity $activity
-     * @param string $type (likes, comments, shares)
-     * @param int $increment
-     * @return void
+     * @param  string  $type  (likes, comments, shares)
      */
     public static function incrementEngagement(Activity $activity, string $type, int $increment = 1): void
     {
-        $field = $type . '_count';
+        $field = $type.'_count';
 
         if (in_array($field, ['likes_count', 'comments_count', 'shares_count'])) {
             $activity->increment($field, $increment);

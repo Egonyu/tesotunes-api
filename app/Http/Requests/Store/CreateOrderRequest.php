@@ -27,7 +27,7 @@ class CreateOrderRequest extends FormRequest
             'phone_number' => 'required_if:payment_method,mobile_money|string|regex:/^256[0-9]{9}$/',
             'use_credits' => 'boolean',
             'credit_amount' => 'nullable|integer|min:0',
-            
+
             // Shipping address
             'shipping_address' => 'required|array',
             'shipping_address.name' => 'required|string|max:255',
@@ -36,7 +36,7 @@ class CreateOrderRequest extends FormRequest
             'shipping_address.city' => 'required|string|max:100',
             'shipping_address.region' => 'required|string|max:100',
             'shipping_address.postal_code' => 'nullable|string|max:20',
-            
+
             'notes' => 'nullable|string|max:1000',
         ];
     }
@@ -79,9 +79,9 @@ class CreateOrderRequest extends FormRequest
         if ($this->has('phone_number')) {
             $phone = preg_replace('/[^0-9]/', '', $this->phone_number);
             if (strlen($phone) === 9) {
-                $phone = '256' . $phone;
+                $phone = '256'.$phone;
             } elseif (strlen($phone) === 10 && $phone[0] === '0') {
-                $phone = '256' . substr($phone, 1);
+                $phone = '256'.substr($phone, 1);
             }
             $this->merge(['phone_number' => $phone]);
         }
@@ -89,15 +89,15 @@ class CreateOrderRequest extends FormRequest
         if ($this->has('shipping_address.phone')) {
             $phone = preg_replace('/[^0-9]/', '', $this->input('shipping_address.phone'));
             if (strlen($phone) === 9) {
-                $phone = '256' . $phone;
+                $phone = '256'.$phone;
             } elseif (strlen($phone) === 10 && $phone[0] === '0') {
-                $phone = '256' . substr($phone, 1);
+                $phone = '256'.substr($phone, 1);
             }
             $this->merge([
                 'shipping_address' => array_merge(
                     $this->shipping_address ?? [],
                     ['phone' => $phone]
-                )
+                ),
             ]);
         }
     }

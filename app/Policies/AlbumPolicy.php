@@ -3,8 +3,8 @@
 namespace App\Policies;
 
 use App\Models\Album;
-use App\Models\User;
 use App\Models\AuditLog;
+use App\Models\User;
 
 class AlbumPolicy
 {
@@ -28,7 +28,7 @@ class AlbumPolicy
         }
 
         // For non-published albums, must be logged in
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -47,12 +47,12 @@ class AlbumPolicy
     public function create(User $user): bool
     {
         // Must have album.create permission
-        if (!$user->hasPermission('album.create')) {
+        if (! $user->hasPermission('album.create')) {
             return false;
         }
 
         // Must be verified artist
-        if (!$user->isVerified() || !$user->hasRole('artist')) {
+        if (! $user->isVerified() || ! $user->hasRole('artist')) {
             return false;
         }
 
@@ -65,11 +65,12 @@ class AlbumPolicy
     public function update(User $user, Album $album): bool
     {
         // Must have edit permission
-        if (!$user->hasPermission('album.edit')) {
+        if (! $user->hasPermission('album.edit')) {
             AuditLog::logActivity($user->id, 'unauthorized_album_edit_attempt', [
                 'album_id' => $album->id,
                 'album_title' => $album->title,
             ]);
+
             return false;
         }
 
@@ -98,11 +99,12 @@ class AlbumPolicy
     public function delete(User $user, Album $album): bool
     {
         // Must have delete permission
-        if (!$user->hasPermission('album.delete')) {
+        if (! $user->hasPermission('album.delete')) {
             AuditLog::logActivity($user->id, 'unauthorized_album_delete_attempt', [
                 'album_id' => $album->id,
                 'album_title' => $album->title,
             ]);
+
             return false;
         }
 

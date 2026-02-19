@@ -23,14 +23,14 @@ class SecureFileUploadMiddleware
     public function handle(Request $request, Closure $next): Response
     {
         // Only process requests with file uploads
-        if (!$request->hasFile('files') && !$request->hasFile('file')) {
+        if (! $request->hasFile('files') && ! $request->hasFile('file')) {
             return $next($request);
         }
 
         // Check upload limits per user
-        if (!$this->checkUploadLimits($request)) {
+        if (! $this->checkUploadLimits($request)) {
             return response()->json([
-                'error' => 'Upload rate limit exceeded. Please wait before uploading more files.'
+                'error' => 'Upload rate limit exceeded. Please wait before uploading more files.',
             ], 429);
         }
 
@@ -42,7 +42,7 @@ class SecureFileUploadMiddleware
             if ($file) {
                 $validation = $this->uploadService->validateAudioFile($file);
 
-                if (!$validation['valid']) {
+                if (! $validation['valid']) {
                     $validationErrors = array_merge($validationErrors, $validation['errors']);
 
                     Log::warning('File upload blocked', [
@@ -50,16 +50,16 @@ class SecureFileUploadMiddleware
                         'filename' => $file->getClientOriginalName(),
                         'errors' => $validation['errors'],
                         'ip' => $request->ip(),
-                        'user_agent' => $request->userAgent()
+                        'user_agent' => $request->userAgent(),
                     ]);
                 }
             }
         }
 
-        if (!empty($validationErrors)) {
+        if (! empty($validationErrors)) {
             return response()->json([
                 'error' => 'File validation failed',
-                'details' => $validationErrors
+                'details' => $validationErrors,
             ], 422);
         }
 
@@ -72,7 +72,7 @@ class SecureFileUploadMiddleware
     private function checkUploadLimits(Request $request): bool
     {
         $user = auth()->user();
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 

@@ -20,8 +20,8 @@ class CartService
     public function addItem($product, int $quantity = 1, array $options = []): array
     {
         // Accept StoreProduct models (Module)
-        if (!($product instanceof StoreProduct)
-            && !($product instanceof \App\Modules\Store\Models\Product)) {
+        if (! ($product instanceof StoreProduct)
+            && ! ($product instanceof \App\Modules\Store\Models\Product)) {
             throw new \InvalidArgumentException('Product must be an instance of StoreProduct or Product');
         }
 
@@ -71,7 +71,7 @@ class CartService
         $cart = session($this->cartKey, ['items' => [], 'totals' => []]);
 
         // Ensure items key exists
-        if (!isset($cart['items'])) {
+        if (! isset($cart['items'])) {
             $cart['items'] = [];
         }
 
@@ -148,6 +148,7 @@ class CartService
     public function getTotal(): float
     {
         $cart = $this->getCart();
+
         return $cart['totals']['total'] ?? 0;
     }
 
@@ -176,6 +177,7 @@ class CartService
     public function isEmpty(): bool
     {
         $cart = $this->getCart();
+
         return empty($cart['items'] ?? []);
     }
 
@@ -189,6 +191,7 @@ class CartService
         if (isset($cart['items'][$itemId])) {
             unset($cart['items'][$itemId]);
             $this->saveCart($cart);
+
             return true;
         }
 
@@ -210,6 +213,7 @@ class CartService
             }
 
             $this->saveCart($cart);
+
             return true;
         }
 
@@ -222,6 +226,7 @@ class CartService
     private function generateItemId($product, array $options = []): string
     {
         $optionsHash = md5(serialize($options));
+
         return "product_{$product->id}_{$optionsHash}";
     }
 

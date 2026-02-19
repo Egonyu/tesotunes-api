@@ -18,10 +18,10 @@ class MoodFactory extends Factory
     {
         $moods = ['Happy', 'Sad', 'Energetic', 'Relaxed', 'Romantic', 'Angry', 'Peaceful', 'Uplifting'];
         $name = fake()->randomElement($moods);
-        
+
         return [
-            'name' => $name . ' ' . fake()->unique()->numberBetween(1, 1000),
-            'slug' => \Illuminate\Support\Str::slug($name) . '-' . fake()->unique()->numberBetween(1, 10000),
+            'name' => $name.' '.fake()->unique()->numberBetween(1, 1000),
+            'slug' => \Illuminate\Support\Str::slug($name).'-'.fake()->unique()->numberBetween(1, 10000),
             'description' => fake()->sentence(),
             'icon' => 'mood-icon',
             'color' => fake()->hexColor(),

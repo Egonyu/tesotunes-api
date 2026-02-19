@@ -76,6 +76,7 @@ class SaccoBoardMeeting extends Model
         }
 
         $present = $this->attendance()->where('status', 'present')->count();
+
         return ($present / $total) * 100;
     }
 }

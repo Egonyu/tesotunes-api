@@ -2,9 +2,9 @@
 
 namespace Database\Factories\Modules\Forum;
 
-use App\Models\User;
 use App\Models\Modules\Forum\ForumReply;
 use App\Models\Modules\Forum\ForumTopic;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class ForumReplyFactory extends Factory

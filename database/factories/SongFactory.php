@@ -17,18 +17,18 @@ class SongFactory extends Factory
     public function definition(): array
     {
         $title = fake()->sentence(3);
-        
+
         return [
             'user_id' => \App\Models\User::factory(),
             'artist_id' => \App\Models\Artist::factory(),
             'title' => $title,
-            'slug' => \Illuminate\Support\Str::slug($title) . '-' . fake()->unique()->numberBetween(1, 10000),
+            'slug' => \Illuminate\Support\Str::slug($title).'-'.fake()->unique()->numberBetween(1, 10000),
             'description' => fake()->paragraph(),
             'lyrics' => fake()->paragraphs(3, true),
-            'audio_file_original' => 'songs/original/' . fake()->uuid() . '.mp3',
-            'audio_file_320' => 'songs/320kbps/' . fake()->uuid() . '.mp3',
-            'audio_file_128' => 'songs/128kbps/' . fake()->uuid() . '.mp3',
-            'artwork' => 'artwork/' . fake()->uuid() . '.jpg',
+            'audio_file_original' => 'songs/original/'.fake()->uuid().'.mp3',
+            'audio_file_320' => 'songs/320kbps/'.fake()->uuid().'.mp3',
+            'audio_file_128' => 'songs/128kbps/'.fake()->uuid().'.mp3',
+            'artwork' => 'artwork/'.fake()->uuid().'.jpg',
             'duration_seconds' => fake()->numberBetween(120, 360),
             'file_size_bytes' => fake()->numberBetween(3000000, 10000000),
             'file_format' => 'mp3',

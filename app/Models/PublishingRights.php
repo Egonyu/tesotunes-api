@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Carbon\Carbon;
 
 class PublishingRights extends Model
 {
@@ -78,11 +78,11 @@ class PublishingRights extends Model
     public function scopeActive($query)
     {
         return $query->where('status', 'active')
-                    ->where('rights_start_date', '<=', now())
-                    ->where(function($q) {
-                        $q->whereNull('rights_end_date')
-                          ->orWhere('rights_end_date', '>=', now());
-                    });
+            ->where('rights_start_date', '<=', now())
+            ->where(function ($q) {
+                $q->whereNull('rights_end_date')
+                    ->orWhere('rights_end_date', '>=', now());
+            });
     }
 
     public function scopePending($query)
@@ -107,10 +107,10 @@ class PublishingRights extends Model
 
     public function scopeByTerritory($query, string $territory)
     {
-        return $query->where(function($q) use ($territory) {
+        return $query->where(function ($q) use ($territory) {
             $q->whereNull('territorial_scope')
-              ->orWhereJsonContains('territorial_scope', $territory)
-              ->orWhereJsonContains('territorial_scope', 'Global');
+                ->orWhereJsonContains('territorial_scope', $territory)
+                ->orWhereJsonContains('territorial_scope', 'Global');
         });
     }
 
@@ -127,8 +127,8 @@ class PublishingRights extends Model
     public function scopeExpiringSoon($query, int $days = 30)
     {
         return $query->whereNotNull('rights_end_date')
-                    ->where('rights_end_date', '<=', now()->addDays($days))
-                    ->where('rights_end_date', '>=', now());
+            ->where('rights_end_date', '<=', now()->addDays($days))
+            ->where('rights_end_date', '>=', now());
     }
 
     // Helper Methods
@@ -140,7 +140,7 @@ class PublishingRights extends Model
 
         $now = now();
         $started = $this->rights_start_date <= $now;
-        $notExpired = !$this->rights_end_date || $this->rights_end_date >= $now;
+        $notExpired = ! $this->rights_end_date || $this->rights_end_date >= $now;
 
         return $started && $notExpired;
     }
@@ -162,7 +162,7 @@ class PublishingRights extends Model
 
     public function isExpiringSoon(int $days = 30): bool
     {
-        if (!$this->rights_end_date) {
+        if (! $this->rights_end_date) {
             return false;
         }
 
@@ -172,7 +172,7 @@ class PublishingRights extends Model
 
     public function appliesToTerritory(string $territory): bool
     {
-        if (!$this->territorial_scope) {
+        if (! $this->territorial_scope) {
             return true; // No restrictions = worldwide
         }
 
@@ -182,7 +182,7 @@ class PublishingRights extends Model
 
     public function getDaysUntilExpiryAttribute(): ?int
     {
-        if (!$this->rights_end_date) {
+        if (! $this->rights_end_date) {
             return null;
         }
 
@@ -191,13 +191,13 @@ class PublishingRights extends Model
 
     public function getRightsTypeDisplayAttribute(): string
     {
-        return match($this->rights_type) {
+        return match ($this->rights_type) {
             'mechanical' => 'Mechanical Rights',
             'performance' => 'Performance Rights',
             'synchronization' => 'Sync Rights',
             'print' => 'Print Rights',
             'digital' => 'Digital Rights',
-            default => ucfirst($this->rights_type) . ' Rights'
+            default => ucfirst($this->rights_type).' Rights'
         };
     }
 
@@ -207,7 +207,7 @@ class PublishingRights extends Model
             return '⏰ Expired';
         }
 
-        return match($this->status) {
+        return match ($this->status) {
             'active' => '✅ Active',
             'pending' => '⏳ Pending',
             'disputed' => '⚠️ Disputed',
@@ -219,7 +219,7 @@ class PublishingRights extends Model
 
     public function getPayoutMethodDisplayAttribute(): string
     {
-        return match($this->payout_method) {
+        return match ($this->payout_method) {
             'mobile_money' => 'Mobile Money',
             'bank_transfer' => 'Bank Transfer',
             'check' => 'Check',
@@ -236,7 +236,7 @@ class PublishingRights extends Model
         ]);
     }
 
-    public function suspend(string $reason = null): void
+    public function suspend(?string $reason = null): void
     {
         $this->update([
             'status' => 'suspended',
@@ -252,7 +252,7 @@ class PublishingRights extends Model
         ]);
     }
 
-    public function terminate(string $reason = null): void
+    public function terminate(?string $reason = null): void
     {
         $this->update([
             'status' => 'terminated',
@@ -266,7 +266,7 @@ class PublishingRights extends Model
         $this->update(['rights_end_date' => $newEndDate]);
     }
 
-    public function updateOwnership(float $newPercentage, float $newRoyaltySplit = null): void
+    public function updateOwnership(float $newPercentage, ?float $newRoyaltySplit = null): void
     {
         $this->update([
             'ownership_percentage' => $newPercentage,
@@ -277,7 +277,7 @@ class PublishingRights extends Model
     public function addTerritory(string $territory): void
     {
         $scope = $this->territorial_scope ?? [];
-        if (!in_array($territory, $scope)) {
+        if (! in_array($territory, $scope)) {
             $scope[] = $territory;
             $this->update(['territorial_scope' => $scope]);
         }
@@ -291,26 +291,27 @@ class PublishingRights extends Model
     }
 
     // Validation methods
-    public static function validateOwnershipPercentage(int $songId, string $rightsType, float $newPercentage, int $excludeId = null): bool
+    public static function validateOwnershipPercentage(int $songId, string $rightsType, float $newPercentage, ?int $excludeId = null): bool
     {
         $query = self::where('song_id', $songId)
-                    ->where('rights_type', $rightsType)
-                    ->where('status', 'active');
+            ->where('rights_type', $rightsType)
+            ->where('status', 'active');
 
         if ($excludeId) {
             $query->where('id', '!=', $excludeId);
         }
 
         $currentTotal = $query->sum('ownership_percentage');
+
         return ($currentTotal + $newPercentage) <= 100.0;
     }
 
     public static function getTotalOwnership(int $songId, string $rightsType): float
     {
         return self::where('song_id', $songId)
-                  ->where('rights_type', $rightsType)
-                  ->where('status', 'active')
-                  ->sum('ownership_percentage');
+            ->where('rights_type', $rightsType)
+            ->where('status', 'active')
+            ->sum('ownership_percentage');
     }
 
     public static function getAvailableOwnership(int $songId, string $rightsType): float

@@ -1,10 +1,10 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Modules\Store\Models\Product;
 use App\Modules\Store\Models\Store;
 use App\Modules\Store\Services\CartService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -56,7 +56,7 @@ Route::middleware(['auth'])->prefix('store')->name('store.')->group(function () 
                                 'category' => $item['product']->category,
                                 'shop_id' => $item['product']->store_id,
                                 'shop' => [
-                                    'name' => $item['product']->store->name ?? 'Unknown Store'
+                                    'name' => $item['product']->store->name ?? 'Unknown Store',
                                 ],
                                 'stock_quantity' => $item['product']->inventory_quantity,
                             ],
@@ -66,8 +66,8 @@ Route::middleware(['auth'])->prefix('store')->name('store.')->group(function () 
                         ];
                     })->values()->all(),
                     'total' => $cartService->getTotal(),
-                    'items_count' => $cartService->getItemCount()
-                ]
+                    'items_count' => $cartService->getItemCount(),
+                ],
             ]);
         })->name('get');
 
@@ -84,7 +84,7 @@ Route::middleware(['auth'])->prefix('store')->name('store.')->group(function () 
             if ($product->track_inventory && $product->inventory_quantity < $validated['quantity']) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insufficient stock. Only ' . $product->inventory_quantity . ' items available.'
+                    'message' => 'Insufficient stock. Only '.$product->inventory_quantity.' items available.',
                 ], 422);
             }
 
@@ -112,12 +112,12 @@ Route::middleware(['auth'])->prefix('store')->name('store.')->group(function () 
                             'quantity' => $item['quantity'],
                             'price_ugx' => $item['price'],
                         ];
-                    })
+                    }),
                 ]);
             } catch (\Exception $e) {
                 return response()->json([
                     'success' => false,
-                    'message' => $e->getMessage()
+                    'message' => $e->getMessage(),
                 ], 422);
             }
         })->name('add');
@@ -143,14 +143,14 @@ Route::middleware(['auth'])->prefix('store')->name('store.')->group(function () 
                             'slug' => $item['product']->slug,
                             'image_url' => $item['product']->featured_image_url,
                             'shop' => [
-                                'name' => $item['product']->store->name ?? 'Unknown Store'
+                                'name' => $item['product']->store->name ?? 'Unknown Store',
                             ],
                             'stock_quantity' => $item['product']->inventory_quantity,
                         ],
                         'quantity' => $item['quantity'],
                         'price_ugx' => $item['price'],
                     ];
-                })
+                }),
             ]);
         })->name('update');
 
@@ -163,7 +163,7 @@ Route::middleware(['auth'])->prefix('store')->name('store.')->group(function () 
 
             return response()->json([
                 'success' => true,
-                'count' => $cartService->getItemCount()
+                'count' => $cartService->getItemCount(),
             ]);
         })->name('remove');
 
@@ -183,7 +183,7 @@ Route::middleware(['auth'])->prefix('store')->name('store.')->group(function () 
 
             return response()->json([
                 'success' => true,
-                'cart_count' => $cartService->getItemCount()
+                'cart_count' => $cartService->getItemCount(),
             ]);
         })->name('items.update');
 
@@ -192,7 +192,7 @@ Route::middleware(['auth'])->prefix('store')->name('store.')->group(function () 
 
             return response()->json([
                 'success' => true,
-                'count' => $cartService->getItemCount()
+                'count' => $cartService->getItemCount(),
             ]);
         })->name('items.destroy');
 
@@ -219,7 +219,7 @@ Route::middleware(['auth'])->prefix('store')->name('store.')->group(function () 
             ->when($request->q, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('description', 'like', "%{$search}%");
+                        ->orWhere('description', 'like', "%{$search}%");
                 });
             })
             ->when($request->type, function ($query, $type) {
@@ -244,7 +244,7 @@ Route::middleware(['auth'])->prefix('store')->name('store.')->group(function () 
             ->when($request->q, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('description', 'like', "%{$search}%");
+                        ->orWhere('description', 'like', "%{$search}%");
                 });
             })
             ->limit(10)

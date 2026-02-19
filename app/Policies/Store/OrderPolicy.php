@@ -40,7 +40,7 @@ class OrderPolicy
     public function update(User $user, Order $order): bool
     {
         // Buyers can confirm receipt
-        if ($user->id === $order->user_id && 
+        if ($user->id === $order->user_id &&
             in_array($order->status, ['shipped', 'processing', 'delivered'])) {
             return true;
         }

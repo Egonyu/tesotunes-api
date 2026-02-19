@@ -41,7 +41,7 @@ class ProductPolicy
     {
         $store = $user->store;
 
-        if (!$store) {
+        if (! $store) {
             return false;
         }
 
@@ -87,7 +87,7 @@ class ProductPolicy
      */
     public function restore(User $user, Product $product): bool
     {
-        return $user->id === $product->store->user_id || 
+        return $user->id === $product->store->user_id ||
                $user->hasAnyRole(['admin', 'super_admin']);
     }
 

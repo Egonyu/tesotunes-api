@@ -3,8 +3,8 @@
 namespace App\Modules\Store\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Modules\Store\Models\Promotion;
 use App\Modules\Store\Models\OrderItem;
+use App\Modules\Store\Models\Promotion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 

@@ -71,7 +71,7 @@ class PodcastListen extends Model
     // Scopes
     public function scopeCompleted($query, $threshold = 90)
     {
-        return $query->whereRaw("(listen_duration / episode_duration * 100) >= ?", [$threshold]);
+        return $query->whereRaw('(listen_duration / episode_duration * 100) >= ?', [$threshold]);
     }
 
     public function scopeByCountry($query, string $countryCode)
@@ -97,7 +97,7 @@ class PodcastListen extends Model
     public function scopeThisMonth($query)
     {
         return $query->whereYear('listened_at', now()->year)
-                     ->whereMonth('listened_at', now()->month);
+            ->whereMonth('listened_at', now()->month);
     }
 
     // Helper Methods

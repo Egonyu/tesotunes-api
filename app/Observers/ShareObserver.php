@@ -14,8 +14,8 @@ class ShareObserver
     {
         // Log share activity
         if ($share->user && $share->shareable) {
-            $action = 'shared_' . strtolower(class_basename($share->shareable_type));
-            
+            $action = 'shared_'.strtolower(class_basename($share->shareable_type));
+
             ActivityService::log(
                 actor: $share->user,
                 action: $action,
@@ -26,13 +26,13 @@ class ShareObserver
                     'platform' => $share->platform ?? 'internal',
                 ]
             );
-            
+
             // Increment share count on the activity if it exists
             $activity = \App\Models\Activity::where('subject_type', get_class($share->shareable))
                 ->where('subject_id', $share->shareable->id)
                 ->latest()
                 ->first();
-                
+
             if ($activity) {
                 ActivityService::incrementEngagement($activity, 'shares');
             }
@@ -49,7 +49,7 @@ class ShareObserver
             ->where('subject_id', $share->shareable->id)
             ->latest()
             ->first();
-            
+
         if ($activity && $activity->shares_count > 0) {
             ActivityService::incrementEngagement($activity, 'shares', -1);
         }

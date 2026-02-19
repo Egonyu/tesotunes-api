@@ -1,11 +1,11 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\MusicApiController;
-use App\Http\Controllers\Api\Music\PlaylistController;
 use App\Http\Controllers\Api\Music\AlbumController;
-use App\Http\Controllers\Api\Music\SongController;
 use App\Http\Controllers\Api\Music\ArtistController;
+use App\Http\Controllers\Api\Music\PlaylistController;
+use App\Http\Controllers\Api\Music\SongController;
+use App\Http\Controllers\Api\MusicApiController;
+use Illuminate\Support\Facades\Route;
 
 // Public Music API Endpoints
 Route::prefix('')->group(function () {

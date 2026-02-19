@@ -45,13 +45,13 @@ return [
             'diversity' => 0.10,      // Content type variety
             'personalization' => 0.05, // User preferences
         ],
-        
+
         // Recency decay (exponential)
         'recency' => [
             'half_life_hours' => 24,  // Score halves every 24 hours
             'max_days' => 7,          // Don't show content older than 7 days
         ],
-        
+
         // Relevance factors
         'relevance' => [
             'followed_artist' => 10.0,
@@ -59,14 +59,14 @@ return [
             'friend_of_friend' => 5.0,
             'suggested' => 2.0,
         ],
-        
+
         // Engagement thresholds
         'engagement' => [
             'viral_threshold' => 1000,  // Plays/likes for viral boost
             'popular_threshold' => 100,
             'trending_threshold' => 50,
         ],
-        
+
         // Diversity (content type mix)
         'diversity' => [
             'max_consecutive_same_type' => 3,
@@ -79,7 +79,7 @@ return [
                 'store' => 0.05,      // 5% store promotions
             ],
         ],
-        
+
         // Penalties
         'penalties' => [
             'not_interested' => -50.0,   // Heavy penalty for hidden content

@@ -2,18 +2,18 @@
 
 namespace App\Services\Store;
 
-use App\Modules\Store\Models\Store;
 use App\Modules\Store\Models\Order;
 use App\Modules\Store\Models\Product;
-use Illuminate\Support\Facades\DB;
+use App\Modules\Store\Models\Store;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class AnalyticsService
 {
     /**
      * Calculate order total from order_items since orders table doesn't have total_amount column
      */
-    private function getOrderTotal(string $startDate, string $status = null): float
+    private function getOrderTotal(string $startDate, ?string $status = null): float
     {
         // Orders table doesn't have total_amount - calculate from order_items or return 0
         // For now, return count * estimated average order value
@@ -22,6 +22,7 @@ class AnalyticsService
             $query->where('payment_status', $status);
         }
         $orderCount = $query->count();
+
         // Return estimated total based on average order value of 50,000 UGX
         return $orderCount * 50000;
     }
@@ -166,7 +167,7 @@ class AnalyticsService
     public function exportReport(string $type, string $period, string $format): string
     {
         $startDate = $this->getStartDate($period);
-        $data = match($type) {
+        $data = match ($type) {
             'overall' => $this->getOverallAnalytics($period),
             'revenue' => $this->getRevenueAnalytics($period),
             'products' => $this->getProductAnalytics($period),
@@ -175,27 +176,28 @@ class AnalyticsService
             default => $this->getOverallAnalytics($period),
         };
 
-        $filename = "{$type}_report_{$period}_" . now()->format('YmdHis');
+        $filename = "{$type}_report_{$period}_".now()->format('YmdHis');
         $filepath = storage_path("app/reports/{$filename}");
 
         // Ensure directory exists
-        if (!is_dir(dirname($filepath))) {
+        if (! is_dir(dirname($filepath))) {
             mkdir(dirname($filepath), 0755, true);
         }
 
         if ($format === 'csv') {
             $file = fopen("{$filepath}.csv", 'w');
-            fputcsv($file, ["Store Analytics Report - " . ucfirst($type)]);
+            fputcsv($file, ['Store Analytics Report - '.ucfirst($type)]);
             fputcsv($file, ['Period:', ucfirst($period)]);
             fputcsv($file, ['Generated:', now()->format('Y-m-d H:i:s')]);
             fputcsv($file, []);
 
             foreach ($data as $key => $value) {
-                if (!is_array($value) && !$value instanceof \Illuminate\Support\Collection) {
+                if (! is_array($value) && ! $value instanceof \Illuminate\Support\Collection) {
                     fputcsv($file, [str_replace('_', ' ', ucfirst($key)), is_numeric($value) ? number_format($value, 2) : $value]);
                 }
             }
             fclose($file);
+
             return "{$filepath}.csv";
         }
 
@@ -207,6 +209,7 @@ class AnalyticsService
         ])->render();
 
         file_put_contents("{$filepath}.html", $html);
+
         return "{$filepath}.html";
     }
 
@@ -214,7 +217,7 @@ class AnalyticsService
 
     protected function getStartDate(string $period): Carbon
     {
-        return match($period) {
+        return match ($period) {
             '7days' => now()->subDays(7),
             '30days' => now()->subDays(30),
             '90days' => now()->subDays(90),
@@ -225,7 +228,7 @@ class AnalyticsService
 
     protected function getPreviousPeriodStart(string $period): Carbon
     {
-        return match($period) {
+        return match ($period) {
             '7days' => now()->subDays(14),
             '30days' => now()->subDays(60),
             '90days' => now()->subDays(180),
@@ -236,7 +239,10 @@ class AnalyticsService
 
     protected function calculateGrowth($current, $previous): float
     {
-        if ($previous == 0) return $current > 0 ? 100 : 0;
+        if ($previous == 0) {
+            return $current > 0 ? 100 : 0;
+        }
+
         return (($current - $previous) / $previous) * 100;
     }
 
@@ -250,7 +256,7 @@ class AnalyticsService
     {
         // Generate date labels based on period
         $labels = [];
-        $days = match($period) {
+        $days = match ($period) {
             '7days' => 7,
             '30days' => 30,
             '90days' => 90,
@@ -283,7 +289,7 @@ class AnalyticsService
             ->latest()
             ->limit($limit)
             ->get()
-            ->map(fn($order) => [
+            ->map(fn ($order) => [
                 'order_number' => $order->order_number,
                 'store_name' => $order->store->name ?? 'N/A',
                 'amount' => $order->total_amount,
@@ -296,7 +302,7 @@ class AnalyticsService
     protected function getNetRevenueData(string $period): array
     {
         // Similar to getRevenueData but with fees deducted
-        return array_map(fn($val) => $val * 0.95, $this->getRevenueData($period));
+        return array_map(fn ($val) => $val * 0.95, $this->getRevenueData($period));
     }
 
     protected function getCategoryLabels(): array
@@ -319,12 +325,12 @@ class AnalyticsService
     protected function getTopStoresByRevenue($startDate, int $limit): array
     {
         $previousStart = Carbon::parse($startDate)->subMonth()->toDateString();
-        
-        return Store::withCount(['orders' => fn($q) => $q->where('created_at', '>=', $startDate)->where('payment_status', 'paid')])
+
+        return Store::withCount(['orders' => fn ($q) => $q->where('created_at', '>=', $startDate)->where('payment_status', 'paid')])
             ->orderByDesc('orders_count')
             ->limit($limit)
             ->get()
-            ->map(function($store) use ($startDate, $previousStart) {
+            ->map(function ($store) use ($startDate, $previousStart) {
                 $currentOrders = $store->orders()
                     ->where('created_at', '>=', $startDate)
                     ->where('payment_status', 'paid')
@@ -333,10 +339,10 @@ class AnalyticsService
                     ->whereBetween('created_at', [$previousStart, $startDate])
                     ->where('payment_status', 'paid')
                     ->count();
-                $growth = $previousOrders > 0 
+                $growth = $previousOrders > 0
                     ? round((($currentOrders - $previousOrders) / $previousOrders) * 100, 1)
                     : ($currentOrders > 0 ? 100 : 0);
-                    
+
                 return [
                     'name' => $store->name,
                     'revenue' => ($store->orders_count ?? 0) * 50000,
@@ -397,17 +403,17 @@ class AnalyticsService
     protected function getTopStores($startDate, int $limit): array
     {
         $previousStart = Carbon::parse($startDate)->subMonth()->toDateString();
-        
-        return Store::withCount(['orders' => fn($q) => $q->where('created_at', '>=', $startDate)->where('payment_status', 'paid')])
+
+        return Store::withCount(['orders' => fn ($q) => $q->where('created_at', '>=', $startDate)->where('payment_status', 'paid')])
             ->withCount('products')
             ->with(['owner', 'reviews'])
             ->orderByDesc('orders_count')
             ->limit($limit)
             ->get()
-            ->map(function($store) use ($startDate, $previousStart) {
+            ->map(function ($store) {
                 // Calculate actual rating from reviews
                 $avgRating = $store->reviews->avg('rating') ?? 4.5;
-                
+
                 return [
                     'id' => $store->id,
                     'name' => $store->name,
@@ -435,15 +441,21 @@ class AnalyticsService
     protected function getStoreTypeDistribution(): array
     {
         return [
-            Store::whereHas('user', function($q) { $q->where('role', 'artist'); })->count(),
-            Store::whereHas('user', function($q) { $q->where('role', 'user'); })->count(),
-            Store::whereHas('user', function($q) { $q->where('role', 'merchant'); })->count(),
+            Store::whereHas('user', function ($q) {
+                $q->where('role', 'artist');
+            })->count(),
+            Store::whereHas('user', function ($q) {
+                $q->where('role', 'user');
+            })->count(),
+            Store::whereHas('user', function ($q) {
+                $q->where('role', 'merchant');
+            })->count(),
         ];
     }
 
     protected function getTopStoresLabels($startDate, int $limit): array
     {
-        return Store::withCount(['orders' => fn($q) => $q->where('created_at', '>=', $startDate)])
+        return Store::withCount(['orders' => fn ($q) => $q->where('created_at', '>=', $startDate)])
             ->orderByDesc('orders_count')
             ->limit($limit)
             ->pluck('name')
@@ -452,7 +464,7 @@ class AnalyticsService
 
     protected function getTopStoresOrders($startDate, int $limit): array
     {
-        return Store::withCount(['orders' => fn($q) => $q->where('created_at', '>=', $startDate)])
+        return Store::withCount(['orders' => fn ($q) => $q->where('created_at', '>=', $startDate)])
             ->orderByDesc('orders_count')
             ->limit($limit)
             ->pluck('orders_count')
@@ -461,12 +473,12 @@ class AnalyticsService
 
     protected function getTopStoresRevenue($startDate, int $limit): array
     {
-        return Store::withCount(['orders' => fn($q) => $q->where('created_at', '>=', $startDate)->where('payment_status', 'paid')])
+        return Store::withCount(['orders' => fn ($q) => $q->where('created_at', '>=', $startDate)->where('payment_status', 'paid')])
             ->orderByDesc('orders_count')
             ->limit($limit)
             ->get()
             ->pluck('orders_count')
-            ->map(fn($val) => ($val * 50000) / 1000) // Estimated revenue in thousands
+            ->map(fn ($val) => ($val * 50000) / 1000) // Estimated revenue in thousands
             ->toArray();
     }
 
@@ -488,7 +500,7 @@ class AnalyticsService
     protected function calculateStoreSuccessRate($startDate): float
     {
         $totalStores = Store::count();
-        $activeStores = Store::whereHas('orders', fn($q) => $q->where('created_at', '>=', $startDate))->count();
+        $activeStores = Store::whereHas('orders', fn ($q) => $q->where('created_at', '>=', $startDate))->count();
 
         return $totalStores > 0 ? ($activeStores / $totalStores) * 100 : 0;
     }

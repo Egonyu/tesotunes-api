@@ -49,7 +49,7 @@ class SaccoAuditLog extends Model
     public function scopeByModel($query, string $modelType, ?int $modelId = null)
     {
         $query = $query->where('model_type', $modelType);
-        
+
         if ($modelId) {
             $query->where('model_id', $modelId);
         }

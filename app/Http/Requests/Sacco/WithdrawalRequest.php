@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests\Sacco;
 
-use Illuminate\Foundation\Http\FormRequest;
 use App\Modules\Sacco\Models\SaccoAccount;
+use Illuminate\Foundation\Http\FormRequest;
 
 class WithdrawalRequest extends FormRequest
 {
@@ -28,8 +28,8 @@ class WithdrawalRequest extends FormRequest
             'amount' => [
                 'required',
                 'numeric',
-                'min:' . config('sacco.minimum_withdrawal', 1000),
-                'max:' . config('sacco.maximum_withdrawal', 50000000),
+                'min:'.config('sacco.minimum_withdrawal', 1000),
+                'max:'.config('sacco.maximum_withdrawal', 50000000),
             ],
             'withdrawal_method' => [
                 'required',
@@ -76,8 +76,8 @@ class WithdrawalRequest extends FormRequest
         return [
             'account_id.required' => 'Please select an account',
             'account_id.exists' => 'Invalid account selected',
-            'amount.min' => 'Minimum withdrawal amount is UGX ' . number_format(config('sacco.minimum_withdrawal', 1000)),
-            'amount.max' => 'Maximum withdrawal amount is UGX ' . number_format(config('sacco.maximum_withdrawal', 50000000)),
+            'amount.min' => 'Minimum withdrawal amount is UGX '.number_format(config('sacco.minimum_withdrawal', 1000)),
+            'amount.max' => 'Maximum withdrawal amount is UGX '.number_format(config('sacco.maximum_withdrawal', 50000000)),
             'withdrawal_method.required' => 'Please select a withdrawal method',
             'withdrawal_method.in' => 'Invalid withdrawal method selected',
             'mobile_number.required_if' => 'Mobile number is required for mobile money withdrawals',
@@ -115,21 +115,24 @@ class WithdrawalRequest extends FormRequest
             // Verify account belongs to the authenticated member
             if ($this->account_id) {
                 $account = SaccoAccount::find($this->account_id);
-                
+
                 if ($account && $account->member->user_id !== auth()->id()) {
                     $validator->errors()->add('account_id', 'This account does not belong to you');
+
                     return;
                 }
 
                 // Check if account allows withdrawals
-                if ($account && !in_array($account->account_type, ['savings'])) {
+                if ($account && ! in_array($account->account_type, ['savings'])) {
                     $validator->errors()->add('account_id', 'Withdrawals are only allowed from savings accounts');
+
                     return;
                 }
 
                 // Check if account is active
                 if ($account && $account->status !== 'active') {
                     $validator->errors()->add('account_id', 'This account is not active');
+
                     return;
                 }
 
@@ -139,7 +142,7 @@ class WithdrawalRequest extends FormRequest
                     $availableBalance = $account->balance - $minimumBalance;
 
                     if ($this->amount > $availableBalance) {
-                        $validator->errors()->add('amount', 'Insufficient balance. Available: UGX ' . number_format($availableBalance) . ' (UGX ' . number_format($minimumBalance) . ' minimum balance required)');
+                        $validator->errors()->add('amount', 'Insufficient balance. Available: UGX '.number_format($availableBalance).' (UGX '.number_format($minimumBalance).' minimum balance required)');
                     }
                 }
 
@@ -160,7 +163,7 @@ class WithdrawalRequest extends FormRequest
 
             // Additional daily limit check for mobile money
             if ($this->withdrawal_method === 'mobile_money' && $this->amount > config('sacco.mobile_money_withdrawal_limit', 3000000)) {
-                $validator->errors()->add('amount', 'Mobile money withdrawals are limited to UGX ' . number_format(config('sacco.mobile_money_withdrawal_limit', 3000000)) . ' per transaction');
+                $validator->errors()->add('amount', 'Mobile money withdrawals are limited to UGX '.number_format(config('sacco.mobile_money_withdrawal_limit', 3000000)).' per transaction');
             }
         });
     }

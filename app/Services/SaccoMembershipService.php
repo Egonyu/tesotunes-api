@@ -3,10 +3,9 @@
 namespace App\Services;
 
 use App\Models\User;
-use App\Modules\Sacco\Models\SaccoMember;
 use App\Modules\Sacco\Models\SaccoAccount;
+use App\Modules\Sacco\Models\SaccoMember;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class SaccoMembershipService
 {
@@ -16,7 +15,7 @@ class SaccoMembershipService
     public function autoCreateMembership(User $user): ?SaccoMember
     {
         // Check if SACCO module is enabled
-        if (!config('sacco.enabled', false)) {
+        if (! config('sacco.enabled', false)) {
             return null;
         }
 
@@ -26,7 +25,7 @@ class SaccoMembershipService
         }
 
         // Check basic eligibility
-        if (!$user->email_verified_at) {
+        if (! $user->email_verified_at) {
             return null;
         }
 
@@ -83,8 +82,8 @@ class SaccoMembershipService
     public function upgradeToArtistTier(User $user): ?SaccoMember
     {
         $member = $user->saccoMember;
-        
-        if (!$member) {
+
+        if (! $member) {
             // Create membership first
             $member = $this->autoCreateMembership($user);
         }
@@ -106,8 +105,8 @@ class SaccoMembershipService
     public function upgradeToPremiumTier(User $user): ?SaccoMember
     {
         $member = $user->saccoMember;
-        
-        if (!$member) {
+
+        if (! $member) {
             return null;
         }
 
@@ -132,7 +131,7 @@ class SaccoMembershipService
     private function generateMembershipNumber(): string
     {
         do {
-            $number = 'SM' . date('Y') . str_pad(rand(1, 99999), 5, '0', STR_PAD_LEFT);
+            $number = 'SM'.date('Y').str_pad(rand(1, 99999), 5, '0', STR_PAD_LEFT);
         } while (SaccoMember::where('member_number', $number)->exists());
 
         return $number;
@@ -195,14 +194,14 @@ class SaccoMembershipService
      */
     private function generateAccountNumber(SaccoMember $member, string $type): string
     {
-        $prefix = match($type) {
+        $prefix = match ($type) {
             'savings' => 'SAV',
             'shares' => 'SHR',
             'loan' => 'LON',
             default => 'ACC',
         };
 
-        return $prefix . str_pad($member->id, 6, '0', STR_PAD_LEFT) . rand(100, 999);
+        return $prefix.str_pad($member->id, 6, '0', STR_PAD_LEFT).rand(100, 999);
     }
 
     /**

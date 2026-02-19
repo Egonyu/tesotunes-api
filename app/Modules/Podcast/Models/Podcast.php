@@ -242,7 +242,7 @@ class Podcast extends Model
     public function scopePopular($query, int $minSubscribers = 100)
     {
         return $query->where('subscriber_count', '>', $minSubscribers)
-                     ->orderBy('subscriber_count', 'desc');
+            ->orderBy('subscriber_count', 'desc');
     }
 
     /**
@@ -251,7 +251,7 @@ class Podcast extends Model
     public function scopeRecent($query, int $days = 30)
     {
         return $query->where('created_at', '>=', now()->subDays($days))
-                     ->orderBy('created_at', 'desc');
+            ->orderBy('created_at', 'desc');
     }
 
     /**
@@ -276,6 +276,7 @@ class Podcast extends Model
     public function hasCollaborator($user): bool
     {
         $userId = $user instanceof User ? $user->id : $user;
+
         return $this->collaborators()->where('user_id', $userId)->exists();
     }
 

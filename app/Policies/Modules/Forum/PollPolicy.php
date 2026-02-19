@@ -4,7 +4,6 @@ namespace App\Policies\Modules\Forum;
 
 use App\Models\Modules\Forum\Poll;
 use App\Models\User;
-use Illuminate\Auth\Access\Response;
 
 class PollPolicy
 {
@@ -54,7 +53,7 @@ class PollPolicy
     public function delete(User $user, Poll $poll): bool
     {
         // Users can delete own polls, moderators can delete any
-        return $user->id === $poll->user_id || 
+        return $user->id === $poll->user_id ||
                $user->hasAnyRole(['admin', 'super_admin', 'moderator']);
     }
 
@@ -64,7 +63,7 @@ class PollPolicy
     public function vote(User $user, Poll $poll): bool
     {
         // Check if poll is active
-        if (!$poll->isActive()) {
+        if (! $poll->isActive()) {
             return false;
         }
 

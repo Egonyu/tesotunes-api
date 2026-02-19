@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
  * OrderItem Model
- * 
+ *
  * Individual line items in an order
  * Stores product snapshot and currency breakdown
  */
@@ -72,8 +72,11 @@ class OrderItem extends Model
 
     // Fulfillment status constants
     const STATUS_PENDING = 'pending';
+
     const STATUS_PROCESSING = 'processing';
+
     const STATUS_FULFILLED = 'fulfilled';
+
     const STATUS_CANCELLED = 'cancelled';
 
     /*
@@ -115,9 +118,9 @@ class OrderItem extends Model
 
     public function getCanDownloadAttribute(): bool
     {
-        return $this->is_digital 
-            && $this->download_url 
-            && (!$this->download_expires_at || $this->download_expires_at->isFuture());
+        return $this->is_digital
+            && $this->download_url
+            && (! $this->download_expires_at || $this->download_expires_at->isFuture());
     }
 
     /*
@@ -146,7 +149,7 @@ class OrderItem extends Model
     {
         $unitPrice = $product->price_ugx;
         $subtotal = $unitPrice * $quantity;
-        
+
         return [
             'product_id' => $product->id,
             'product_snapshot' => $product->toArray(),

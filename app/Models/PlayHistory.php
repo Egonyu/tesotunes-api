@@ -11,12 +11,13 @@ class PlayHistory extends Model
     use HasFactory;
 
     protected $table = 'play_histories';
-    
+
     // Disable default timestamps since we use played_at
     public $timestamps = false;
-    
+
     // Use played_at as the primary timestamp column
     const CREATED_AT = 'played_at';
+
     const UPDATED_AT = null;
 
     protected $fillable = [
@@ -94,6 +95,7 @@ class PlayHistory extends Model
         if (isset($this->attributes['completion_percentage'])) {
             return (float) $this->attributes['completion_percentage'];
         }
+
         // Fallback: calculate from was_completed flag
         return $this->was_completed ? 100 : 0;
     }
@@ -106,7 +108,7 @@ class PlayHistory extends Model
             ->where('was_completed', true)
             ->with([
                 'song:id,title,artist_id,artwork,duration_seconds',
-                'song.artist:id,stage_name,avatar,is_verified'
+                'song.artist:id,stage_name,avatar,is_verified',
             ])
             ->get()
             ->groupBy('song_id')
@@ -129,7 +131,7 @@ class PlayHistory extends Model
             ->where('was_completed', true)
             ->with([
                 'song:id,title,artist_id',
-                'song.artist:id,stage_name,avatar,is_verified,bio'
+                'song.artist:id,stage_name,avatar,is_verified,bio',
             ])
             ->get()
             ->groupBy('song.artist_id')

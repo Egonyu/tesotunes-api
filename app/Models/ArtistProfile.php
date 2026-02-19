@@ -117,12 +117,13 @@ class ArtistProfile extends Model
         $moneyThreshold = 50000;
 
         if ($this->total_credits_earned >= $creditThreshold || $this->total_money_earned >= $moneyThreshold) {
-            if (!$this->money_payout_enabled) {
+            if (! $this->money_payout_enabled) {
                 $this->update([
                     'money_payout_enabled' => true,
                     'money_payout_unlocked_at' => now(),
                 ]);
             }
+
             return true;
         }
 
@@ -138,15 +139,22 @@ class ArtistProfile extends Model
     {
         $totalEarnings = $this->getTotalEarningsAttribute();
 
-        if ($totalEarnings >= 500000) return 'Mainstream';
-        if ($totalEarnings >= 100000) return 'Established';
-        if ($totalEarnings >= 25000) return 'Developing';
+        if ($totalEarnings >= 500000) {
+            return 'Mainstream';
+        }
+        if ($totalEarnings >= 100000) {
+            return 'Established';
+        }
+        if ($totalEarnings >= 25000) {
+            return 'Developing';
+        }
+
         return 'Emerging';
     }
 
     public function getVerificationBadgeAttribute(): string
     {
-        return match($this->verification_status) {
+        return match ($this->verification_status) {
             'verified' => '✅ Verified',
             'pending' => '⏳ Pending',
             'rejected' => '❌ Rejected',
@@ -156,8 +164,8 @@ class ArtistProfile extends Model
 
     public function getPayoutMethodDisplayAttribute(): string
     {
-        return match($this->payout_method) {
-            'mobile_money' => $this->mobile_money_provider . ' Mobile Money',
+        return match ($this->payout_method) {
+            'mobile_money' => $this->mobile_money_provider.' Mobile Money',
             'bank_transfer' => 'Bank Transfer',
             'cash' => 'Cash Pickup',
             default => 'Not Set'

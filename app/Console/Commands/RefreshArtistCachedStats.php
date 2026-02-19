@@ -45,6 +45,7 @@ class RefreshArtistCachedStats extends Command
 
         if ($totalArtists === 0) {
             $this->info('No artists found to refresh.');
+
             return self::SUCCESS;
         }
 
@@ -59,6 +60,7 @@ class RefreshArtistCachedStats extends Command
         }
 
         $this->info('Operation cancelled.');
+
         return self::SUCCESS;
     }
 
@@ -69,8 +71,9 @@ class RefreshArtistCachedStats extends Command
     {
         $artist = Artist::find($artistId);
 
-        if (!$artist) {
+        if (! $artist) {
             $this->error("Artist with ID {$artistId} not found.");
+
             return self::FAILURE;
         }
 
@@ -84,7 +87,7 @@ class RefreshArtistCachedStats extends Command
                 ['Metric', 'Value'],
                 [
                     ['Total Plays', number_format($artist->total_plays_cached)],
-                    ['Total Revenue', '$' . number_format($artist->total_revenue_cached, 2)],
+                    ['Total Revenue', '$'.number_format($artist->total_revenue_cached, 2)],
                     ['Followers', number_format($artist->followers_count_cached)],
                     ['Last Updated', $artist->stats_last_updated_at],
                 ]
@@ -93,6 +96,7 @@ class RefreshArtistCachedStats extends Command
             return self::SUCCESS;
         } catch (\Exception $e) {
             $this->error("Failed to refresh stats: {$e->getMessage()}");
+
             return self::FAILURE;
         }
     }
@@ -111,6 +115,7 @@ class RefreshArtistCachedStats extends Command
             return self::SUCCESS;
         } catch (\Exception $e) {
             $this->error("Failed to queue refresh job: {$e->getMessage()}");
+
             return self::FAILURE;
         }
     }

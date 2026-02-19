@@ -2,22 +2,25 @@
 
 namespace App\Modules\Store\Models;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\{BelongsTo, HasMany, HasOne, MorphTo};
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\User;
 
 /**
  * Store Model
- * 
+ *
  * Represents a seller's store/shop on the platform
  * Can be owned by artists or regular users (if allowed)
  */
 class Store extends Model
 {
     use HasFactory, SoftDeletes;
-    
+
     protected static function newFactory()
     {
         return \Database\Factories\StoreFactory::new();
@@ -82,18 +85,25 @@ class Store extends Model
 
     // Status constants
     const STATUS_PENDING = 'pending';
+
     const STATUS_DRAFT = 'draft';
+
     const STATUS_ACTIVE = 'active';
+
     const STATUS_SUSPENDED = 'suspended';
+
     const STATUS_CLOSED = 'closed';
 
     // Store type constants
     const TYPE_ARTIST = 'artist';
+
     const TYPE_USER = 'user';
 
     // Subscription tier constants
     const TIER_FREE = 'free';
+
     const TIER_PREMIUM = 'premium';
+
     const TIER_BUSINESS = 'business';
 
     /**
@@ -246,7 +256,7 @@ class Store extends Model
     {
         return $query->where(function ($q) use ($term) {
             $q->where('name', 'like', "%{$term}%")
-              ->orWhere('description', 'like', "%{$term}%");
+                ->orWhere('description', 'like', "%{$term}%");
         });
     }
 
@@ -264,7 +274,7 @@ class Store extends Model
         $ugx = $this->attributes['total_sales_ugx'] ?? 0;
         $credits = $this->attributes['total_sales_credits'] ?? 0;
         $conversionRate = config('store.currencies.credits.conversion_rate', 1);
-        
+
         return $ugx + ($credits * $conversionRate);
     }
 
@@ -273,18 +283,20 @@ class Store extends Model
      */
     public function getLogoUrlAttribute(): ?string
     {
-        if (!$this->logo) {
+        if (! $this->logo) {
             return null;
         }
 
         try {
             $disk = config('store.storage.disk', 'public');
-            if (!config("filesystems.disks.{$disk}")) {
+            if (! config("filesystems.disks.{$disk}")) {
                 $disk = 'public';
             }
+
             return \Storage::disk($disk)->url($this->logo);
         } catch (\Exception $e) {
-            \Log::warning("Failed to get logo URL: " . $e->getMessage());
+            \Log::warning('Failed to get logo URL: '.$e->getMessage());
+
             return \Storage::disk('public')->url($this->logo);
         }
     }
@@ -294,18 +306,20 @@ class Store extends Model
      */
     public function getBannerUrlAttribute(): ?string
     {
-        if (!$this->banner) {
+        if (! $this->banner) {
             return null;
         }
 
         try {
             $disk = config('store.storage.disk', 'public');
-            if (!config("filesystems.disks.{$disk}")) {
+            if (! config("filesystems.disks.{$disk}")) {
                 $disk = 'public';
             }
+
             return \Storage::disk($disk)->url($this->banner);
         } catch (\Exception $e) {
-            \Log::warning("Failed to get banner URL: " . $e->getMessage());
+            \Log::warning('Failed to get banner URL: '.$e->getMessage());
+
             return \Storage::disk('public')->url($this->banner);
         }
     }
@@ -339,7 +353,7 @@ class Store extends Model
      */
     public function getTransactionFeeAttribute(): float
     {
-        return match($this->subscription_tier) {
+        return match ($this->subscription_tier) {
             self::TIER_PREMIUM => config('store.fees.premium_tier', 5.0),
             self::TIER_BUSINESS => config('store.fees.business_tier', 3.0),
             default => config('store.fees.free_tier', 7.0),
@@ -357,7 +371,7 @@ class Store extends Model
      */
     public function canAddProducts(): bool
     {
-        $limit = match($this->subscription_tier) {
+        $limit = match ($this->subscription_tier) {
             self::TIER_FREE => config('store.limits.free_tier_products', 10),
             default => -1, // Unlimited
         };
@@ -374,7 +388,7 @@ class Store extends Model
      */
     public function getRemainingProductSlots(): int
     {
-        $limit = match($this->subscription_tier) {
+        $limit = match ($this->subscription_tier) {
             self::TIER_FREE => config('store.limits.free_tier_products', 10),
             default => -1,
         };
@@ -392,16 +406,17 @@ class Store extends Model
     public function calculatePlatformFee(float $amount): float
     {
         // Get fee percentage based on subscription tier
-        $feePercentage = match($this->subscription_tier) {
+        $feePercentage = match ($this->subscription_tier) {
             'premium' => config('store.fees.premium_tier', 5.0),
             'business' => config('store.fees.business_tier', 3.0),
             default => config('store.fees.free_tier', 7.0),
         };
-        
+
         $fee = $amount * ($feePercentage / 100);
-        
+
         // Apply minimum fee
         $minFee = config('store.fees.minimum_fee', 1000);
+
         return max($fee, $minFee);
     }
 
@@ -410,12 +425,12 @@ class Store extends Model
      */
     public function calculatePromotionFee(float $amount): float
     {
-        $feePercentage = match($this->subscription_tier) {
+        $feePercentage = match ($this->subscription_tier) {
             'premium' => config('store.fees.promotion_premium_tier', 7.0),
             'business' => config('store.fees.promotion_business_tier', 5.0),
             default => config('store.fees.promotion_free_tier', 10.0),
         };
-        
+
         return round($amount * ($feePercentage / 100), 2);
     }
 
@@ -460,7 +475,7 @@ class Store extends Model
      */
     public function isSubscriptionExpiringSoon(): bool
     {
-        if (!$this->subscription_expires_at) {
+        if (! $this->subscription_expires_at) {
             return false;
         }
 
@@ -488,7 +503,7 @@ class Store extends Model
     /**
      * Suspend store
      */
-    public function suspend(string $reason = null): bool
+    public function suspend(?string $reason = null): bool
     {
         $metadata = $this->metadata ?? [];
         $metadata['suspension_reason'] = $reason;
@@ -503,7 +518,7 @@ class Store extends Model
     /**
      * Close store permanently
      */
-    public function close(string $reason = null): bool
+    public function close(?string $reason = null): bool
     {
         $metadata = $this->metadata ?? [];
         $metadata['closure_reason'] = $reason;
@@ -559,27 +574,27 @@ class Store extends Model
 
         // Auto-generate UUID on creation
         static::creating(function ($store) {
-            if (!$store->uuid) {
+            if (! $store->uuid) {
                 $store->uuid = \Str::uuid();
             }
-            
+
             // Auto-generate slug from name
             if ($store->name) {
                 $baseSlug = \Str::slug($store->name);
                 $slug = $baseSlug;
                 $counter = 1;
-                
+
                 // Ensure slug is unique (skip current record if updating)
                 while (static::where('slug', $slug)->where('id', '!=', $store->id ?? 0)->exists()) {
-                    $slug = $baseSlug . '-' . $counter;
+                    $slug = $baseSlug.'-'.$counter;
                     $counter++;
                 }
-                
+
                 $store->slug = $slug;
             }
-            
+
             // Set default settings
-            if (!$store->settings) {
+            if (! $store->settings) {
                 $store->settings = self::getDefaultSettings();
             }
         });

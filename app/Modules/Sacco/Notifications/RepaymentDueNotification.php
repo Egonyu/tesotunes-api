@@ -2,10 +2,10 @@
 
 namespace App\Modules\Sacco\Notifications;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Notification;
-use Illuminate\Notifications\Messages\MailMessage;
 use App\Modules\Sacco\Models\SaccoLoanRepayment;
+use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Notifications\Notification;
 
 class RepaymentDueNotification extends Notification
 {
@@ -26,13 +26,13 @@ class RepaymentDueNotification extends Notification
     public function toMail($notifiable): MailMessage
     {
         $daysUntilDue = now()->diffInDays($this->repayment->due_date, false);
-        
+
         return (new MailMessage)
             ->subject('Loan Repayment Due Reminder')
             ->greeting('Repayment Reminder')
             ->line("Your loan repayment is due in {$daysUntilDue} days.")
             ->line("Due Date: {$this->repayment->due_date->format('F d, Y')}")
-            ->line("Amount Due: UGX " . number_format($this->repayment->amount_due, 2))
+            ->line('Amount Due: UGX '.number_format($this->repayment->amount_due, 2))
             ->line("Loan Number: {$this->repayment->loan->loan_number}")
             ->action('Make Payment', route('sacco.loans.show', $this->repayment->loan_id))
             ->line('Please ensure timely payment to maintain your good credit standing.');
@@ -46,7 +46,7 @@ class RepaymentDueNotification extends Notification
             'loan_id' => $this->repayment->loan_id,
             'amount_due' => $this->repayment->amount_due,
             'due_date' => $this->repayment->due_date,
-            'message' => 'Loan repayment due soon'
+            'message' => 'Loan repayment due soon',
         ];
     }
 }

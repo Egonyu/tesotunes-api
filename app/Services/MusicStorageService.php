@@ -2,12 +2,12 @@
 
 namespace App\Services;
 
-use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use App\Models\Artist;
 use Carbon\Carbon;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class MusicStorageService
 {
@@ -15,16 +15,20 @@ class MusicStorageService
      * Available storage drivers
      */
     const DRIVER_LOCAL = 'local';
+
     const DRIVER_DIGITALOCEAN = 'digitalocean';
 
     /**
      * File access levels
      */
     const ACCESS_PRIVATE = 'private';
+
     const ACCESS_PUBLIC = 'public';
 
     private string $primaryDriver;
+
     private ?string $backupDriver;
+
     private array $config;
 
     public function __construct()
@@ -44,16 +48,17 @@ class MusicStorageService
     ): array {
         try {
             $artist = Artist::where('user_id', $userId)->firstOrFail();
+
             return $this->storeMusicFile($file, $artist, 'upload', self::ACCESS_PRIVATE);
         } catch (\Exception $e) {
             Log::error('Audio file storage failed', [
                 'user_id' => $userId,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return [
                 'success' => false,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ];
         }
     }
@@ -83,7 +88,7 @@ class MusicStorageService
                 } catch (\Exception $e) {
                     Log::warning('Backup storage failed', [
                         'file' => $file->getClientOriginalName(),
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
                     ]);
                 }
             }
@@ -101,8 +106,8 @@ class MusicStorageService
                 'metadata' => array_merge($metadata, [
                     'stored_at' => now()->toISOString(),
                     'storage_driver' => $this->primaryDriver,
-                    'has_backup' => !is_null($backupResult),
-                ])
+                    'has_backup' => ! is_null($backupResult),
+                ]),
             ];
 
         } catch (\Exception $e) {
@@ -110,13 +115,13 @@ class MusicStorageService
                 'file' => $file->getClientOriginalName(),
                 'artist_id' => $artist->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
-                'file_info' => $uploadInfo
+                'file_info' => $uploadInfo,
             ];
         }
     }
@@ -133,10 +138,10 @@ class MusicStorageService
         $uploadInfo = $this->analyzeFile($file);
 
         // Validate image
-        if (!$this->isValidImage($file)) {
+        if (! $this->isValidImage($file)) {
             return [
                 'success' => false,
-                'error' => 'Invalid image format or corrupted file'
+                'error' => 'Invalid image format or corrupted file',
             ];
         }
 
@@ -161,12 +166,12 @@ class MusicStorageService
             Log::error('Artwork storage failed', [
                 'file' => $file->getClientOriginalName(),
                 'artist_id' => $artist->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return [
                 'success' => false,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ];
         }
     }
@@ -200,7 +205,7 @@ class MusicStorageService
             $visibility
         );
 
-        if (!$storedPath) {
+        if (! $storedPath) {
             throw new \Exception("Failed to store file on disk: {$disk}");
         }
 
@@ -211,7 +216,7 @@ class MusicStorageService
             'size' => $diskInstance->size($storedPath),
             'url' => $diskInstance->url($storedPath),
             'visibility' => $visibility,
-            'stored_at' => now()->toISOString()
+            'stored_at' => now()->toISOString(),
         ];
     }
 
@@ -244,7 +249,7 @@ class MusicStorageService
      */
     private function generateUniqueFilename(string $extension): string
     {
-        return time() . '_' . Str::random(16) . '.' . $extension;
+        return time().'_'.Str::random(16).'.'.$extension;
     }
 
     /**
@@ -254,8 +259,8 @@ class MusicStorageService
     {
         // Get the real path and validate it
         $realPath = $file->getRealPath();
-        
-        if (empty($realPath) || !file_exists($realPath)) {
+
+        if (empty($realPath) || ! file_exists($realPath)) {
             Log::error('File real path is empty or does not exist', [
                 'original_name' => $file->getClientOriginalName(),
                 'size' => $file->getSize(),
@@ -263,8 +268,8 @@ class MusicStorageService
                 'error_message' => $file->getErrorMessage(),
                 'is_valid' => $file->isValid(),
             ]);
-            
-            throw new \Exception('Uploaded file is not accessible. Error: ' . $file->getErrorMessage());
+
+            throw new \Exception('Uploaded file is not accessible. Error: '.$file->getErrorMessage());
         }
 
         $fileInfo = [
@@ -293,9 +298,9 @@ class MusicStorageService
         try {
             // Try using getID3 library if available
             if (class_exists('\getID3')) {
-                $getID3 = new \getID3();
+                $getID3 = new \getID3;
                 $fileInfo = $getID3->analyze($filePath);
-                
+
                 if (isset($fileInfo['playtime_seconds'])) {
                     return (int) round($fileInfo['playtime_seconds']);
                 }
@@ -310,13 +315,13 @@ class MusicStorageService
             }
 
             Log::warning('Could not extract audio duration - no extraction method available', [
-                'file' => $filePath
+                'file' => $filePath,
             ]);
 
         } catch (\Exception $e) {
             Log::warning('Failed to extract audio duration', [
                 'file' => $filePath,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
 
@@ -331,9 +336,9 @@ class MusicStorageService
         try {
             $escapedPath = escapeshellarg($filePath);
             $command = "ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {$escapedPath} 2>&1";
-            
+
             $output = shell_exec($command);
-            
+
             if ($output && is_numeric(trim($output))) {
                 return (int) round((float) trim($output));
             }
@@ -405,7 +410,7 @@ class MusicStorageService
             Log::warning('Failed to generate access URLs', [
                 'path' => $path,
                 'disk' => $disk,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
 
@@ -431,7 +436,7 @@ class MusicStorageService
         // This would integrate with your streaming service or generate a signed URL
         return route('frontend.music.stream', [
             'file' => encrypt($path),
-            'disk' => encrypt($disk)
+            'disk' => encrypt($disk),
         ]);
     }
 
@@ -442,14 +447,14 @@ class MusicStorageService
     {
         return route('frontend.music.download', [
             'file' => encrypt($path),
-            'disk' => encrypt($disk)
+            'disk' => encrypt($disk),
         ]);
     }
 
     /**
      * Delete file from storage
      */
-    public function deleteFile(string $path, string $disk = null): bool
+    public function deleteFile(string $path, ?string $disk = null): bool
     {
         $disk = $disk ?: $this->primaryDriver;
 
@@ -466,7 +471,7 @@ class MusicStorageService
             Log::error('Failed to delete file', [
                 'path' => $path,
                 'disk' => $disk,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return false;
@@ -482,7 +487,7 @@ class MusicStorageService
             $sourceInstance = $this->getDiskInstance($sourceDisk);
             $targetInstance = $this->getDiskInstance($targetDisk);
 
-            if (!$sourceInstance->exists($sourcePath)) {
+            if (! $sourceInstance->exists($sourcePath)) {
                 throw new \Exception("Source file does not exist: {$sourcePath}");
             }
 
@@ -500,10 +505,10 @@ class MusicStorageService
                     'success' => true,
                     'source_disk' => $sourceDisk,
                     'target_disk' => $targetDisk,
-                    'path' => $sourcePath
+                    'path' => $sourcePath,
                 ];
             } else {
-                throw new \Exception("Failed to write file to target disk");
+                throw new \Exception('Failed to write file to target disk');
             }
 
         } catch (\Exception $e) {
@@ -511,12 +516,12 @@ class MusicStorageService
                 'source_path' => $sourcePath,
                 'source_disk' => $sourceDisk,
                 'target_disk' => $targetDisk,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return [
                 'success' => false,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ];
         }
     }
@@ -524,14 +529,14 @@ class MusicStorageService
     /**
      * Get file information
      */
-    public function getFileInfo(string $path, string $disk = null): array
+    public function getFileInfo(string $path, ?string $disk = null): array
     {
         $disk = $disk ?: $this->primaryDriver;
 
         try {
             $diskInstance = $this->getDiskInstance($disk);
 
-            if (!$diskInstance->exists($path)) {
+            if (! $diskInstance->exists($path)) {
                 throw new \Exception("File does not exist: {$path}");
             }
 
@@ -543,13 +548,13 @@ class MusicStorageService
                 'visibility' => $diskInstance->getVisibility($path),
                 'url' => $diskInstance->url($path),
                 'disk' => $disk,
-                'path' => $path
+                'path' => $path,
             ];
 
         } catch (\Exception $e) {
             return [
                 'exists' => false,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ];
         }
     }
@@ -582,7 +587,7 @@ class MusicStorageService
 
             } catch (\Exception $e) {
                 $stats[$driver] = [
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
                 ];
             }
         }

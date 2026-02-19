@@ -29,44 +29,44 @@ class HttpClientFactory
      */
     private static array $profiles = [
         'zengapay' => [
-            'retries'    => 3,
+            'retries' => 3,
             'backoff_ms' => 500,
-            'timeout'    => 15,
+            'timeout' => 15,
         ],
         'mtn_momo' => [
-            'retries'    => 3,
+            'retries' => 3,
             'backoff_ms' => 1000,
-            'timeout'    => 30,
+            'timeout' => 30,
         ],
         'airtel_money' => [
-            'retries'    => 3,
+            'retries' => 3,
             'backoff_ms' => 1000,
-            'timeout'    => 30,
+            'timeout' => 30,
         ],
         'expo_push' => [
-            'retries'    => 2,
+            'retries' => 2,
             'backoff_ms' => 500,
-            'timeout'    => 30,
+            'timeout' => 30,
         ],
         'africastalking' => [
-            'retries'    => 2,
+            'retries' => 2,
             'backoff_ms' => 300,
-            'timeout'    => 15,
+            'timeout' => 15,
         ],
         'twilio' => [
-            'retries'    => 2,
+            'retries' => 2,
             'backoff_ms' => 300,
-            'timeout'    => 15,
+            'timeout' => 15,
         ],
         'rss_feed' => [
-            'retries'    => 2,
+            'retries' => 2,
             'backoff_ms' => 1000,
-            'timeout'    => 30,
+            'timeout' => 30,
         ],
         'default' => [
-            'retries'    => 2,
+            'retries' => 2,
             'backoff_ms' => 300,
-            'timeout'    => 15,
+            'timeout' => 15,
         ],
     ];
 
@@ -86,7 +86,7 @@ class HttpClientFactory
     /**
      * Create a PendingRequest with custom timeout but service-level retry settings.
      */
-    public static function forService(string $service, int $timeout = null): PendingRequest
+    public static function forService(string $service, ?int $timeout = null): PendingRequest
     {
         $profile = self::$profiles[$service] ?? self::$profiles['default'];
         $timeout = $timeout ?? $profile['timeout'];
@@ -118,6 +118,7 @@ class HttpClientFactory
                     $delay = $backoffMs * (2 ** ($attempt - 1));
                     // Add jitter (±25%) to prevent thundering herd
                     $jitter = (int) ($delay * 0.25 * (mt_rand(-100, 100) / 100));
+
                     return $delay + $jitter;
                 },
                 when: function (\Exception $exception, PendingRequest $request) use ($service) {
@@ -126,7 +127,7 @@ class HttpClientFactory
                     if ($shouldRetry) {
                         Log::warning("HTTP retry triggered for [{$service}]", [
                             'service' => $service,
-                            'error'   => $exception->getMessage(),
+                            'error' => $exception->getMessage(),
                         ]);
                     }
 
@@ -157,6 +158,7 @@ class HttpClientFactory
         // Request exceptions carry the response — check status code
         if ($exception instanceof \Illuminate\Http\Client\RequestException) {
             $status = $exception->response?->status();
+
             return $status && in_array($status, self::$retryableStatuses);
         }
 
@@ -178,12 +180,12 @@ class HttpClientFactory
             $cacheKey = "http_metrics:{$service}:{$dateKey}";
 
             $metrics = cache()->get($cacheKey, [
-                'total_requests'  => 0,
-                'total_duration'  => 0,
-                'max_duration'    => 0,
-                'failures'        => 0,
-                'retries'         => 0,
-                'status_codes'    => [],
+                'total_requests' => 0,
+                'total_duration' => 0,
+                'max_duration' => 0,
+                'failures' => 0,
+                'retries' => 0,
+                'status_codes' => [],
             ]);
 
             $metrics['total_requests']++;
@@ -207,10 +209,10 @@ class HttpClientFactory
                 if ($errorRate > 0.5) {
                     app(AlertingService::class)->high(
                         "http_error_rate_{$service}",
-                        "High HTTP error rate for {$service}: " . round($errorRate * 100, 1) . '%',
+                        "High HTTP error rate for {$service}: ".round($errorRate * 100, 1).'%',
                         [
                             'service' => $service,
-                            'error_rate' => round($errorRate * 100, 1) . '%',
+                            'error_rate' => round($errorRate * 100, 1).'%',
                             'total_requests' => $metrics['total_requests'],
                             'failures' => $metrics['failures'],
                         ]
@@ -225,12 +227,12 @@ class HttpClientFactory
     /**
      * Retrieve collected metrics for a specific service and date.
      */
-    public static function getMetrics(string $service, string $date = null): array
+    public static function getMetrics(string $service, ?string $date = null): array
     {
         $date = $date ?? now()->format('Y-m-d');
         $metrics = cache()->get("http_metrics:{$service}:{$date}", []);
 
-        if (!empty($metrics) && $metrics['total_requests'] > 0) {
+        if (! empty($metrics) && $metrics['total_requests'] > 0) {
             $metrics['avg_duration'] = round($metrics['total_duration'] / $metrics['total_requests'], 4);
         }
 
@@ -240,14 +242,14 @@ class HttpClientFactory
     /**
      * Retrieve metrics for all tracked services.
      */
-    public static function getAllMetrics(string $date = null): array
+    public static function getAllMetrics(?string $date = null): array
     {
         $date = $date ?? now()->format('Y-m-d');
         $all = [];
 
         foreach (array_keys(self::$profiles) as $service) {
             $metrics = self::getMetrics($service, $date);
-            if (!empty($metrics)) {
+            if (! empty($metrics)) {
                 $all[$service] = $metrics;
             }
         }

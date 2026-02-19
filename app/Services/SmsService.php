@@ -3,14 +3,14 @@
 namespace App\Services;
 
 use App\Services\Monitoring\HttpClientFactory;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class SmsService
 {
     protected string $provider;
+
     protected array $config;
 
     public function __construct()
@@ -38,7 +38,7 @@ class SmsService
         $formattedNumber = $this->formatUgandanPhoneNumber($phoneNumber);
 
         try {
-            return match($this->provider) {
+            return match ($this->provider) {
                 'africastalking' => $this->sendViaAfricasTalking($formattedNumber, $message),
                 'twilio' => $this->sendViaTwilio($formattedNumber, $message),
                 'mock' => $this->sendViaMockService($formattedNumber, $message),
@@ -49,7 +49,7 @@ class SmsService
             Log::error('SMS sending failed', [
                 'provider' => $this->provider,
                 'phone' => $formattedNumber,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             return false;
@@ -67,6 +67,7 @@ class SmsService
 
         if (empty($apiKey) || empty($username)) {
             Log::warning('Africa\'s Talking credentials not configured, using mock service');
+
             return $this->sendViaMockService($phoneNumber, $message);
         }
 
@@ -88,8 +89,9 @@ class SmsService
             if ($success) {
                 Log::info('SMS sent successfully via Africa\'s Talking', [
                     'phone' => $phoneNumber,
-                    'response' => $data
+                    'response' => $data,
                 ]);
+
                 return true;
             }
         }
@@ -97,7 +99,7 @@ class SmsService
         Log::error('Africa\'s Talking SMS failed', [
             'phone' => $phoneNumber,
             'status' => $response->status(),
-            'response' => $response->body()
+            'response' => $response->body(),
         ]);
 
         return false;
@@ -114,6 +116,7 @@ class SmsService
 
         if (empty($accountSid) || empty($authToken) || empty($fromNumber)) {
             Log::warning('Twilio credentials not configured, using mock service');
+
             return $this->sendViaMockService($phoneNumber, $message);
         }
 
@@ -128,15 +131,16 @@ class SmsService
         if ($response->successful()) {
             Log::info('SMS sent successfully via Twilio', [
                 'phone' => $phoneNumber,
-                'sid' => $response->json('sid')
+                'sid' => $response->json('sid'),
             ]);
+
             return true;
         }
 
         Log::error('Twilio SMS failed', [
             'phone' => $phoneNumber,
             'status' => $response->status(),
-            'response' => $response->body()
+            'response' => $response->body(),
         ]);
 
         return false;
@@ -151,7 +155,7 @@ class SmsService
         Log::info('Mock SMS sent', [
             'to' => $phoneNumber,
             'message' => $message,
-            'timestamp' => now()->toISOString()
+            'timestamp' => now()->toISOString(),
         ]);
 
         // Simulate network delay
@@ -173,21 +177,21 @@ class SmsService
         // Handle different Ugandan phone number formats
         if (str_starts_with($cleaned, '256')) {
             // Already has country code
-            return '+' . $cleaned;
+            return '+'.$cleaned;
         }
 
         if (str_starts_with($cleaned, '0')) {
             // Local format (0xxx xxx xxx) - replace leading 0 with +256
-            return '+256' . substr($cleaned, 1);
+            return '+256'.substr($cleaned, 1);
         }
 
         if (strlen($cleaned) === 9) {
             // 9 digits without leading 0 - add +256
-            return '+256' . $cleaned;
+            return '+256'.$cleaned;
         }
 
         // Return as-is if we can't determine format
-        return '+256' . $cleaned;
+        return '+256'.$cleaned;
     }
 
     /**
@@ -259,11 +263,12 @@ class SmsService
     {
         $operator = $this->detectOperator($phoneNumber);
 
-        if (!$operator) {
+        if (! $operator) {
             return false;
         }
 
         $operators = $this->getUgandanOperators();
+
         return $operators[$operator]['supports_mobile_money'] ?? false;
     }
 
@@ -288,7 +293,7 @@ class SmsService
     {
         $message = $this->getNotificationMessage($type, $data);
 
-        if (!$message) {
+        if (! $message) {
             return false;
         }
 
@@ -300,26 +305,26 @@ class SmsService
      */
     protected function getNotificationMessage(string $type, array $data): ?string
     {
-        return match($type) {
-            'artist_approved' => "Congratulations! Your artist account has been approved. You can now start uploading music and earning money.",
+        return match ($type) {
+            'artist_approved' => 'Congratulations! Your artist account has been approved. You can now start uploading music and earning money.',
 
-            'artist_rejected' => "Your artist application has been rejected. Reason: " . ($data['reason'] ?? 'Please contact support for more information.'),
+            'artist_rejected' => 'Your artist application has been rejected. Reason: '.($data['reason'] ?? 'Please contact support for more information.'),
 
-            'payout_approved' => "Your payout request of UGX " . number_format($data['amount'] ?? 0) . " has been approved and will be processed within 24 hours.",
+            'payout_approved' => 'Your payout request of UGX '.number_format($data['amount'] ?? 0).' has been approved and will be processed within 24 hours.',
 
-            'payout_completed' => "Your payout of UGX " . number_format($data['amount'] ?? 0) . " has been sent to your " . ($data['method'] ?? 'account') . ".",
+            'payout_completed' => 'Your payout of UGX '.number_format($data['amount'] ?? 0).' has been sent to your '.($data['method'] ?? 'account').'.',
 
-            'track_approved' => "Your track '" . ($data['title'] ?? 'Unknown') . "' has been approved and is now live on the platform!",
+            'track_approved' => "Your track '".($data['title'] ?? 'Unknown')."' has been approved and is now live on the platform!",
 
-            'track_rejected' => "Your track '" . ($data['title'] ?? 'Unknown') . "' was rejected. Reason: " . ($data['reason'] ?? 'Quality guidelines not met.'),
+            'track_rejected' => "Your track '".($data['title'] ?? 'Unknown')."' was rejected. Reason: ".($data['reason'] ?? 'Quality guidelines not met.'),
 
-            'earnings_milestone' => "Congratulations! You've earned UGX " . number_format($data['amount'] ?? 0) . " from your music. Keep creating!",
+            'earnings_milestone' => "Congratulations! You've earned UGX ".number_format($data['amount'] ?? 0).' from your music. Keep creating!',
 
-            'loan_approved' => "Your SACCO loan of UGX " . number_format($data['amount'] ?? 0) . " has been approved. Funds will be disbursed shortly.",
+            'loan_approved' => 'Your SACCO loan of UGX '.number_format($data['amount'] ?? 0).' has been approved. Funds will be disbursed shortly.',
 
-            'loan_payment_due' => "Your loan payment of UGX " . number_format($data['amount'] ?? 0) . " is due on " . ($data['due_date'] ?? 'soon') . ".",
+            'loan_payment_due' => 'Your loan payment of UGX '.number_format($data['amount'] ?? 0).' is due on '.($data['due_date'] ?? 'soon').'.',
 
-            'order_shipped' => "Your order #" . ($data['order_id'] ?? 'N/A') . " has been shipped and is on its way!",
+            'order_shipped' => 'Your order #'.($data['order_id'] ?? 'N/A').' has been shipped and is on its way!',
 
             default => null
         };
@@ -331,7 +336,7 @@ class SmsService
     public function hasOptedOut(string $phoneNumber): bool
     {
         $formatted = $this->formatUgandanPhoneNumber($phoneNumber);
-        
+
         // Check opt-out status in database
         return \Illuminate\Support\Facades\Cache::remember(
             "sms_optout:{$formatted}",
@@ -351,7 +356,7 @@ class SmsService
     public function optOut(string $phoneNumber, ?string $reason = null): bool
     {
         $formatted = $this->formatUgandanPhoneNumber($phoneNumber);
-        
+
         try {
             DB::table('sms_opt_outs')->updateOrInsert(
                 ['phone_number' => $formatted],
@@ -365,15 +370,17 @@ class SmsService
 
             // Clear cache
             \Illuminate\Support\Facades\Cache::forget("sms_optout:{$formatted}");
-            
+
             Log::info('SMS opt-out registered', ['phone' => $formatted]);
+
             return true;
-            
+
         } catch (\Exception $e) {
             Log::error('Failed to register SMS opt-out', [
                 'phone' => $formatted,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
@@ -384,7 +391,7 @@ class SmsService
     public function optIn(string $phoneNumber): bool
     {
         $formatted = $this->formatUgandanPhoneNumber($phoneNumber);
-        
+
         try {
             DB::table('sms_opt_outs')->updateOrInsert(
                 ['phone_number' => $formatted],
@@ -397,15 +404,17 @@ class SmsService
 
             // Clear cache
             \Illuminate\Support\Facades\Cache::forget("sms_optout:{$formatted}");
-            
+
             Log::info('SMS opt-in registered', ['phone' => $formatted]);
+
             return true;
-            
+
         } catch (\Exception $e) {
             Log::error('Failed to register SMS opt-in', [
                 'phone' => $formatted,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
@@ -426,7 +435,7 @@ class SmsService
         } catch (\Exception $e) {
             Log::error('Failed to track SMS delivery', [
                 'message_id' => $messageId,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
     }
@@ -436,7 +445,7 @@ class SmsService
      */
     public function getDeliveryStats(string $period = '24h'): array
     {
-        $since = match($period) {
+        $since = match ($period) {
             '1h' => now()->subHour(),
             '24h' => now()->subDay(),
             '7d' => now()->subWeek(),
@@ -461,8 +470,9 @@ class SmsService
             ];
         } catch (\Exception $e) {
             Log::error('Failed to get SMS delivery stats', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return [];
         }
     }
@@ -473,14 +483,16 @@ class SmsService
     public function send(string $phoneNumber, string $message): bool
     {
         // Validate phone number
-        if (!$this->isValidUgandanPhoneNumber($phoneNumber)) {
+        if (! $this->isValidUgandanPhoneNumber($phoneNumber)) {
             Log::warning('Invalid phone number format', ['phone' => $phoneNumber]);
+
             return false;
         }
 
         // Check opt-out status
         if ($this->hasOptedOut($phoneNumber)) {
             Log::info('SMS not sent - user opted out', ['phone' => $phoneNumber]);
+
             return false;
         }
 

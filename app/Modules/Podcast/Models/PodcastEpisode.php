@@ -91,8 +91,8 @@ class PodcastEpisode extends Model
     public function scopePublished($query)
     {
         return $query->where('status', 'published')
-                     ->whereNotNull('published_at')
-                     ->where('published_at', '<=', now());
+            ->whereNotNull('published_at')
+            ->where('published_at', '<=', now());
     }
 
     /**
@@ -109,7 +109,7 @@ class PodcastEpisode extends Model
     public function scopeOrderByEpisode($query)
     {
         return $query->orderBy('season_number', 'desc')
-                     ->orderBy('episode_number', 'desc');
+            ->orderBy('episode_number', 'desc');
     }
 
     /**
@@ -149,11 +149,11 @@ class PodcastEpisode extends Model
      */
     public function canAccess($user): bool
     {
-        if (!$this->isPremium()) {
+        if (! $this->isPremium()) {
             return true;
         }
 
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 

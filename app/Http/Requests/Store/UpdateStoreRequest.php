@@ -25,7 +25,7 @@ class UpdateStoreRequest extends FormRequest
 
         return [
             'name' => 'required|string|max:255',
-            'slug' => 'required|string|max:255|alpha_dash|unique:stores,slug,' . $storeId,
+            'slug' => 'required|string|max:255|alpha_dash|unique:stores,slug,'.$storeId,
             'description' => 'nullable|string|max:5000',
             'logo' => 'nullable|image|max:2048|mimes:jpeg,png,jpg,gif',
             'banner' => 'nullable|image|max:5120|mimes:jpeg,png,jpg',

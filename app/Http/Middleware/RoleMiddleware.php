@@ -15,21 +15,21 @@ class RoleMiddleware
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Authentication required'
+                    'message' => 'Authentication required',
                 ], 401);
             }
             abort(401, 'Authentication required');
         }
 
-        if (!$user->isActive()) {
+        if (! $user->isActive()) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Account is suspended'
+                    'message' => 'Account is suspended',
                 ], 403);
             }
             abort(403, 'Account is suspended');
@@ -39,14 +39,14 @@ class RoleMiddleware
             return $next($request);
         }
 
-        if (!$user->hasAnyRole($roles)) {
+        if (! $user->hasAnyRole($roles)) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insufficient permissions. Required roles: ' . implode(', ', $roles)
+                    'message' => 'Insufficient permissions. Required roles: '.implode(', ', $roles),
                 ], 403);
             }
-            abort(403, 'Insufficient permissions. Required roles: ' . implode(', ', $roles));
+            abort(403, 'Insufficient permissions. Required roles: '.implode(', ', $roles));
         }
 
         return $next($request);

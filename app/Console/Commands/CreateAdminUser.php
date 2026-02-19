@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Models\User;
-use App\Models\Artist;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -47,13 +46,13 @@ class CreateAdminUser extends Command
         ]);
 
         if ($validator->fails()) {
-            $this->error('❌ ' . $validator->errors()->first('email'));
-            
+            $this->error('❌ '.$validator->errors()->first('email'));
+
             // Ask if they want to update existing user
             if ($this->confirm('User with this email exists. Update password?', true)) {
                 return $this->updateExistingUser($email);
             }
-            
+
             return 1;
         }
 
@@ -62,15 +61,15 @@ class CreateAdminUser extends Command
 
         // Get or ask for password
         $password = $this->option('password') ?: $this->secret('Admin password (min 8 characters)');
-        
-        if (!$password || strlen($password) < 8) {
+
+        if (! $password || strlen($password) < 8) {
             $password = 'admin123';
             $this->warn('⚠️  Using default password: admin123');
         }
 
         // Get or ask for role
         $role = $this->option('role');
-        if (!in_array($role, ['super_admin', 'admin', 'moderator', 'finance'])) {
+        if (! in_array($role, ['super_admin', 'admin', 'moderator', 'finance'])) {
             $role = $this->choice(
                 'Select role',
                 ['super_admin', 'admin', 'moderator', 'finance'],
@@ -83,7 +82,7 @@ class CreateAdminUser extends Command
         $username = $baseUsername;
         $counter = 1;
         while (User::where('username', $username)->exists()) {
-            $username = $baseUsername . '_' . $counter;
+            $username = $baseUsername.'_'.$counter;
             $counter++;
         }
 
@@ -105,7 +104,7 @@ class CreateAdminUser extends Command
             $this->newLine();
             $this->info('✓ Admin user created successfully!');
             $this->newLine();
-            
+
             $this->table(
                 ['Field', 'Value'],
                 [
@@ -121,13 +120,14 @@ class CreateAdminUser extends Command
 
             $this->newLine();
             $this->warn('⚠️  Please save these credentials securely!');
-            $this->info('Login URL: ' . config('app.url') . '/admin/login');
+            $this->info('Login URL: '.config('app.url').'/admin/login');
             $this->newLine();
 
             return 0;
 
         } catch (\Exception $e) {
-            $this->error('❌ Error creating admin user: ' . $e->getMessage());
+            $this->error('❌ Error creating admin user: '.$e->getMessage());
+
             return 1;
         }
     }
@@ -139,17 +139,18 @@ class CreateAdminUser extends Command
     {
         $user = User::where('email', $email)->first();
 
-        if (!$user) {
+        if (! $user) {
             $this->error('❌ User not found');
+
             return 1;
         }
 
-        $this->info('Updating user: ' . $user->name . ' (' . $user->email . ')');
+        $this->info('Updating user: '.$user->name.' ('.$user->email.')');
         $this->newLine();
 
         // Ask for new password
         $newPassword = $this->secret('New password (leave empty to keep current)');
-        
+
         if ($newPassword && strlen($newPassword) >= 8) {
             $user->password = Hash::make($newPassword);
             $this->info('✓ Password updated');
@@ -159,14 +160,14 @@ class CreateAdminUser extends Command
         }
 
         // Ask to update role
-        if ($this->confirm('Update role? (currently: ' . $user->role . ')', false)) {
+        if ($this->confirm('Update role? (currently: '.$user->role.')', false)) {
             $newRole = $this->choice(
                 'Select new role',
                 ['super_admin', 'admin', 'moderator', 'finance'],
                 array_search($user->role, ['super_admin', 'admin', 'moderator', 'finance'])
             );
             $user->role = $newRole;
-            $this->info('✓ Role updated to: ' . $newRole);
+            $this->info('✓ Role updated to: '.$newRole);
         }
 
         // Make sure user is active
@@ -196,4 +197,3 @@ class CreateAdminUser extends Command
         return 0;
     }
 }
-

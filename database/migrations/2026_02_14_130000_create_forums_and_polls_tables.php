@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         // Forum Categories
-        if (!Schema::hasTable('forum_categories')) {
+        if (! Schema::hasTable('forum_categories')) {
             Schema::create('forum_categories', function (Blueprint $table) {
                 $table->id();
                 $table->string('name');
@@ -26,7 +26,7 @@ return new class extends Migration
         }
 
         // Forum Topics
-        if (!Schema::hasTable('forum_topics')) {
+        if (! Schema::hasTable('forum_topics')) {
             Schema::create('forum_topics', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('category_id')->constrained('forum_categories')->cascadeOnDelete();
@@ -52,7 +52,7 @@ return new class extends Migration
         }
 
         // Forum Replies
-        if (!Schema::hasTable('forum_replies')) {
+        if (! Schema::hasTable('forum_replies')) {
             Schema::create('forum_replies', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('topic_id')->constrained('forum_topics')->cascadeOnDelete();
@@ -70,7 +70,7 @@ return new class extends Migration
         }
 
         // Polls
-        if (!Schema::hasTable('polls')) {
+        if (! Schema::hasTable('polls')) {
             Schema::create('polls', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('user_id')->constrained()->cascadeOnDelete();
@@ -91,7 +91,7 @@ return new class extends Migration
         }
 
         // Poll Options
-        if (!Schema::hasTable('poll_options')) {
+        if (! Schema::hasTable('poll_options')) {
             Schema::create('poll_options', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('poll_id')->constrained()->cascadeOnDelete();
@@ -106,7 +106,7 @@ return new class extends Migration
         }
 
         // Poll Votes
-        if (!Schema::hasTable('poll_votes')) {
+        if (! Schema::hasTable('poll_votes')) {
             Schema::create('poll_votes', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('poll_id')->constrained()->cascadeOnDelete();

@@ -2,18 +2,17 @@
 
 namespace App\Services\Auth;
 
-use App\Models\User;
 use App\Models\Artist;
 use App\Models\KYCDocument;
+use App\Models\User;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Illuminate\Http\UploadedFile;
 
 /**
  * Artist Registration Service
- * 
+ *
  * Manages multi-step artist registration process
  * Handles session management, file uploads, and account creation
  */
@@ -34,7 +33,7 @@ class ArtistRegistrationService
                     'step3' => [],
                 ],
                 'started_at' => now()->toDateTimeString(),
-            ]
+            ],
         ]);
     }
 
@@ -57,18 +56,18 @@ class ArtistRegistrationService
     public function saveStepData(int $step, array $data): void
     {
         $sessionData = $this->getSessionData();
-        
-        $sessionData['data']['step' . $step] = array_merge(
-            $sessionData['data']['step' . $step] ?? [],
+
+        $sessionData['data']['step'.$step] = array_merge(
+            $sessionData['data']['step'.$step] ?? [],
             $data
         );
-        
+
         $sessionData['current_step'] = $step + 1;
-        
-        if (!in_array($step, $sessionData['completed_steps'])) {
+
+        if (! in_array($step, $sessionData['completed_steps'])) {
             $sessionData['completed_steps'][] = $step;
         }
-        
+
         session(['artist_registration' => $sessionData]);
     }
 
@@ -78,7 +77,7 @@ class ArtistRegistrationService
     public function updateStepData(int $step, string $key, $value): void
     {
         $sessionData = $this->getSessionData();
-        $sessionData['data']['step' . $step][$key] = $value;
+        $sessionData['data']['step'.$step][$key] = $value;
         session(['artist_registration' => $sessionData]);
     }
 
@@ -88,6 +87,7 @@ class ArtistRegistrationService
     public function isStepCompleted(int $step): bool
     {
         $sessionData = $this->getSessionData();
+
         return in_array($step, $sessionData['completed_steps'] ?? []);
     }
 
@@ -97,6 +97,7 @@ class ArtistRegistrationService
     public function getCurrentStep(): int
     {
         $sessionData = $this->getSessionData();
+
         return $sessionData['current_step'] ?? 1;
     }
 
@@ -108,7 +109,7 @@ class ArtistRegistrationService
         $sessionData = $this->getSessionData();
         $totalSteps = 3;
         $completedSteps = count($sessionData['completed_steps'] ?? []);
-        
+
         return [
             'total_steps' => $totalSteps,
             'completed_steps' => $completedSteps,
@@ -122,7 +123,7 @@ class ArtistRegistrationService
      */
     public function uploadFile(UploadedFile $file, string $directory): array
     {
-        $filename = Str::uuid() . '.' . $file->getClientOriginalExtension();
+        $filename = Str::uuid().'.'.$file->getClientOriginalExtension();
         $path = $file->storeAs($directory, $filename, 'public');
 
         return [
@@ -148,7 +149,7 @@ class ArtistRegistrationService
             $username = $baseUsername;
             $counter = 1;
             while (User::where('username', $username)->exists()) {
-                $username = $baseUsername . '_' . $counter;
+                $username = $baseUsername.'_'.$counter;
                 $counter++;
             }
 
@@ -160,18 +161,18 @@ class ArtistRegistrationService
                 'username' => $username,
                 'bio' => $step1Data['bio'] ?? null,
                 'avatar' => $step1Data['avatar_path'] ?? null,
-                
+
                 // From Step 2
                 'full_name' => $step2Data['full_name'],
                 'nin_number' => $step2Data['nin_number'],
                 'phone' => $step2Data['phone_number'], // Correct field name
-                
+
                 // From Step 3
                 'email' => $step3Data['email'],
                 'password' => Hash::make($step3Data['password']),
                 'mobile_money_provider' => $step3Data['mobile_money_provider'],
                 'mobile_money_number' => $step3Data['mobile_money_number'],
-                
+
                 // System fields
                 'is_artist' => true,
                 'status' => 'active', // User is active
@@ -179,8 +180,8 @@ class ArtistRegistrationService
             ]);
 
             // Create artist profile (pending verification)
-            $slug = Str::slug($step1Data['stage_name']) . '-' . Str::random(6);
-            
+            $slug = Str::slug($step1Data['stage_name']).'-'.Str::random(6);
+
             $artist = Artist::create([
                 'user_id' => $user->id,
                 'stage_name' => $step1Data['stage_name'],
@@ -261,7 +262,7 @@ class ArtistRegistrationService
     public function getAllData(): array
     {
         $sessionData = $this->getSessionData();
-        
+
         return array_merge(
             $sessionData['data']['step1'] ?? [],
             $sessionData['data']['step2'] ?? [],
@@ -275,13 +276,14 @@ class ArtistRegistrationService
     public function hasActiveSession(): bool
     {
         $sessionData = $this->getSessionData();
-        
+
         if (empty($sessionData['started_at'])) {
             return false;
         }
 
         // Session expires after 2 hours
         $startedAt = \Carbon\Carbon::parse($sessionData['started_at']);
+
         return $startedAt->diffInHours(now()) < 2;
     }
 

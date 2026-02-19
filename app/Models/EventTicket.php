@@ -2,12 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
-use Carbon\Carbon;
 
 class EventTicket extends Model
 {
@@ -64,7 +63,7 @@ class EventTicket extends Model
         'perks' => 'array',
         'tier_discounts' => 'array',
         'tier_early_access_hours' => 'integer',
-        'sort_order' => 'integer'
+        'sort_order' => 'integer',
     ];
 
     protected static function boot()
@@ -103,18 +102,18 @@ class EventTicket extends Model
     public function scopeAvailable(Builder $query): Builder
     {
         return $query->active()
-                    ->where(function ($q) {
-                        $q->where('quantity_available', '>', 0)
-                          ->orWhereNull('quantity_available'); // unlimited
-                    })
-                    ->where(function ($q) {
-                        $q->where('sales_start_at', '<=', now())
-                          ->orWhereNull('sales_start_at');
-                    })
-                    ->where(function ($q) {
-                        $q->where('sales_end_at', '>=', now())
-                          ->orWhereNull('sales_end_at');
-                    });
+            ->where(function ($q) {
+                $q->where('quantity_available', '>', 0)
+                    ->orWhereNull('quantity_available'); // unlimited
+            })
+            ->where(function ($q) {
+                $q->where('sales_start_at', '<=', now())
+                    ->orWhereNull('sales_start_at');
+            })
+            ->where(function ($q) {
+                $q->where('sales_end_at', '>=', now())
+                    ->orWhereNull('sales_end_at');
+            });
     }
 
     public function scopeOnSale(Builder $query): Builder
@@ -158,7 +157,7 @@ class EventTicket extends Model
 
     public function isOnSale(): bool
     {
-        if (!$this->is_active) {
+        if (! $this->is_active) {
             return false;
         }
 
@@ -172,7 +171,7 @@ class EventTicket extends Model
             return false;
         }
 
-        return !$this->isSoldOut();
+        return ! $this->isSoldOut();
     }
 
     public function isValidOrderQuantity(int $quantity): bool
@@ -210,12 +209,12 @@ class EventTicket extends Model
             return 'Free';
         }
 
-        return 'UGX ' . number_format($this->price, 0);
+        return 'UGX '.number_format($this->price, 0);
     }
 
     public function getAvailabilityStatusAttribute(): string
     {
-        if (!$this->is_active) {
+        if (! $this->is_active) {
             return 'inactive';
         }
 
@@ -238,13 +237,13 @@ class EventTicket extends Model
 
     public function getAvailabilityMessageAttribute(): string
     {
-        return match($this->availability_status) {
+        return match ($this->availability_status) {
             'inactive' => 'This ticket type is currently inactive',
             'sold_out' => 'Sold Out',
-            'not_yet_available' => 'Sales start ' . $this->sales_start_at->format('M j, Y \a\t g:i A'),
-            'sales_ended' => 'Sales ended ' . $this->sales_end_at->format('M j, Y \a\t g:i A'),
+            'not_yet_available' => 'Sales start '.$this->sales_start_at->format('M j, Y \a\t g:i A'),
+            'sales_ended' => 'Sales ended '.$this->sales_end_at->format('M j, Y \a\t g:i A'),
             'available' => $this->quantity_available ?
-                ($this->quantity_remaining . ' remaining') :
+                ($this->quantity_remaining.' remaining') :
                 'Available',
             default => 'Unknown status'
         };
@@ -266,14 +265,14 @@ class EventTicket extends Model
     public function getTotalRevenueAttribute(): float
     {
         return $this->attendees()
-                   ->where('payment_status', 'completed')
-                   ->sum('amount_paid');
+            ->where('payment_status', 'completed')
+            ->sum('amount_paid');
     }
 
     // Helper Methods
     public function canPurchase(int $quantity = 1): bool
     {
-        if (!$this->is_available) {
+        if (! $this->is_available) {
             return false;
         }
 
@@ -290,7 +289,7 @@ class EventTicket extends Model
 
     public function purchase(User $user, int $quantity = 1, array $metadata = []): EventAttendee
     {
-        if (!$this->canPurchase($quantity)) {
+        if (! $this->canPurchase($quantity)) {
             throw new \Exception('Cannot purchase this ticket');
         }
 
@@ -309,8 +308,8 @@ class EventTicket extends Model
             'attendee_metadata' => array_merge($metadata, [
                 'quantity' => $quantity,
                 'unit_price' => $this->price,
-                'ticket_type' => $this->ticket_type
-            ])
+                'ticket_type' => $this->ticket_type,
+            ]),
         ]);
 
         // Update sold quantity
@@ -332,7 +331,7 @@ class EventTicket extends Model
         // Update attendee status
         $attendee->update([
             'status' => 'cancelled',
-            'payment_status' => 'refunded'
+            'payment_status' => 'refunded',
         ]);
 
         // Decrease sold quantity
@@ -346,9 +345,9 @@ class EventTicket extends Model
     {
         // If this is an early bird ticket, calculate savings vs regular price
         $regularTicket = $this->event->tickets()
-                             ->where('ticket_type', 'LIKE', '%General%')
-                             ->where('id', '!=', $this->id)
-                             ->first();
+            ->where('ticket_type', 'LIKE', '%General%')
+            ->where('id', '!=', $this->id)
+            ->first();
 
         if ($regularTicket && $regularTicket->price > $this->price) {
             return $regularTicket->price - $this->price;
@@ -393,7 +392,7 @@ class EventTicket extends Model
      */
     public function requiresLoyaltyTier(): bool
     {
-        return !empty($this->required_loyalty_tier);
+        return ! empty($this->required_loyalty_tier);
     }
 
     /**
@@ -401,13 +400,13 @@ class EventTicket extends Model
      */
     public function userCanPurchase(\App\Models\User $user): bool
     {
-        if (!$this->requiresLoyaltyTier()) {
+        if (! $this->requiresLoyaltyTier()) {
             return true;
         }
 
         $tierService = app(\App\Services\Loyalty\TierAccessService::class);
         $access = $tierService->canPurchaseTicket($user, $this);
-        
+
         return $access['can_access'] ?? false;
     }
 
@@ -417,6 +416,7 @@ class EventTicket extends Model
     public function getTierAccessForUser(\App\Models\User $user): array
     {
         $tierService = app(\App\Services\Loyalty\TierAccessService::class);
+
         return $tierService->canPurchaseTicket($user, $this);
     }
 
@@ -425,13 +425,13 @@ class EventTicket extends Model
      */
     public function getPriceForUser(\App\Models\User $user): float
     {
-        if (!$this->tier_discounts) {
+        if (! $this->tier_discounts) {
             return $this->price_ugx ?? $this->price ?? 0;
         }
 
         $tierService = app(\App\Services\Loyalty\TierAccessService::class);
         $access = $tierService->canPurchaseTicket($user, $this);
-        
+
         if (isset($access['discount']['discounted_price'])) {
             return $access['discount']['discounted_price'];
         }
@@ -446,7 +446,7 @@ class EventTicket extends Model
     {
         $tierService = app(\App\Services\Loyalty\TierAccessService::class);
         $earlyAccess = $tierService->hasEarlyAccess($user, $this);
-        
+
         return $earlyAccess['has_early_access'] ?? false;
     }
 
@@ -466,7 +466,7 @@ class EventTicket extends Model
 
             // For tier-restricted tickets, we need to check via the event's loyalty card
             // This is a simplified scope - full checking is done in TierAccessService
-            if (!empty($memberships)) {
+            if (! empty($memberships)) {
                 $q->orWhereIn('required_loyalty_tier', array_values($memberships));
             }
         });

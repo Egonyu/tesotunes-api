@@ -2,13 +2,13 @@
 
 namespace App\Modules\Store\Providers;
 
-use Illuminate\Support\ServiceProvider;
-use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\ServiceProvider;
 
 /**
  * StoreServiceProvider
- * 
+ *
  * Main service provider for the Store module
  * Handles module registration, routing, and feature loading
  * ONLY loads when STORE_ENABLED=true
@@ -16,12 +16,13 @@ use Illuminate\Support\Facades\Gate;
 class StoreServiceProvider extends ServiceProvider
 {
     protected string $moduleNamespace = 'App\Modules\Store\Http\Controllers';
+
     protected string $modulePath;
 
     public function __construct($app)
     {
         parent::__construct($app);
-        $this->modulePath = __DIR__ . '/..';
+        $this->modulePath = __DIR__.'/..';
     }
 
     /**
@@ -30,13 +31,13 @@ class StoreServiceProvider extends ServiceProvider
     public function register(): void
     {
         // Early exit if module is disabled - NO OVERHEAD
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return;
         }
 
         // Merge module configuration
         $this->mergeConfigFrom(
-            $this->modulePath . '/Config/store.php',
+            $this->modulePath.'/Config/store.php',
             'store'
         );
 
@@ -50,7 +51,7 @@ class StoreServiceProvider extends ServiceProvider
     public function boot(): void
     {
         // Early exit if module is disabled - NO OVERHEAD
-        if (!$this->isEnabled()) {
+        if (! $this->isEnabled()) {
             return;
         }
 
@@ -58,7 +59,7 @@ class StoreServiceProvider extends ServiceProvider
         $this->ensureValidStorageDisk();
 
         // Load migrations
-        $this->loadMigrationsFrom($this->modulePath . '/Database/Migrations');
+        $this->loadMigrationsFrom($this->modulePath.'/Database/Migrations');
 
         // Register routes
         $this->registerRoutes();
@@ -71,7 +72,7 @@ class StoreServiceProvider extends ServiceProvider
 
         // Publish configuration
         $this->publishes([
-            $this->modulePath . '/Config/store.php' => config_path('store.php'),
+            $this->modulePath.'/Config/store.php' => config_path('store.php'),
         ], 'store-config');
     }
 
@@ -81,17 +82,17 @@ class StoreServiceProvider extends ServiceProvider
     protected function ensureValidStorageDisk(): void
     {
         $disk = config('store.storage.disk');
-        
+
         // If using cloud storage (digitalocean or s3), check if it's properly configured
         if (in_array($disk, ['digitalocean', 's3'])) {
             $diskConfig = config("filesystems.disks.{$disk}", []);
-            
+
             // Check if required credentials are missing
-            $isConfigured = !empty($diskConfig['key']) && 
-                           !empty($diskConfig['secret']) && 
-                           !empty($diskConfig['bucket']);
-            
-            if (!$isConfigured) {
+            $isConfigured = ! empty($diskConfig['key']) &&
+                           ! empty($diskConfig['secret']) &&
+                           ! empty($diskConfig['bucket']);
+
+            if (! $isConfigured) {
                 // Fallback to public disk
                 config(['store.storage.disk' => 'public']);
                 \Log::info("Store module: Cloud storage '{$disk}' not configured, falling back to 'public' disk");
@@ -114,22 +115,22 @@ class StoreServiceProvider extends ServiceProvider
     {
         // Store management service
         $this->app->singleton('store.management', function ($app) {
-            return new \App\Modules\Store\Services\StoreService();
+            return new \App\Modules\Store\Services\StoreService;
         });
 
         // Product management service
         $this->app->singleton('store.products', function ($app) {
-            return new \App\Modules\Store\Services\ProductService();
+            return new \App\Modules\Store\Services\ProductService;
         });
 
-        // Order management service  
+        // Order management service
         $this->app->singleton('store.orders', function ($app) {
-            return new \App\Modules\Store\Services\OrderService();
+            return new \App\Modules\Store\Services\OrderService;
         });
 
         // Payment service
         $this->app->singleton('store.payments', function ($app) {
-            return new \App\Modules\Store\Services\PaymentService();
+            return new \App\Modules\Store\Services\PaymentService;
         });
     }
 
@@ -142,22 +143,22 @@ class StoreServiceProvider extends ServiceProvider
         Route::middleware(['web', 'auth', 'store.enabled'])
             ->prefix('store/seller')
             ->name('store.seller.')
-            ->namespace($this->moduleNamespace . '\Seller')
-            ->group($this->modulePath . '/Routes/seller.php');
+            ->namespace($this->moduleNamespace.'\Seller')
+            ->group($this->modulePath.'/Routes/seller.php');
 
         // Buyer routes (shopping)
         Route::middleware(['web', 'store.enabled'])
             ->prefix('store/shop')
             ->name('store.shop.')
-            ->namespace($this->moduleNamespace . '\Buyer')
-            ->group($this->modulePath . '/Routes/buyer.php');
+            ->namespace($this->moduleNamespace.'\Buyer')
+            ->group($this->modulePath.'/Routes/buyer.php');
 
         // API routes
         Route::middleware(['api', 'store.enabled'])
             ->prefix('api/store')
             ->name('store.api.')
-            ->namespace($this->moduleNamespace . '\Api')
-            ->group($this->modulePath . '/Routes/api.php');
+            ->namespace($this->moduleNamespace.'\Api')
+            ->group($this->modulePath.'/Routes/api.php');
     }
 
     /**
@@ -166,7 +167,7 @@ class StoreServiceProvider extends ServiceProvider
     protected function registerMiddleware(): void
     {
         $router = $this->app['router'];
-        
+
         $router->aliasMiddleware('store.enabled', \App\Modules\Store\Http\Middleware\StoreEnabled::class);
         $router->aliasMiddleware('store.owner', \App\Modules\Store\Http\Middleware\StoreOwner::class);
     }

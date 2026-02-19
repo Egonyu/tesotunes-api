@@ -2,10 +2,10 @@
 
 namespace Database\Factories;
 
-use App\Models\Podcast;
 use App\Models\Artist;
-use App\Models\User;
+use App\Models\Podcast;
 use App\Models\PodcastCategory;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -17,7 +17,7 @@ class PodcastFactory extends Factory
     {
         $title = $this->faker->sentence(3);
         $uuid = (string) Str::uuid();
-        
+
         return [
             'artist_id' => Artist::factory(),
             'user_id' => User::factory(),
@@ -30,7 +30,7 @@ class PodcastFactory extends Factory
             'uuid' => $uuid,
             'rss_guid' => $uuid,
             'author_name' => $this->faker->name(),
-            'copyright' => '© ' . $this->faker->year() . ' ' . $this->faker->name(),
+            'copyright' => '© '.$this->faker->year().' '.$this->faker->name(),
             'tags' => $this->faker->optional()->words(3),
             'language' => $this->faker->randomElement(['en', 'sw', 'lg']),
             'is_explicit' => $this->faker->boolean(20),

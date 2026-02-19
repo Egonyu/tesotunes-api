@@ -84,7 +84,7 @@ class NotificationPreferencesCast implements CastsAttributes
             return $this->getDefaults();
         }
 
-        if (!is_array($decoded)) {
+        if (! is_array($decoded)) {
             return $this->getDefaults();
         }
 
@@ -103,8 +103,8 @@ class NotificationPreferencesCast implements CastsAttributes
             return json_encode($this->getDefaults());
         }
 
-        if (!is_array($value)) {
-            throw new InvalidArgumentException("Notification preferences must be an array");
+        if (! is_array($value)) {
+            throw new InvalidArgumentException('Notification preferences must be an array');
         }
 
         $validated = $this->validate($value);
@@ -123,32 +123,34 @@ class NotificationPreferencesCast implements CastsAttributes
             // Handle quiet_hours separately
             if ($key === 'quiet_hours') {
                 $validated['quiet_hours'] = $this->validateQuietHours($setting);
+
                 continue;
             }
 
             // Handle global_mute
             if ($key === 'global_mute') {
-                if (!is_bool($setting)) {
-                    throw new InvalidArgumentException("global_mute must be a boolean");
+                if (! is_bool($setting)) {
+                    throw new InvalidArgumentException('global_mute must be a boolean');
                 }
                 $validated['global_mute'] = $setting;
+
                 continue;
             }
 
             // Validate notification type
-            if (!in_array($key, self::NOTIFICATION_TYPES)) {
-                throw new InvalidArgumentException("Invalid notification type: {$key}. Must be one of: " . implode(', ', self::NOTIFICATION_TYPES));
+            if (! in_array($key, self::NOTIFICATION_TYPES)) {
+                throw new InvalidArgumentException("Invalid notification type: {$key}. Must be one of: ".implode(', ', self::NOTIFICATION_TYPES));
             }
 
             // Validate channels
-            if (!is_array($setting)) {
+            if (! is_array($setting)) {
                 throw new InvalidArgumentException("Notification preference for '{$key}' must be an array");
             }
 
             $validatedSetting = [];
             foreach (self::DELIVERY_CHANNELS as $channel) {
                 if (isset($setting[$channel])) {
-                    if (!is_bool($setting[$channel])) {
+                    if (! is_bool($setting[$channel])) {
                         throw new InvalidArgumentException("Notification preference '{$key}.{$channel}' must be a boolean");
                     }
                     $validatedSetting[$channel] = $setting[$channel];
@@ -169,8 +171,8 @@ class NotificationPreferencesCast implements CastsAttributes
      */
     protected function validateQuietHours(mixed $quietHours): array
     {
-        if (!is_array($quietHours)) {
-            throw new InvalidArgumentException("Quiet hours must be an array");
+        if (! is_array($quietHours)) {
+            throw new InvalidArgumentException('Quiet hours must be an array');
         }
 
         $validated = [
@@ -181,7 +183,7 @@ class NotificationPreferencesCast implements CastsAttributes
 
         // Validate enabled flag
         if (isset($quietHours['enabled'])) {
-            if (!is_bool($quietHours['enabled'])) {
+            if (! is_bool($quietHours['enabled'])) {
                 throw new InvalidArgumentException("Quiet hours 'enabled' must be a boolean");
             }
             $validated['enabled'] = $quietHours['enabled'];
@@ -190,7 +192,7 @@ class NotificationPreferencesCast implements CastsAttributes
         // Validate start time
         if (isset($quietHours['start'])) {
             $start = $quietHours['start'];
-            if (!$this->isValidTimeFormat($start)) {
+            if (! $this->isValidTimeFormat($start)) {
                 throw new InvalidArgumentException("Quiet hours 'start' must be in HH:MM format");
             }
             $validated['start'] = $start;
@@ -199,7 +201,7 @@ class NotificationPreferencesCast implements CastsAttributes
         // Validate end time
         if (isset($quietHours['end'])) {
             $end = $quietHours['end'];
-            if (!$this->isValidTimeFormat($end)) {
+            if (! $this->isValidTimeFormat($end)) {
                 throw new InvalidArgumentException("Quiet hours 'end' must be in HH:MM format");
             }
             $validated['end'] = $end;
@@ -256,7 +258,7 @@ class NotificationPreferencesCast implements CastsAttributes
         }
 
         // Check specific preference
-        if (!isset($preferences[$notificationType])) {
+        if (! isset($preferences[$notificationType])) {
             return self::DEFAULTS[$channel] ?? false;
         }
 
@@ -268,7 +270,7 @@ class NotificationPreferencesCast implements CastsAttributes
      */
     public static function isQuietHours(array $quietHours): bool
     {
-        if (!isset($quietHours['enabled']) || $quietHours['enabled'] !== true) {
+        if (! isset($quietHours['enabled']) || $quietHours['enabled'] !== true) {
             return false;
         }
 
@@ -290,7 +292,7 @@ class NotificationPreferencesCast implements CastsAttributes
      */
     public static function enableAll(array $preferences, string $notificationType): array
     {
-        if (!in_array($notificationType, self::NOTIFICATION_TYPES)) {
+        if (! in_array($notificationType, self::NOTIFICATION_TYPES)) {
             throw new InvalidArgumentException("Invalid notification type: {$notificationType}");
         }
 
@@ -308,7 +310,7 @@ class NotificationPreferencesCast implements CastsAttributes
      */
     public static function disableAll(array $preferences, string $notificationType): array
     {
-        if (!in_array($notificationType, self::NOTIFICATION_TYPES)) {
+        if (! in_array($notificationType, self::NOTIFICATION_TYPES)) {
             throw new InvalidArgumentException("Invalid notification type: {$notificationType}");
         }
 
@@ -326,15 +328,15 @@ class NotificationPreferencesCast implements CastsAttributes
      */
     public static function setChannelPreference(array $preferences, string $notificationType, string $channel, bool $enabled): array
     {
-        if (!in_array($notificationType, self::NOTIFICATION_TYPES)) {
+        if (! in_array($notificationType, self::NOTIFICATION_TYPES)) {
             throw new InvalidArgumentException("Invalid notification type: {$notificationType}");
         }
 
-        if (!in_array($channel, self::DELIVERY_CHANNELS)) {
+        if (! in_array($channel, self::DELIVERY_CHANNELS)) {
             throw new InvalidArgumentException("Invalid channel: {$channel}");
         }
 
-        if (!isset($preferences[$notificationType])) {
+        if (! isset($preferences[$notificationType])) {
             $preferences[$notificationType] = self::DEFAULTS;
         }
 
@@ -348,7 +350,7 @@ class NotificationPreferencesCast implements CastsAttributes
      */
     public static function getEnabledChannels(array $preferences, string $notificationType): array
     {
-        if (!isset($preferences[$notificationType])) {
+        if (! isset($preferences[$notificationType])) {
             return array_keys(array_filter(self::DEFAULTS));
         }
 

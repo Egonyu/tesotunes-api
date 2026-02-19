@@ -18,7 +18,9 @@ class GenerateWaveformJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public $tries = 2;
+
     public $timeout = 300; // 5 minutes
+
     public $backoff = [60, 120];
 
     /**
@@ -38,15 +40,15 @@ class GenerateWaveformJob implements ShouldQueue
     public function handle(FFmpegService $ffmpeg, MusicStorageService $storage): void
     {
         try {
-            Log::info("Starting waveform generation", [
+            Log::info('Starting waveform generation', [
                 'song_id' => $this->song->id,
-                'size' => $this->size
+                'size' => $this->size,
             ]);
 
             // Get original file path
             $originalPath = $storage->getSongPath($this->song, 'original');
 
-            if (!Storage::disk('local')->exists($originalPath)) {
+            if (! Storage::disk('local')->exists($originalPath)) {
                 throw new \Exception("Original audio file not found: {$originalPath}");
             }
 
@@ -55,7 +57,7 @@ class GenerateWaveformJob implements ShouldQueue
 
             // Ensure directory exists
             $waveformDir = dirname(Storage::disk('local')->path($waveformPath));
-            if (!is_dir($waveformDir)) {
+            if (! is_dir($waveformDir)) {
                 mkdir($waveformDir, 0755, true);
             }
 
@@ -67,8 +69,8 @@ class GenerateWaveformJob implements ShouldQueue
                 $this->color
             );
 
-            if (!$success) {
-                throw new \Exception("Waveform generation failed");
+            if (! $success) {
+                throw new \Exception('Waveform generation failed');
             }
 
             // Upload to DigitalOcean Spaces if configured
@@ -80,26 +82,26 @@ class GenerateWaveformJob implements ShouldQueue
                     Storage::disk('local')->get($waveformPath)
                 );
 
-                Log::info("Uploaded waveform to DigitalOcean", [
+                Log::info('Uploaded waveform to DigitalOcean', [
                     'song_id' => $this->song->id,
-                    'path' => $doPath
+                    'path' => $doPath,
                 ]);
             }
 
             // Update song with waveform URL
             $this->song->update([
-                'waveform_url' => Storage::disk('public')->url($waveformPath)
+                'waveform_url' => Storage::disk('public')->url($waveformPath),
             ]);
 
-            Log::info("Waveform generation completed", [
-                'song_id' => $this->song->id
+            Log::info('Waveform generation completed', [
+                'song_id' => $this->song->id,
             ]);
 
         } catch (\Exception $e) {
-            Log::error("Waveform generation failed", [
+            Log::error('Waveform generation failed', [
                 'song_id' => $this->song->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             // Don't throw - waveform is optional feature
@@ -112,9 +114,9 @@ class GenerateWaveformJob implements ShouldQueue
      */
     public function failed(\Throwable $exception): void
     {
-        Log::warning("Waveform generation job failed (non-critical)", [
+        Log::warning('Waveform generation job failed (non-critical)', [
             'song_id' => $this->song->id,
-            'error' => $exception->getMessage()
+            'error' => $exception->getMessage(),
         ]);
     }
 }

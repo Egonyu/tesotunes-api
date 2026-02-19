@@ -42,7 +42,7 @@ class SaccoSavingsTransaction extends Model
                 $txn->uuid = (string) Str::uuid();
             }
             if (empty($txn->transaction_code)) {
-                $txn->transaction_code = 'TXN' . now()->format('YmdHis') . rand(1000, 9999);
+                $txn->transaction_code = 'TXN'.now()->format('YmdHis').rand(1000, 9999);
             }
         });
     }

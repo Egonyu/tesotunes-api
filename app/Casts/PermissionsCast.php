@@ -29,7 +29,7 @@ class PermissionsCast implements CastsAttributes
         'music', 'album', 'playlist', 'user', 'artist', 'admin', 'comment',
         'follow', 'like', 'share', 'analytics', 'report', 'payout',
         'profile', 'settings', 'payment', 'subscription', 'credit',
-        'distribution', 'award', 'event', 'podcast', 'store', 'sacco', '*'
+        'distribution', 'award', 'event', 'podcast', 'store', 'sacco', '*',
     ];
 
     /**
@@ -63,19 +63,19 @@ class PermissionsCast implements CastsAttributes
             return json_encode([]);
         }
 
-        if (!is_array($value)) {
-            throw new InvalidArgumentException("Permissions must be an array");
+        if (! is_array($value)) {
+            throw new InvalidArgumentException('Permissions must be an array');
         }
 
         // Validate each permission
         $validated = [];
         foreach ($value as $permission) {
-            if (!is_string($permission)) {
-                throw new InvalidArgumentException("Each permission must be a string");
+            if (! is_string($permission)) {
+                throw new InvalidArgumentException('Each permission must be a string');
             }
 
             $validatedPermission = $this->validatePermission($permission);
-            if (!in_array($validatedPermission, $validated)) {
+            if (! in_array($validatedPermission, $validated)) {
                 $validated[] = $validatedPermission;
             }
         }
@@ -96,7 +96,7 @@ class PermissionsCast implements CastsAttributes
         }
 
         // Must contain a dot (resource.action)
-        if (!str_contains($permission, '.')) {
+        if (! str_contains($permission, '.')) {
             throw new InvalidArgumentException("Permission must be in format 'resource.action' or '*'. Got: {$permission}");
         }
 
@@ -106,13 +106,13 @@ class PermissionsCast implements CastsAttributes
         $action = trim($action);
 
         // Validate resource
-        if (!in_array($resource, self::VALID_RESOURCES)) {
-            throw new InvalidArgumentException("Invalid permission resource: {$resource}. Must be one of: " . implode(', ', self::VALID_RESOURCES));
+        if (! in_array($resource, self::VALID_RESOURCES)) {
+            throw new InvalidArgumentException("Invalid permission resource: {$resource}. Must be one of: ".implode(', ', self::VALID_RESOURCES));
         }
 
         // Validate action
-        if ($action !== '*' && !in_array($action, self::VALID_ACTIONS)) {
-            throw new InvalidArgumentException("Invalid permission action: {$action}. Must be one of: " . implode(', ', self::VALID_ACTIONS));
+        if ($action !== '*' && ! in_array($action, self::VALID_ACTIONS)) {
+            throw new InvalidArgumentException("Invalid permission action: {$action}. Must be one of: ".implode(', ', self::VALID_ACTIONS));
         }
 
         return "{$resource}.{$action}";
@@ -151,6 +151,7 @@ class PermissionsCast implements CastsAttributes
         foreach ($permissionArrays as $permissions) {
             $merged = array_merge($merged, $permissions);
         }
+
         return array_values(array_unique($merged));
     }
 }

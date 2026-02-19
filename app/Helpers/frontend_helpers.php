@@ -1,12 +1,11 @@
 <?php
 
-if (!function_exists('frontend_setting')) {
+if (! function_exists('frontend_setting')) {
     /**
      * Get a frontend setting value
      *
-     * @param string $key
-     * @param mixed $default
-     * @param string|null $type Auto-detect mobile/desktop or force a type
+     * @param  string  $key
+     * @param  string|null  $type  Auto-detect mobile/desktop or force a type
      * @return mixed
      */
     function frontend_setting($key, mixed $default = null, ?string $type = null)
@@ -20,7 +19,7 @@ if (!function_exists('frontend_setting')) {
     }
 }
 
-if (!function_exists('is_mobile_device')) {
+if (! function_exists('is_mobile_device')) {
     /**
      * Detect if the current request is from a mobile device
      *
@@ -33,7 +32,7 @@ if (!function_exists('is_mobile_device')) {
         }
 
         $userAgent = request()->header('User-Agent', '');
-        
+
         // Common mobile device patterns
         $mobilePatterns = [
             '/android/i',
@@ -43,7 +42,7 @@ if (!function_exists('is_mobile_device')) {
             '/ipod/i',
             '/blackberry/i',
             '/windows phone/i',
-            '/mobile/i'
+            '/mobile/i',
         ];
 
         foreach ($mobilePatterns as $pattern) {
@@ -56,12 +55,12 @@ if (!function_exists('is_mobile_device')) {
     }
 }
 
-if (!function_exists('section_enabled')) {
+if (! function_exists('section_enabled')) {
     /**
      * Check if a frontend section is enabled
      *
-     * @param string $section
-     * @param string|null $type
+     * @param  string  $section
+     * @param  string|null  $type
      * @return bool
      */
     function section_enabled($section, $type = null)
@@ -70,12 +69,12 @@ if (!function_exists('section_enabled')) {
     }
 }
 
-if (!function_exists('theme_color')) {
+if (! function_exists('theme_color')) {
     /**
      * Get a theme color
      *
-     * @param string $color primary, background, text
-     * @param string|null $type
+     * @param  string  $color  primary, background, text
+     * @param  string|null  $type
      * @return string
      */
     function theme_color($color, $type = null)
@@ -83,7 +82,7 @@ if (!function_exists('theme_color')) {
         $defaults = [
             'primary' => '#1DB954',
             'background' => '#121212',
-            'text' => '#FFFFFF'
+            'text' => '#FFFFFF',
         ];
 
         return frontend_setting("theme.{$color}_color", $defaults[$color] ?? '#000000', $type);

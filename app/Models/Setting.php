@@ -8,27 +8,46 @@ class Setting extends Model
 {
     // Type constants
     public const TYPE_STRING = 'string';
+
     public const TYPE_BOOLEAN = 'boolean';
+
     public const TYPE_INTEGER = 'integer';
+
     public const TYPE_NUMBER = 'integer';  // Alias for TYPE_INTEGER
+
     public const TYPE_JSON = 'json';
+
     public const TYPE_ARRAY = 'array';
 
     // Group constants
     public const GROUP_GENERAL = 'general';
+
     public const GROUP_USERS = 'users';
+
     public const GROUP_CREDITS = 'credits';
+
     public const GROUP_PAYMENTS = 'payments';
+
     public const GROUP_PAYMENT = 'payments';  // Alias for GROUP_PAYMENTS
+
     public const GROUP_NOTIFICATIONS = 'notifications';
+
     public const GROUP_SECURITY = 'security';
+
     public const GROUP_MOBILE = 'mobile';
+
     public const GROUP_VERIFICATION = 'verification';
+
     public const GROUP_AWARDS = 'awards';
+
     public const GROUP_EVENTS = 'events';
+
     public const GROUP_ARTISTS = 'artists';
+
     public const GROUP_STORAGE = 'storage';
+
     public const GROUP_ANALYTICS = 'analytics';
+
     public const GROUP_ADS = 'ads';
 
     protected $fillable = [
@@ -50,8 +69,8 @@ class Setting extends Model
     public static function get(string $key, $default = null)
     {
         $setting = static::where('key', $key)->first();
-        
-        if (!$setting) {
+
+        if (! $setting) {
             return $default;
         }
 
@@ -99,11 +118,11 @@ class Setting extends Model
     {
         $settings = static::where('group', $group)->get();
         $result = [];
-        
+
         foreach ($settings as $setting) {
             $result[$setting->key] = self::get($setting->key);
         }
-        
+
         return $result;
     }
 

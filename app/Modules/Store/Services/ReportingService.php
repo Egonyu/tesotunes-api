@@ -2,13 +2,14 @@
 
 namespace App\Modules\Store\Services;
 
-use App\Modules\Store\Models\{Store, Order};
-use Illuminate\Support\Facades\Storage;
+use App\Modules\Store\Models\Order;
+use App\Modules\Store\Models\Store;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Reporting Service
- * 
+ *
  * Generates CSV and PDF reports for store analytics
  */
 class ReportingService
@@ -26,13 +27,13 @@ class ReportingService
     public function generateSalesCSV(Store $store, string $period = '30days'): string
     {
         $dateRange = $this->analyticsService->getDateRange($period);
-        
+
         $orders = Order::where('store_id', $store->id)
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->with(['user', 'items.product'])
             ->get();
 
-        $filename = "sales_report_{$store->slug}_" . now()->format('Y-m-d_His') . ".csv";
+        $filename = "sales_report_{$store->slug}_".now()->format('Y-m-d_His').'.csv';
         $path = "reports/{$store->id}/{$filename}";
 
         $csv = fopen(Storage::disk('local')->path($path), 'w');
@@ -78,23 +79,23 @@ class ReportingService
     public function generateProductsCSV(Store $store, string $period = '30days'): string
     {
         $dateRange = $this->analyticsService->getDateRange($period);
-        
+
         $products = $store->products()
             ->withCount(['orderItems' => function ($query) use ($dateRange) {
                 $query->whereHas('order', function ($q) use ($dateRange) {
                     $q->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
-                      ->where('payment_status', 'paid');
+                        ->where('payment_status', 'paid');
                 });
             }])
             ->with(['orderItems' => function ($query) use ($dateRange) {
                 $query->whereHas('order', function ($q) use ($dateRange) {
                     $q->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
-                      ->where('payment_status', 'paid');
+                        ->where('payment_status', 'paid');
                 });
             }])
             ->get();
 
-        $filename = "products_report_{$store->slug}_" . now()->format('Y-m-d_His') . ".csv";
+        $filename = "products_report_{$store->slug}_".now()->format('Y-m-d_His').'.csv';
         $path = "reports/{$store->id}/{$filename}";
 
         $csv = fopen(Storage::disk('local')->path($path), 'w');
@@ -118,7 +119,7 @@ class ReportingService
         // Data
         foreach ($products as $product) {
             $unitsSold = $product->orderItems->sum('quantity');
-            $revenue = $product->orderItems->sum(fn($item) => $item->price_ugx * $item->quantity);
+            $revenue = $product->orderItems->sum(fn ($item) => $item->price_ugx * $item->quantity);
             $conversionRate = $product->views_count > 0 ? ($unitsSold / $product->views_count) * 100 : 0;
 
             fputcsv($csv, [
@@ -148,7 +149,7 @@ class ReportingService
     public function generateCustomersCSV(Store $store, string $period = '30days'): string
     {
         $dateRange = $this->analyticsService->getDateRange($period);
-        
+
         $customers = Order::where('store_id', $store->id)
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])
             ->where('payment_status', 'paid')
@@ -157,6 +158,7 @@ class ReportingService
             ->groupBy('user_id')
             ->map(function ($orders) {
                 $user = $orders->first()->user;
+
                 return [
                     'name' => $user->name,
                     'email' => $user->email,
@@ -169,7 +171,7 @@ class ReportingService
                 ];
             });
 
-        $filename = "customers_report_{$store->slug}_" . now()->format('Y-m-d_His') . ".csv";
+        $filename = "customers_report_{$store->slug}_".now()->format('Y-m-d_His').'.csv';
         $path = "reports/{$store->id}/{$filename}";
 
         $csv = fopen(Storage::disk('local')->path($path), 'w');
@@ -212,7 +214,7 @@ class ReportingService
     public function generatePDFReport(Store $store, string $period = '30days'): string
     {
         $data = $this->analyticsService->exportData($store, $period);
-        
+
         // Generate HTML report that can be printed as PDF
         $html = view('store::reports.pdf', [
             'store' => $store,
@@ -221,7 +223,7 @@ class ReportingService
             'generated_at' => now()->format('Y-m-d H:i:s'),
         ])->render();
 
-        $filename = "report_{$store->slug}_" . now()->format('Y-m-d_His') . ".html";
+        $filename = "report_{$store->slug}_".now()->format('Y-m-d_His').'.html';
         $path = "reports/{$store->id}/{$filename}";
 
         // Ensure directory exists
@@ -241,7 +243,7 @@ class ReportingService
             ->orderBy('inventory_quantity')
             ->get();
 
-        $filename = "inventory_report_{$store->slug}_" . now()->format('Y-m-d_His') . ".csv";
+        $filename = "inventory_report_{$store->slug}_".now()->format('Y-m-d_His').'.csv';
         $path = "reports/{$store->id}/{$filename}";
 
         $csv = fopen(Storage::disk('local')->path($path), 'w');
@@ -261,7 +263,7 @@ class ReportingService
         foreach ($products as $product) {
             $stockValue = $product->inventory_quantity * $product->price_ugx;
             $reorderNeeded = $product->inventory_quantity <= 5 ? 'Yes' : 'No';
-            $status = $product->inventory_quantity == 0 ? 'Out of Stock' : 
+            $status = $product->inventory_quantity == 0 ? 'Out of Stock' :
                      ($product->inventory_quantity <= 5 ? 'Low Stock' : 'In Stock');
 
             fputcsv($csv, [
@@ -337,7 +339,7 @@ class ReportingService
         $cutoffDate = now()->subDays($days);
 
         $files = Storage::disk('local')->allFiles('reports');
-        
+
         foreach ($files as $file) {
             if (Storage::disk('local')->lastModified($file) < $cutoffDate->timestamp) {
                 Storage::disk('local')->delete($file);

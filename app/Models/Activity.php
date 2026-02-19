@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 class Activity extends Model
 {
     public $timestamps = false;
-    
+
     protected $fillable = [
         'user_id',
         'type',
@@ -104,7 +104,10 @@ class Activity extends Model
      */
     public function isLikedBy(?User $user): bool
     {
-        if (!$user) return false;
+        if (! $user) {
+            return false;
+        }
+
         return $this->likes()->where('user_id', $user->id)->exists();
     }
 
@@ -113,7 +116,10 @@ class Activity extends Model
      */
     public function isBookmarkedBy(?User $user): bool
     {
-        if (!$user) return false;
+        if (! $user) {
+            return false;
+        }
+
         return $this->bookmarks()->where('user_id', $user->id)->exists();
     }
 
@@ -141,4 +147,3 @@ class Activity extends Model
         ]);
     }
 }
-

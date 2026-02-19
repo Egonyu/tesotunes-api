@@ -25,14 +25,14 @@ class UpdateProductRequest extends FormRequest
 
         return [
             'name' => 'required|string|max:255',
-            'slug' => 'required|string|max:255|alpha_dash|unique:store_products,slug,' . $productId,
+            'slug' => 'required|string|max:255|alpha_dash|unique:store_products,slug,'.$productId,
             'description' => 'required|string|max:10000',
             'type' => 'required|in:physical,digital,service,experience',
             'category_id' => 'nullable|exists:store_product_categories,id',
             'price' => 'required|numeric|min:0|max:100000000',
             'credit_price' => 'nullable|integer|min:0|max:1000000',
             'stock_quantity' => 'nullable|integer|min:0',
-            'sku' => 'nullable|string|max:100|unique:store_products,sku,' . $productId,
+            'sku' => 'nullable|string|max:100|unique:store_products,sku,'.$productId,
             'images' => 'nullable|array|max:5',
             'images.*' => 'image|max:5120|mimes:jpeg,png,jpg,gif',
             'digital_file' => 'nullable|file|max:51200',

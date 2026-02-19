@@ -18,13 +18,13 @@ class SaccoInterestService
         if ($account->account_type !== 'savings') {
             return 0.0;
         }
-        
+
         $annualRate = config('sacco.savings.interest_rate', 6.0);
         $balance = $account->balance;
-        
+
         // Daily interest = (Balance × Annual Rate) ÷ 365
         $dailyInterest = ($balance * $annualRate) / 36500;
-        
+
         return round($dailyInterest, 2);
     }
 
@@ -37,19 +37,19 @@ class SaccoInterestService
             ->where('status', 'active')
             ->where('balance', '>', 0)
             ->get();
-        
+
         $results = [
             'processed' => 0,
             'total_interest' => 0,
-            'errors' => []
+            'errors' => [],
         ];
-        
+
         foreach ($accounts as $account) {
             try {
                 DB::beginTransaction();
-                
+
                 $interest = $this->calculateDailyInterest($account);
-                
+
                 if ($interest > 0) {
                     // Update account balance
                     $oldBalance = $account->balance;
@@ -57,7 +57,7 @@ class SaccoInterestService
                     $account->interest_earned += $interest;
                     $account->last_interest_date = now()->toDateString();
                     $account->save();
-                    
+
                     // Create transaction record
                     SaccoTransaction::create([
                         'member_id' => $account->member_id,
@@ -69,20 +69,20 @@ class SaccoInterestService
                         'balance_after' => $account->balance,
                         'status' => 'completed',
                         'description' => 'Daily interest credited',
-                        'processed_at' => now()
+                        'processed_at' => now(),
                     ]);
-                    
+
                     $results['processed']++;
                     $results['total_interest'] += $interest;
                 }
-                
+
                 DB::commit();
             } catch (\Exception $e) {
                 DB::rollBack();
                 $results['errors'][] = "Account {$account->id}: {$e->getMessage()}";
             }
         }
-        
+
         return $results;
     }
 
@@ -92,15 +92,15 @@ class SaccoInterestService
     public function calculateLoanMonthlyPayment(float $principal, float $annualRate, int $months): float
     {
         $monthlyRate = $annualRate / 100 / 12;
-        
+
         if ($monthlyRate === 0.0) {
             return $principal / $months;
         }
-        
+
         // EMI Formula: P × r × (1+r)^n / ((1+r)^n - 1)
-        $payment = $principal * $monthlyRate * pow(1 + $monthlyRate, $months) 
+        $payment = $principal * $monthlyRate * pow(1 + $monthlyRate, $months)
                    / (pow(1 + $monthlyRate, $months) - 1);
-        
+
         return round($payment, 2);
     }
 
@@ -111,7 +111,7 @@ class SaccoInterestService
     {
         $monthlyPayment = $this->calculateLoanMonthlyPayment($principal, $annualRate, $months);
         $totalAmount = $monthlyPayment * $months;
-        
+
         return round($totalAmount, 2);
     }
 
@@ -128,28 +128,28 @@ class SaccoInterestService
             $loan->interest_rate,
             $loan->repayment_period_months
         );
-        
-        $currentDate = $loan->disbursed_at ? 
-            Carbon::parse($loan->disbursed_at)->addMonth() : 
+
+        $currentDate = $loan->disbursed_at ?
+            Carbon::parse($loan->disbursed_at)->addMonth() :
             now()->addMonth();
-        
+
         for ($i = 1; $i <= $loan->repayment_period_months; $i++) {
             $interestAmount = $balance * $monthlyRate;
             $principalAmount = $monthlyPayment - $interestAmount;
             $balance -= $principalAmount;
-            
+
             $schedule[] = [
                 'repayment_number' => $i,
                 'due_date' => $currentDate->copy(),
                 'amount_due' => round($monthlyPayment, 2),
                 'principal_amount' => round($principalAmount, 2),
                 'interest_amount' => round($interestAmount, 2),
-                'balance_after' => round(max(0, $balance), 2)
+                'balance_after' => round(max(0, $balance), 2),
             ];
-            
+
             $currentDate->addMonth();
         }
-        
+
         return $schedule;
     }
 
@@ -159,20 +159,20 @@ class SaccoInterestService
     public function calculatePenalty(float $amount, int $daysOverdue): float
     {
         $gracePeriod = config('sacco.loans.grace_period_days', 7);
-        
+
         if ($daysOverdue <= $gracePeriod) {
             return 0.0;
         }
-        
+
         $penaltyRate = config('sacco.loans.penalty_rate_per_day', 0.1) / 100;
         $maxPenalty = config('sacco.loans.max_penalty_percentage', 10) / 100;
-        
+
         $daysChargeable = $daysOverdue - $gracePeriod;
         $penalty = $amount * $penaltyRate * $daysChargeable;
-        
+
         // Cap at maximum penalty
         $maxPenaltyAmount = $amount * $maxPenalty;
-        
+
         return round(min($penalty, $maxPenaltyAmount), 2);
     }
 
@@ -184,14 +184,14 @@ class SaccoInterestService
         if ($account->account_type !== 'fixed_deposit') {
             return 0.0;
         }
-        
+
         // Tiered interest rates for fixed deposits
         $rate = $this->getFixedDepositRate($months);
         $principal = $account->balance;
-        
+
         // Simple interest for fixed deposits
         $interest = ($principal * $rate * $months) / 1200;
-        
+
         return round($interest, 2);
     }
 
@@ -204,15 +204,15 @@ class SaccoInterestService
             3 => 8.0,
             6 => 10.0,
             12 => 12.0,
-            24 => 14.0
+            24 => 14.0,
         ]);
-        
+
         foreach ([24, 12, 6, 3] as $duration) {
             if ($months >= $duration) {
                 return $rates[$duration] ?? 8.0;
             }
         }
-        
+
         return 8.0;
     }
 
@@ -221,6 +221,6 @@ class SaccoInterestService
      */
     protected function generateTransactionNumber(): string
     {
-        return 'TXN-' . date('Ymd') . '-' . strtoupper(substr(uniqid(), -6));
+        return 'TXN-'.date('Ymd').'-'.strtoupper(substr(uniqid(), -6));
     }
 }

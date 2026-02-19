@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\Featurable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,11 +11,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\Storage;
-use App\Models\Traits\Featurable;
 
 class Song extends Model
 {
-    use HasFactory, SoftDeletes, Featurable;
+    use Featurable, HasFactory, SoftDeletes;
 
     protected $fillable = [
         // Core identity
@@ -25,7 +25,7 @@ class Song extends Model
         'slug',
         'description',
         'lyrics',
-        
+
         // Audio files (transcoded versions) - use canonical DB column names
         'audio_file_original',
         'audio_file_320',
@@ -33,7 +33,7 @@ class Song extends Model
         'audio_file_preview',
         'artwork',
         'waveform_data',
-        
+
         // File metadata - use canonical DB column names
         'duration_seconds',
         'file_format',
@@ -42,12 +42,12 @@ class Song extends Model
         'sample_rate',
         'audio_quality_score',
         'file_hash',
-        
+
         // Classification
         'primary_genre_id',
         'track_number',
         'disc_number',
-        
+
         // Content flags
         'is_explicit',
         'primary_language',
@@ -56,7 +56,7 @@ class Song extends Model
         'local_genres',
         'cultural_context',
         'mood_tags',
-        
+
         // Status & visibility - use canonical DB column names
         'status',
         'visibility',
@@ -65,18 +65,18 @@ class Song extends Model
         'is_streamable',
         'allow_comments',
         'processing_status',
-        
+
         // Pricing
         'price',
         'is_free',
         'currency',
-        
+
         // Distribution (CRITICAL for Uganda market)
         'distribution_status',
         'distribution_requested_at',
         'distributed_at',
         'distribution_platforms',
-        
+
         // Rights management (ISRC critical for distribution)
         'isrc_code',
         'upc_code',
@@ -86,7 +86,7 @@ class Song extends Model
         'copyright_year',
         'copyright_holder',
         'license_type',
-        
+
         // Credits (Ugandan music industry standard)
         'composer',
         'producer',
@@ -98,7 +98,7 @@ class Song extends Model
         'recording_date',
         'recording_location',
         'recording_studio',
-        
+
         // Cached aggregates (performance optimization) - use canonical DB column names
         'play_count',
         'unique_listeners_count',
@@ -109,7 +109,7 @@ class Song extends Model
         'average_completion_rate',
         'skip_count',
         'revenue_generated',
-        
+
         // Moderation
         'approved_at',
         'approved_by',
@@ -120,7 +120,7 @@ class Song extends Model
         'moderated_at',
         'moderated_by',
         'moderation_reason',
-        
+
         // Release scheduling
         'release_date',
         'scheduled_publish_at',
@@ -136,7 +136,7 @@ class Song extends Model
         'duration_seconds' => 'integer',
         'track_number' => 'integer',
         'disc_number' => 'integer',
-        
+
         // Counts - use canonical DB column names only
         'play_count' => 'integer',
         'unique_listeners_count' => 'integer',
@@ -146,7 +146,7 @@ class Song extends Model
         'share_count' => 'integer',
         'skip_count' => 'integer',
         'flagged_count' => 'integer',
-        
+
         // JSON columns
         'featured_artists' => 'array',
         'credits' => 'array',
@@ -158,25 +158,25 @@ class Song extends Model
         'mood_tags' => 'array',
         'distribution_platforms' => 'array',
         'processing_status' => 'array',
-        
+
         // Decimals - use canonical DB column name
         'master_ownership_percentage' => 'decimal:2',
         'publishing_ownership_percentage' => 'decimal:2',
         'average_completion_rate' => 'decimal:2',
         'revenue_generated' => 'decimal:2',
-        
+
         // File metadata
         'file_size_bytes' => 'integer',
         'bitrate_original' => 'integer',
         'sample_rate' => 'integer',
         'audio_quality_score' => 'integer',
-        
+
         // Booleans - use canonical DB column names
         'contains_local_language' => 'boolean',
         'is_downloadable' => 'boolean',
         'is_streamable' => 'boolean',
         'allow_comments' => 'boolean',
-        
+
         // Dates
         'release_date' => 'date',
         'recording_date' => 'date',
@@ -268,7 +268,7 @@ class Song extends Model
     {
         return $this->hasMany(SongDistribution::class);
     }
-    
+
     public function musicUpload(): HasOne
     {
         return $this->hasOne(MusicUpload::class);
@@ -368,7 +368,7 @@ class Song extends Model
     public function scopeByLanguage($query, string $language)
     {
         return $query->where('primary_language', $language)
-                    ->orWhereJsonContains('languages_sung', $language);
+            ->orWhereJsonContains('languages_sung', $language);
     }
 
     public function scopeLocalContent($query)
@@ -391,6 +391,7 @@ class Song extends Model
     {
         $minutes = floor($this->duration_seconds / 60);
         $seconds = $this->duration_seconds % 60;
+
         return sprintf('%d:%02d', $minutes, $seconds);
     }
 
@@ -424,7 +425,7 @@ class Song extends Model
         } elseif ($this->audio_file_original) {
             return \App\Helpers\StorageHelper::url($this->audio_file_original) ?? '';
         }
-        
+
         return '';
     }
 
@@ -451,7 +452,7 @@ class Song extends Model
 
     public function getIsLikedByUserAttribute(): bool
     {
-        if (!auth()->check()) {
+        if (! auth()->check()) {
             return false;
         }
 
@@ -465,7 +466,7 @@ class Song extends Model
         if ($this->audio_file_128) {
             return \App\Helpers\StorageHelper::url($this->audio_file_128) ?? $this->audio_url;
         }
-        
+
         return $this->audio_url;
     }
 
@@ -475,7 +476,7 @@ class Song extends Model
         if ($this->audio_file_preview) {
             return \App\Helpers\StorageHelper::url($this->audio_file_preview) ?? $this->audio_url;
         }
-        
+
         return $this->audio_url;
     }
 
@@ -490,28 +491,32 @@ class Song extends Model
         if ($this->audio_file_original) {
             return Storage::url($this->audio_file_original);
         }
+
         return '#';
     }
 
     // Distribution helper methods
     public function getFormattedFileSizeAttribute(): string
     {
-        if (!$this->file_size_bytes) return 'Unknown';
+        if (! $this->file_size_bytes) {
+            return 'Unknown';
+        }
 
         $bytes = $this->file_size_bytes;
         if ($bytes >= 1073741824) {
-            return round($bytes / 1073741824, 2) . ' GB';
+            return round($bytes / 1073741824, 2).' GB';
         } elseif ($bytes >= 1048576) {
-            return round($bytes / 1048576, 2) . ' MB';
+            return round($bytes / 1048576, 2).' MB';
         } elseif ($bytes >= 1024) {
-            return round($bytes / 1024, 2) . ' KB';
+            return round($bytes / 1024, 2).' KB';
         }
-        return $bytes . ' bytes';
+
+        return $bytes.' bytes';
     }
 
     public function getAudioQualityBadgeAttribute(): string
     {
-        return match($this->audio_quality) {
+        return match ($this->audio_quality) {
             'studio' => '🔊 Studio Quality',
             'high' => '🎵 High Quality',
             'standard' => '🎶 Standard',
@@ -522,7 +527,7 @@ class Song extends Model
 
     public function getDistributionStatusBadgeAttribute(): string
     {
-        return match($this->distribution_status) {
+        return match ($this->distribution_status) {
             'draft' => '📝 Draft',
             'pending_review' => '⏳ Pending Review',
             'approved' => '✅ Approved',
@@ -554,7 +559,7 @@ class Song extends Model
 
     public function getLanguagesDisplayAttribute(): string
     {
-        if (!$this->languages_sung) {
+        if (! $this->languages_sung) {
             return $this->primary_language ?? 'Not specified';
         }
 
@@ -563,15 +568,18 @@ class Song extends Model
 
     public function getCollaboratorSplitTotal(): float
     {
-        if (!$this->featured_artists || !is_array($this->featured_artists)) return 0;
+        if (! $this->featured_artists || ! is_array($this->featured_artists)) {
+            return 0;
+        }
 
         return collect($this->featured_artists)
-            ->sum(fn($artist) => $artist['percentage'] ?? 0);
+            ->sum(fn ($artist) => $artist['percentage'] ?? 0);
     }
 
     public function hasValidRightsSplits(): bool
     {
         $total = $this->master_ownership_percentage + $this->publishing_ownership_percentage;
+
         return $total <= 200; // 100% master + 100% publishing
     }
 
@@ -597,7 +605,9 @@ class Song extends Model
 
     public function generateISRCCode(): string
     {
-        if ($this->isrc_code) return $this->isrc_code;
+        if ($this->isrc_code) {
+            return $this->isrc_code;
+        }
 
         // Format: CC-XXX-YY-NNNNN (Uganda format)
         $countryCode = 'UG';
@@ -608,7 +618,7 @@ class Song extends Model
         return "{$countryCode}-{$registrantCode}-{$year}-{$designation}";
     }
 
-    public function approve(User $approver, string $notes = null): void
+    public function approve(User $approver, ?string $notes = null): void
     {
         $this->update([
             'distribution_status' => 'approved',
@@ -618,7 +628,7 @@ class Song extends Model
         ]);
 
         // Generate ISRC if not exists
-        if (!$this->isrc_code) {
+        if (! $this->isrc_code) {
             $this->update(['isrc_code' => $this->generateISRCCode()]);
         }
     }
@@ -641,6 +651,7 @@ class Song extends Model
         } elseif (preg_match('/tablet|ipad/i', $userAgent)) {
             return 'tablet';
         }
+
         return 'desktop';
     }
 
@@ -653,7 +664,7 @@ class Song extends Model
             'artist:id,stage_name,avatar,is_verified,total_plays_count,total_revenue',
             'album:id,title,artwork',
             'genres:id,name',
-            'moods:id,name'
+            'moods:id,name',
         ]);
     }
 
@@ -665,20 +676,17 @@ class Song extends Model
     public function scopeFeatured($query, int $minPlayCount = 5000)
     {
         return $query->where('status', 'published')
-                     ->where(function($q) use ($minPlayCount) {
-                         $q->where('is_featured', true)
-                           ->orWhere('play_count', '>', $minPlayCount);
-                     });
+            ->where(function ($q) use ($minPlayCount) {
+                $q->where('is_featured', true)
+                    ->orWhere('play_count', '>', $minPlayCount);
+            });
     }
-
-
 
     /**
      * Note: is_featured is a database column (boolean) for admin manual curation
      * The accessor has been removed to prevent conflict with the database column
      * Use scopeFeatured() for queries combining manual curation + algorithmic discovery
      */
-
 
     /**
      * Scope to load songs with all essential relations for listing
@@ -687,7 +695,7 @@ class Song extends Model
     {
         return $query->with([
             'artist:id,stage_name,avatar,is_verified',
-            'album:id,title,artwork'
+            'album:id,title,artwork',
         ]);
     }
 
@@ -703,7 +711,7 @@ class Song extends Model
             'moods:id,name,slug',
             'isrcCode',
             'publishingRights',
-            'royaltySplits'
+            'royaltySplits',
         ]);
     }
 
@@ -715,8 +723,8 @@ class Song extends Model
         return $query->with([
             'playHistory' => function ($q) use ($days) {
                 $q->where('played_at', '>=', now()->subDays($days))
-                  ->select('song_id', 'user_id', 'duration_played_seconds', 'was_completed', 'played_at');
-            }
+                    ->select('song_id', 'user_id', 'duration_played_seconds', 'was_completed', 'played_at');
+            },
         ]);
     }
 
@@ -732,7 +740,7 @@ class Song extends Model
             'playHistory as total_plays_count',
             'playHistory as recent_plays_count' => function ($q) {
                 $q->where('created_at', '>=', now()->subDays(7));
-            }
+            },
         ]);
     }
 
@@ -743,10 +751,10 @@ class Song extends Model
     {
         return $query->select([
             'id', 'title', 'slug', 'duration', 'play_count', 'price', 'is_free',
-            'status', 'artwork', 'audio_file', 'artist_id', 'album_id', 'created_at'
+            'status', 'artwork', 'audio_file', 'artist_id', 'album_id', 'created_at',
         ])->with([
             'artist:id,stage_name,avatar,is_verified',
-            'album:id,title,artwork'
+            'album:id,title,artwork',
         ]);
     }
 
@@ -759,7 +767,7 @@ class Song extends Model
             ->addSelect([
                 'recent_plays' => \App\Models\PlayHistory::selectRaw('COUNT(*)')
                     ->whereColumn('song_id', 'songs.id')
-                    ->where('created_at', '>=', now()->subDays($days))
+                    ->where('created_at', '>=', now()->subDays($days)),
             ])
             ->orderByDesc('recent_plays')
             ->orderByDesc('play_count');
@@ -770,11 +778,11 @@ class Song extends Model
      */
     public function scopeWithUserLikeStatus($query, $userId = null)
     {
-        if (!$userId) {
+        if (! $userId) {
             $userId = auth()->id();
         }
 
-        if (!$userId) {
+        if (! $userId) {
             return $query;
         }
 
@@ -782,14 +790,14 @@ class Song extends Model
             'is_liked_by_user' => \App\Models\Like::selectRaw('COUNT(*) > 0')
                 ->whereColumn('likeable_id', 'songs.id')
                 ->where('likeable_type', self::class)
-                ->where('user_id', $userId)
+                ->where('user_id', $userId),
         ]);
     }
 
     /**
      * Record a song play with optimized performance
      */
-    public function recordPlay(User $user = null, array $context = []): void
+    public function recordPlay(?User $user = null, array $context = []): void
     {
         // Use increment to avoid loading the full model
         $this->increment('play_count');
@@ -820,7 +828,7 @@ class Song extends Model
                 'data' => $context,
                 'is_public' => $user->settings->show_activity ?? true,
             ]);
-            
+
             // Process streaming revenue for the artist
             $isPremiumUser = $user->hasAnyRole(['premium', 'vip', 'artist']) || $user->subscription_status === 'active';
             \App\Jobs\ProcessStreamingRevenue::dispatch(
@@ -841,15 +849,13 @@ class Song extends Model
 
         // Clear upload cache when new song added (affects monthly upload count)
         if ($this->wasRecentlyCreated) {
-            cache()->forget("artist_uploads_{$this->artist_id}_" . now()->format('Y_m'));
+            cache()->forget("artist_uploads_{$this->artist_id}_".now()->format('Y_m'));
         }
     }
 
     /**
      * Get the route key for the model.
      * Uses slug for clean URLs on frontend, but admin routes can still use ID via explicit binding.
-     *
-     * @return string
      */
     public function getRouteKeyName(): string
     {
@@ -858,7 +864,7 @@ class Song extends Model
         if ($request && str_starts_with($request->path(), 'admin')) {
             return 'id';
         }
-        
+
         return 'slug';
     }
 
@@ -876,7 +882,7 @@ class Song extends Model
         if (is_numeric($value)) {
             return $this->where('id', $value)->firstOrFail();
         }
-        
+
         // Otherwise search by slug (for frontend)
         return $this->where('slug', $value)->firstOrFail();
     }
@@ -893,16 +899,16 @@ class Song extends Model
             if (empty($song->uuid)) {
                 $song->uuid = (string) \Illuminate\Support\Str::uuid();
             }
-            
+
             // Auto-generate slug
-            if (!$song->slug && $song->title) {
+            if (! $song->slug && $song->title) {
                 $song->slug = \Str::slug($song->title);
-                
+
                 // Ensure uniqueness
                 $originalSlug = $song->slug;
                 $count = 1;
                 while (static::where('slug', $song->slug)->where('artist_id', $song->artist_id)->exists()) {
-                    $song->slug = $originalSlug . '-' . $count++;
+                    $song->slug = $originalSlug.'-'.$count++;
                 }
             }
         });

@@ -2,13 +2,13 @@
 
 namespace App\Modules\Store\Models;
 
+use App\Models\User;
 use Database\Factories\CartFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
-use App\Models\User;
 
 class Cart extends Model
 {
@@ -18,6 +18,7 @@ class Cart extends Model
     {
         return CartFactory::new();
     }
+
     protected $fillable = [
         'uuid',
         'user_id',

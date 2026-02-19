@@ -21,21 +21,21 @@ class CheckModuleEnabled
             ['modules'],
             "module:enabled:{$moduleName}",
             3600,
-            fn() => ModuleSetting::where('module_name', $moduleName)
-                        ->where('is_enabled', true)
-                        ->exists()
+            fn () => ModuleSetting::where('module_name', $moduleName)
+                ->where('is_enabled', true)
+                ->exists()
         );
-        
-        if (!$isEnabled) {
+
+        if (! $isEnabled) {
             if ($request->expectsJson()) {
                 return response()->json([
-                    'error' => 'This feature is currently unavailable.'
+                    'error' => 'This feature is currently unavailable.',
                 ], 503);
             }
-            
+
             abort(503, 'This feature is currently unavailable.');
         }
-        
+
         return $next($request);
     }
 }

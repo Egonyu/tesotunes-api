@@ -8,7 +8,7 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Middleware: StoreOwner
- * 
+ *
  * Ensures the authenticated user owns the store being accessed
  */
 class StoreOwner
@@ -20,12 +20,12 @@ class StoreOwner
     {
         $store = $request->route('store');
 
-        if (!$store || $store->user_id !== auth()->id()) {
+        if (! $store || $store->user_id !== auth()->id()) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized access to this store.',
-                    'error' => 'UNAUTHORIZED'
+                    'error' => 'UNAUTHORIZED',
                 ], 403);
             }
 

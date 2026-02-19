@@ -14,37 +14,37 @@ return new class extends Migration
     {
         Schema::table('award_nominations', function (Blueprint $table) {
             // Add award_id if it doesn't exist
-            if (!Schema::hasColumn('award_nominations', 'award_id')) {
+            if (! Schema::hasColumn('award_nominations', 'award_id')) {
                 $table->unsignedBigInteger('award_id')->nullable()->after('uuid');
             }
 
             // Add category_id if it doesn't exist
-            if (!Schema::hasColumn('award_nominations', 'category_id')) {
+            if (! Schema::hasColumn('award_nominations', 'category_id')) {
                 $table->unsignedBigInteger('category_id')->nullable()->after('award_id');
             }
 
             // Add nominee_name if it doesn't exist
-            if (!Schema::hasColumn('award_nominations', 'nominee_name')) {
+            if (! Schema::hasColumn('award_nominations', 'nominee_name')) {
                 $table->string('nominee_name')->nullable()->after('nominee_id');
             }
 
             // Add nominee_artwork if it doesn't exist
-            if (!Schema::hasColumn('award_nominations', 'nominee_artwork')) {
+            if (! Schema::hasColumn('award_nominations', 'nominee_artwork')) {
                 $table->string('nominee_artwork')->nullable()->after('nominee_name');
             }
 
             // Add nominated_by_id if it doesn't exist
-            if (!Schema::hasColumn('award_nominations', 'nominated_by_id')) {
+            if (! Schema::hasColumn('award_nominations', 'nominated_by_id')) {
                 $table->unsignedBigInteger('nominated_by_id')->nullable()->after('nominee_artwork');
             }
 
             // Add nomination_reason if it doesn't exist
-            if (!Schema::hasColumn('award_nominations', 'nomination_reason')) {
+            if (! Schema::hasColumn('award_nominations', 'nomination_reason')) {
                 $table->text('nomination_reason')->nullable()->after('nominated_by_id');
             }
 
             // Add is_official if it doesn't exist
-            if (!Schema::hasColumn('award_nominations', 'is_official')) {
+            if (! Schema::hasColumn('award_nominations', 'is_official')) {
                 $table->boolean('is_official')->default(false)->after('status');
             }
         });
@@ -60,27 +60,27 @@ return new class extends Migration
         // Fix award_votes table
         Schema::table('award_votes', function (Blueprint $table) {
             // Add award_id if it doesn't exist
-            if (!Schema::hasColumn('award_votes', 'award_id')) {
+            if (! Schema::hasColumn('award_votes', 'award_id')) {
                 $table->unsignedBigInteger('award_id')->nullable()->after('uuid');
             }
 
             // Add category_id if it doesn't exist
-            if (!Schema::hasColumn('award_votes', 'category_id')) {
+            if (! Schema::hasColumn('award_votes', 'category_id')) {
                 $table->unsignedBigInteger('category_id')->nullable()->after('award_id');
             }
 
             // Add nomination_id if it doesn't exist
-            if (!Schema::hasColumn('award_votes', 'nomination_id')) {
+            if (! Schema::hasColumn('award_votes', 'nomination_id')) {
                 $table->unsignedBigInteger('nomination_id')->nullable()->after('category_id');
             }
 
             // Add weight if it doesn't exist
-            if (!Schema::hasColumn('award_votes', 'weight')) {
+            if (! Schema::hasColumn('award_votes', 'weight')) {
                 $table->integer('weight')->default(1)->after('user_id');
             }
 
             // Add ip_address if it doesn't exist
-            if (!Schema::hasColumn('award_votes', 'ip_address')) {
+            if (! Schema::hasColumn('award_votes', 'ip_address')) {
                 $table->string('ip_address', 45)->nullable()->after('weight');
             }
         });

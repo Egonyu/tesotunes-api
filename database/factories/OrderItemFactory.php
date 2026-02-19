@@ -2,8 +2,8 @@
 
 namespace Database\Factories;
 
-use App\Modules\Store\Models\OrderItem;
 use App\Modules\Store\Models\Order;
+use App\Modules\Store\Models\OrderItem;
 use App\Modules\Store\Models\Product;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -25,7 +25,7 @@ class OrderItemFactory extends Factory
         $quantity = fake()->numberBetween(1, 5);
         $subtotal = $unitPrice * $quantity;
         $taxAmount = 0;
-        
+
         return [
             'order_id' => Order::factory(),
             'product_id' => Product::factory(),

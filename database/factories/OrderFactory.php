@@ -2,9 +2,9 @@
 
 namespace Database\Factories;
 
+use App\Models\User;
 use App\Modules\Store\Models\Order;
 use App\Modules\Store\Models\Store;
-use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -23,15 +23,15 @@ class OrderFactory extends Factory
     public function definition(): array
     {
         return [
-            'order_number' => 'ORD-' . strtoupper(Str::random(8)),
+            'order_number' => 'ORD-'.strtoupper(Str::random(8)),
             'store_id' => Store::factory(),
             'user_id' => User::factory(),
-            
+
             // Order Status
             'status' => fake()->randomElement(['pending', 'processing', 'shipped', 'delivered']),
             'payment_status' => 'paid',
             'fulfillment_status' => 'unfulfilled',
-            
+
             // Notes
             'customer_notes' => fake()->optional()->sentence(10),
             'admin_notes' => null,

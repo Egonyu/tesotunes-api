@@ -2,10 +2,10 @@
 
 namespace App\Modules\Sacco\Models;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
-use App\Models\User;
 
 class SaccoAuditLog extends Model
 {

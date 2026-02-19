@@ -2,24 +2,19 @@
 
 namespace App\Services;
 
-use App\Models\SaccoMember;
 use App\Models\SaccoAccount;
-use App\Models\SaccoTransaction;
 use App\Models\SaccoAuditLog;
+use App\Models\SaccoMember;
+use App\Models\SaccoTransaction;
+use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Exception;
 
 class SaccoTransactionService
 {
     /**
      * Process a deposit transaction
-     * 
-     * @param SaccoAccount $account
-     * @param float $amount
-     * @param string $description
-     * @param array $metadata
-     * @return SaccoTransaction
+     *
      * @throws Exception
      */
     public function deposit(
@@ -33,18 +28,18 @@ class SaccoTransactionService
             throw new Exception('Deposit amount must be greater than zero.');
         }
 
-        if (!$account->canDeposit()) {
-            throw new Exception('Account cannot accept deposits. Status: ' . $account->status);
+        if (! $account->canDeposit()) {
+            throw new Exception('Account cannot accept deposits. Status: '.$account->status);
         }
 
         DB::beginTransaction();
-        
+
         try {
             $balanceBefore = $account->balance;
             $balanceAfter = $balanceBefore + $amount;
-            
+
             // Create transaction record
-            $transaction = new SaccoTransaction();
+            $transaction = new SaccoTransaction;
             $transaction->account_id = $account->id;
             $transaction->member_id = $account->member_id;
             $transaction->transaction_reference = $this->generateTransactionReference('DEP');
@@ -52,23 +47,23 @@ class SaccoTransactionService
             $transaction->description = $description;
             $transaction->notes = $metadata['notes'] ?? null;
             $transaction->transaction_date = now();
-            
+
             // Protected fields - set explicitly
             $transaction->amount = $amount;
             $transaction->balance_before = $balanceBefore;
             $transaction->balance_after = $balanceAfter;
             $transaction->processed_by = auth()->id();
-            
+
             $transaction->save();
-            
+
             // Update account balance
             $account->balance = $balanceAfter;
             $account->available_balance = $balanceAfter;
             $account->save();
-            
+
             // Update member totals
             $this->updateMemberTotals($account->member);
-            
+
             // Log transaction
             SaccoAuditLog::log(
                 action: SaccoAuditLog::ACTION_CREATED,
@@ -76,11 +71,11 @@ class SaccoTransactionService
                 modelId: $transaction->id,
                 newValues: $transaction->toArray()
             );
-            
+
             DB::commit();
-            
+
             return $transaction->fresh();
-            
+
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;
@@ -89,12 +84,7 @@ class SaccoTransactionService
 
     /**
      * Process a withdrawal transaction
-     * 
-     * @param SaccoAccount $account
-     * @param float $amount
-     * @param string $description
-     * @param array $metadata
-     * @return SaccoTransaction
+     *
      * @throws Exception
      */
     public function withdraw(
@@ -108,8 +98,8 @@ class SaccoTransactionService
             throw new Exception('Withdrawal amount must be greater than zero.');
         }
 
-        if (!$account->canWithdraw($amount)) {
-            throw new Exception('Insufficient balance or account frozen. Available: UGX ' . number_format($account->available_balance, 2));
+        if (! $account->canWithdraw($amount)) {
+            throw new Exception('Insufficient balance or account frozen. Available: UGX '.number_format($account->available_balance, 2));
         }
 
         // Check daily withdrawal limit
@@ -118,19 +108,19 @@ class SaccoTransactionService
             ->withdrawals()
             ->whereDate('transaction_date', today())
             ->sum('amount');
-        
+
         if (($todayWithdrawals + $amount) > $dailyLimit) {
-            throw new Exception('Daily withdrawal limit exceeded. Limit: UGX ' . number_format($dailyLimit, 2));
+            throw new Exception('Daily withdrawal limit exceeded. Limit: UGX '.number_format($dailyLimit, 2));
         }
 
         DB::beginTransaction();
-        
+
         try {
             $balanceBefore = $account->balance;
             $balanceAfter = $balanceBefore - $amount;
-            
+
             // Create transaction record
-            $transaction = new SaccoTransaction();
+            $transaction = new SaccoTransaction;
             $transaction->account_id = $account->id;
             $transaction->member_id = $account->member_id;
             $transaction->transaction_reference = $this->generateTransactionReference('WTH');
@@ -138,23 +128,23 @@ class SaccoTransactionService
             $transaction->description = $description;
             $transaction->notes = $metadata['notes'] ?? null;
             $transaction->transaction_date = now();
-            
+
             // Protected fields
             $transaction->amount = $amount;
             $transaction->balance_before = $balanceBefore;
             $transaction->balance_after = $balanceAfter;
             $transaction->processed_by = auth()->id();
-            
+
             $transaction->save();
-            
+
             // Update account balance
             $account->balance = $balanceAfter;
             $account->available_balance = $balanceAfter;
             $account->save();
-            
+
             // Update member totals
             $this->updateMemberTotals($account->member);
-            
+
             // Log transaction
             SaccoAuditLog::log(
                 action: SaccoAuditLog::ACTION_CREATED,
@@ -162,11 +152,11 @@ class SaccoTransactionService
                 modelId: $transaction->id,
                 newValues: $transaction->toArray()
             );
-            
+
             DB::commit();
-            
+
             return $transaction->fresh();
-            
+
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;
@@ -175,12 +165,7 @@ class SaccoTransactionService
 
     /**
      * Transfer funds between accounts
-     * 
-     * @param SaccoAccount $fromAccount
-     * @param SaccoAccount $toAccount
-     * @param float $amount
-     * @param string $description
-     * @return array
+     *
      * @throws Exception
      */
     public function transfer(
@@ -197,15 +182,15 @@ class SaccoTransactionService
             throw new Exception('Cannot transfer to the same account.');
         }
 
-        if (!$fromAccount->canWithdraw($amount)) {
+        if (! $fromAccount->canWithdraw($amount)) {
             throw new Exception('Insufficient balance in source account.');
         }
 
         DB::beginTransaction();
-        
+
         try {
             $transferRef = $this->generateTransactionReference('TRF');
-            
+
             // Withdrawal from source
             $withdrawalTransaction = $this->withdraw(
                 $fromAccount,
@@ -213,7 +198,7 @@ class SaccoTransactionService
                 "Transfer to {$toAccount->account_number}: {$description}",
                 ['transfer_ref' => $transferRef]
             );
-            
+
             // Deposit to destination
             $depositTransaction = $this->deposit(
                 $toAccount,
@@ -221,15 +206,15 @@ class SaccoTransactionService
                 "Transfer from {$fromAccount->account_number}: {$description}",
                 ['transfer_ref' => $transferRef]
             );
-            
+
             DB::commit();
-            
+
             return [
                 'withdrawal' => $withdrawalTransaction,
                 'deposit' => $depositTransaction,
                 'transfer_reference' => $transferRef,
             ];
-            
+
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;
@@ -238,15 +223,11 @@ class SaccoTransactionService
 
     /**
      * Apply interest to account
-     * 
-     * @param SaccoAccount $account
-     * @param int $months
-     * @return SaccoTransaction|null
      */
     public function applyInterest(SaccoAccount $account, int $months = 1): ?SaccoTransaction
     {
         $interestAmount = $account->calculateInterest($months);
-        
+
         if ($interestAmount <= 0) {
             return null;
         }
@@ -261,11 +242,6 @@ class SaccoTransactionService
 
     /**
      * Get account statement
-     * 
-     * @param SaccoAccount $account
-     * @param string $startDate
-     * @param string $endDate
-     * @return array
      */
     public function getAccountStatement(
         SaccoAccount $account,
@@ -276,17 +252,17 @@ class SaccoTransactionService
             ->whereBetween('transaction_date', [$startDate, $endDate])
             ->orderBy('transaction_date', 'asc')
             ->get();
-        
+
         $openingBalance = $account->transactions()
             ->where('transaction_date', '<', $startDate)
             ->latest()
             ->value('balance_after') ?? 0;
-        
+
         $closingBalance = $account->balance;
-        
+
         $totalDeposits = $transactions->where('transaction_type', SaccoTransaction::TYPE_DEPOSIT)->sum('amount');
         $totalWithdrawals = $transactions->where('transaction_type', SaccoTransaction::TYPE_WITHDRAWAL)->sum('amount');
-        
+
         return [
             'account' => $account,
             'period' => [
@@ -305,19 +281,15 @@ class SaccoTransactionService
 
     /**
      * Get transaction summary for member
-     * 
-     * @param SaccoMember $member
-     * @param int $days
-     * @return array
      */
     public function getMemberTransactionSummary(SaccoMember $member, int $days = 30): array
     {
         $startDate = now()->subDays($days);
-        
+
         $transactions = $member->transactions()
             ->where('transaction_date', '>=', $startDate)
             ->get();
-        
+
         return [
             'period_days' => $days,
             'total_transactions' => $transactions->count(),
@@ -332,24 +304,21 @@ class SaccoTransactionService
 
     /**
      * Update member totals from accounts
-     * 
-     * @param SaccoMember $member
-     * @return void
      */
     private function updateMemberTotals(SaccoMember $member): void
     {
         $sharesBalance = $member->accounts()
             ->where('account_type', SaccoAccount::TYPE_SHARES)
             ->sum('balance');
-        
+
         $savingsBalance = $member->accounts()
             ->where('account_type', SaccoAccount::TYPE_SAVINGS)
             ->sum('balance');
-        
+
         $loansBalance = $member->loans()
             ->active()
             ->sum('balance');
-        
+
         // Update protected fields explicitly
         $member->total_shares = $sharesBalance;
         $member->total_savings = $savingsBalance;
@@ -359,21 +328,15 @@ class SaccoTransactionService
 
     /**
      * Generate unique transaction reference
-     * 
-     * @param string $prefix
-     * @return string
      */
     private function generateTransactionReference(string $prefix): string
     {
-        return $prefix . '-' . now()->format('YmdHis') . '-' . strtoupper(Str::random(6));
+        return $prefix.'-'.now()->format('YmdHis').'-'.strtoupper(Str::random(6));
     }
 
     /**
      * Reverse a transaction (admin only)
-     * 
-     * @param SaccoTransaction $transaction
-     * @param string $reason
-     * @return SaccoTransaction
+     *
      * @throws Exception
      */
     public function reverseTransaction(SaccoTransaction $transaction, string $reason): SaccoTransaction
@@ -383,44 +346,44 @@ class SaccoTransactionService
         }
 
         DB::beginTransaction();
-        
+
         try {
             $account = $transaction->account;
-            
+
             // Create reversal transaction (opposite type)
-            $reversalType = match($transaction->transaction_type) {
+            $reversalType = match ($transaction->transaction_type) {
                 SaccoTransaction::TYPE_DEPOSIT => SaccoTransaction::TYPE_WITHDRAWAL,
                 SaccoTransaction::TYPE_WITHDRAWAL => SaccoTransaction::TYPE_DEPOSIT,
                 default => SaccoTransaction::TYPE_ADJUSTMENT,
             };
-            
-            $reversal = new SaccoTransaction();
+
+            $reversal = new SaccoTransaction;
             $reversal->account_id = $transaction->account_id;
             $reversal->member_id = $transaction->member_id;
             $reversal->transaction_reference = $this->generateTransactionReference('REV');
             $reversal->transaction_type = $reversalType;
             $reversal->description = "Reversal of {$transaction->transaction_reference}: {$reason}";
             $reversal->transaction_date = now();
-            
+
             $balanceBefore = $account->balance;
             $balanceAfter = $reversalType === SaccoTransaction::TYPE_WITHDRAWAL
                 ? $balanceBefore - $transaction->amount
                 : $balanceBefore + $transaction->amount;
-            
+
             $reversal->amount = $transaction->amount;
             $reversal->balance_before = $balanceBefore;
             $reversal->balance_after = $balanceAfter;
             $reversal->processed_by = auth()->id();
             $reversal->save();
-            
+
             // Update account
             $account->balance = $balanceAfter;
             $account->available_balance = $balanceAfter;
             $account->save();
-            
+
             // Update member totals
             $this->updateMemberTotals($account->member);
-            
+
             // Log reversal
             SaccoAuditLog::log(
                 action: 'reversed',
@@ -428,11 +391,11 @@ class SaccoTransactionService
                 modelId: $reversal->id,
                 newValues: ['original_transaction' => $transaction->id, 'reason' => $reason]
             );
-            
+
             DB::commit();
-            
+
             return $reversal->fresh();
-            
+
         } catch (Exception $e) {
             DB::rollBack();
             throw $e;

@@ -7,10 +7,10 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
  * ArtistProfile Factory - Alias for Artist Factory
- * 
+ *
  * This factory exists to support legacy test references to ArtistProfile
  * which should actually use the Artist model.
- * 
+ *
  * @extends \Illuminate\Database\Eloquent\Factories\Factory<\App\Models\Artist>
  */
 class ArtistProfileFactory extends Factory
@@ -30,14 +30,14 @@ class ArtistProfileFactory extends Factory
     public function definition(): array
     {
         $stageName = fake()->name();
-        
+
         return [
             'user_id' => \App\Models\User::factory(),
             'stage_name' => $stageName,
-            'slug' => \Illuminate\Support\Str::slug($stageName) . '-' . fake()->unique()->numberBetween(1, 10000),
+            'slug' => \Illuminate\Support\Str::slug($stageName).'-'.fake()->unique()->numberBetween(1, 10000),
             'bio' => fake()->paragraphs(2, true),
-            'avatar' => 'artists/avatars/' . fake()->uuid() . '.jpg',
-            'cover_image' => 'artists/covers/' . fake()->uuid() . '.jpg',
+            'avatar' => 'artists/avatars/'.fake()->uuid().'.jpg',
+            'cover_image' => 'artists/covers/'.fake()->uuid().'.jpg',
             'is_verified' => fake()->boolean(50),
             'is_trusted' => fake()->boolean(10),
             'verification_status' => fake()->randomElement(['pending', 'verified', 'rejected']),

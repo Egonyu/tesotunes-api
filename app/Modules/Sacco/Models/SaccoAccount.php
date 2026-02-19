@@ -19,7 +19,7 @@ class SaccoAccount extends Model
             }
         });
     }
-    
+
     /**
      * Fillable fields matching actual sacco_savings_accounts table:
      * uuid, account_number, member_id, account_type (enum: regular,fixed_deposit,target,retirement),
@@ -96,7 +96,7 @@ class SaccoAccount extends Model
      */
     public function getFormattedBalanceAttribute(): string
     {
-        return 'UGX ' . number_format($this->balance, 2);
+        return 'UGX '.number_format($this->balance, 2);
     }
 
     /**
@@ -104,7 +104,7 @@ class SaccoAccount extends Model
      */
     public function getTypeNameAttribute(): string
     {
-        return match($this->account_type) {
+        return match ($this->account_type) {
             'savings' => 'Savings Account',
             'shares' => 'Share Capital',
             'fixed_deposit' => 'Fixed Deposit',

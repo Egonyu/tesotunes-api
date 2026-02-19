@@ -87,15 +87,16 @@ class SubscriptionPlan extends Model
 
     public function getFormattedPriceAttribute(): string
     {
-        return $this->currency . ' ' . number_format($this->price, 2);
+        return $this->currency.' '.number_format($this->price, 2);
     }
 
     public function getIntervalDisplayAttribute(): string
     {
         $interval = $this->interval;
         if ($this->interval_count > 1) {
-            $interval = $this->interval_count . ' ' . str_plural($this->interval);
+            $interval = $this->interval_count.' '.str_plural($this->interval);
         }
+
         return $interval;
     }
 

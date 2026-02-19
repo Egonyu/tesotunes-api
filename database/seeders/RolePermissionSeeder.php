@@ -2,10 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\Role;
 use App\Models\Permission;
-use Illuminate\Support\Str;
+use App\Models\Role;
+use Illuminate\Database\Seeder;
 
 class RolePermissionSeeder extends Seeder
 {
@@ -17,28 +16,28 @@ class RolePermissionSeeder extends Seeder
             ['name' => 'View Users', 'slug' => 'view-users', 'group' => 'users'],
             ['name' => 'Edit Users', 'slug' => 'edit-users', 'group' => 'users'],
             ['name' => 'Delete Users', 'slug' => 'delete-users', 'group' => 'users'],
-            
+
             ['name' => 'Manage Content', 'slug' => 'manage-content', 'group' => 'content'],
             ['name' => 'Publish Content', 'slug' => 'publish-content', 'group' => 'content'],
             ['name' => 'Edit Content', 'slug' => 'edit-content', 'group' => 'content'],
             ['name' => 'Delete Content', 'slug' => 'delete-content', 'group' => 'content'],
-            
+
             ['name' => 'Upload Music', 'slug' => 'upload-music', 'group' => 'music'],
             ['name' => 'Manage Music', 'slug' => 'manage-music', 'group' => 'music'],
             ['name' => 'Delete Music', 'slug' => 'delete-music', 'group' => 'music'],
-            
+
             ['name' => 'Manage Store', 'slug' => 'manage-store', 'group' => 'store'],
             ['name' => 'Create Products', 'slug' => 'create-products', 'group' => 'store'],
             ['name' => 'Manage Orders', 'slug' => 'manage-orders', 'group' => 'store'],
-            
+
             ['name' => 'Manage Payments', 'slug' => 'manage-payments', 'group' => 'financial'],
             ['name' => 'View Reports', 'slug' => 'view-reports', 'group' => 'financial'],
             ['name' => 'Manage SACCO', 'slug' => 'manage-sacco', 'group' => 'financial'],
-            
+
             ['name' => 'Moderate Content', 'slug' => 'moderate-content', 'group' => 'moderation'],
             ['name' => 'Ban Users', 'slug' => 'ban-users', 'group' => 'moderation'],
             ['name' => 'Manage Reports', 'slug' => 'manage-reports', 'group' => 'moderation'],
-            
+
             ['name' => 'Manage Settings', 'slug' => 'manage-settings', 'group' => 'system'],
             ['name' => 'View Analytics', 'slug' => 'view-analytics', 'group' => 'system'],
             ['name' => 'Manage Roles', 'slug' => 'manage-roles', 'group' => 'system'],
@@ -51,7 +50,7 @@ class RolePermissionSeeder extends Seeder
                 [
                     'name' => $perm['name'],
                     'group' => $perm['group'],
-                    'description' => 'Permission to ' . strtolower($perm['name']),
+                    'description' => 'Permission to '.strtolower($perm['name']),
                 ]
             );
             $permissionIds[$perm['slug']] = $permission->id;

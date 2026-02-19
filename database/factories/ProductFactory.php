@@ -3,8 +3,8 @@
 namespace Database\Factories;
 
 use App\Modules\Store\Models\Product;
-use App\Modules\Store\Models\Store;
 use App\Modules\Store\Models\ProductCategory;
+use App\Modules\Store\Models\Store;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -23,13 +23,13 @@ class ProductFactory extends Factory
     public function definition(): array
     {
         $name = fake()->words(3, true);
-        
+
         return [
             'uuid' => Str::uuid(),
             'store_id' => Store::factory(),
             'category_id' => ProductCategory::factory(),
             'name' => ucfirst($name),
-            'slug' => Str::slug($name) . '-' . Str::random(6),
+            'slug' => Str::slug($name).'-'.Str::random(6),
             'sku' => strtoupper(fake()->bothify('??-####')),
             'description' => fake()->paragraphs(3, true),
             'short_description' => fake()->sentence(20),
@@ -57,10 +57,10 @@ class ProductFactory extends Factory
             // Get pricing data from attributes if provided during factory creation
             $attributes = $product->getAttributes();
             $priceUgx = $attributes['price_ugx'] ?? fake()->numberBetween(5000, 500000);
-            $priceCredits = $attributes['price_credits'] ?? (fake()->boolean(70) ? (int)($priceUgx / 100) : null);
-            
+            $priceCredits = $attributes['price_credits'] ?? (fake()->boolean(70) ? (int) ($priceUgx / 100) : null);
+
             // Create pricing only if it doesn't already exist
-            if (!\App\Modules\Store\Models\ProductPricing::where('product_id', $product->id)->exists()) {
+            if (! \App\Modules\Store\Models\ProductPricing::where('product_id', $product->id)->exists()) {
                 \App\Modules\Store\Models\ProductPricing::create([
                     'product_id' => $product->id,
                     'currency_type' => $priceCredits ? 'both' : 'ugx',
@@ -69,16 +69,16 @@ class ProductFactory extends Factory
                     'compare_at_price_ugx' => $attributes['compare_at_price_ugx'] ?? (fake()->boolean(30) ? $priceUgx * 1.2 : null),
                     'compare_at_price_credits' => $attributes['compare_at_price_credits'] ?? null,
                     'discount_percentage' => 0,
-                    'accepts_credits' => (bool)$priceCredits,
-                    'allow_hybrid_payment' => $attributes['allow_hybrid_payment'] ?? (bool)$priceCredits,
+                    'accepts_credits' => (bool) $priceCredits,
+                    'allow_hybrid_payment' => $attributes['allow_hybrid_payment'] ?? (bool) $priceCredits,
                 ]);
             }
 
             // Create inventory only if it doesn't already exist
-            if (!\App\Modules\Store\Models\ProductInventory::where('product_id', $product->id)->exists()) {
+            if (! \App\Modules\Store\Models\ProductInventory::where('product_id', $product->id)->exists()) {
                 $stockQty = $attributes['inventory_quantity'] ?? $attributes['stock_quantity'] ?? fake()->numberBetween(0, 100);
                 $trackInventory = $attributes['track_inventory'] ?? in_array($product->product_type, ['physical']);
-                
+
                 \App\Modules\Store\Models\ProductInventory::create([
                     'product_id' => $product->id,
                     'track_inventory' => $trackInventory ? 'track' : 'dont_track',

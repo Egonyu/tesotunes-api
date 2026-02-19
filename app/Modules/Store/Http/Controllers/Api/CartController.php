@@ -4,9 +4,8 @@ namespace App\Modules\Store\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Store\Models\Product;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
 
 /**
  * Shopping Cart API Controller
@@ -23,7 +22,7 @@ class CartController extends Controller
             'items.product.category',
         ])->first();
 
-        if (!$cart) {
+        if (! $cart) {
             return response()->json([
                 'data' => [
                     'items' => [],
@@ -175,7 +174,7 @@ class CartController extends Controller
             }
         }
 
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             return response()->json([
                 'message' => 'Cart validation failed.',
                 'errors' => $errors,

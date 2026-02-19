@@ -8,7 +8,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 
 /**
  * Song Repository Interface
- * 
+ *
  * Defines contract for song data access operations
  */
 interface SongRepositoryInterface

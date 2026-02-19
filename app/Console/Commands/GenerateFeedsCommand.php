@@ -2,10 +2,9 @@
 
 namespace App\Console\Commands;
 
-use App\Models\User;
 use App\Jobs\GenerateUserFeedJob;
+use App\Models\User;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Cache;
 
 class GenerateFeedsCommand extends Command
 {
@@ -27,8 +26,9 @@ class GenerateFeedsCommand extends Command
      */
     public function handle(): int
     {
-        if (!config('feed.pregenerate.enabled')) {
+        if (! config('feed.pregenerate.enabled')) {
             $this->warn('Feed pre-generation is disabled in config.');
+
             return self::FAILURE;
         }
 
@@ -40,6 +40,7 @@ class GenerateFeedsCommand extends Command
 
         if ($users->isEmpty()) {
             $this->info('No users found to process.');
+
             return self::SUCCESS;
         }
 
@@ -69,7 +70,7 @@ class GenerateFeedsCommand extends Command
 
         $duration = round(microtime(true) - $startTime, 2);
 
-        $this->info("Feed generation jobs dispatched:");
+        $this->info('Feed generation jobs dispatched:');
         $this->info("  - Processed: {$processed}");
         $this->info("  - Failed: {$failed}");
         $this->info("  - Duration: {$duration}s");
@@ -85,6 +86,7 @@ class GenerateFeedsCommand extends Command
         // If specific users provided
         if ($this->option('users')) {
             $userIds = explode(',', $this->option('users'));
+
             return User::whereIn('id', $userIds)->get();
         }
 
@@ -96,14 +98,14 @@ class GenerateFeedsCommand extends Command
             ->where('status', 'active')
             ->whereHas('playHistory', function ($q) use ($minActivityThreshold) {
                 $q->where('played_at', '>', now()->subDays(7))
-                  ->havingRaw('COUNT(*) >= ?', [$minActivityThreshold]);
+                    ->havingRaw('COUNT(*) >= ?', [$minActivityThreshold]);
             });
 
         // Skip recently generated unless forced
-        if (!$force) {
+        if (! $force) {
             $query->where(function ($q) {
                 $q->whereNull('last_feed_generated_at')
-                  ->orWhere('last_feed_generated_at', '<', now()->subHour());
+                    ->orWhere('last_feed_generated_at', '<', now()->subHour());
             });
         }
 

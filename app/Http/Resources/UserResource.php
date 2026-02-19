@@ -20,9 +20,9 @@ class UserResource extends JsonResource
 
             // Profile
             'display_name' => $this->display_name,
-            'avatar' => $this->avatar ? url('storage/' . $this->avatar) : null,
+            'avatar' => $this->avatar ? url('storage/'.$this->avatar) : null,
             'bio' => $this->bio,
-            'banner' => $this->banner ? url('storage/' . $this->banner) : null,
+            'banner' => $this->banner ? url('storage/'.$this->banner) : null,
 
             // Location
             'country' => $this->country,

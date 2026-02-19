@@ -2,6 +2,7 @@
 
 namespace App\Modules\Sacco\Models;
 
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +10,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
-use App\Models\User;
 
 class SaccoMember extends Model
 {
@@ -30,12 +30,12 @@ class SaccoMember extends Model
         static::deleting(function (SaccoMember $member) {
             // Delete shares (which will cascade to share transactions)
             $member->shares()->delete();
-            
+
             // Delete savings accounts (which will cascade to savings transactions)
             $member->savingsAccounts()->each(function ($account) {
                 $account->delete();
             });
-            
+
             // Delete loans (which will cascade to guarantors and repayments)
             $member->loans()->each(function ($loan) {
                 $loan->delete();
@@ -168,8 +168,8 @@ class SaccoMember extends Model
      */
     public function canApplyForLoan(): bool
     {
-        return $this->isActive() 
-            && $this->kyc_verified 
+        return $this->isActive()
+            && $this->kyc_verified
             && $this->credit_score >= config('sacco.loans.min_credit_score', 400);
     }
 
@@ -196,6 +196,7 @@ class SaccoMember extends Model
     {
         $savingsBalance = $this->total_savings;
         $ratio = config('sacco.loans.max_loan_to_savings_ratio', 3.0);
+
         return $savingsBalance * $ratio;
     }
 

@@ -21,7 +21,7 @@ class StorePolicy
     public function view(?User $user, Store $store): bool
     {
         // Guest users can only view active stores
-        if (!$user) {
+        if (! $user) {
             return $store->status === Store::STATUS_ACTIVE;
         }
 
@@ -44,7 +44,7 @@ class StorePolicy
     public function create(User $user): bool
     {
         // Check if module is enabled
-        if (!config('store.enabled', false)) {
+        if (! config('store.enabled', false)) {
             return false;
         }
 
@@ -54,7 +54,7 @@ class StorePolicy
         }
 
         // Check email verification
-        if (!$user->email_verified_at) {
+        if (! $user->email_verified_at) {
             return false;
         }
 
@@ -64,7 +64,7 @@ class StorePolicy
         }
 
         // Check if user is artist or if user stores are allowed
-        if (!$user->hasRole('artist') && !config('store.stores.allow_user_stores', false)) {
+        if (! $user->hasRole('artist') && ! config('store.stores.allow_user_stores', false)) {
             return false;
         }
 
@@ -99,7 +99,7 @@ class StorePolicy
      */
     public function restore(User $user, Store $store): bool
     {
-        return $user->id === $store->user_id || 
+        return $user->id === $store->user_id ||
                $user->hasAnyRole(['admin', 'super_admin']);
     }
 
@@ -146,7 +146,7 @@ class StorePolicy
      */
     public function viewStatistics(User $user, Store $store): bool
     {
-        return $user->id === $store->user_id || 
+        return $user->id === $store->user_id ||
                $user->hasAnyRole(['admin', 'super_admin']);
     }
 

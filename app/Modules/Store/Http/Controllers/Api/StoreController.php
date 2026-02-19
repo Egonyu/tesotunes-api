@@ -5,12 +5,12 @@ namespace App\Modules\Store\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Modules\Store\Models\Store;
 use App\Modules\Store\Services\StoreService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
  * Store API Controller
- * 
+ *
  * RESTful API endpoints for store management
  */
 class StoreController extends Controller
@@ -66,13 +66,13 @@ class StoreController extends Controller
             ->orWhere('uuid', $identifier)
             ->with([
                 'owner:id,display_name,email',
-                'activeProducts' => fn($q) => $q->take(8),
+                'activeProducts' => fn ($q) => $q->take(8),
             ])
             ->withCount('products', 'activeProducts', 'reviews')
             ->firstOrFail();
 
         return response()->json([
-            'data' => $store
+            'data' => $store,
         ]);
     }
 
@@ -97,7 +97,7 @@ class StoreController extends Controller
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 422);
         }
     }
@@ -126,7 +126,7 @@ class StoreController extends Controller
             ]);
         } catch (\Exception $e) {
             return response()->json([
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 422);
         }
     }
@@ -141,7 +141,7 @@ class StoreController extends Controller
         $stats = $this->storeService->getStatistics($store);
 
         return response()->json([
-            'data' => $stats
+            'data' => $stats,
         ]);
     }
 
@@ -156,7 +156,7 @@ class StoreController extends Controller
             ->get();
 
         return response()->json([
-            'data' => $stores
+            'data' => $stores,
         ]);
     }
 }

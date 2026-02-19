@@ -2,15 +2,18 @@
 
 namespace App\Modules\Store\Services;
 
-use App\Modules\Store\Models\{Order, OrderItem, Product, Store};
 use App\Events\Store\OrderCreated;
-use App\Models\{User, Payment};
-use Illuminate\Support\Str;
+use App\Models\Payment;
+use App\Models\User;
+use App\Modules\Store\Models\Order;
+use App\Modules\Store\Models\OrderItem;
+use App\Modules\Store\Models\Product;
+use App\Modules\Store\Models\Store;
 use Illuminate\Support\Facades\DB;
 
 /**
  * OrderService
- * 
+ *
  * Handles all business logic for order management
  */
 class OrderService
@@ -28,7 +31,7 @@ class OrderService
         return DB::transaction(function () use ($buyer, $store, $items, $data) {
             // Calculate totals
             $totals = $this->calculateTotals($items, array_merge($data, ['store_id' => $store->id]));
-            
+
             // Create order
             $order = Order::create([
                 'order_number' => Order::generateOrderNumber(),
@@ -62,11 +65,11 @@ class OrderService
                 'shipping_address' => $data['shipping_address'] ?? null,
                 'customer_notes' => $data['notes'] ?? null,
             ]);
-            
+
             // Create order items
             foreach ($items as $item) {
                 $product = Product::findOrFail($item['product_id']);
-                
+
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $product->id,
@@ -78,11 +81,11 @@ class OrderService
                     'tax_amount' => 0,
                     'total_amount' => $product->price_ugx * $item['quantity'],
                 ]);
-                
+
                 // Reserve inventory
                 $this->productService->updateInventory($product, $item['quantity'], 'subtract');
             }
-            
+
             // Handle mobile money payment
             if (($data['payment_method'] ?? '') === 'mobile_money') {
                 $mobileMoneyService = app(\App\Services\Payment\MobileMoneyService::class);
@@ -91,18 +94,18 @@ class OrderService
                     'payment_method' => $data['payment_provider'] ?? 'mtn',
                     'phone_number' => $data['phone_number'] ?? null,
                 ]);
-                
-                if (!empty($paymentResponse['transaction_id'])) {
+
+                if (! empty($paymentResponse['transaction_id'])) {
                     $order->update(['transaction_id' => $paymentResponse['transaction_id']]);
                 }
             }
-            
+
             // Handle credit payment if specified
             $isCreditPayment = in_array($data['payment_method'] ?? '', ['credits', 'credit']) || ($data['use_credits'] ?? false);
             if ($isCreditPayment && $order->total_credits > 0) {
                 // Deduct credits from user
                 $buyer->decrement('credits', $order->total_credits);
-                
+
                 // Mark order as paid since credits were used
                 $order->update([
                     'payment_status' => Order::PAYMENT_PAID,
@@ -110,13 +113,13 @@ class OrderService
                     'paid_credits' => $order->total_credits,
                 ]);
             }
-            
+
             // Clear cart after successful order
             session()->forget('store_cart');
-            
+
             // Dispatch order created event
             event(new OrderCreated($order));
-            
+
             return $order;
         });
     }
@@ -128,36 +131,36 @@ class OrderService
     {
         $subtotalUgx = 0;
         $subtotalCredits = 0;
-        
+
         foreach ($items as $item) {
             $product = Product::findOrFail($item['product_id']);
             $quantity = $item['quantity'];
-            
+
             $subtotalUgx += $product->price_ugx * $quantity;
             $subtotalCredits += ($product->price_credits ?? 0) * $quantity;
         }
-        
+
         // Calculate shipping (simplified - can be enhanced)
         $shippingUgx = $data['shipping_cost_ugx'] ?? $data['shipping_cost'] ?? 5000;
         $shippingCredits = $data['shipping_cost_credits'] ?? 0;
-        
+
         // Calculate tax (if applicable)
         $taxUgx = 0;
         $taxCredits = 0;
-        
+
         // Calculate discount (if promo code applied)
         $discountUgx = $data['discount_ugx'] ?? 0;
         $discountCredits = $data['discount_credits'] ?? 0;
-        
+
         // Calculate platform fee
         $store = Store::find($data['store_id']);
         $platformFeeUgx = $store ? $store->calculatePlatformFee($subtotalUgx) : 0;
         $platformFeeCredits = 0; // Platform fee typically only on UGX
-        
+
         // Calculate totals
         $totalUgx = $subtotalUgx + $shippingUgx + $taxUgx - $discountUgx;
         $totalCredits = $subtotalCredits + $shippingCredits + $taxCredits - $discountCredits;
-        
+
         return [
             // Dual-currency breakdown
             'subtotal_ugx' => $subtotalUgx,
@@ -188,13 +191,13 @@ class OrderService
      */
     public function markAsPaid(Order $order, float $paidAmount, int $paidCredits = 0): bool
     {
-        return DB::transaction(function () use ($order, $paidAmount, $paidCredits) {
+        return DB::transaction(function () use ($order, $paidCredits) {
             $order->update([
                 'payment_status' => Order::PAYMENT_PAID,
                 'paid_at' => now(),
                 'paid_credits' => $paidCredits,
             ]);
-            
+
             return $order->markAsPaid();
         });
     }
@@ -202,7 +205,7 @@ class OrderService
     /**
      * Mark order as shipped
      */
-    public function markAsShipped(Order $order, string $trackingNumber = null, string $provider = null): bool
+    public function markAsShipped(Order $order, ?string $trackingNumber = null, ?string $provider = null): bool
     {
         return $order->markAsShipped($trackingNumber, $provider);
     }
@@ -218,7 +221,7 @@ class OrderService
     /**
      * Cancel order
      */
-    public function cancel(Order $order, string $reason = null): bool
+    public function cancel(Order $order, ?string $reason = null): bool
     {
         return DB::transaction(function () use ($order, $reason) {
             // Restore inventory
@@ -227,7 +230,7 @@ class OrderService
                     $this->productService->updateInventory($item->product, $item->quantity, 'add');
                 }
             }
-            
+
             return $order->cancel($reason);
         });
     }
@@ -242,8 +245,8 @@ class OrderService
             ->where('status', 'active')
             ->with('items.product')
             ->first();
-        
-        if ($dbCart && !$dbCart->isEmpty()) {
+
+        if ($dbCart && ! $dbCart->isEmpty()) {
             // Use database cart
             $items = $dbCart->items->map(function ($item) {
                 return [
@@ -251,36 +254,36 @@ class OrderService
                     'quantity' => $item->quantity,
                 ];
             })->toArray();
-            
+
             $store = $dbCart->items->first()->product->store;
-            
+
             // Validate credits if payment method is credits
             if (in_array($data['payment_method'] ?? null, ['credit', 'credits'])) {
                 $totalCreditsNeeded = $dbCart->items->sum(function ($item) {
                     return ($item->product->price_credits ?? 0) * $item->quantity;
                 });
-                
+
                 if ($buyer->credits < $totalCreditsNeeded) {
-                    throw new \Exception('Insufficient credits. You need ' . $totalCreditsNeeded . ' credits but only have ' . $buyer->credits . '.');
+                    throw new \Exception('Insufficient credits. You need '.$totalCreditsNeeded.' credits but only have '.$buyer->credits.'.');
                 }
             }
-            
+
             return $this->create($buyer, $store, $items, $data);
         }
-        
+
         // Fallback to session cart (legacy)
         $cart = session('store_cart', []);
         if (empty($cart)) {
             throw new \Exception('Cart is empty');
         }
-        
+
         // Handle both direct array and structured cart with 'items' key
         $cartItems = isset($cart['items']) ? $cart['items'] : $cart;
-        
+
         if (empty($cartItems)) {
             throw new \Exception('Cart is empty');
         }
-        
+
         // Convert cart items to order items format
         $items = collect($cartItems)->map(function ($item) {
             return [
@@ -288,19 +291,19 @@ class OrderService
                 'quantity' => $item['quantity'],
             ];
         })->toArray();
-        
+
         // For simplicity, assume all items are from the first product's store
         $firstItem = reset($cartItems);
         $firstProduct = Product::find($firstItem['product_id']);
         $store = $firstProduct->store;
-        
+
         return $this->create($buyer, $store, $items, $data);
     }
 
     /**
      * Cancel order (wrapper method for controller compatibility)
      */
-    public function cancelOrder(Order $order, string $reason = null): bool
+    public function cancelOrder(Order $order, ?string $reason = null): bool
     {
         return $this->cancel($order, $reason);
     }

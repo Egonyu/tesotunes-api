@@ -2,9 +2,9 @@
 
 namespace App\Jobs;
 
-use App\Services\CrossModuleRevenueService;
-use App\Services\CrossModuleNotificationService;
 use App\Events\CrossModuleEvent;
+use App\Services\CrossModuleNotificationService;
+use App\Services\CrossModuleRevenueService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -17,9 +17,11 @@ class ProcessMonthlyLoanPaymentsJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $timeout = 3600; // 1 hour timeout
+
     public int $tries = 3;
 
     protected bool $dryRun;
+
     protected ?int $specificUserId;
 
     /**
@@ -50,6 +52,7 @@ class ProcessMonthlyLoanPaymentsJob implements ShouldQueue
 
             if ($eligibleUsers->isEmpty()) {
                 Log::info('No users eligible for automated loan payments');
+
                 return;
             }
 
@@ -84,7 +87,7 @@ class ProcessMonthlyLoanPaymentsJob implements ShouldQueue
                 }
 
                 // Small delay between payments
-                if (!$this->dryRun) {
+                if (! $this->dryRun) {
                     usleep(100000); // 0.1 second
                 }
             }
@@ -112,7 +115,7 @@ class ProcessMonthlyLoanPaymentsJob implements ShouldQueue
     protected function getEligibleUsers(CrossModuleRevenueService $revenueService)
     {
         if ($this->specificUserId) {
-            if (!class_exists(\App\Modules\Sacco\Models\SaccoMember::class)) {
+            if (! class_exists(\App\Modules\Sacco\Models\SaccoMember::class)) {
                 return collect();
             }
 
@@ -139,7 +142,7 @@ class ProcessMonthlyLoanPaymentsJob implements ShouldQueue
 
         try {
             // Check if payment is due
-            if (!$this->isPaymentDue($loan)) {
+            if (! $this->isPaymentDue($loan)) {
                 return [
                     'success' => false,
                     'message' => 'Payment not due yet',
@@ -149,6 +152,7 @@ class ProcessMonthlyLoanPaymentsJob implements ShouldQueue
 
             if ($this->dryRun) {
                 $revenue = $revenueService->calculateTotalUserRevenue($user);
+
                 return [
                     'success' => true,
                     'message' => 'DRY RUN - Would process payment',
@@ -180,7 +184,7 @@ class ProcessMonthlyLoanPaymentsJob implements ShouldQueue
                     'sacco',
                     'automated_payment_success',
                     'Automatic Loan Payment Processed',
-                    "Your loan payment of UGX " . number_format($result['payment_amount']) . " has been automatically processed from your earnings.",
+                    'Your loan payment of UGX '.number_format($result['payment_amount']).' has been automatically processed from your earnings.',
                     $result
                 ));
 
@@ -220,7 +224,7 @@ class ProcessMonthlyLoanPaymentsJob implements ShouldQueue
 
             return [
                 'success' => false,
-                'message' => 'Processing error: ' . $e->getMessage(),
+                'message' => 'Processing error: '.$e->getMessage(),
                 'payment_amount' => 0,
             ];
         }
@@ -233,7 +237,7 @@ class ProcessMonthlyLoanPaymentsJob implements ShouldQueue
     {
         $lastPayment = $loan->payments()->latest()->first();
 
-        if (!$lastPayment) {
+        if (! $lastPayment) {
             // No previous payments - check if loan is at least 30 days old
             return $loan->created_at->addDays(30)->isPast();
         }
@@ -276,7 +280,7 @@ class ProcessMonthlyLoanPaymentsJob implements ShouldQueue
                 );
             }
         } catch (\Exception $e) {
-            Log::warning('Failed to send batch summary notification: ' . $e->getMessage());
+            Log::warning('Failed to send batch summary notification: '.$e->getMessage());
         }
     }
 
@@ -306,7 +310,7 @@ class ProcessMonthlyLoanPaymentsJob implements ShouldQueue
                     'system',
                     'job_failed',
                     'Automated Loan Payment Job Failed',
-                    'The automated loan payment processing job has failed permanently: ' . $exception->getMessage(),
+                    'The automated loan payment processing job has failed permanently: '.$exception->getMessage(),
                     [
                         'job_class' => self::class,
                         'error' => $exception->getMessage(),
@@ -317,7 +321,7 @@ class ProcessMonthlyLoanPaymentsJob implements ShouldQueue
                 );
             }
         } catch (\Exception $e) {
-            Log::error('Failed to send job failure notification: ' . $e->getMessage());
+            Log::error('Failed to send job failure notification: '.$e->getMessage());
         }
     }
 

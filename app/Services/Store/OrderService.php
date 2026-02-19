@@ -2,11 +2,11 @@
 
 namespace App\Services\Store;
 
+use App\Models\Payment;
+use App\Models\User;
 use App\Modules\Store\Models\Order;
 use App\Modules\Store\Models\OrderItem;
 use App\Modules\Store\Models\Product as StoreProduct;
-use App\Models\User;
-use App\Models\Payment;
 use App\Notifications\Store\OrderStatusNotification;
 use App\Notifications\Store\RefundNotification;
 use Illuminate\Support\Facades\DB;
@@ -70,7 +70,7 @@ class OrderService
             // Create order items
             foreach ($cartItems as $item) {
                 $product = StoreProduct::find($item['product_id']);
-                
+
                 OrderItem::create([
                     'order_id' => $order->id,
                     'product_id' => $item['product_id'],
@@ -85,7 +85,7 @@ class OrderService
                 // Reduce stock
                 if ($product->track_inventory) {
                     $product->decrement('stock_quantity', $item['quantity']);
-                    
+
                     // Mark as out of stock if quantity is 0
                     if ($product->stock_quantity <= 0) {
                         $product->update(['stock_quantity' => 0]);
@@ -106,7 +106,7 @@ class OrderService
     protected function generateOrderNumber(): string
     {
         do {
-            $orderNumber = 'ORD-' . strtoupper(Str::random(8));
+            $orderNumber = 'ORD-'.strtoupper(Str::random(8));
         } while (Order::where('order_number', $orderNumber)->exists());
 
         return $orderNumber;
@@ -165,7 +165,7 @@ class OrderService
         return DB::transaction(function () use ($order, $status, $notes) {
             $order->update([
                 'status' => $status,
-                'notes' => $notes ? ($order->notes . "\n" . $notes) : $order->notes,
+                'notes' => $notes ? ($order->notes."\n".$notes) : $order->notes,
                 'updated_at' => now(),
             ]);
 
@@ -244,8 +244,8 @@ class OrderService
             'amount' => -$amount, // Negative for refund
             'payment_method' => $order->payment_method ?? 'refund',
             'status' => 'completed',
-            'transaction_id' => 'REFUND-' . $order->order_number . '-' . time(),
-            'description' => 'Refund: ' . $reason,
+            'transaction_id' => 'REFUND-'.$order->order_number.'-'.time(),
+            'description' => 'Refund: '.$reason,
             'completed_at' => now(),
         ]);
     }
@@ -257,7 +257,7 @@ class OrderService
     {
         // TODO: Integrate with actual payment gateway (MTN, Airtel, etc.)
         // For now, this is a placeholder
-        Log::info("Processing refund with payment gateway", [
+        Log::info('Processing refund with payment gateway', [
             'order_id' => $order->id,
             'amount' => $amount,
             'payment_method' => $order->payment_method,
@@ -285,8 +285,8 @@ class OrderService
         if ($order->user) {
             $order->user->notify(new OrderStatusNotification($order, $status));
         }
-        
-        Log::info("Customer notification sent for order status change", [
+
+        Log::info('Customer notification sent for order status change', [
             'order_id' => $order->id,
             'customer_id' => $order->user_id,
             'status' => $status,
@@ -302,8 +302,8 @@ class OrderService
         if ($order->user) {
             $order->user->notify(new RefundNotification($order, $amount));
         }
-        
-        Log::info("Customer notification sent for refund", [
+
+        Log::info('Customer notification sent for refund', [
             'order_id' => $order->id,
             'customer_id' => $order->user_id,
             'amount' => $amount,

@@ -100,7 +100,7 @@ class ForumReplyObserver
     {
         try {
             \App\Helpers\CacheHelper::flush(['feed', "user:{$userId}"]);
-            
+
             // Also clear cache for users following this user
             $followerIds = \DB::table('follows')
                 ->where('followable_type', 'App\Models\User')

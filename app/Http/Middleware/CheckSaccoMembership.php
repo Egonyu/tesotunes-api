@@ -2,28 +2,26 @@
 
 namespace App\Http\Middleware;
 
+use App\Modules\Sacco\Models\SaccoMember;
 use Closure;
 use Illuminate\Http\Request;
-use App\Modules\Sacco\Models\SaccoMember;
 
 class CheckSaccoMembership
 {
     /**
      * Handle an incoming request.
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \Closure  $next
      * @return mixed
      */
     public function handle(Request $request, Closure $next)
     {
-        if (!auth()->check()) {
+        if (! auth()->check()) {
             return redirect()->route('frontend.login')
                 ->with('error', 'Please login to access SACCO features');
         }
 
         // Check if SACCO module is enabled
-        if (!config('sacco.enabled', false)) {
+        if (! config('sacco.enabled', false)) {
             return redirect()->route('home')
                 ->with('error', 'SACCO module is currently unavailable');
         }
@@ -31,7 +29,7 @@ class CheckSaccoMembership
         $member = SaccoMember::where('user_id', auth()->id())->first();
 
         // Check if user is a member
-        if (!$member) {
+        if (! $member) {
             return redirect()->route('frontend.sacco.register')
                 ->with('info', 'You need to join SACCO to access this feature');
         }

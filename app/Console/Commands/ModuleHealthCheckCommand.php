@@ -2,10 +2,10 @@
 
 namespace App\Console\Commands;
 
+use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use App\Models\User;
 
 class ModuleHealthCheckCommand extends Command
 {
@@ -53,9 +53,10 @@ class ModuleHealthCheckCommand extends Command
             ? [$specificModule => $this->modules[$specificModule] ?? null]
             : $this->modules;
 
-        if ($specificModule && !isset($this->modules[$specificModule])) {
+        if ($specificModule && ! isset($this->modules[$specificModule])) {
             $this->error("❌ Unknown module: {$specificModule}");
-            $this->info("Available modules: " . implode(', ', array_keys($this->modules)));
+            $this->info('Available modules: '.implode(', ', array_keys($this->modules)));
+
             return 1;
         }
 
@@ -63,13 +64,15 @@ class ModuleHealthCheckCommand extends Command
         $issues = [];
 
         foreach ($modulesToCheck as $moduleName => $moduleConfig) {
-            if (!$moduleConfig) continue;
+            if (! $moduleConfig) {
+                continue;
+            }
 
             $this->info("\n📦 Checking {$moduleName} module...");
 
             $moduleHealth = $this->checkModuleHealth($moduleName, $moduleConfig, $shouldFix);
 
-            if (!$moduleHealth['healthy']) {
+            if (! $moduleHealth['healthy']) {
                 $overallHealth = false;
                 $issues = array_merge($issues, $moduleHealth['issues']);
             }
@@ -79,13 +82,13 @@ class ModuleHealthCheckCommand extends Command
         $this->info("\n🔗 Checking cross-module integration...");
         $integrationHealth = $this->checkCrossModuleIntegration($shouldFix);
 
-        if (!$integrationHealth['healthy']) {
+        if (! $integrationHealth['healthy']) {
             $overallHealth = false;
             $issues = array_merge($issues, $integrationHealth['issues']);
         }
 
         // Summary
-        $this->info("\n" . str_repeat('=', 50));
+        $this->info("\n".str_repeat('=', 50));
 
         if ($overallHealth) {
             $this->info('✅ All modules are healthy!');
@@ -95,7 +98,7 @@ class ModuleHealthCheckCommand extends Command
                 $this->warn("  • {$issue}");
             }
 
-            if (!$shouldFix) {
+            if (! $shouldFix) {
                 $this->info("\n💡 Run with --fix to attempt automatic fixes");
             }
         }
@@ -110,7 +113,7 @@ class ModuleHealthCheckCommand extends Command
 
         // Check database tables
         foreach ($config['tables'] as $table) {
-            if (!Schema::hasTable($table)) {
+            if (! Schema::hasTable($table)) {
                 $issues[] = "Missing table: {$table}";
                 $healthy = false;
 
@@ -126,7 +129,7 @@ class ModuleHealthCheckCommand extends Command
         foreach ($config['models'] as $model) {
             $modelPaths = [
                 "app/Models/{$model}.php",
-                "app/Modules/" . ucfirst($moduleName) . "/Models/{$model}.php",
+                'app/Modules/'.ucfirst($moduleName)."/Models/{$model}.php",
             ];
 
             $modelExists = false;
@@ -138,7 +141,7 @@ class ModuleHealthCheckCommand extends Command
                 }
             }
 
-            if (!$modelExists) {
+            if (! $modelExists) {
                 $issues[] = "Missing model: {$model}";
                 $healthy = false;
                 $this->error("  ❌ Model {$model} not found");
@@ -147,7 +150,7 @@ class ModuleHealthCheckCommand extends Command
 
         // Check traits integration
         foreach ($config['traits'] as $trait) {
-            if (!$this->checkTraitIntegration($trait)) {
+            if (! $this->checkTraitIntegration($trait)) {
                 $issues[] = "Trait {$trait} not integrated in User model";
                 $healthy = false;
 
@@ -160,7 +163,7 @@ class ModuleHealthCheckCommand extends Command
         }
 
         // Check configuration
-        if ($config['config'] && !config($config['config'])) {
+        if ($config['config'] && ! config($config['config'])) {
             $issues[] = "Missing configuration: {$config['config']}.php";
             $healthy = false;
             $this->error("  ❌ Config file {$config['config']}.php not found");
@@ -170,7 +173,7 @@ class ModuleHealthCheckCommand extends Command
 
         // Check data integrity
         $dataIntegrityIssues = $this->checkDataIntegrity($moduleName, $config);
-        if (!empty($dataIntegrityIssues)) {
+        if (! empty($dataIntegrityIssues)) {
             $issues = array_merge($issues, $dataIntegrityIssues);
             $healthy = false;
         }
@@ -182,14 +185,14 @@ class ModuleHealthCheckCommand extends Command
     {
         $userModelPath = app_path('Models/User.php');
 
-        if (!file_exists($userModelPath)) {
+        if (! file_exists($userModelPath)) {
             return false;
         }
 
         $content = file_get_contents($userModelPath);
 
         // Check if trait is imported and used
-        $traitImported = str_contains($content, "use App\\Modules\\");
+        $traitImported = str_contains($content, 'use App\\Modules\\');
         $traitUsed = str_contains($content, $traitName);
 
         return $traitImported && $traitUsed;
@@ -201,7 +204,7 @@ class ModuleHealthCheckCommand extends Command
 
         try {
             foreach ($config['tables'] as $table) {
-                if (!Schema::hasTable($table)) {
+                if (! Schema::hasTable($table)) {
                     continue;
                 }
 
@@ -242,7 +245,7 @@ class ModuleHealthCheckCommand extends Command
                 }
             }
         } catch (\Exception $e) {
-            $issues[] = "Error checking data integrity for {$moduleName}: " . $e->getMessage();
+            $issues[] = "Error checking data integrity for {$moduleName}: ".$e->getMessage();
         }
 
         return $issues;
@@ -257,7 +260,7 @@ class ModuleHealthCheckCommand extends Command
         $requiredTraits = ['HasSaccoMembership', 'HasStore', 'HasPodcast'];
 
         foreach ($requiredTraits as $trait) {
-            if (!$this->checkTraitIntegration($trait)) {
+            if (! $this->checkTraitIntegration($trait)) {
                 $issues[] = "User model missing trait: {$trait}";
                 $healthy = false;
             }
@@ -265,11 +268,11 @@ class ModuleHealthCheckCommand extends Command
 
         // Check CrossModuleRevenueService
         $revenueServicePath = app_path('Services/CrossModuleRevenueService.php');
-        if (!file_exists($revenueServicePath)) {
-            $issues[] = "CrossModuleRevenueService not found";
+        if (! file_exists($revenueServicePath)) {
+            $issues[] = 'CrossModuleRevenueService not found';
             $healthy = false;
         } else {
-            $this->line("  ✅ CrossModuleRevenueService exists");
+            $this->line('  ✅ CrossModuleRevenueService exists');
         }
 
         // Test basic cross-module functionality
@@ -278,28 +281,28 @@ class ModuleHealthCheckCommand extends Command
             if ($testUser) {
                 // Test if user can access module relationships
                 if (method_exists($testUser, 'ownedPodcasts')) {
-                    $this->line("  ✅ User->ownedPodcasts() relationship works");
+                    $this->line('  ✅ User->ownedPodcasts() relationship works');
                 } else {
-                    $issues[] = "User model missing ownedPodcasts() relationship";
+                    $issues[] = 'User model missing ownedPodcasts() relationship';
                     $healthy = false;
                 }
 
                 if (method_exists($testUser, 'storeProducts')) {
-                    $this->line("  ✅ User->storeProducts() relationship works");
+                    $this->line('  ✅ User->storeProducts() relationship works');
                 } else {
-                    $issues[] = "User model missing storeProducts() relationship";
+                    $issues[] = 'User model missing storeProducts() relationship';
                     $healthy = false;
                 }
 
                 if (method_exists($testUser, 'saccoMembership')) {
-                    $this->line("  ✅ User->saccoMembership() relationship works");
+                    $this->line('  ✅ User->saccoMembership() relationship works');
                 } else {
-                    $issues[] = "User model missing saccoMembership() relationship";
+                    $issues[] = 'User model missing saccoMembership() relationship';
                     $healthy = false;
                 }
             }
         } catch (\Exception $e) {
-            $issues[] = "Error testing cross-module relationships: " . $e->getMessage();
+            $issues[] = 'Error testing cross-module relationships: '.$e->getMessage();
             $healthy = false;
         }
 

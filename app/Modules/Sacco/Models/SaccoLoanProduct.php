@@ -75,10 +75,10 @@ class SaccoLoanProduct extends Model
     {
         $processingFee = ($principal * $this->processing_fee_percentage) / 100;
         $insuranceFee = ($principal * $this->insurance_fee_percentage) / 100;
-        
+
         // Calculate interest
         $totalInterest = ($principal * $this->interest_rate) / 100;
-        
+
         return $principal + $processingFee + $insuranceFee + $totalInterest;
     }
 
@@ -88,6 +88,7 @@ class SaccoLoanProduct extends Model
     public function calculateMonthlyRepayment(float $principal, int $months): float
     {
         $totalAmount = $this->calculateTotalAmount($principal);
+
         return $totalAmount / $months;
     }
 }

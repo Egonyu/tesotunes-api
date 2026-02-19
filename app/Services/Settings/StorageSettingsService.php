@@ -2,9 +2,9 @@
 
 namespace App\Services\Settings;
 
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Artisan;
 
 class StorageSettingsService
 {
@@ -78,7 +78,7 @@ class StorageSettingsService
         try {
             // Validate storage driver
             $validDrivers = ['local', 's3', 'digitalocean', 'gcs', 'azure'];
-            if (isset($data['storage_driver']) && !in_array($data['storage_driver'], $validDrivers)) {
+            if (isset($data['storage_driver']) && ! in_array($data['storage_driver'], $validDrivers)) {
                 throw new \InvalidArgumentException('Invalid storage driver');
             }
 
@@ -89,11 +89,11 @@ class StorageSettingsService
             }
 
             if (isset($data['user_storage_quota'])) {
-                config(['storage.user_quota_gb' => (int)$data['user_storage_quota']]);
+                config(['storage.user_quota_gb' => (int) $data['user_storage_quota']]);
             }
 
             if (isset($data['max_upload_size'])) {
-                config(['storage.max_upload_size_mb' => (int)$data['max_upload_size']]);
+                config(['storage.max_upload_size_mb' => (int) $data['max_upload_size']]);
             }
 
             if (isset($data['allowed_file_types'])) {
@@ -101,11 +101,11 @@ class StorageSettingsService
             }
 
             if (isset($data['auto_cleanup_enabled'])) {
-                config(['storage.auto_cleanup' => (bool)$data['auto_cleanup_enabled']]);
+                config(['storage.auto_cleanup' => (bool) $data['auto_cleanup_enabled']]);
             }
 
             if (isset($data['cleanup_days'])) {
-                config(['storage.cleanup_days' => (int)$data['cleanup_days']]);
+                config(['storage.cleanup_days' => (int) $data['cleanup_days']]);
             }
 
             // Clear cache
@@ -118,8 +118,9 @@ class StorageSettingsService
         } catch (\Exception $e) {
             \Log::error('Storage settings update failed', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return false;
         }
     }
@@ -131,12 +132,12 @@ class StorageSettingsService
     {
         try {
             if (isset($data['cloud_enabled'])) {
-                $enabled = (bool)$data['cloud_enabled'];
+                $enabled = (bool) $data['cloud_enabled'];
                 config(['storage.cloud_enabled' => $enabled]);
             }
 
             if (isset($data['cdn_enabled'])) {
-                config(['storage.cdn_enabled' => (bool)$data['cdn_enabled']]);
+                config(['storage.cdn_enabled' => (bool) $data['cdn_enabled']]);
             }
 
             if (isset($data['cdn_url'])) {
@@ -200,8 +201,9 @@ class StorageSettingsService
         } catch (\Exception $e) {
             \Log::error('Cloud storage settings update failed', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return false;
         }
     }
@@ -213,11 +215,11 @@ class StorageSettingsService
     {
         try {
             if (isset($data['image_compression'])) {
-                config(['storage.image_compression' => (bool)$data['image_compression']]);
+                config(['storage.image_compression' => (bool) $data['image_compression']]);
             }
 
             if (isset($data['compression_quality'])) {
-                $quality = (int)$data['compression_quality'];
+                $quality = (int) $data['compression_quality'];
                 if ($quality < 1 || $quality > 100) {
                     throw new \InvalidArgumentException('Compression quality must be between 1-100');
                 }
@@ -225,7 +227,7 @@ class StorageSettingsService
             }
 
             if (isset($data['auto_transcode'])) {
-                config(['storage.auto_transcode' => (bool)$data['auto_transcode']]);
+                config(['storage.auto_transcode' => (bool) $data['auto_transcode']]);
             }
 
             if (isset($data['transcode_formats'])) {
@@ -233,7 +235,7 @@ class StorageSettingsService
             }
 
             if (isset($data['generate_thumbnails'])) {
-                config(['storage.generate_thumbnails' => (bool)$data['generate_thumbnails']]);
+                config(['storage.generate_thumbnails' => (bool) $data['generate_thumbnails']]);
             }
 
             if (isset($data['thumbnail_sizes'])) {
@@ -248,8 +250,9 @@ class StorageSettingsService
         } catch (\Exception $e) {
             \Log::error('Optimization settings update failed', [
                 'error' => $e->getMessage(),
-                'data' => $data
+                'data' => $data,
             ]);
+
             return false;
         }
     }
@@ -261,22 +264,23 @@ class StorageSettingsService
     {
         try {
             $disk = Storage::disk(config('filesystems.default'));
-            
+
             // Try to write a test file
-            $testFile = 'storage_test_' . time() . '.txt';
+            $testFile = 'storage_test_'.time().'.txt';
             $disk->put($testFile, 'Storage test');
-            
+
             // Verify file exists
             $exists = $disk->exists($testFile);
-            
+
             // Clean up
             $disk->delete($testFile);
-            
+
             return $exists;
         } catch (\Exception $e) {
             \Log::error('Storage connection test failed', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }
@@ -289,7 +293,7 @@ class StorageSettingsService
         return Cache::remember('storage_stats', 300, function () {
             try {
                 $disk = Storage::disk(config('filesystems.default'));
-                
+
                 return [
                     'total_files' => $this->countFiles($disk),
                     'total_size' => $this->calculateTotalSize($disk),
@@ -299,6 +303,7 @@ class StorageSettingsService
                 ];
             } catch (\Exception $e) {
                 \Log::error('Failed to get storage stats', ['error' => $e->getMessage()]);
+
                 return [
                     'total_files' => 0,
                     'total_size' => 0,
@@ -330,11 +335,11 @@ class StorageSettingsService
         try {
             $files = $disk->allFiles();
             $totalSize = 0;
-            
+
             foreach ($files as $file) {
                 $totalSize += $disk->size($file);
             }
-            
+
             return $totalSize;
         } catch (\Exception $e) {
             return 0;
@@ -362,9 +367,10 @@ class StorageSettingsService
             $disk = Storage::disk(config('filesystems.default'));
             $files = $disk->allFiles();
             $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-            
+
             return collect($files)->filter(function ($file) use ($imageExtensions) {
                 $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+
                 return in_array($ext, $imageExtensions);
             })->count();
         } catch (\Exception $e) {
@@ -381,21 +387,22 @@ class StorageSettingsService
             $disk = Storage::disk(config('filesystems.default'));
             $threshold = now()->subDays($days)->timestamp;
             $deletedCount = 0;
-            
+
             $files = $disk->allFiles('temp');
-            
+
             foreach ($files as $file) {
                 if ($disk->lastModified($file) < $threshold) {
                     $disk->delete($file);
                     $deletedCount++;
                 }
             }
-            
-            \Log::info("Storage cleanup completed", ['deleted_files' => $deletedCount]);
-            
+
+            \Log::info('Storage cleanup completed', ['deleted_files' => $deletedCount]);
+
             return $deletedCount;
         } catch (\Exception $e) {
             \Log::error('Storage cleanup failed', ['error' => $e->getMessage()]);
+
             return 0;
         }
     }
@@ -406,14 +413,14 @@ class StorageSettingsService
     private function updateEnvFile(string $key, string $value): void
     {
         $envFile = base_path('.env');
-        
-        if (!file_exists($envFile)) {
+
+        if (! file_exists($envFile)) {
             return;
         }
-        
+
         $content = file_get_contents($envFile);
         $pattern = "/^{$key}=.*/m";
-        
+
         if (preg_match($pattern, $content)) {
             // Update existing key
             $content = preg_replace($pattern, "{$key}={$value}", $content);
@@ -421,7 +428,7 @@ class StorageSettingsService
             // Add new key
             $content .= "\n{$key}={$value}";
         }
-        
+
         file_put_contents($envFile, $content);
     }
 
@@ -431,11 +438,11 @@ class StorageSettingsService
     public function formatBytes(int $bytes, int $precision = 2): string
     {
         $units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        
+
         for ($i = 0; $bytes > 1024 && $i < count($units) - 1; $i++) {
             $bytes /= 1024;
         }
-        
-        return round($bytes, $precision) . ' ' . $units[$i];
+
+        return round($bytes, $precision).' '.$units[$i];
     }
 }

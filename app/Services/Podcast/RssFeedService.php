@@ -5,9 +5,8 @@ namespace App\Services\Podcast;
 use App\Models\Podcast;
 use App\Models\PodcastEpisode;
 use App\Models\User;
-use Illuminate\Support\Facades\Cache;
 use App\Services\Monitoring\HttpClientFactory;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -20,9 +19,9 @@ class RssFeedService
     {
         // Fetch RSS feed
         $response = HttpClientFactory::make('rss_feed')->get($rssUrl);
-        
-        if (!$response->successful()) {
-            throw new \Exception('Failed to fetch RSS feed: ' . $response->status());
+
+        if (! $response->successful()) {
+            throw new \Exception('Failed to fetch RSS feed: '.$response->status());
         }
 
         return $this->parseAndImport($response->body(), $rssUrl, $owner);
@@ -34,7 +33,7 @@ class RssFeedService
     protected function parseAndImport(string $xmlContent, string $sourceUrl, User $owner): Podcast
     {
         $xml = simplexml_load_string($xmlContent, 'SimpleXMLElement', LIBXML_NOCDATA);
-        
+
         if ($xml === false) {
             throw new \Exception('Invalid RSS feed format');
         }
@@ -48,7 +47,7 @@ class RssFeedService
                 'uuid' => Str::uuid(),
                 'creator_id' => $owner->id,
                 'title' => (string) $channel->title,
-                'slug' => Str::slug((string) $channel->title) . '-' . Str::random(6),
+                'slug' => Str::slug((string) $channel->title).'-'.Str::random(6),
                 'description' => (string) ($channel->description ?? ''),
                 'summary' => (string) ($itunes->summary ?? $channel->description ?? ''),
                 'language' => (string) ($channel->language ?? 'en'),
@@ -86,7 +85,7 @@ class RssFeedService
     protected function importEpisode(Podcast $podcast, \SimpleXMLElement $item, int $episodeNumber): PodcastEpisode
     {
         $itunes = $item->children('http://www.itunes.com/dtds/podcast-1.0.dtd');
-        
+
         // Get enclosure (audio file)
         $enclosure = $item->enclosure;
         $audioUrl = $enclosure ? (string) $enclosure['url'] : null;
@@ -104,7 +103,7 @@ class RssFeedService
             'uuid' => Str::uuid(),
             'podcast_id' => $podcast->id,
             'title' => (string) $item->title,
-            'slug' => Str::slug((string) $item->title) . '-' . Str::random(6),
+            'slug' => Str::slug((string) $item->title).'-'.Str::random(6),
             'description' => (string) ($item->description ?? ''),
             'show_notes' => (string) ($itunes->summary ?? $item->description ?? ''),
             'episode_number' => (int) ($itunes->episode ?? $episodeNumber),
@@ -133,7 +132,7 @@ class RssFeedService
         // Parse HH:MM:SS or MM:SS format
         $parts = array_reverse(explode(':', $duration));
         $seconds = 0;
-        
+
         foreach ($parts as $i => $part) {
             $seconds += (int) $part * pow(60, $i);
         }
@@ -205,18 +204,18 @@ class RssFeedService
         $channel->appendChild($xml->createElement('link', route('podcast.show', $podcast->slug)));
         $channel->appendChild($xml->createElement('description', $this->escapeXml($podcast->description ?? $podcast->summary ?? '')));
         $channel->appendChild($xml->createElement('language', $podcast->language));
-        
+
         // Generator
         $channel->appendChild($xml->createElement('generator', config('podcast.rss.generator')));
-        
+
         // Copyright
         if ($podcast->copyright) {
             $channel->appendChild($xml->createElement('copyright', $this->escapeXml($podcast->copyright)));
         }
-        
+
         // Last build date
         $channel->appendChild($xml->createElement('lastBuildDate', now()->toRssString()));
-        
+
         // TTL (time to live)
         $channel->appendChild($xml->createElement('ttl', (string) config('podcast.rss.ttl', 60)));
 
@@ -258,14 +257,14 @@ class RssFeedService
         if ($podcast->category) {
             $itunesCategory = $xml->createElement('itunes:category');
             $itunesCategory->setAttribute('text', $podcast->category->name);
-            
+
             // Add subcategory if exists
             if ($podcast->subcategory) {
                 $itunesSubCategory = $xml->createElement('itunes:category');
                 $itunesSubCategory->setAttribute('text', $podcast->subcategory->name);
                 $itunesCategory->appendChild($itunesSubCategory);
             }
-            
+
             $channel->appendChild($itunesCategory);
         }
 
@@ -308,7 +307,7 @@ class RssFeedService
         // Required item elements
         $item->appendChild($xml->createElement('title', $this->escapeXml($episode->title)));
         $item->appendChild($xml->createElement('description', $this->escapeXml($episode->description ?? '')));
-        
+
         // GUID (globally unique identifier)
         $guid = $xml->createElement('guid', $episode->uuid);
         $guid->setAttribute('isPermaLink', 'false');
@@ -320,7 +319,7 @@ class RssFeedService
         // Episode link
         $item->appendChild($xml->createElement('link', route('podcast.episode.show', [
             'podcast' => $episode->podcast->slug,
-            'episode' => $episode->slug
+            'episode' => $episode->slug,
         ])));
 
         // Audio enclosure

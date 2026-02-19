@@ -2,9 +2,9 @@
 
 namespace App\Policies;
 
-use App\Models\User;
-use App\Models\Song;
 use App\Models\AuditLog;
+use App\Models\Song;
+use App\Models\User;
 
 class SongPolicy
 {
@@ -28,7 +28,7 @@ class SongPolicy
         }
 
         // For non-published songs, must be logged in
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -47,12 +47,12 @@ class SongPolicy
     public function create(User $user): bool
     {
         // Must have upload permission
-        if (!$user->hasPermission('music.upload')) {
+        if (! $user->hasPermission('music.upload')) {
             return false;
         }
 
         // Must be verified artist
-        if (!$user->isVerified() || !$user->hasRole('artist')) {
+        if (! $user->isVerified() || ! $user->hasRole('artist')) {
             return false;
         }
 
@@ -65,11 +65,12 @@ class SongPolicy
     public function update(User $user, Song $song): bool
     {
         // Must have edit permission
-        if (!$user->hasPermission('music.edit')) {
+        if (! $user->hasPermission('music.edit')) {
             AuditLog::logActivity($user->id, 'unauthorized_song_edit_attempt', [
                 'song_id' => $song->id,
                 'song_title' => $song->title,
             ]);
+
             return false;
         }
 
@@ -98,11 +99,12 @@ class SongPolicy
     public function delete(User $user, Song $song): bool
     {
         // Must have delete permission
-        if (!$user->hasPermission('music.delete')) {
+        if (! $user->hasPermission('music.delete')) {
             AuditLog::logActivity($user->id, 'unauthorized_song_delete_attempt', [
                 'song_id' => $song->id,
                 'song_title' => $song->title,
             ]);
+
             return false;
         }
 
@@ -135,7 +137,7 @@ class SongPolicy
     public function approve(User $user, Song $song): bool
     {
         // Need music.approve permission
-        if (!$user->hasPermission('music.approve')) {
+        if (! $user->hasPermission('music.approve')) {
             return false;
         }
 
@@ -167,7 +169,7 @@ class SongPolicy
         }
 
         // For non-published songs, must be logged in
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -181,12 +183,12 @@ class SongPolicy
     public function download(User $user, Song $song): bool
     {
         // Must be able to play the song first
-        if (!$this->play($user, $song)) {
+        if (! $this->play($user, $song)) {
             return false;
         }
 
         // Check user's download limits (freemium model)
-        if (!$user->canDownload()) {
+        if (! $user->canDownload()) {
             return false;
         }
 

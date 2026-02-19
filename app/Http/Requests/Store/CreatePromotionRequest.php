@@ -26,11 +26,11 @@ class CreatePromotionRequest extends FormRequest
             'title' => 'required|string|max:255',
             'description' => 'required|string|max:5000',
             'type' => 'required|in:product_purchase,social_share,mention,attendance,content_creation',
-            
+
             // Product/Store references
             'product_id' => 'required_if:type,product_purchase|nullable|exists:store_products,id',
             'store_id' => 'required|exists:stores,id',
-            
+
             // Requirements
             'requirements' => 'required|array',
             'requirements.action' => 'required|string',
@@ -39,21 +39,21 @@ class CreatePromotionRequest extends FormRequest
             'requirements.content_type' => 'nullable|string',
             'requirements.hashtags' => 'nullable|array',
             'requirements.mentions' => 'nullable|array',
-            
+
             // Rewards
             'reward_type' => 'required|in:credits,product,discount,free_item',
             'reward_value' => 'required|numeric|min:0',
             'reward_description' => 'nullable|string',
-            
+
             // Availability
             'starts_at' => 'required|date|after:now',
             'ends_at' => 'required|date|after:starts_at',
             'max_redemptions' => 'nullable|integer|min:1',
             'max_per_user' => 'nullable|integer|min:1',
-            
+
             // Media
             'image' => 'nullable|image|max:5120|mimes:jpeg,png,jpg',
-            
+
             // Terms
             'terms' => 'nullable|string|max:10000',
         ];

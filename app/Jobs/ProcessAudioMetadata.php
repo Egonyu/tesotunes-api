@@ -8,14 +8,15 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class ProcessAudioMetadata implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public $timeout = 300; // 5 minutes
+
     public $tries = 3;
 
     public function __construct(
@@ -32,7 +33,7 @@ class ProcessAudioMetadata implements ShouldQueue
             // Get file path
             $filePath = Storage::disk('private')->path($this->upload->file_path);
 
-            if (!file_exists($filePath)) {
+            if (! file_exists($filePath)) {
                 throw new \Exception("Audio file not found: {$filePath}");
             }
 
@@ -74,13 +75,13 @@ class ProcessAudioMetadata implements ShouldQueue
                     'quality' => $qualityAnalysis,
                     'content' => $contentAnalysis,
                     'processed_at' => now()->toISOString(),
-                ]
+                ],
             ]);
 
             Log::info("Metadata extraction completed for upload: {$this->upload->id}");
 
         } catch (\Exception $e) {
-            Log::error("Metadata extraction failed for upload {$this->upload->id}: " . $e->getMessage());
+            Log::error("Metadata extraction failed for upload {$this->upload->id}: ".$e->getMessage());
 
             $this->upload->update([
                 'processing_status' => 'failed',
@@ -143,7 +144,7 @@ class ProcessAudioMetadata implements ShouldQueue
     private function estimateDuration(int $fileSize, string $extension): int
     {
         // Rough estimation based on file size and format
-        $bytesPerSecond = match($extension) {
+        $bytesPerSecond = match ($extension) {
             'mp3' => 16000,  // ~128kbps MP3
             'wav' => 176400, // CD quality WAV
             'flac' => 100000, // Compressed lossless
@@ -156,15 +157,18 @@ class ProcessAudioMetadata implements ShouldQueue
 
     private function estimateBitrate(int $fileSize, int $duration): int
     {
-        if ($duration === 0) return 128;
+        if ($duration === 0) {
+            return 128;
+        }
 
         $bitsPerSecond = ($fileSize * 8) / $duration;
+
         return max(64, min(320, intval($bitsPerSecond / 1000))); // 64-320 kbps range
     }
 
     private function getDefaultSampleRate(string $extension): int
     {
-        return match($extension) {
+        return match ($extension) {
             'wav', 'flac' => 44100,
             'mp3', 'aac', 'm4a' => 44100,
             default => 44100
@@ -274,7 +278,7 @@ class ProcessAudioMetadata implements ShouldQueue
         $lugandaKeywords = ['nga', 'oli', 'kati', 'munange', 'webale', 'simanyi'];
         $swahiliKeywords = ['sana', 'habari', 'mambo', 'rafiki', 'asante'];
 
-        $allText = $title . ' ' . $artist . ' ' . $filename;
+        $allText = $title.' '.$artist.' '.$filename;
 
         foreach ($lugandaKeywords as $keyword) {
             if (strpos($allText, $keyword) !== false) {
@@ -312,7 +316,7 @@ class ProcessAudioMetadata implements ShouldQueue
     {
         Log::error("ProcessAudioMetadata job failed for upload {$this->upload->id}", [
             'exception' => $exception->getMessage(),
-            'trace' => $exception->getTraceAsString()
+            'trace' => $exception->getTraceAsString(),
         ]);
 
         $this->upload->update([

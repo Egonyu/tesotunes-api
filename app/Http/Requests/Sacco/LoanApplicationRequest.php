@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests\Sacco;
 
-use Illuminate\Foundation\Http\FormRequest;
 use App\Modules\Sacco\Models\SaccoLoanProduct;
 use App\Modules\Sacco\Models\SaccoMember;
+use Illuminate\Foundation\Http\FormRequest;
 
 class LoanApplicationRequest extends FormRequest
 {
@@ -31,14 +31,14 @@ class LoanApplicationRequest extends FormRequest
             'amount' => [
                 'required',
                 'numeric',
-                'min:' . ($product->min_amount ?? 10000),
-                'max:' . ($product->max_amount ?? 50000000),
+                'min:'.($product->min_amount ?? 10000),
+                'max:'.($product->max_amount ?? 50000000),
             ],
             'duration_months' => [
                 'required',
                 'integer',
-                'min:' . ($product->min_duration_months ?? 1),
-                'max:' . ($product->max_duration_months ?? 60),
+                'min:'.($product->min_duration_months ?? 1),
+                'max:'.($product->max_duration_months ?? 60),
             ],
             'purpose' => [
                 'required',
@@ -49,28 +49,28 @@ class LoanApplicationRequest extends FormRequest
             'guarantors' => [
                 'required',
                 'array',
-                'min:' . ($product->min_guarantors ?? config('sacco.minimum_guarantors', 2)),
+                'min:'.($product->min_guarantors ?? config('sacco.minimum_guarantors', 2)),
             ],
             'guarantors.*' => [
                 'exists:sacco_members,id',
-                'different:' . auth()->id(),
+                'different:'.auth()->id(),
             ],
             'collateral_description' => [
                 'nullable',
                 'string',
                 'max:1000',
-                'required_if:loan_product_id,' . $product?->requires_collateral,
+                'required_if:loan_product_id,'.$product?->requires_collateral,
             ],
             'collateral_value' => [
                 'nullable',
                 'numeric',
                 'min:0',
-                'required_if:loan_product_id,' . $product?->requires_collateral,
+                'required_if:loan_product_id,'.$product?->requires_collateral,
             ],
             'collateral_documents' => [
                 'nullable',
                 'array',
-                'required_if:loan_product_id,' . $product?->requires_collateral,
+                'required_if:loan_product_id,'.$product?->requires_collateral,
             ],
             'collateral_documents.*' => [
                 'file',
@@ -90,12 +90,12 @@ class LoanApplicationRequest extends FormRequest
         return [
             'loan_product_id.required' => 'Please select a loan product',
             'loan_product_id.exists' => 'Invalid loan product selected',
-            'amount.min' => 'Minimum loan amount is UGX ' . number_format($product->min_amount ?? 10000),
-            'amount.max' => 'Maximum loan amount is UGX ' . number_format($product->max_amount ?? 50000000),
-            'duration_months.min' => 'Minimum loan duration is ' . ($product->min_duration_months ?? 1) . ' months',
-            'duration_months.max' => 'Maximum loan duration is ' . ($product->max_duration_months ?? 60) . ' months',
+            'amount.min' => 'Minimum loan amount is UGX '.number_format($product->min_amount ?? 10000),
+            'amount.max' => 'Maximum loan amount is UGX '.number_format($product->max_amount ?? 50000000),
+            'duration_months.min' => 'Minimum loan duration is '.($product->min_duration_months ?? 1).' months',
+            'duration_months.max' => 'Maximum loan duration is '.($product->max_duration_months ?? 60).' months',
             'purpose.min' => 'Please provide a detailed purpose (at least 20 characters)',
-            'guarantors.min' => 'You need at least ' . ($product->min_guarantors ?? config('sacco.minimum_guarantors', 2)) . ' guarantors',
+            'guarantors.min' => 'You need at least '.($product->min_guarantors ?? config('sacco.minimum_guarantors', 2)).' guarantors',
             'guarantors.*.exists' => 'One or more selected guarantors are invalid',
             'guarantors.*.different' => 'You cannot guarantee yourself',
             'collateral_description.required_if' => 'Collateral description is required for this loan type',
@@ -128,9 +128,10 @@ class LoanApplicationRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             $member = SaccoMember::where('user_id', auth()->id())->first();
-            
-            if (!$member) {
+
+            if (! $member) {
                 $validator->errors()->add('member', 'You are not a SACCO member');
+
                 return;
             }
 

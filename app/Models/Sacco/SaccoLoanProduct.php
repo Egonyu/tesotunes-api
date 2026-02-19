@@ -69,13 +69,13 @@ class SaccoLoanProduct extends Model
 
         // Monthly interest rate
         $monthlyRate = ($this->interest_rate / 12) / 100;
-        
+
         // Total interest amount
         $totalInterest = $principalAmount * ($this->interest_rate / 100) * ($termMonths / 12);
-        
+
         // Total amount to repay
         $totalAmount = $principalAmount + $totalInterest;
-        
+
         // Monthly installment (simple division)
         return $totalAmount / $termMonths;
     }

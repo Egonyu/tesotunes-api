@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -11,7 +10,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::hasTable('award_categories') || !Schema::hasColumn('award_categories', 'award_season_id')) {
+        if (! Schema::hasTable('award_categories') || ! Schema::hasColumn('award_categories', 'award_season_id')) {
             return;
         }
 
