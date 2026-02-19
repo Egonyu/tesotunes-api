@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Helpers\StorageHelper;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -28,7 +29,7 @@ class ForumReplyResource extends JsonResource
                 return [
                     'id' => $this->user->id,
                     'name' => $this->user->name,
-                    'avatar' => $this->user->avatar ? url('storage/'.$this->user->avatar) : null,
+                    'avatar' => StorageHelper::avatarUrl($this->user->avatar, $this->user->name),
                 ];
             }),
 

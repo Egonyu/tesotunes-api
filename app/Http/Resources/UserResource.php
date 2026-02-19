@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Helpers\StorageHelper;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -20,9 +21,9 @@ class UserResource extends JsonResource
 
             // Profile
             'display_name' => $this->display_name,
-            'avatar' => $this->avatar ? url('storage/'.$this->avatar) : null,
+            'avatar' => StorageHelper::avatarUrl($this->avatar, $this->name),
             'bio' => $this->bio,
-            'banner' => $this->banner ? url('storage/'.$this->banner) : null,
+            'banner' => StorageHelper::url($this->banner),
 
             // Location
             'country' => $this->country,

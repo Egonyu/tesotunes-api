@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Helpers\StorageHelper;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -23,8 +24,8 @@ class EventResource extends JsonResource
             'status' => $this->status,
 
             // Media
-            'artwork' => $this->artwork ? url('storage/'.$this->artwork) : null,
-            'banner' => $this->banner ? url('storage/'.$this->banner) : null,
+            'artwork' => StorageHelper::url($this->artwork),
+            'banner' => StorageHelper::url($this->banner),
 
             // Schedule
             'starts_at' => $this->starts_at?->toIso8601String(),
@@ -93,7 +94,7 @@ class EventResource extends JsonResource
                 return [
                     'id' => $this->organizer->id,
                     'name' => $this->organizer->name,
-                    'avatar' => $this->organizer->avatar ? url('storage/'.$this->organizer->avatar) : null,
+                    'avatar' => StorageHelper::avatarUrl($this->organizer->avatar, $this->organizer->name),
                 ];
             }),
 

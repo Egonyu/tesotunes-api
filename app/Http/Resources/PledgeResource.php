@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Helpers\StorageHelper;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -21,7 +22,7 @@ class PledgeResource extends JsonResource
                 'id' => $this->user->id,
                 'name' => $this->user->name,
                 'username' => $this->user->username,
-                'avatar' => $this->user->avatar ? url('storage/'.$this->user->avatar) : null,
+                'avatar' => StorageHelper::avatarUrl($this->user->avatar, $this->user->name),
             ]),
 
             'created_at' => $this->created_at?->toIso8601String(),

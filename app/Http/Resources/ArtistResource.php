@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Helpers\StorageHelper;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -24,9 +25,9 @@ class ArtistResource extends JsonResource
 
             // Media
             'avatar_url' => $this->avatar_url,
-            'banner_url' => $this->cover_image ? url('storage/'.$this->cover_image) : null,
-            'banner' => $this->cover_image ? url('storage/'.$this->cover_image) : null,
-            'cover_image' => $this->cover_image ? url('storage/'.$this->cover_image) : null,
+            'banner_url' => StorageHelper::url($this->cover_image),
+            'banner' => StorageHelper::url($this->cover_image),
+            'cover_image' => StorageHelper::url($this->cover_image),
 
             // Location — sourced from profile relation or artist attributes
             'country' => $this->country ?? ($this->relationLoaded('profile') && $this->profile ? ($this->profile->country ?? $this->profile->location ?? null) : null),

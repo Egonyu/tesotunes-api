@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Helpers\StorageHelper;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -17,7 +18,7 @@ class PollOptionResource extends JsonResource
         return [
             'id' => $this->id,
             'option_text' => $this->option_text,
-            'image' => $this->image ? url('storage/'.$this->image) : null,
+            'image' => StorageHelper::url($this->image),
             'position' => $this->position,
 
             // Results — only shown when allowed

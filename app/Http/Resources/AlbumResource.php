@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Helpers\StorageHelper;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -20,7 +21,7 @@ class AlbumResource extends JsonResource
             'description' => $this->description,
 
             // Media
-            'artwork_url' => $this->artwork_url ?? ($this->artwork ? url('storage/'.$this->artwork) : null),
+            'artwork_url' => $this->artwork_url ?? StorageHelper::url($this->artwork),
 
             // Metadata
             'album_type' => $this->album_type,
@@ -45,7 +46,7 @@ class AlbumResource extends JsonResource
                     'id' => $this->artist->id,
                     'name' => $this->artist->stage_name,
                     'slug' => $this->artist->slug,
-                    'avatar_url' => $this->artist->avatar ? url('storage/'.$this->artist->avatar) : null,
+                    'avatar_url' => StorageHelper::avatarUrl($this->artist->avatar, $this->artist->stage_name),
                 ];
             }),
             'genre' => $this->when($this->relationLoaded('primaryGenre') && $this->primaryGenre, function () {
