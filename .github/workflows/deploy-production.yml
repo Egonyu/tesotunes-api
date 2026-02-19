@@ -111,11 +111,17 @@ jobs:
             # FIX: Required Laravel directories
             # ------------------------------------------------
             mkdir -p bootstrap/cache
-            mkdir -p storage/framework
+            mkdir -p storage/framework/{sessions,views,cache}
             mkdir -p storage/logs
+            mkdir -p storage/app/public
 
             chmod -R 775 storage
             chmod -R 775 bootstrap/cache
+
+            # ------------------------------------------------
+            # Storage symlink (needed for local file serving)
+            # ------------------------------------------------
+            php artisan storage:link --force 2>/dev/null || true
 
             # ------------------------------------------------
             # Install dependencies safely

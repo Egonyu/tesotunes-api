@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# TesoTunes Beta - Server Setup & Deploy Script
+# TesoTunes - Server Setup & Deploy Script
 # =============================================================================
 # Run this on your DigitalOcean droplet as root.
 #
@@ -23,13 +23,13 @@ set -e
 SITE_DIR="/var/www/api.tesotunes.com"
 REPO_URL="https://github.com/TesoTunes/tesotunes-next.git"
 BRANCH="main"
-DB_NAME="tesotunes_beta"
-DB_USER="tesotunes_beta"
+DB_NAME="tesotunes"
+DB_USER="tesotunes"
 PHP_VERSION="8.4"
 
 echo ""
 echo "╔══════════════════════════════════════════════════╗"
-echo "║   TesoTunes Beta - Server Setup                 ║"
+echo "║   TesoTunes - Server Setup                     ║"
 echo "║   api.tesotunes.com + api.tesotunes.com     ║"
 echo "╚══════════════════════════════════════════════════╝"
 echo ""
@@ -123,7 +123,7 @@ echo ""
 echo "▸ Step 3: Configuring Laravel..."
 
 if [ ! -f "$SITE_DIR/.env" ]; then
-    cp "$SITE_DIR/deploy/.env.beta.laravel" "$SITE_DIR/.env"
+    cp "$SITE_DIR/deploy/.env.production.laravel" "$SITE_DIR/.env"
 
     # Generate APP_KEY
     cd "$SITE_DIR"
@@ -170,7 +170,6 @@ php artisan migrate --force --no-interaction
 # Cache config
 php artisan config:cache
 php artisan route:cache
-php artisan view:cache
 php artisan event:cache
 
 echo "✓ Laravel configured"
@@ -180,14 +179,14 @@ echo ""
 echo "▸ Step 5: Setting up Next.js Docker container..."
 
 if [ ! -f "$SITE_DIR/deploy/.env" ]; then
-    cp "$SITE_DIR/deploy/.env.beta.nextjs" "$SITE_DIR/deploy/.env"
+    cp "$SITE_DIR/deploy/.env.production.nextjs" "$SITE_DIR/deploy/.env"
     echo "  ⚠ Edit deploy/.env to set NEXTAUTH_SECRET:"
     echo "    nano $SITE_DIR/deploy/.env"
 fi
 
 # Build and start Next.js
 cd "$SITE_DIR"
-docker compose -f deploy/docker-compose.beta.yml up -d --build
+docker compose -f deploy/docker-compose.production.yml up -d --build
 
 echo "✓ Next.js container running"
 
@@ -243,9 +242,9 @@ fi
 echo ""
 echo "▸ Step 8: Setting up queue worker..."
 
-cat > /etc/systemd/system/tesotunes-beta-queue.service <<EOF
+cat > /etc/systemd/system/tesotunes-queue.service <<EOF
 [Unit]
-Description=TesoTunes Beta Queue Worker
+Description=TesoTunes Queue Worker
 After=network.target mysql.service
 
 [Service]
@@ -261,8 +260,8 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable tesotunes-beta-queue.service
-systemctl start tesotunes-beta-queue.service
+systemctl enable tesotunes-queue.service
+systemctl start tesotunes-queue.service
 
 echo "✓ Queue worker running"
 
@@ -292,6 +291,6 @@ echo "To redeploy after code changes:"
 echo "  cd $SITE_DIR && git pull origin main"
 echo "  composer install --no-dev --optimize-autoloader"
 echo "  php artisan migrate --force"
-echo "  php artisan config:cache && php artisan route:cache && php artisan view:cache"
-echo "  docker compose -f deploy/docker-compose.beta.yml up -d --build"
+echo "  php artisan config:cache && php artisan route:cache && php artisan event:cache"
+echo "  docker compose -f deploy/docker-compose.production.yml up -d --build"
 echo ""
