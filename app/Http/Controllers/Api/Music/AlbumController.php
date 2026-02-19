@@ -26,7 +26,7 @@ class AlbumController extends Controller
             ->when($request->filled('artist'), fn ($q) => $q->where('artist_id', $request->artist))
             ->when($request->filled('year'), fn ($q) => $q->whereYear('release_date', $request->year))
             ->when($request->filled('search'), function ($q) use ($request) {
-                $q->where('title', 'like', '%' . $request->search . '%');
+                $q->where('title', 'like', '%'.$request->search.'%');
             })
             ->orderByDesc('release_date')
             ->paginate($perPage);
@@ -44,8 +44,8 @@ class AlbumController extends Controller
             ->published()
             ->where(function ($q) use ($album) {
                 $q->where('id', $album)
-                  ->orWhere('slug', $album)
-                  ->orWhere('uuid', $album);
+                    ->orWhere('slug', $album)
+                    ->orWhere('uuid', $album);
             })
             ->firstOrFail();
 
@@ -63,8 +63,8 @@ class AlbumController extends Controller
         $record = Album::published()
             ->where(function ($q) use ($album) {
                 $q->where('id', $album)
-                  ->orWhere('slug', $album)
-                  ->orWhere('uuid', $album);
+                    ->orWhere('slug', $album)
+                    ->orWhere('uuid', $album);
             })
             ->firstOrFail();
 

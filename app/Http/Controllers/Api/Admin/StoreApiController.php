@@ -73,7 +73,7 @@ class StoreApiController extends Controller
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('store_products.name', 'LIKE', "%{$search}%")
-                  ->orWhere('store_products.description', 'LIKE', "%{$search}%");
+                    ->orWhere('store_products.description', 'LIKE', "%{$search}%");
             });
         }
 
@@ -182,7 +182,7 @@ class StoreApiController extends Controller
     {
         $product = DB::table('store_products')->where('id', $id)->first();
 
-        if (!$product) {
+        if (! $product) {
             return response()->json([
                 'message' => 'Product not found.',
             ], 404);
@@ -207,7 +207,7 @@ class StoreApiController extends Controller
     {
         $shop = DB::table('stores')->where('id', $id)->first();
 
-        if (!$shop) {
+        if (! $shop) {
             return response()->json([
                 'message' => 'Shop not found.',
             ], 404);
@@ -327,7 +327,7 @@ class StoreApiController extends Controller
         $id = DB::table('store_products')->insertGetId([
             'store_id' => $validated['store_id'],
             'name' => $validated['name'],
-            'slug' => \Illuminate\Support\Str::slug($validated['name']) . '-' . \Illuminate\Support\Str::random(6),
+            'slug' => \Illuminate\Support\Str::slug($validated['name']).'-'.\Illuminate\Support\Str::random(6),
             'description' => $validated['description'] ?? null,
             'short_description' => $validated['short_description'] ?? null,
             'product_type' => $validated['product_type'] ?? 'physical',
@@ -358,7 +358,7 @@ class StoreApiController extends Controller
     {
         $existing = DB::table('store_products')->where('id', $product)->first();
 
-        if (!$existing) {
+        if (! $existing) {
             return response()->json(['message' => 'Product not found.'], 404);
         }
 
@@ -400,7 +400,7 @@ class StoreApiController extends Controller
     {
         $existing = DB::table('orders')->where('id', $order)->first();
 
-        if (!$existing) {
+        if (! $existing) {
             return response()->json(['message' => 'Order not found.'], 404);
         }
 
@@ -462,7 +462,7 @@ class StoreApiController extends Controller
         $id = DB::table('stores')->insertGetId([
             'user_id' => $validated['user_id'],
             'name' => $validated['name'],
-            'slug' => \Illuminate\Support\Str::slug($validated['name']) . '-' . \Illuminate\Support\Str::random(6),
+            'slug' => \Illuminate\Support\Str::slug($validated['name']).'-'.\Illuminate\Support\Str::random(6),
             'description' => $validated['description'] ?? null,
             'store_type' => $validated['store_type'] ?? 'user',
             'phone' => $validated['phone'] ?? null,
@@ -490,7 +490,7 @@ class StoreApiController extends Controller
     {
         $existing = DB::table('stores')->where('id', $store)->first();
 
-        if (!$existing) {
+        if (! $existing) {
             return response()->json(['message' => 'Shop not found.'], 404);
         }
 

@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api\Social;
 
 use App\Http\Controllers\Controller;
 use App\Models\Share;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class ShareController extends Controller
@@ -22,14 +22,14 @@ class ShareController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $shares
+                'data' => $shares,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch shares',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -41,23 +41,23 @@ class ShareController extends Controller
                 'shareable_type' => 'required|string',
                 'shareable_id' => 'required|integer',
                 'message' => 'nullable|string|max:500',
-                'platform' => 'nullable|string|in:internal,facebook,twitter,whatsapp,instagram'
+                'platform' => 'nullable|string|in:internal,facebook,twitter,whatsapp,instagram',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
-            $modelClass = 'App\\Models\\' . ucfirst($request->shareable_type);
+            $modelClass = 'App\\Models\\'.ucfirst($request->shareable_type);
 
-            if (!class_exists($modelClass)) {
+            if (! class_exists($modelClass)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid shareable type'
+                    'message' => 'Invalid shareable type',
                 ], 400);
             }
 
@@ -74,14 +74,14 @@ class ShareController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Content shared successfully',
-                'data' => $share->load(['shareable', 'user'])
+                'data' => $share->load(['shareable', 'user']),
             ], 201);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to share content',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -94,14 +94,14 @@ class ShareController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $share
+                'data' => $share,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch share',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -135,15 +135,15 @@ class ShareController extends Controller
                 'success' => true,
                 'data' => [
                     'share' => $share,
-                    'redirect_url' => $redirectUrl
-                ]
+                    'redirect_url' => $redirectUrl,
+                ],
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to process share view',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

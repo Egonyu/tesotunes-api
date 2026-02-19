@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Like;
-use App\Models\Song;
+use App\Models\Activity;
 use App\Models\Album;
 use App\Models\Artist;
+use App\Models\Like;
 use App\Models\Playlist;
-use App\Models\Activity;
+use App\Models\Song;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -37,14 +37,14 @@ class ActivityInteractionController extends Controller
     {
         $modelClass = $this->resolveModel($type);
 
-        if (!$modelClass) {
+        if (! $modelClass) {
             return response()->json(['message' => "Unsupported entity type: {$type}"], 422);
         }
 
         $entity = $modelClass::find($id);
 
-        if (!$entity) {
-            return response()->json(['message' => ucfirst($type) . ' not found'], 404);
+        if (! $entity) {
+            return response()->json(['message' => ucfirst($type).' not found'], 404);
         }
 
         $liked = Like::toggle($request->user(), $entity);
@@ -68,14 +68,14 @@ class ActivityInteractionController extends Controller
     {
         $modelClass = $this->resolveModel($type);
 
-        if (!$modelClass) {
+        if (! $modelClass) {
             return response()->json(['message' => "Unsupported entity type: {$type}"], 422);
         }
 
         $entity = $modelClass::find($id);
 
-        if (!$entity) {
-            return response()->json(['message' => ucfirst($type) . ' not found'], 404);
+        if (! $entity) {
+            return response()->json(['message' => ucfirst($type).' not found'], 404);
         }
 
         $user = $request->user();
@@ -118,7 +118,7 @@ class ActivityInteractionController extends Controller
     {
         $event = \App\Models\Event::find($id);
 
-        if (!$event) {
+        if (! $event) {
             return response()->json(['message' => 'Event not found'], 404);
         }
 
@@ -126,7 +126,7 @@ class ActivityInteractionController extends Controller
         $isInterested = $user->interestedEvents()->toggle([$event->id]);
 
         // attached = now interested, detached = no longer interested
-        $interested = !empty($isInterested['attached']);
+        $interested = ! empty($isInterested['attached']);
 
         return response()->json([
             'data' => [

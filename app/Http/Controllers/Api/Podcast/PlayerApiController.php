@@ -25,10 +25,10 @@ class PlayerApiController extends Controller
         // Record in listening history
         if ($user = $request->user()) {
             DB::table('podcast_listens')->insert([
-                'user_id'    => $user->id,
+                'user_id' => $user->id,
                 'episode_id' => $episode->id,
-                'position'   => 0,
-                'completed'  => false,
+                'position' => 0,
+                'completed' => false,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
@@ -37,7 +37,7 @@ class PlayerApiController extends Controller
         return response()->json([
             'data' => [
                 'stream_url' => $episode->audio_url,
-                'episode'    => new PodcastEpisodeResource($episode),
+                'episode' => new PodcastEpisodeResource($episode),
             ],
         ]);
     }
@@ -62,7 +62,7 @@ class PlayerApiController extends Controller
             ->orderByDesc('created_at')
             ->limit(1)
             ->update([
-                'position'   => $request->integer('position'),
+                'position' => $request->integer('position'),
                 'updated_at' => now(),
             ]);
 
@@ -85,8 +85,8 @@ class PlayerApiController extends Controller
             ->orderByDesc('created_at')
             ->limit(1)
             ->update([
-                'completed'  => true,
-                'position'   => $episode->duration ?? 0,
+                'completed' => true,
+                'position' => $episode->duration ?? 0,
                 'updated_at' => now(),
             ]);
 

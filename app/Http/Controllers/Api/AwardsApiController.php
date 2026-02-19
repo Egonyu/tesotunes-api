@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\AwardResource;
 use App\Http\Resources\AwardCategoryResource;
 use App\Http\Resources\AwardNominationResource;
+use App\Http\Resources\AwardResource;
 use App\Models\Award;
 use App\Models\AwardCategory;
 use App\Models\AwardNomination;
@@ -39,7 +39,7 @@ class AwardsApiController extends Controller
             ->with(['categories' => fn ($q) => $q->active()->ordered()])
             ->first();
 
-        if (!$award) {
+        if (! $award) {
             return response()->json(['message' => 'No active award season found.'], 404);
         }
 
@@ -99,11 +99,11 @@ class AwardsApiController extends Controller
     {
         $award = Award::where('id', $id)->orWhere('uuid', $id)->orWhere('slug', $id)->firstOrFail();
 
-        if (!$award->isNominationOpen()) {
+        if (! $award->isNominationOpen()) {
             return response()->json(['message' => 'Nominations are not currently open for this award.'], 422);
         }
 
-        if (!$award->allow_public_nominations) {
+        if (! $award->allow_public_nominations) {
             return response()->json(['message' => 'Public nominations are not allowed for this award.'], 403);
         }
 
@@ -152,11 +152,11 @@ class AwardsApiController extends Controller
     {
         $award = Award::where('id', $id)->orWhere('uuid', $id)->orWhere('slug', $id)->firstOrFail();
 
-        if (!$award->isVotingOpen()) {
+        if (! $award->isVotingOpen()) {
             return response()->json(['message' => 'Voting is not currently open for this award.'], 422);
         }
 
-        if (!$award->allow_public_voting) {
+        if (! $award->allow_public_voting) {
             return response()->json(['message' => 'Public voting is not allowed for this award.'], 403);
         }
 
@@ -208,7 +208,7 @@ class AwardsApiController extends Controller
         $award = Award::where('id', $id)->orWhere('uuid', $id)->orWhere('slug', $id)->firstOrFail();
 
         // Only show results if voting is closed or completed
-        if (!in_array($award->status, [Award::STATUS_VOTING_CLOSED, Award::STATUS_COMPLETED])) {
+        if (! in_array($award->status, [Award::STATUS_VOTING_CLOSED, Award::STATUS_COMPLETED])) {
             return response()->json(['message' => 'Results are not yet available.'], 403);
         }
 

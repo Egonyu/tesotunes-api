@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Api\User;
 
 use App\Http\Controllers\Controller;
-use App\Services\CreditService;
 use App\Models\Promotion;
-use Illuminate\Http\Request;
+use App\Services\CreditService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class CreditController extends Controller
@@ -36,13 +36,13 @@ class CreditController extends Controller
                     'earning_opportunities' => $this->getEarningOpportunities($user),
                     'promotion_opportunities' => $opportunities,
                     'daily_challenges' => $this->getDailyChallenges($user),
-                ]
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to load credit dashboard',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -85,7 +85,7 @@ class CreditController extends Controller
                     'amount' => $transaction->formatted_amount,
                     'description' => $transaction->description,
                     'source' => $transaction->source_description,
-                    'balance_after' => number_format($transaction->balance_after, 0) . ' credits',
+                    'balance_after' => number_format($transaction->balance_after, 0).' credits',
                     'date' => $transaction->processed_at->format('M j, Y g:i A'),
                     'relative_date' => $transaction->processed_at->diffForHumans(),
                     'icon' => $transaction->type_icon,
@@ -99,13 +99,13 @@ class CreditController extends Controller
 
             return response()->json([
                 'success' => true,
-                'transactions' => $transactions
+                'transactions' => $transactions,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to load transactions',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -119,10 +119,10 @@ class CreditController extends Controller
             $user = $request->user();
             $transaction = $this->creditService->awardDailyLoginBonus($user);
 
-            if (!$transaction) {
+            if (! $transaction) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Daily bonus already claimed or not available'
+                    'message' => 'Daily bonus already claimed or not available',
                 ], 422);
             }
 
@@ -132,14 +132,14 @@ class CreditController extends Controller
                 'transaction' => [
                     'amount' => $transaction->formatted_amount,
                     'description' => $transaction->description,
-                    'new_balance' => number_format($transaction->balance_after, 0) . ' credits',
-                ]
+                    'new_balance' => number_format($transaction->balance_after, 0).' credits',
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to claim daily bonus',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -150,7 +150,7 @@ class CreditController extends Controller
     public function transfer(Request $request): JsonResponse
     {
         $validator = Validator::make($request->all(), [
-            'recipient_id' => 'required|exists:users,id|different:' . $request->user()->id,
+            'recipient_id' => 'required|exists:users,id|different:'.$request->user()->id,
             'amount' => 'required|numeric|min:1|max:1000',
             'message' => 'nullable|string|max:200',
         ]);
@@ -159,7 +159,7 @@ class CreditController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -174,10 +174,10 @@ class CreditController extends Controller
                 $request->message ?: "Credit transfer to {$recipient->name}"
             );
 
-            if (!$result) {
+            if (! $result) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insufficient credits for transfer'
+                    'message' => 'Insufficient credits for transfer',
                 ], 422);
             }
 
@@ -185,16 +185,16 @@ class CreditController extends Controller
                 'success' => true,
                 'message' => "Successfully transferred {$request->amount} credits to {$recipient->name}",
                 'transaction' => [
-                    'amount' => number_format($request->amount, 0) . ' credits',
+                    'amount' => number_format($request->amount, 0).' credits',
                     'recipient' => $recipient->name,
-                    'new_balance' => number_format($result['sender_transaction']->balance_after, 0) . ' credits',
-                ]
+                    'new_balance' => number_format($result['sender_transaction']->balance_after, 0).' credits',
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Transfer failed',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -242,13 +242,13 @@ class CreditController extends Controller
             return response()->json([
                 'success' => true,
                 'promotions' => $promotions,
-                'user_balance' => number_format($wallet->balance, 0) . ' credits'
+                'user_balance' => number_format($wallet->balance, 0).' credits',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to load promotions',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -266,7 +266,7 @@ class CreditController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -280,7 +280,7 @@ class CreditController extends Controller
                 $promotion->current_participants >= $promotion->max_participants) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Promotion is not available'
+                    'message' => 'Promotion is not available',
                 ], 422);
             }
 
@@ -288,7 +288,7 @@ class CreditController extends Controller
             if ($promotion->participants()->where('user_id', $user->id)->exists()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You have already participated in this promotion'
+                    'message' => 'You have already participated in this promotion',
                 ], 422);
             }
 
@@ -300,10 +300,10 @@ class CreditController extends Controller
                 ['promotion_id' => $promotion->id]
             );
 
-            if (!$transaction) {
+            if (! $transaction) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insufficient credits'
+                    'message' => 'Insufficient credits',
                 ], 422);
             }
 
@@ -323,13 +323,13 @@ class CreditController extends Controller
                 'success' => true,
                 'message' => 'Successfully joined promotion!',
                 'participation' => $participation,
-                'new_balance' => number_format($transaction->balance_after, 0) . ' credits',
+                'new_balance' => number_format($transaction->balance_after, 0).' credits',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to join promotion',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

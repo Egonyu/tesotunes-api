@@ -124,7 +124,7 @@ class CampaignsApiController extends Controller
 
         // Re-slug if title changed
         if (isset($validated['title'])) {
-            $validated['slug'] = \Illuminate\Support\Str::slug($validated['title']) . '-' . \Illuminate\Support\Str::random(8);
+            $validated['slug'] = \Illuminate\Support\Str::slug($validated['title']).'-'.\Illuminate\Support\Str::random(8);
         }
 
         $campaign->update($validated);

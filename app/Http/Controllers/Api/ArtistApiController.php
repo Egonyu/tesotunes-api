@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\SongResource;
 use App\Models\Album;
 use App\Models\Artist;
 use App\Models\Song;
@@ -32,7 +31,7 @@ class ArtistApiController extends Controller
     {
         $artist = $this->artist($request);
 
-        if (!$artist) {
+        if (! $artist) {
             return response()->json([
                 'message' => 'You do not have an artist account.',
             ], 403);
@@ -51,11 +50,13 @@ class ArtistApiController extends Controller
     public function dashboard(Request $request): JsonResponse
     {
         $result = $this->requireArtist($request);
-        if ($result instanceof JsonResponse) return $result;
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
         $artist = $result;
 
         // Refresh stats if stale
-        if (!$artist->stats_last_updated_at || $artist->stats_last_updated_at->isBefore(now()->subHour())) {
+        if (! $artist->stats_last_updated_at || $artist->stats_last_updated_at->isBefore(now()->subHour())) {
             $artist->refreshCachedStats();
             $artist->refresh();
         }
@@ -67,7 +68,7 @@ class ArtistApiController extends Controller
             ->map(fn ($song) => [
                 'id' => $song->id,
                 'title' => $song->title,
-                'artwork' => $song->artwork ? url('storage/' . $song->artwork) : null,
+                'artwork' => $song->artwork ? url('storage/'.$song->artwork) : null,
                 'plays' => (int) ($song->play_count ?? 0),
                 'downloads' => (int) ($song->download_count ?? 0),
                 'trend' => 0,
@@ -79,7 +80,7 @@ class ArtistApiController extends Controller
             ['label' => 'Total Plays', 'value' => number_format($artist->total_plays_count ?? 0), 'change' => 0, 'period' => 'all time'],
             ['label' => 'Total Songs', 'value' => (string) ($artist->total_songs_count ?? 0), 'change' => 0, 'period' => 'all time'],
             ['label' => 'Followers', 'value' => number_format($artist->followers_count ?? 0), 'change' => 0, 'period' => 'all time'],
-            ['label' => 'Revenue', 'value' => 'UGX ' . number_format($artist->total_revenue ?? 0), 'change' => 0, 'period' => 'all time'],
+            ['label' => 'Revenue', 'value' => 'UGX '.number_format($artist->total_revenue ?? 0), 'change' => 0, 'period' => 'all time'],
         ];
 
         return response()->json([
@@ -87,7 +88,7 @@ class ArtistApiController extends Controller
                 'artist' => [
                     'id' => $artist->id,
                     'name' => $artist->stage_name,
-                    'avatar' => $artist->avatar ? url('storage/' . $artist->avatar) : null,
+                    'avatar' => $artist->avatar ? url('storage/'.$artist->avatar) : null,
                     'is_verified' => (bool) $artist->is_verified,
                 ],
                 'stats' => $stats,
@@ -108,7 +109,9 @@ class ArtistApiController extends Controller
     public function songs(Request $request): JsonResponse
     {
         $result = $this->requireArtist($request);
-        if ($result instanceof JsonResponse) return $result;
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
         $artist = $result;
 
         $perPage = min((int) $request->get('per_page', 20), 100);
@@ -123,7 +126,7 @@ class ArtistApiController extends Controller
 
         // Search
         if ($request->filled('search')) {
-            $query->where('title', 'like', '%' . $request->search . '%');
+            $query->where('title', 'like', '%'.$request->search.'%');
         }
 
         // Sort
@@ -145,7 +148,7 @@ class ArtistApiController extends Controller
             'data' => $songs->map(fn ($song) => [
                 'id' => $song->id,
                 'title' => $song->title,
-                'cover' => $song->artwork ? url('storage/' . $song->artwork) : null,
+                'cover' => $song->artwork ? url('storage/'.$song->artwork) : null,
                 'album' => $song->album ? $song->album->title : null,
                 'plays' => (int) ($song->play_count ?? 0),
                 'downloads' => (int) ($song->download_count ?? 0),
@@ -169,7 +172,9 @@ class ArtistApiController extends Controller
     public function showSong(Request $request, int $id): JsonResponse
     {
         $result = $this->requireArtist($request);
-        if ($result instanceof JsonResponse) return $result;
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
         $artist = $result;
 
         $song = Song::where('artist_id', $artist->id)
@@ -180,7 +185,7 @@ class ArtistApiController extends Controller
             'data' => [
                 'id' => $song->id,
                 'title' => $song->title,
-                'cover' => $song->artwork ? url('storage/' . $song->artwork) : null,
+                'cover' => $song->artwork ? url('storage/'.$song->artwork) : null,
                 'album' => $song->album ? $song->album->title : null,
                 'album_id' => $song->album_id,
                 'plays' => (int) ($song->play_count ?? 0),
@@ -204,20 +209,22 @@ class ArtistApiController extends Controller
     public function storeSong(Request $request): JsonResponse
     {
         $result = $this->requireArtist($request);
-        if ($result instanceof JsonResponse) return $result;
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
         $artist = $result;
 
         // Check upload permissions
-        if (!$artist->can_upload) {
+        if (! $artist->can_upload) {
             return response()->json([
                 'message' => 'You are not allowed to upload songs at this time.',
             ], 403);
         }
 
         // Check monthly upload limit
-        if (!$artist->canUploadThisMonth()) {
+        if (! $artist->canUploadThisMonth()) {
             return response()->json([
-                'message' => 'You have reached your monthly upload limit (' . $artist->monthly_upload_limit . ' songs).',
+                'message' => 'You have reached your monthly upload limit ('.$artist->monthly_upload_limit.' songs).',
             ], 429);
         }
 
@@ -247,7 +254,7 @@ class ArtistApiController extends Controller
 
         // Handle audio file (accept either field name) - MOVE IMMEDIATELY to avoid temp file cleanup
         $audioFile = $request->file('audio') ?? $request->file('audio_file');
-        if (!$audioFile) {
+        if (! $audioFile) {
             return response()->json([
                 'message' => 'Audio file is required.',
                 'errors' => ['audio' => ['An audio file is required.']],
@@ -255,9 +262,9 @@ class ArtistApiController extends Controller
         }
 
         // Check if file is valid
-        if (!$audioFile->isValid()) {
+        if (! $audioFile->isValid()) {
             return response()->json([
-                'message' => 'File upload failed: ' . $audioFile->getErrorMessage(),
+                'message' => 'File upload failed: '.$audioFile->getErrorMessage(),
                 'error_code' => $audioFile->getError(),
             ], 422);
         }
@@ -265,12 +272,12 @@ class ArtistApiController extends Controller
         // Capture file info BEFORE moving (move() invalidates the file object)
         $audioExt = $audioFile->getClientOriginalExtension();
         $audioSize = $audioFile->getSize();
-        $audioFileName = Str::uuid() . '.' . $audioExt;
-        $audioPath = 'songs/audio/' . $audioFileName;
+        $audioFileName = Str::uuid().'.'.$audioExt;
+        $audioPath = 'songs/audio/'.$audioFileName;
 
         // Use move() instead of store() to work around Windows temp file issues
         $destinationPath = storage_path('app/public/songs/audio');
-        if (!is_dir($destinationPath)) {
+        if (! is_dir($destinationPath)) {
             mkdir($destinationPath, 0755, true);
         }
         $audioFile->move($destinationPath, $audioFileName);
@@ -280,11 +287,11 @@ class ArtistApiController extends Controller
         $coverFile = $request->file('cover') ?? $request->file('cover_image');
         if ($coverFile && $coverFile->isValid()) {
             $coverExt = $coverFile->getClientOriginalExtension();
-            $coverFileName = Str::uuid() . '.' . $coverExt;
-            $artworkPath = 'songs/artwork/' . $coverFileName;
+            $coverFileName = Str::uuid().'.'.$coverExt;
+            $artworkPath = 'songs/artwork/'.$coverFileName;
 
             $coverDestination = storage_path('app/public/songs/artwork');
-            if (!is_dir($coverDestination)) {
+            if (! is_dir($coverDestination)) {
                 mkdir($coverDestination, 0755, true);
             }
             $coverFile->move($coverDestination, $coverFileName);
@@ -295,12 +302,12 @@ class ArtistApiController extends Controller
         $originalSlug = $slug;
         $counter = 1;
         while (Song::where('slug', $slug)->exists()) {
-            $slug = $originalSlug . '-' . $counter++;
+            $slug = $originalSlug.'-'.$counter++;
         }
 
         // Resolve genre_id
         $genreId = null;
-        if (!empty($validated['genre_id'])) {
+        if (! empty($validated['genre_id'])) {
             // Could be a numeric ID or a genre name
             if (is_numeric($validated['genre_id'])) {
                 $genreId = (int) $validated['genre_id'];
@@ -310,7 +317,7 @@ class ArtistApiController extends Controller
                     ->first();
                 $genreId = $genre?->id;
             }
-        } elseif (!empty($validated['genre_ids'])) {
+        } elseif (! empty($validated['genre_ids'])) {
             $genreId = $validated['genre_ids'][0];
         }
 
@@ -350,7 +357,7 @@ class ArtistApiController extends Controller
         ]);
 
         // Sync genres
-        if (!empty($validated['genre_ids'])) {
+        if (! empty($validated['genre_ids'])) {
             $song->genres()->sync($validated['genre_ids']);
         } elseif ($genreId) {
             $song->genres()->sync([$genreId]);
@@ -360,7 +367,7 @@ class ArtistApiController extends Controller
         $artist->increment('total_songs_count');
 
         // Clear upload limit cache
-        cache()->forget("artist_uploads_{$artist->id}_" . now()->format('Y_m'));
+        cache()->forget("artist_uploads_{$artist->id}_".now()->format('Y_m'));
 
         $song->load(['artist', 'album', 'primaryGenre']);
 
@@ -370,7 +377,7 @@ class ArtistApiController extends Controller
                 'id' => $song->id,
                 'title' => $song->title,
                 'status' => $song->status,
-                'artwork_url' => $artworkPath ? url('storage/' . $artworkPath) : null,
+                'artwork_url' => $artworkPath ? url('storage/'.$artworkPath) : null,
             ],
         ], 201);
     }
@@ -381,7 +388,9 @@ class ArtistApiController extends Controller
     public function updateSong(Request $request, int $id): JsonResponse
     {
         $result = $this->requireArtist($request);
-        if ($result instanceof JsonResponse) return $result;
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
         $artist = $result;
 
         $song = Song::where('artist_id', $artist->id)->findOrFail($id);
@@ -409,7 +418,9 @@ class ArtistApiController extends Controller
     public function deleteSong(Request $request, int $id): JsonResponse
     {
         $result = $this->requireArtist($request);
-        if ($result instanceof JsonResponse) return $result;
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
         $artist = $result;
 
         $song = Song::where('artist_id', $artist->id)->findOrFail($id);
@@ -428,7 +439,9 @@ class ArtistApiController extends Controller
     public function bulkDeleteSongs(Request $request): JsonResponse
     {
         $result = $this->requireArtist($request);
-        if ($result instanceof JsonResponse) return $result;
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
         $artist = $result;
 
         $validated = $request->validate([
@@ -453,7 +466,9 @@ class ArtistApiController extends Controller
     public function bulkUpdateSongStatus(Request $request): JsonResponse
     {
         $result = $this->requireArtist($request);
-        if ($result instanceof JsonResponse) return $result;
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
         $artist = $result;
 
         $validated = $request->validate([
@@ -481,7 +496,9 @@ class ArtistApiController extends Controller
     public function albums(Request $request): JsonResponse
     {
         $result = $this->requireArtist($request);
-        if ($result instanceof JsonResponse) return $result;
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
         $artist = $result;
 
         $perPage = min((int) $request->get('per_page', 20), 100);
@@ -495,7 +512,7 @@ class ArtistApiController extends Controller
             'data' => $albums->map(fn ($album) => [
                 'id' => $album->id,
                 'title' => $album->title,
-                'artwork' => $album->artwork ? url('storage/' . $album->artwork) : null,
+                'artwork' => $album->artwork ? url('storage/'.$album->artwork) : null,
                 'songs_count' => $album->songs_count,
             ]),
             'pagination' => [
@@ -513,7 +530,9 @@ class ArtistApiController extends Controller
     public function storeAlbum(Request $request): JsonResponse
     {
         $result = $this->requireArtist($request);
-        if ($result instanceof JsonResponse) return $result;
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
         $artist = $result;
 
         $validated = $request->validate([
@@ -532,7 +551,7 @@ class ArtistApiController extends Controller
         $originalSlug = $slug;
         $counter = 1;
         while (Album::where('slug', $slug)->exists()) {
-            $slug = $originalSlug . '-' . $counter++;
+            $slug = $originalSlug.'-'.$counter++;
         }
 
         $album = Album::create([
@@ -566,7 +585,9 @@ class ArtistApiController extends Controller
     public function profile(Request $request): JsonResponse
     {
         $result = $this->requireArtist($request);
-        if ($result instanceof JsonResponse) return $result;
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
         $artist = $result;
 
         return response()->json([
@@ -574,8 +595,8 @@ class ArtistApiController extends Controller
                 'id' => $artist->id,
                 'stage_name' => $artist->stage_name,
                 'bio' => $artist->bio,
-                'avatar' => $artist->avatar ? url('storage/' . $artist->avatar) : null,
-                'banner' => $artist->cover_image ? url('storage/' . $artist->cover_image) : null,
+                'avatar' => $artist->avatar ? url('storage/'.$artist->avatar) : null,
+                'banner' => $artist->cover_image ? url('storage/'.$artist->cover_image) : null,
                 'country' => null,
                 'city' => null,
                 'website_url' => $artist->website_url,
@@ -595,7 +616,9 @@ class ArtistApiController extends Controller
     public function updateProfile(Request $request): JsonResponse
     {
         $result = $this->requireArtist($request);
-        if ($result instanceof JsonResponse) return $result;
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
         $artist = $result;
 
         $validated = $request->validate([
@@ -624,7 +647,9 @@ class ArtistApiController extends Controller
     public function earnings(Request $request): JsonResponse
     {
         $result = $this->requireArtist($request);
-        if ($result instanceof JsonResponse) return $result;
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
         $artist = $result;
 
         return response()->json([
@@ -652,7 +677,9 @@ class ArtistApiController extends Controller
     public function withdraw(Request $request): JsonResponse
     {
         $result = $this->requireArtist($request);
-        if ($result instanceof JsonResponse) return $result;
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
         $artist = $result;
 
         $validated = $request->validate([
@@ -683,7 +710,9 @@ class ArtistApiController extends Controller
     public function analytics(Request $request): JsonResponse
     {
         $result = $this->requireArtist($request);
-        if ($result instanceof JsonResponse) return $result;
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
         $artist = $result;
 
         $period = (int) $request->get('period', 30);
@@ -695,7 +724,7 @@ class ArtistApiController extends Controller
             ->map(fn ($song) => [
                 'id' => $song->id,
                 'title' => $song->title,
-                'artwork' => $song->artwork ? url('storage/' . $song->artwork) : null,
+                'artwork' => $song->artwork ? url('storage/'.$song->artwork) : null,
                 'play_count' => (int) ($song->play_count ?? 0),
                 'download_count' => (int) ($song->download_count ?? 0),
             ]);
@@ -728,7 +757,9 @@ class ArtistApiController extends Controller
     public function referralsDashboard(Request $request): JsonResponse
     {
         $result = $this->requireArtist($request);
-        if ($result instanceof JsonResponse) return $result;
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
         $artist = $result;
 
         return response()->json([
@@ -761,7 +792,9 @@ class ArtistApiController extends Controller
     public function referralLink(Request $request): JsonResponse
     {
         $result = $this->requireArtist($request);
-        if ($result instanceof JsonResponse) return $result;
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
         $artist = $result;
 
         return response()->json([
@@ -843,9 +876,12 @@ class ArtistApiController extends Controller
 
     private function formatDuration(?int $seconds): string
     {
-        if (!$seconds) return '0:00';
+        if (! $seconds) {
+            return '0:00';
+        }
         $mins = floor($seconds / 60);
         $secs = $seconds % 60;
+
         return sprintf('%d:%02d', $mins, $secs);
     }
 }

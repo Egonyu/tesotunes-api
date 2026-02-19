@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api\Music;
 use App\Http\Controllers\Controller;
 use App\Models\Artist;
 use App\Models\UserFollow;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
 class SimpleArtistController extends Controller
@@ -15,18 +14,18 @@ class SimpleArtistController extends Controller
         try {
             $user = auth()->user();
 
-            if (!$user) {
+            if (! $user) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Authentication required'
+                    'message' => 'Authentication required',
                 ], 401);
             }
 
             // Authorization check
-            if (!$user->can('follow', $artist)) {
+            if (! $user->can('follow', $artist)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You are not authorized to follow this artist'
+                    'message' => 'You are not authorized to follow this artist',
                 ], 403);
             }
 
@@ -39,7 +38,7 @@ class SimpleArtistController extends Controller
             if ($existingFollow) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Already following this artist'
+                    'message' => 'Already following this artist',
                 ], 400);
             }
 
@@ -57,20 +56,20 @@ class SimpleArtistController extends Controller
                 'success' => true,
                 'message' => 'Artist followed successfully',
                 'is_following' => true,
-                'follower_count' => $artist->fresh()->followers_count
+                'follower_count' => $artist->fresh()->followers_count,
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Artist follow error: ' . $e->getMessage(), [
+            \Log::error('Artist follow error: '.$e->getMessage(), [
                 'artist_id' => $artist->id,
                 'user_id' => auth()->id(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to follow artist',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -80,18 +79,18 @@ class SimpleArtistController extends Controller
         try {
             $user = auth()->user();
 
-            if (!$user) {
+            if (! $user) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Authentication required'
+                    'message' => 'Authentication required',
                 ], 401);
             }
 
             // Authorization check
-            if (!$user->can('unfollow', $artist)) {
+            if (! $user->can('unfollow', $artist)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You are not authorized to unfollow this artist'
+                    'message' => 'You are not authorized to unfollow this artist',
                 ], 403);
             }
 
@@ -108,20 +107,20 @@ class SimpleArtistController extends Controller
                 'success' => true,
                 'message' => 'Artist unfollowed successfully',
                 'is_following' => false,
-                'follower_count' => $artist->fresh()->followers_count
+                'follower_count' => $artist->fresh()->followers_count,
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Artist unfollow error: ' . $e->getMessage(), [
+            \Log::error('Artist unfollow error: '.$e->getMessage(), [
                 'artist_id' => $artist->id,
                 'user_id' => auth()->id(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to unfollow artist',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

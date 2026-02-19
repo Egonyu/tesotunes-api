@@ -51,9 +51,9 @@ class SaccoAnalyticsController extends Controller
         $months = $request->get('months', 12);
 
         $trends = SaccoMember::select(
-                DB::raw("DATE_FORMAT(created_at, '%Y-%m') as month"),
-                DB::raw('COUNT(*) as registrations')
-            )
+            DB::raw("DATE_FORMAT(created_at, '%Y-%m') as month"),
+            DB::raw('COUNT(*) as registrations')
+        )
             ->where('created_at', '>=', now()->subMonths($months))
             ->groupBy('month')
             ->orderBy('month')
@@ -95,10 +95,10 @@ class SaccoAnalyticsController extends Controller
         $months = $request->get('months', 12);
 
         $monthlyDeposits = SaccoSavingsTransaction::select(
-                DB::raw("DATE_FORMAT(created_at, '%Y-%m') as month"),
-                DB::raw("SUM(CASE WHEN type = 'deposit' THEN amount_ugx ELSE 0 END) as deposits"),
-                DB::raw("SUM(CASE WHEN type = 'withdrawal' THEN amount_ugx ELSE 0 END) as withdrawals")
-            )
+            DB::raw("DATE_FORMAT(created_at, '%Y-%m') as month"),
+            DB::raw("SUM(CASE WHEN type = 'deposit' THEN amount_ugx ELSE 0 END) as deposits"),
+            DB::raw("SUM(CASE WHEN type = 'withdrawal' THEN amount_ugx ELSE 0 END) as withdrawals")
+        )
             ->where('created_at', '>=', now()->subMonths($months))
             ->groupBy('month')
             ->orderBy('month')
@@ -115,10 +115,10 @@ class SaccoAnalyticsController extends Controller
         $months = $request->get('months', 12);
 
         $monthlyRepayments = SaccoLoanRepayment::select(
-                DB::raw("DATE_FORMAT(payment_date, '%Y-%m') as month"),
-                DB::raw('COUNT(*) as payments'),
-                DB::raw('SUM(amount_ugx) as total_amount_ugx')
-            )
+            DB::raw("DATE_FORMAT(payment_date, '%Y-%m') as month"),
+            DB::raw('COUNT(*) as payments'),
+            DB::raw('SUM(amount_ugx) as total_amount_ugx')
+        )
             ->where('payment_date', '>=', now()->subMonths($months))
             ->groupBy('month')
             ->orderBy('month')

@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\EventResource;
 use App\Models\Event;
-use App\Models\EventTicket;
 use App\Models\EventLocation;
+use App\Models\EventTicket;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -38,8 +38,8 @@ class EventsApiController extends Controller
         $events = Event::with(['organizer', 'location', 'tickets'])
             ->when($request->filled('search'), function ($q) use ($request) {
                 $q->where(function ($sub) use ($request) {
-                    $sub->where('title', 'like', '%' . $request->search . '%')
-                        ->orWhere('description', 'like', '%' . $request->search . '%');
+                    $sub->where('title', 'like', '%'.$request->search.'%')
+                        ->orWhere('description', 'like', '%'.$request->search.'%');
                 });
             })
             ->when($request->filled('status') && $request->status !== 'all', function ($q) use ($request) {
@@ -112,26 +112,26 @@ class EventsApiController extends Controller
         ]);
 
         // Combine date+time if provided separately
-        if (!isset($validated['starts_at']) && isset($validated['start_date'])) {
-            $validated['starts_at'] = $validated['start_date'] . ' ' . ($validated['start_time'] ?? '00:00:00');
+        if (! isset($validated['starts_at']) && isset($validated['start_date'])) {
+            $validated['starts_at'] = $validated['start_date'].' '.($validated['start_time'] ?? '00:00:00');
         }
-        if (!isset($validated['ends_at']) && isset($validated['end_date'])) {
-            $validated['ends_at'] = $validated['end_date'] . ' ' . ($validated['end_time'] ?? '23:59:59');
+        if (! isset($validated['ends_at']) && isset($validated['end_date'])) {
+            $validated['ends_at'] = $validated['end_date'].' '.($validated['end_time'] ?? '23:59:59');
         }
 
         // Handle image upload
         if ($request->hasFile('cover_image')) {
             $file = $request->file('cover_image');
-            $filename = time() . '_' . $file->getClientOriginalName();
+            $filename = time().'_'.$file->getClientOriginalName();
             $file->move(public_path('uploads/events'), $filename);
-            $validated['cover_image'] = 'uploads/events/' . $filename;
+            $validated['cover_image'] = 'uploads/events/'.$filename;
         }
 
         // Clean up non-model fields
         unset($validated['start_date'], $validated['start_time'], $validated['end_date'], $validated['end_time'], $validated['ticket_tiers'], $validated['short_description']);
 
         $validated['uuid'] = Str::uuid();
-        $validated['slug'] = $validated['slug'] ?? Str::slug($validated['title']) . '-' . Str::random(6);
+        $validated['slug'] = $validated['slug'] ?? Str::slug($validated['title']).'-'.Str::random(6);
         $validated['organizer_id'] = auth()->id();
         $validated['organizer_type'] = 'user';
         // Only set user_id if authenticated (legacy field)
@@ -149,7 +149,7 @@ class EventsApiController extends Controller
                 if (\Schema::hasTable('event_locations')) {
                     $location = EventLocation::create([
                         'uuid' => Str::uuid(),
-                        'name' => $request->input('venue_name', $validated['title'] . ' Venue'),
+                        'name' => $request->input('venue_name', $validated['title'].' Venue'),
                         'address' => $request->input('venue_address', ''),
                         'city' => $request->input('city', ''),
                         'country' => $request->input('country', 'Uganda'),
@@ -231,25 +231,25 @@ class EventsApiController extends Controller
         ]);
 
         // Combine date+time
-        if (!isset($validated['starts_at']) && isset($validated['start_date'])) {
-            $validated['starts_at'] = $validated['start_date'] . ' ' . ($validated['start_time'] ?? '00:00:00');
+        if (! isset($validated['starts_at']) && isset($validated['start_date'])) {
+            $validated['starts_at'] = $validated['start_date'].' '.($validated['start_time'] ?? '00:00:00');
         }
-        if (!isset($validated['ends_at']) && isset($validated['end_date'])) {
-            $validated['ends_at'] = $validated['end_date'] . ' ' . ($validated['end_time'] ?? '23:59:59');
+        if (! isset($validated['ends_at']) && isset($validated['end_date'])) {
+            $validated['ends_at'] = $validated['end_date'].' '.($validated['end_time'] ?? '23:59:59');
         }
 
         // Handle image upload
         if ($request->hasFile('cover_image')) {
             $file = $request->file('cover_image');
-            $filename = time() . '_' . $file->getClientOriginalName();
+            $filename = time().'_'.$file->getClientOriginalName();
             $file->move(public_path('uploads/events'), $filename);
-            $validated['cover_image'] = 'uploads/events/' . $filename;
+            $validated['cover_image'] = 'uploads/events/'.$filename;
         }
 
         unset($validated['start_date'], $validated['start_time'], $validated['end_date'], $validated['end_time'], $validated['ticket_tiers']);
 
-        if (isset($validated['title']) && !isset($validated['slug'])) {
-            $validated['slug'] = Str::slug($validated['title']) . '-' . Str::random(6);
+        if (isset($validated['title']) && ! isset($validated['slug'])) {
+            $validated['slug'] = Str::slug($validated['title']).'-'.Str::random(6);
         }
 
         $event->update($validated);

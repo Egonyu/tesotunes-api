@@ -52,7 +52,7 @@ class ActivityController extends Controller
             ->where('type', 'like')
             ->delete();
 
-        if (!$deleted) {
+        if (! $deleted) {
             return response()->json(['message' => 'Not liked.'], 404);
         }
 

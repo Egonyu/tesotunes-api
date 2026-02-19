@@ -6,11 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\PlaylistResource;
 use App\Http\Resources\SongResource;
 use App\Models\Playlist;
-use App\Models\Song;
 use App\Models\PlaylistSong;
+use App\Models\Song;
 use App\Models\UserFollow as Follow;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class PlaylistController extends Controller
@@ -104,7 +104,7 @@ class PlaylistController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -131,7 +131,7 @@ class PlaylistController extends Controller
     public function show(Playlist $playlist)
     {
         // Check visibility
-        if ($playlist->visibility !== 'public' && (!auth()->check() || $playlist->user_id !== auth()->id())) {
+        if ($playlist->visibility !== 'public' && (! auth()->check() || $playlist->user_id !== auth()->id())) {
             abort(404, 'Playlist not found');
         }
 
@@ -151,7 +151,7 @@ class PlaylistController extends Controller
      */
     public function tracks(Request $request, Playlist $playlist)
     {
-        if ($playlist->visibility !== 'public' && (!auth()->check() || $playlist->user_id !== auth()->id())) {
+        if ($playlist->visibility !== 'public' && (! auth()->check() || $playlist->user_id !== auth()->id())) {
             abort(404, 'Playlist not found');
         }
 
@@ -170,7 +170,7 @@ class PlaylistController extends Controller
      */
     public function update(Request $request, Playlist $playlist): JsonResponse
     {
-        if (!$playlist->canBeEditedBy(auth()->user())) {
+        if (! $playlist->canBeEditedBy(auth()->user())) {
             abort(403, 'You are not authorized to edit this playlist');
         }
 
@@ -185,7 +185,7 @@ class PlaylistController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -231,7 +231,7 @@ class PlaylistController extends Controller
      */
     public function addSong(Request $request, Playlist $playlist, Song $song): JsonResponse
     {
-        if (!$playlist->canBeEditedBy(auth()->user())) {
+        if (! $playlist->canBeEditedBy(auth()->user())) {
             abort(403, 'You are not authorized to edit this playlist');
         }
 
@@ -258,13 +258,13 @@ class PlaylistController extends Controller
      */
     public function addSongFromBody(Request $request, Playlist $playlist): JsonResponse
     {
-        if (!$playlist->canBeEditedBy(auth()->user())) {
+        if (! $playlist->canBeEditedBy(auth()->user())) {
             abort(403, 'You are not authorized to edit this playlist');
         }
 
         $songId = $request->input('track_id') ?? $request->input('song_id');
 
-        if (!$songId) {
+        if (! $songId) {
             return response()->json(['message' => 'No track_id or song_id provided'], 422);
         }
 
@@ -293,7 +293,7 @@ class PlaylistController extends Controller
      */
     public function removeSong(Playlist $playlist, Song $song): JsonResponse
     {
-        if (!$playlist->canBeEditedBy(auth()->user())) {
+        if (! $playlist->canBeEditedBy(auth()->user())) {
             abort(403, 'You are not authorized to edit this playlist');
         }
 
@@ -338,7 +338,7 @@ class PlaylistController extends Controller
             'data' => [
                 'is_following' => $following,
                 'follower_count' => $playlist->fresh()->follower_count,
-            ]
+            ],
         ]);
     }
 }

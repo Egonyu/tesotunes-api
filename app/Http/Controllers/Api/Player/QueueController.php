@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Api\Player;
 
 use App\Http\Controllers\Controller;
+use App\Models\Album;
+use App\Models\Playlist;
 use App\Models\PlayQueue;
 use App\Models\Song;
-use App\Models\Playlist;
-use App\Models\Album;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class QueueController extends Controller
@@ -31,15 +31,15 @@ class QueueController extends Controller
                     'queue' => $queue,
                     'current_playing' => $currentPlaying,
                     'total_duration' => $queue->sum('song.duration'),
-                    'remaining_duration' => $queue->where('position', '>', $currentPlaying?->position ?? 0)->sum('song.duration')
-                ]
+                    'remaining_duration' => $queue->where('position', '>', $currentPlaying?->position ?? 0)->sum('song.duration'),
+                ],
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch queue',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -51,14 +51,14 @@ class QueueController extends Controller
                 'type' => 'required|in:song,playlist,album',
                 'id' => 'required|integer',
                 'position' => 'nullable|string|in:next,last',
-                'replace' => 'boolean'
+                'replace' => 'boolean',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -123,20 +123,20 @@ class QueueController extends Controller
                 'data' => [
                     'type' => $type,
                     'songs_added' => $addedCount,
-                ]
+                ],
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => "Added {$addedCount} song(s) to queue",
-                'added_count' => $addedCount
+                'added_count' => $addedCount,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to add to queue',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -149,14 +149,14 @@ class QueueController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => "Cleared {$clearedCount} song(s) from queue"
+                'message' => "Cleared {$clearedCount} song(s) from queue",
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to clear queue',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -169,14 +169,14 @@ class QueueController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Queue shuffled successfully'
+                'message' => 'Queue shuffled successfully',
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to shuffle queue',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -187,14 +187,14 @@ class QueueController extends Controller
             $validator = Validator::make($request->all(), [
                 'queue_items' => 'required|array',
                 'queue_items.*.id' => 'required|integer|exists:play_queues,id',
-                'queue_items.*.position' => 'required|integer|min:1'
+                'queue_items.*.position' => 'required|integer|min:1',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -209,14 +209,14 @@ class QueueController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Queue reordered successfully'
+                'message' => 'Queue reordered successfully',
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to reorder queue',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -229,7 +229,7 @@ class QueueController extends Controller
             if ($queueItem->user_id !== $user->id) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized to remove this queue item'
+                    'message' => 'Unauthorized to remove this queue item',
                 ], 403);
             }
 
@@ -242,14 +242,14 @@ class QueueController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Song removed from queue successfully'
+                'message' => 'Song removed from queue successfully',
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to remove from queue',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

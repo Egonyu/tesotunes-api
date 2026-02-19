@@ -4,14 +4,12 @@ namespace App\Http\Controllers\Api\Mobile;
 
 use App\Http\Controllers\Controller;
 use App\Models\Download;
-use App\Models\Song;
 use App\Models\Playlist;
+use App\Models\Song;
 use App\Models\User;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Cache;
-use Carbon\Carbon;
 
 class MobileDownloadController extends Controller
 {
@@ -23,9 +21,9 @@ class MobileDownloadController extends Controller
     public function checkDownloadLimit(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         $isPremium = $user->subscription_tier === 'premium';
-        
+
         if ($isPremium) {
             return response()->json([
                 'can_download' => true,
@@ -35,15 +33,15 @@ class MobileDownloadController extends Controller
                 'remaining' => null,
             ]);
         }
-        
+
         // Free user - check daily limit
         $downloadsToday = Download::where('user_id', $user->id)
             ->whereDate('created_at', today())
             ->count();
-        
+
         $limit = 10;
         $remaining = max(0, $limit - $downloadsToday);
-        
+
         return response()->json([
             'can_download' => $remaining > 0,
             'is_premium' => false,
@@ -53,7 +51,7 @@ class MobileDownloadController extends Controller
             'reset_at' => now()->endOfDay()->toISOString(),
         ]);
     }
-    
+
     /**
      * Get signed download URL for a song
      * Enforces freemium limits
@@ -61,41 +59,41 @@ class MobileDownloadController extends Controller
     public function getDownloadUrl(Request $request, Song $song): JsonResponse
     {
         $user = $request->user();
-        
+
         // Check if song is downloadable
-        if (!$song->is_downloadable) {
+        if (! $song->is_downloadable) {
             return response()->json([
-                'error' => 'This song is not available for download'
+                'error' => 'This song is not available for download',
             ], 403);
         }
-        
+
         // Check download limit
         $limitCheck = $this->checkDownloadLimit($request);
         $limitData = $limitCheck->getData(true);
-        
-        if (!$limitData['can_download']) {
+
+        if (! $limitData['can_download']) {
             return response()->json([
                 'error' => 'Daily download limit reached',
                 'upgrade_required' => true,
                 'limit_info' => $limitData,
             ], 429);
         }
-        
+
         // Determine quality based on subscription
         $isPremium = $limitData['is_premium'];
         $audioFile = $isPremium ? $song->audio_file_320 : $song->audio_file_128;
         $quality = $isPremium ? '320kbps' : '128kbps';
-        
-        if (!$audioFile || !Storage::disk('digitalocean')->exists($audioFile)) {
+
+        if (! $audioFile || ! Storage::disk('digitalocean')->exists($audioFile)) {
             return response()->json([
-                'error' => 'Audio file not available'
+                'error' => 'Audio file not available',
             ], 404);
         }
-        
+
         // Generate signed URL (15 minutes expiry)
         try {
             $signedUrl = $this->generateSignedUrl($audioFile);
-            
+
             // Record download
             Download::create([
                 'user_id' => $user->id,
@@ -106,10 +104,10 @@ class MobileDownloadController extends Controller
                 'ip_address' => $request->ip(),
                 'device_type' => 'mobile',
             ]);
-            
+
             // Increment song download count
             $song->increment('download_count');
-            
+
             return response()->json([
                 'success' => true,
                 'download_url' => $signedUrl,
@@ -131,7 +129,7 @@ class MobileDownloadController extends Controller
             ], 500);
         }
     }
-    
+
     /**
      * Get download URLs for multiple songs (for offline sync)
      */
@@ -141,50 +139,51 @@ class MobileDownloadController extends Controller
             'song_ids' => 'required|array|max:50',
             'song_ids.*' => 'required|integer|exists:songs,id',
         ]);
-        
+
         $user = $request->user();
-        
+
         // Check download limit
         $limitCheck = $this->checkDownloadLimit($request);
         $limitData = $limitCheck->getData(true);
-        
-        if (!$limitData['can_download']) {
+
+        if (! $limitData['can_download']) {
             return response()->json([
                 'error' => 'Daily download limit reached',
                 'upgrade_required' => true,
                 'limit_info' => $limitData,
             ], 429);
         }
-        
+
         $songs = Song::whereIn('id', $validated['song_ids'])
             ->where('is_downloadable', true)
             ->with('artist:id,stage_name')
             ->get();
-        
+
         $isPremium = $limitData['is_premium'];
         $downloads = [];
         $errors = [];
-        
+
         foreach ($songs as $song) {
             // Check if we've exceeded limit for free users
-            if (!$isPremium && count($downloads) >= $limitData['remaining']) {
+            if (! $isPremium && count($downloads) >= $limitData['remaining']) {
                 break;
             }
-            
+
             try {
                 $audioFile = $isPremium ? $song->audio_file_320 : $song->audio_file_128;
                 $quality = $isPremium ? '320kbps' : '128kbps';
-                
-                if (!$audioFile || !Storage::disk('digitalocean')->exists($audioFile)) {
+
+                if (! $audioFile || ! Storage::disk('digitalocean')->exists($audioFile)) {
                     $errors[] = [
                         'song_id' => $song->id,
                         'error' => 'Audio file not available',
                     ];
+
                     continue;
                 }
-                
+
                 $signedUrl = $this->generateSignedUrl($audioFile);
-                
+
                 // Record download
                 Download::create([
                     'user_id' => $user->id,
@@ -195,9 +194,9 @@ class MobileDownloadController extends Controller
                     'ip_address' => $request->ip(),
                     'device_type' => 'mobile',
                 ]);
-                
+
                 $song->increment('download_count');
-                
+
                 $downloads[] = [
                     'song_id' => $song->id,
                     'download_url' => $signedUrl,
@@ -219,7 +218,7 @@ class MobileDownloadController extends Controller
                 ];
             }
         }
-        
+
         return response()->json([
             'success' => true,
             'downloads' => $downloads,
@@ -230,19 +229,19 @@ class MobileDownloadController extends Controller
             'limit_info' => $limitData,
         ]);
     }
-    
+
     /**
      * Get user's download history
      */
     public function getDownloadHistory(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         $downloads = Download::where('user_id', $user->id)
             ->with(['song.artist:id,stage_name'])
             ->orderBy('created_at', 'desc')
             ->paginate(50);
-        
+
         return response()->json([
             'success' => true,
             'downloads' => $downloads->map(function ($download) {
@@ -264,38 +263,38 @@ class MobileDownloadController extends Controller
             ],
         ]);
     }
-    
+
     /**
      * Download playlist for offline access
      */
     public function downloadPlaylist(Request $request, Playlist $playlist): JsonResponse
     {
         $user = $request->user();
-        
+
         // Check if user owns or can access playlist
         if ($playlist->user_id !== $user->id && $playlist->visibility !== 'public') {
             return response()->json([
-                'error' => 'Playlist not accessible'
+                'error' => 'Playlist not accessible',
             ], 403);
         }
-        
+
         $songs = $playlist->songs()
             ->where('is_downloadable', true)
             ->with('artist:id,stage_name')
             ->get();
-        
+
         if ($songs->isEmpty()) {
             return response()->json([
-                'error' => 'No downloadable songs in playlist'
+                'error' => 'No downloadable songs in playlist',
             ], 404);
         }
-        
+
         // Use batch download for playlist
         $request->merge(['song_ids' => $songs->pluck('id')->toArray()]);
-        
+
         return $this->getBatchDownloadUrls($request);
     }
-    
+
     /**
      * Generate signed URL for DigitalOcean Spaces
      */
@@ -303,25 +302,25 @@ class MobileDownloadController extends Controller
     {
         // For testing environments, return a fake URL
         if (app()->environment('testing')) {
-            return 'https://fake-download-url.com/' . $filePath;
+            return 'https://fake-download-url.com/'.$filePath;
         }
-        
+
         $adapter = Storage::disk('digitalocean')->getAdapter();
-        
+
         // Check if adapter supports S3 client (not available in local/testing adapters)
         if (method_exists($adapter, 'getClient')) {
             $client = $adapter->getClient();
-            
+
             $command = $client->getCommand('GetObject', [
                 'Bucket' => config('filesystems.disks.digitalocean.bucket'),
                 'Key' => $filePath,
             ]);
-            
+
             $request = $client->createPresignedRequest($command, '+15 minutes');
-            
+
             return (string) $request->getUri();
         }
-        
+
         // For local environments, return a simple URL
         return Storage::disk('digitalocean')->url($filePath);
     }

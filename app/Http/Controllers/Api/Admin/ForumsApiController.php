@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\ForumThreadResource;
 use App\Http\Resources\ForumReplyResource;
+use App\Http\Resources\ForumThreadResource;
 use App\Models\Modules\Forum\ForumCategory;
 use App\Models\Modules\Forum\ForumReply;
 use App\Models\Modules\Forum\ForumTopic;
@@ -40,8 +40,8 @@ class ForumsApiController extends Controller
         $topics = ForumTopic::with(['user', 'category'])
             ->when($request->filled('search'), function ($q) use ($request) {
                 $q->where(function ($sub) use ($request) {
-                    $sub->where('title', 'like', '%' . $request->search . '%')
-                        ->orWhere('content', 'like', '%' . $request->search . '%');
+                    $sub->where('title', 'like', '%'.$request->search.'%')
+                        ->orWhere('content', 'like', '%'.$request->search.'%');
                 });
             })
             ->when($request->filled('category') && $request->category !== 'all', fn ($q) => $q->where('category_id', $request->category))
@@ -79,7 +79,7 @@ class ForumsApiController extends Controller
         $topic = ForumTopic::create([
             ...$validated,
             'user_id' => $request->user()->id,
-            'slug' => Str::slug($validated['title']) . '-' . Str::random(6),
+            'slug' => Str::slug($validated['title']).'-'.Str::random(6),
             'status' => $validated['status'] ?? 'published',
             'last_activity_at' => now(),
         ]);
@@ -137,7 +137,7 @@ class ForumsApiController extends Controller
     public function togglePin(int $id)
     {
         $topic = ForumTopic::findOrFail($id);
-        $topic->is_pinned = !$topic->is_pinned;
+        $topic->is_pinned = ! $topic->is_pinned;
         $topic->save();
 
         return response()->json([
@@ -153,7 +153,7 @@ class ForumsApiController extends Controller
     public function toggleLock(int $id)
     {
         $topic = ForumTopic::findOrFail($id);
-        $topic->is_locked = !$topic->is_locked;
+        $topic->is_locked = ! $topic->is_locked;
         $topic->save();
 
         return response()->json([

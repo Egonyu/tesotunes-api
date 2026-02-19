@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\SongResource;
 use App\Models\Song;
 use App\Services\SongService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class SongController extends Controller
 {
@@ -34,7 +34,7 @@ class SongController extends Controller
             ->when($request->filled('album'), fn ($q) => $q->where('album_id', $request->album))
             ->when($request->filled('is_free'), fn ($q) => $q->where('is_free', $request->boolean('is_free')))
             ->when($request->filled('search'), function ($q) use ($request) {
-                $q->where('title', 'like', '%' . $request->search . '%');
+                $q->where('title', 'like', '%'.$request->search.'%');
             })
             ->orderByDesc('created_at')
             ->paginate($perPage);
@@ -52,8 +52,8 @@ class SongController extends Controller
             ->published()
             ->where(function ($q) use ($song) {
                 $q->where('id', $song)
-                  ->orWhere('slug', $song)
-                  ->orWhere('uuid', $song);
+                    ->orWhere('slug', $song)
+                    ->orWhere('uuid', $song);
             })
             ->firstOrFail();
 
@@ -70,14 +70,14 @@ class SongController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $songs
+                'data' => $songs,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch trending songs',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -92,14 +92,14 @@ class SongController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $songs
+                'data' => $songs,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch new releases',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -114,14 +114,14 @@ class SongController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $songs
+                'data' => $songs,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch songs by genre',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -131,10 +131,10 @@ class SongController extends Controller
         try {
             $query = $request->get('q');
 
-            if (!$query) {
+            if (! $query) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Search query is required'
+                    'message' => 'Search query is required',
                 ], 400);
             }
 
@@ -145,14 +145,14 @@ class SongController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $songs
+                'data' => $songs,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Search failed',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -174,14 +174,14 @@ class SongController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Play recorded successfully',
-                'data' => $playHistory
+                'data' => $playHistory,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], $e->getCode() === 403 ? 403 : 500);
         }
     }
@@ -196,14 +196,14 @@ class SongController extends Controller
                 'success' => true,
                 'message' => $result['message'],
                 'download_url' => $result['download_url'],
-                'expires_at' => $result['expires_at']
+                'expires_at' => $result['expires_at'],
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => $e->getMessage(),
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 403);
         }
     }
@@ -218,14 +218,14 @@ class SongController extends Controller
                 'success' => true,
                 'message' => $result['message'],
                 'is_liked' => $result['is_liked'],
-                'like_count' => $result['like_count']
+                'like_count' => $result['like_count'],
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to toggle like',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -244,10 +244,10 @@ class SongController extends Controller
     public function isLiked(Song $song): JsonResponse
     {
         try {
-            if (!auth()->check()) {
+            if (! auth()->check()) {
                 return response()->json([
                     'success' => true,
-                    'isLiked' => false
+                    'isLiked' => false,
                 ]);
             }
 
@@ -258,18 +258,17 @@ class SongController extends Controller
 
             return response()->json([
                 'success' => true,
-                'isLiked' => $isLiked
+                'isLiked' => $isLiked,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to check like status',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
-
 
     /**
      * Alias for recordPlay method to match API routes

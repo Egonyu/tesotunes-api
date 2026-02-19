@@ -3,15 +3,15 @@
 namespace App\Http\Controllers\Api\Podcast;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\PodcastEpisodeResource;
+use App\Http\Resources\PodcastResource;
 use App\Models\Podcast;
 use App\Models\PodcastCategory;
 use App\Models\PodcastEpisode;
-use App\Services\Podcast\RssFeedService;
 use App\Services\Podcast\AnalyticsService;
-use App\Http\Resources\PodcastResource;
-use App\Http\Resources\PodcastEpisodeResource;
-use Illuminate\Http\Request;
+use App\Services\Podcast\RssFeedService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 class PodcastApiController extends Controller
@@ -46,9 +46,9 @@ class PodcastApiController extends Controller
 
         $sort = $request->get('sort', 'latest');
         match ($sort) {
-            'popular'  => $query->orderByDesc('total_listen_count'),
+            'popular' => $query->orderByDesc('total_listen_count'),
             'trending' => $query->orderByDesc('subscriber_count'),
-            default    => $query->latest('created_at'),
+            default => $query->latest('created_at'),
         };
 
         return PodcastResource::collection(
@@ -87,9 +87,9 @@ class PodcastApiController extends Controller
 
         $sort = $request->get('sort', 'latest');
         match ($sort) {
-            'oldest'  => $query->oldest('created_at'),
+            'oldest' => $query->oldest('created_at'),
             'popular' => $query->orderByDesc('listen_count'),
-            default   => $query->latest('created_at'),
+            default => $query->latest('created_at'),
         };
 
         return PodcastEpisodeResource::collection(
@@ -111,8 +111,8 @@ class PodcastApiController extends Controller
         $rss = $this->rssFeedService->generate($podcast);
 
         return response($rss, 200, [
-            'Content-Type'  => 'application/rss+xml; charset=UTF-8',
-            'Cache-Control' => 'public, max-age=' . (config('podcast.rss.ttl', 60) * 60),
+            'Content-Type' => 'application/rss+xml; charset=UTF-8',
+            'Cache-Control' => 'public, max-age='.(config('podcast.rss.ttl', 60) * 60),
         ]);
     }
 
@@ -198,10 +198,10 @@ class PodcastApiController extends Controller
 
         return response()->json([
             'data' => $categories->map(fn ($c) => [
-                'id'            => $c->id,
-                'name'          => $c->name,
-                'slug'          => $c->slug ?? null,
-                'itunes_id'     => $c->itunes_id ?? null,
+                'id' => $c->id,
+                'name' => $c->name,
+                'slug' => $c->slug ?? null,
+                'itunes_id' => $c->itunes_id ?? null,
                 'podcast_count' => $c->podcasts_count,
             ]),
         ]);
@@ -231,7 +231,7 @@ class PodcastApiController extends Controller
             ->with('podcast')
             ->firstOrFail();
 
-        if ($episode->is_premium && !$this->canAccessPremium($request->user(), $episode)) {
+        if ($episode->is_premium && ! $this->canAccessPremium($request->user(), $episode)) {
             return response()->json(['message' => 'Premium subscription required to access this episode.'], 403);
         }
 
@@ -242,21 +242,21 @@ class PodcastApiController extends Controller
         }
 
         $listen = $this->analyticsService->trackListen($episode, [
-            'user_id'         => $request->user()?->id,
-            'session_id'      => $request->input('session_id', session()->getId()),
-            'ip_address'      => $request->ip(),
-            'user_agent'      => $request->userAgent(),
+            'user_id' => $request->user()?->id,
+            'session_id' => $request->input('session_id', session()->getId()),
+            'ip_address' => $request->ip(),
+            'user_agent' => $request->userAgent(),
             'listen_duration' => $request->input('duration_seconds', 0),
-            'started_at'      => $request->input('started_at', now()),
-            'last_position'   => $request->input('position', 0),
-            'device_type'     => $this->detectDeviceType($request->userAgent()),
+            'started_at' => $request->input('started_at', now()),
+            'last_position' => $request->input('position', 0),
+            'device_type' => $this->detectDeviceType($request->userAgent()),
         ]);
 
         return response()->json([
             'data' => [
                 'stream_url' => $episode->audio_url,
-                'episode'    => new PodcastEpisodeResource($episode),
-                'listen_id'  => $listen->id,
+                'episode' => new PodcastEpisodeResource($episode),
+                'listen_id' => $listen->id,
             ],
         ]);
     }
@@ -270,13 +270,13 @@ class PodcastApiController extends Controller
             ->with('podcast')
             ->firstOrFail();
 
-        if ($episode->is_premium && !$this->canAccessPremium($request->user(), $episode)) {
+        if ($episode->is_premium && ! $this->canAccessPremium($request->user(), $episode)) {
             return response()->json(['message' => 'Premium subscription required to download this episode.'], 403);
         }
 
         $this->analyticsService->trackDownload($episode, [
-            'user_id'    => $request->user()?->id,
-            'quality'    => $request->input('quality', 'medium'),
+            'user_id' => $request->user()?->id,
+            'quality' => $request->input('quality', 'medium'),
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
         ]);
@@ -284,8 +284,8 @@ class PodcastApiController extends Controller
         return response()->json([
             'data' => [
                 'download_url' => $episode->audio_url,
-                'file_size'    => $episode->file_size,
-                'mime_type'    => $episode->mime_type,
+                'file_size' => $episode->file_size,
+                'mime_type' => $episode->mime_type,
             ],
         ]);
     }
@@ -305,7 +305,7 @@ class PodcastApiController extends Controller
 
     protected function canAccessPremium(?object $user, PodcastEpisode $episode): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 

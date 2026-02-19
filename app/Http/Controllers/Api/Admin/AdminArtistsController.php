@@ -32,7 +32,7 @@ class AdminArtistsController extends Controller
                 'artists.total_plays_count as total_plays',
                 'artists.created_at',
                 'users.email',
-                'users.username'
+                'users.username',
             ])
             ->join('users', 'artists.user_id', '=', 'users.id');
 
@@ -41,10 +41,10 @@ class AdminArtistsController extends Controller
         }
 
         if ($search) {
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('artists.stage_name', 'LIKE', "%{$search}%")
-                  ->orWhere('users.email', 'LIKE', "%{$search}%")
-                  ->orWhere('users.username', 'LIKE', "%{$search}%");
+                    ->orWhere('users.email', 'LIKE', "%{$search}%")
+                    ->orWhere('users.username', 'LIKE', "%{$search}%");
             });
         }
 
@@ -53,8 +53,9 @@ class AdminArtistsController extends Controller
         // Transform data to include full URLs
         $data = collect($artists->items())->map(function ($artist) {
             $artist->avatar_url = $artist->avatar
-                ? url('storage/' . $artist->avatar)
+                ? url('storage/'.$artist->avatar)
                 : null;
+
             return $artist;
         })->toArray();
 
@@ -138,7 +139,7 @@ class AdminArtistsController extends Controller
             ->where('artists.id', $id)
             ->first();
 
-        if (!$artist) {
+        if (! $artist) {
             return response()->json([
                 'message' => 'Artist not found.',
             ], 404);
@@ -146,10 +147,10 @@ class AdminArtistsController extends Controller
 
         // Add full URLs
         $artist->avatar_url = $artist->avatar
-            ? url('storage/' . $artist->avatar)
+            ? url('storage/'.$artist->avatar)
             : null;
         $artist->cover_url = $artist->cover_image
-            ? url('storage/' . $artist->cover_image)
+            ? url('storage/'.$artist->cover_image)
             : null;
 
         // Parse social_links JSON
@@ -188,7 +189,8 @@ class AdminArtistsController extends Controller
             ->limit(5)
             ->get()
             ->map(function ($song) {
-                $song->cover_url = $song->cover_url ? url('storage/' . $song->cover_url) : null;
+                $song->cover_url = $song->cover_url ? url('storage/'.$song->cover_url) : null;
+
                 return $song;
             })
             ->toArray();
@@ -201,7 +203,8 @@ class AdminArtistsController extends Controller
             ->limit(4)
             ->get()
             ->map(function ($album) {
-                $album->cover_url = $album->cover_url ? url('storage/' . $album->cover_url) : null;
+                $album->cover_url = $album->cover_url ? url('storage/'.$album->cover_url) : null;
+
                 return $album;
             })
             ->toArray();
@@ -226,7 +229,7 @@ class AdminArtistsController extends Controller
     public function verify($id)
     {
         $artist = DB::table('artists')->where('id', $id)->first();
-        if (!$artist) {
+        if (! $artist) {
             return response()->json(['message' => 'Artist not found.'], 404);
         }
 
@@ -251,7 +254,7 @@ class AdminArtistsController extends Controller
     {
         $status = $request->input('status');
 
-        if (!in_array($status, ['active', 'pending', 'suspended', 'rejected'])) {
+        if (! in_array($status, ['active', 'pending', 'suspended', 'rejected'])) {
             return response()->json([
                 'message' => 'Invalid status.',
             ], 422);
@@ -275,7 +278,7 @@ class AdminArtistsController extends Controller
     public function destroy($id)
     {
         $artist = DB::table('artists')->where('id', $id)->first();
-        if (!$artist) {
+        if (! $artist) {
             return response()->json(['message' => 'Artist not found.'], 404);
         }
 
@@ -297,7 +300,7 @@ class AdminArtistsController extends Controller
     public function update(Request $request, $id)
     {
         $artist = DB::table('artists')->where('id', $id)->first();
-        if (!$artist) {
+        if (! $artist) {
             return response()->json(['message' => 'Artist not found.'], 404);
         }
 
@@ -306,12 +309,24 @@ class AdminArtistsController extends Controller
         ];
 
         // Basic fields
-        if ($request->has('name')) $data['stage_name'] = $request->input('name');
-        if ($request->has('slug')) $data['slug'] = $request->input('slug');
-        if ($request->has('bio')) $data['bio'] = $request->input('bio');
-        if ($request->has('website')) $data['website_url'] = $request->input('website');
-        if ($request->has('status')) $data['status'] = $request->input('status');
-        if ($request->has('is_verified')) $data['is_verified'] = (bool) $request->input('is_verified');
+        if ($request->has('name')) {
+            $data['stage_name'] = $request->input('name');
+        }
+        if ($request->has('slug')) {
+            $data['slug'] = $request->input('slug');
+        }
+        if ($request->has('bio')) {
+            $data['bio'] = $request->input('bio');
+        }
+        if ($request->has('website')) {
+            $data['website_url'] = $request->input('website');
+        }
+        if ($request->has('status')) {
+            $data['status'] = $request->input('status');
+        }
+        if ($request->has('is_verified')) {
+            $data['is_verified'] = (bool) $request->input('is_verified');
+        }
 
         // Social links — merge into JSON
         $socialKeys = ['spotify_url', 'apple_music_url', 'youtube_url', 'instagram_url', 'twitter_url', 'facebook_url', 'tiktok_url'];
@@ -371,7 +386,7 @@ class AdminArtistsController extends Controller
     {
         $artist = DB::table('artists')->where('id', $id)->first();
 
-        if (!$artist) {
+        if (! $artist) {
             return response()->json([
                 'message' => 'Artist not found.',
             ], 404);
@@ -389,7 +404,7 @@ class AdminArtistsController extends Controller
 
         return response()->json([
             'message' => $isFeatured ? 'Artist unfeatured.' : 'Artist featured.',
-            'is_featured' => !$isFeatured,
+            'is_featured' => ! $isFeatured,
         ]);
     }
 
@@ -400,7 +415,7 @@ class AdminArtistsController extends Controller
     {
         $artist = DB::table('artists')->where('id', $id)->first();
 
-        if (!$artist) {
+        if (! $artist) {
             return response()->json([
                 'message' => 'Artist not found.',
             ], 404);
@@ -428,7 +443,7 @@ class AdminArtistsController extends Controller
     public function approve($id)
     {
         $artist = DB::table('artists')->where('id', $id)->first();
-        if (!$artist) {
+        if (! $artist) {
             return response()->json(['message' => 'Artist not found.'], 404);
         }
 
@@ -450,7 +465,7 @@ class AdminArtistsController extends Controller
     public function suspend($id)
     {
         $artist = DB::table('artists')->where('id', $id)->first();
-        if (!$artist) {
+        if (! $artist) {
             return response()->json(['message' => 'Artist not found.'], 404);
         }
 

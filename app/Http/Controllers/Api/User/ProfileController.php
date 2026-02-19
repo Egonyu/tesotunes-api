@@ -3,14 +3,11 @@
 namespace App\Http\Controllers\Api\User;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\UserResource;
-use App\Http\Resources\SongResource;
 use App\Http\Resources\PlaylistResource;
-use App\Http\Resources\ArtistResource;
+use App\Http\Resources\SongResource;
+use App\Http\Resources\UserResource;
 use App\Models\User;
-use App\Models\Like;
 use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
 
 class ProfileController extends Controller
@@ -137,7 +134,7 @@ class ProfileController extends Controller
                     'id' => $u->artist->id,
                     'name' => $u->artist->stage_name ?? $u->name,
                     'slug' => $u->artist->slug,
-                    'avatar_url' => $u->avatar ? url('storage/' . $u->avatar) : null,
+                    'avatar_url' => $u->avatar ? url('storage/'.$u->avatar) : null,
                     'is_verified' => (bool) $u->artist->is_verified,
                 ]),
                 'counts' => [
@@ -159,7 +156,7 @@ class ProfileController extends Controller
         $currentUser = $request->user();
 
         // Check privacy settings
-        if (!$user->settings?->profile_public && (!$currentUser || $user->id !== $currentUser->id)) {
+        if (! $user->settings?->profile_public && (! $currentUser || $user->id !== $currentUser->id)) {
             return response()->json(['message' => 'This profile is private'], 403);
         }
 

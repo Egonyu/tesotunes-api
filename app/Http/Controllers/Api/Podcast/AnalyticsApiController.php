@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\Podcast;
 
 use App\Http\Controllers\Controller;
 use App\Models\Episode;
-use Illuminate\Http\Request;
 
 class AnalyticsApiController extends Controller
 {

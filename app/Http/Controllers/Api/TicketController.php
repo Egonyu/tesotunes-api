@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Event;
-use App\Models\EventTicket;
 use App\Models\EventAttendee;
+use App\Models\EventTicket;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -33,14 +33,14 @@ class TicketController extends Controller
             ->findOrFail($validated['ticket_tier_id']);
 
         // Validate ticket is on sale
-        if (!$ticketType->isOnSale()) {
+        if (! $ticketType->isOnSale()) {
             return response()->json(['message' => 'This ticket type is not currently available'], 422);
         }
 
         // Validate quantity
-        if (!$ticketType->isValidOrderQuantity($validated['quantity'])) {
+        if (! $ticketType->isValidOrderQuantity($validated['quantity'])) {
             return response()->json([
-                'message' => "Order quantity must be between {$ticketType->min_per_order} and {$ticketType->max_per_order}"
+                'message' => "Order quantity must be between {$ticketType->min_per_order} and {$ticketType->max_per_order}",
             ], 422);
         }
 
@@ -83,11 +83,11 @@ class TicketController extends Controller
         $ticketType->reserve($validated['quantity']);
 
         // Generate tickets
-        $orderId = 'ORD-' . strtoupper(Str::random(10));
+        $orderId = 'ORD-'.strtoupper(Str::random(10));
         $tickets = [];
 
         for ($i = 0; $i < $validated['quantity']; $i++) {
-            $ticketNumber = 'TKT-' . strtoupper(Str::random(8));
+            $ticketNumber = 'TKT-'.strtoupper(Str::random(8));
             $qrData = json_encode([
                 'ticket' => $ticketNumber,
                 'event' => $event->id,
@@ -130,7 +130,7 @@ class TicketController extends Controller
         // For mobile money, initiate payment via ZengaPay (external webhook will confirm)
         $paymentReference = null;
         if (in_array($paymentMethod, ['mtn_momo', 'airtel_money'])) {
-            $paymentReference = 'PAY-' . strtoupper(Str::random(12));
+            $paymentReference = 'PAY-'.strtoupper(Str::random(12));
             // TODO: Integrate ZengaPay API call here
         }
 
@@ -180,7 +180,7 @@ class TicketController extends Controller
                     'id' => $r->event->id,
                     'title' => $r->event->title,
                     'starts_at' => $r->event->starts_at?->toIso8601String(),
-                    'artwork' => $r->event->artwork ? url('storage/' . $r->event->artwork) : null,
+                    'artwork' => $r->event->artwork ? url('storage/'.$r->event->artwork) : null,
                     'venue_name' => $r->event->venue_name,
                     'city' => $r->event->city,
                 ] : null,
@@ -230,7 +230,7 @@ class TicketController extends Controller
                     'ends_at' => $registration->event->ends_at?->toIso8601String(),
                     'venue_name' => $registration->event->venue_name,
                     'city' => $registration->event->city,
-                    'artwork' => $registration->event->artwork ? url('storage/' . $registration->event->artwork) : null,
+                    'artwork' => $registration->event->artwork ? url('storage/'.$registration->event->artwork) : null,
                 ] : null,
                 'created_at' => $registration->created_at?->toIso8601String(),
             ],
@@ -246,7 +246,7 @@ class TicketController extends Controller
             ->where('confirmation_code', $ticketNumber)
             ->first();
 
-        if (!$registration) {
+        if (! $registration) {
             return response()->json(['message' => 'Invalid ticket number', 'valid' => false], 404);
         }
 
@@ -278,7 +278,7 @@ class TicketController extends Controller
 
         $registration = EventAttendee::where('confirmation_code', $validated['ticket_number'])->first();
 
-        if (!$registration) {
+        if (! $registration) {
             return response()->json(['message' => 'Invalid ticket number'], 404);
         }
 
@@ -288,7 +288,7 @@ class TicketController extends Controller
 
         if ($registration->checked_in_at) {
             return response()->json([
-                'message' => 'Ticket already checked in at ' . $registration->checked_in_at->format('M j, Y g:i A'),
+                'message' => 'Ticket already checked in at '.$registration->checked_in_at->format('M j, Y g:i A'),
                 'data' => [
                     'ticket_number' => $registration->confirmation_code,
                     'checked_in_at' => $registration->checked_in_at->toIso8601String(),

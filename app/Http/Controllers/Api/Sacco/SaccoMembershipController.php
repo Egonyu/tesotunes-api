@@ -20,7 +20,7 @@ class SaccoMembershipController extends Controller
         if ($search = $request->get('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('member_number', 'like', "%{$search}%")
-                  ->orWhereHas('user', fn ($u) => $u->where('username', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"));
+                    ->orWhereHas('user', fn ($u) => $u->where('username', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"));
             });
         }
 
@@ -53,7 +53,7 @@ class SaccoMembershipController extends Controller
             ...$validated,
             'status' => 'active',
             'joined_at' => now(),
-            'member_number' => 'MBR' . now()->format('Ymd') . rand(10000, 99999),
+            'member_number' => 'MBR'.now()->format('Ymd').rand(10000, 99999),
         ]);
 
         $member->load('user:id,username,email');
@@ -116,7 +116,7 @@ class SaccoMembershipController extends Controller
 
         return response()->json([
             'data' => new SaccoMemberResource($member),
-            'message' => 'Member status updated to ' . $validated['status'] . '.',
+            'message' => 'Member status updated to '.$validated['status'].'.',
         ]);
     }
 }

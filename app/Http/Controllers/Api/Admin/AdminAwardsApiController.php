@@ -3,9 +3,9 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\AwardResource;
 use App\Http\Resources\AwardCategoryResource;
 use App\Http\Resources\AwardNominationResource;
+use App\Http\Resources\AwardResource;
 use App\Models\Award;
 use App\Models\AwardCategory;
 use App\Models\AwardNomination;
@@ -47,7 +47,7 @@ class AdminAwardsApiController extends Controller
         $perPage = min((int) $request->get('per_page', 15), 100);
 
         $query = Award::withCount(['categories', 'nominations', 'votes'])
-            ->when($request->filled('search'), fn ($q) => $q->where('title', 'like', '%' . $request->search . '%'))
+            ->when($request->filled('search'), fn ($q) => $q->where('title', 'like', '%'.$request->search.'%'))
             ->when($request->filled('status') && $request->status !== 'all', fn ($q) => $q->where('status', $request->status))
             ->latest('year')
             ->latest('created_at');
@@ -84,7 +84,7 @@ class AdminAwardsApiController extends Controller
         $perPage = min((int) $request->get('per_page', 15), 100);
 
         $awards = Award::withCount(['categories', 'nominations'])
-            ->when($request->filled('search'), fn ($q) => $q->where('title', 'like', '%' . $request->search . '%'))
+            ->when($request->filled('search'), fn ($q) => $q->where('title', 'like', '%'.$request->search.'%'))
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->status))
             ->latest('year')
             ->paginate($perPage);
@@ -217,7 +217,7 @@ class AdminAwardsApiController extends Controller
             $updateData['slug'] = Str::slug($validated['name']);
         }
         foreach (['year', 'description', 'season', 'status', 'visibility',
-                   'allow_public_nominations', 'allow_public_voting', 'votes_per_category'] as $field) {
+            'allow_public_nominations', 'allow_public_voting', 'votes_per_category'] as $field) {
             if (array_key_exists($field, $validated)) {
                 $updateData[$field] = $validated[$field];
             }
@@ -282,7 +282,7 @@ class AdminAwardsApiController extends Controller
         $perPage = min((int) $request->get('per_page', 20), 100);
 
         $categories = AwardCategory::withCount('nominations')
-            ->when($request->filled('search'), fn ($q) => $q->where('name', 'like', '%' . $request->search . '%'))
+            ->when($request->filled('search'), fn ($q) => $q->where('name', 'like', '%'.$request->search.'%'))
             ->when($request->filled('type'), fn ($q) => $q->where('category_type', $request->type))
             ->when($request->filled('status'), function ($q) use ($request) {
                 $q->where('is_active', $request->status === 'active');
@@ -429,7 +429,7 @@ class AdminAwardsApiController extends Controller
 
         $nominations = AwardNomination::with(['award', 'category', 'nominatedBy:id,username'])
             ->withCount('votes')
-            ->when($request->filled('search'), fn ($q) => $q->where('nominee_name', 'like', '%' . $request->search . '%'))
+            ->when($request->filled('search'), fn ($q) => $q->where('nominee_name', 'like', '%'.$request->search.'%'))
             ->when($request->filled('status') && $request->status !== 'all', fn ($q) => $q->where('status', $request->status))
             ->when($request->filled('award_id'), fn ($q) => $q->where('award_id', $request->award_id))
             ->when($request->filled('category_id'), fn ($q) => $q->where('category_id', $request->category_id))

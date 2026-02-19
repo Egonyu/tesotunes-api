@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -32,8 +32,8 @@ class DashboardController extends Controller
             ->where('created_at', '>=', Carbon::now()->subWeek()->startOfWeek())
             ->where('created_at', '<', $thisWeek)
             ->count();
-        $usersChange = $lastWeekUsers > 0 
-            ? (($newThisWeek - $lastWeekUsers) / $lastWeekUsers) * 100 
+        $usersChange = $lastWeekUsers > 0
+            ? (($newThisWeek - $lastWeekUsers) / $lastWeekUsers) * 100
             : 0;
 
         // Songs stats
@@ -41,16 +41,16 @@ class DashboardController extends Controller
         $publishedSongs = DB::table('songs')->where('status', 'published')->count();
         $pendingReview = DB::table('songs')->where('status', 'pending_review')->count();
         $draftSongs = DB::table('songs')->where('status', 'draft')->count();
-        
+
         $totalPlays = DB::table('plays')->count();
         $playsToday = DB::table('plays')->whereDate('created_at', $today)->count();
-        
+
         $lastWeekSongs = DB::table('songs')
             ->where('created_at', '>=', Carbon::now()->subWeek()->startOfWeek())
             ->where('created_at', '<', $thisWeek)
             ->count();
-        $songsChange = $lastWeekSongs > 0 
-            ? ((DB::table('songs')->where('created_at', '>=', $thisWeek)->count() - $lastWeekSongs) / $lastWeekSongs) * 100 
+        $songsChange = $lastWeekSongs > 0
+            ? ((DB::table('songs')->where('created_at', '>=', $thisWeek)->count() - $lastWeekSongs) / $lastWeekSongs) * 100
             : 0;
 
         // Albums stats
@@ -80,9 +80,9 @@ class DashboardController extends Controller
             ->where('created_at', '>=', $lastMonth->startOfMonth())
             ->where('created_at', '<', $thisMonth)
             ->sum('amount') ?? 0;
-        
-        $revenueChange = $lastMonthRevenue > 0 
-            ? (($thisMonthRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100 
+
+        $revenueChange = $lastMonthRevenue > 0
+            ? (($thisMonthRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100
             : 0;
 
         // Activity stats

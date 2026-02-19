@@ -123,7 +123,7 @@ class PaymentController extends Controller
         // Find the payment by transaction reference
         $transactionId = $payload['transactionId'] ?? $payload['transaction_id'] ?? $payload['reference'] ?? null;
 
-        if (!$transactionId) {
+        if (! $transactionId) {
             return response()->json(['message' => 'Missing transaction reference.'], 400);
         }
 
@@ -131,8 +131,9 @@ class PaymentController extends Controller
             ->orWhere('provider_transaction_id', $transactionId)
             ->first();
 
-        if (!$payment) {
+        if (! $payment) {
             \Illuminate\Support\Facades\Log::warning("Payment not found for webhook transaction: {$transactionId}");
+
             return response()->json(['message' => 'Payment not found.'], 404);
         }
 

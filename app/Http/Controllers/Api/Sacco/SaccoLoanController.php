@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\Sacco;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SaccoLoanResource;
-use App\Http\Resources\SaccoTransactionResource;
 use App\Models\Sacco\SaccoLoan;
 use App\Models\Sacco\SaccoLoanRepayment;
 use App\Models\Sacco\SaccoMember;

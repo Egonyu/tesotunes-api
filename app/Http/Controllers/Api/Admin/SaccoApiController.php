@@ -66,8 +66,8 @@ class SaccoApiController extends Controller
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('users.username', 'LIKE', "%{$search}%")
-                  ->orWhere('users.email', 'LIKE', "%{$search}%")
-                  ->orWhere('sacco_members.member_number', 'LIKE', "%{$search}%");
+                    ->orWhere('users.email', 'LIKE', "%{$search}%")
+                    ->orWhere('sacco_members.member_number', 'LIKE', "%{$search}%");
             });
         }
 
@@ -111,7 +111,7 @@ class SaccoApiController extends Controller
         if ($search) {
             $query->where(function ($q) use ($search) {
                 $q->where('users.username', 'LIKE', "%{$search}%")
-                  ->orWhere('sacco_loans.loan_number', 'LIKE', "%{$search}%");
+                    ->orWhere('sacco_loans.loan_number', 'LIKE', "%{$search}%");
             });
         }
 
@@ -150,7 +150,7 @@ class SaccoApiController extends Controller
             ->where('sacco_loans.id', $id)
             ->first();
 
-        if (!$loan) {
+        if (! $loan) {
             return response()->json([
                 'message' => 'Loan not found.',
             ], 404);

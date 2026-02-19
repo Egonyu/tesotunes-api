@@ -7,8 +7,8 @@ use App\Http\Resources\SongResource;
 use App\Models\Song;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class SongsApiController extends Controller
 {
@@ -23,10 +23,10 @@ class SongsApiController extends Controller
         if ($search = $request->input('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('slug', 'like', "%{$search}%")
-                  ->orWhereHas('artist', function ($aq) use ($search) {
-                      $aq->where('stage_name', 'like', "%{$search}%");
-                  });
+                    ->orWhere('slug', 'like', "%{$search}%")
+                    ->orWhereHas('artist', function ($aq) use ($search) {
+                        $aq->where('stage_name', 'like', "%{$search}%");
+                    });
             });
         }
 
@@ -104,7 +104,7 @@ class SongsApiController extends Controller
 
         // Build a comprehensive response for admin
         $data = (new SongResource($song))->toArray(request());
-        
+
         // Add admin-specific fields
         $data['status'] = $song->status;
         $data['visibility'] = $song->visibility;
@@ -123,8 +123,8 @@ class SongsApiController extends Controller
         $data['producer'] = $song->producer;
         $data['copyright_holder'] = $song->copyright_holder;
         $data['copyright_year'] = $song->copyright_year;
-        $data['cover_url'] = $song->artwork ? url('storage/' . $song->artwork) : null;
-        $data['audio_file_url'] = $song->audio_file_320 ? url('storage/' . $song->audio_file_320) : ($song->audio_file_original ? url('storage/' . $song->audio_file_original) : null);
+        $data['cover_url'] = $song->artwork ? url('storage/'.$song->artwork) : null;
+        $data['audio_file_url'] = $song->audio_file_320 ? url('storage/'.$song->audio_file_320) : ($song->audio_file_original ? url('storage/'.$song->audio_file_original) : null);
         $data['file_size_bytes'] = $song->file_size_bytes;
         $data['file_format'] = $song->file_format;
         $data['bitrate_original'] = $song->bitrate_original;
@@ -181,7 +181,7 @@ class SongsApiController extends Controller
         $originalSlug = $slug;
         $counter = 1;
         while (Song::where('slug', $slug)->exists()) {
-            $slug = $originalSlug . '-' . $counter++;
+            $slug = $originalSlug.'-'.$counter++;
         }
 
         // Handle audio file upload
@@ -199,7 +199,7 @@ class SongsApiController extends Controller
 
         // Parse duration string to seconds
         $durationSeconds = null;
-        if (!empty($validated['duration'])) {
+        if (! empty($validated['duration'])) {
             $parts = explode(':', $validated['duration']);
             if (count($parts) === 2) {
                 $durationSeconds = (int) $parts[0] * 60 + (int) $parts[1];
@@ -223,7 +223,7 @@ class SongsApiController extends Controller
             'track_number' => $validated['track_number'] ?? null,
             'disc_number' => $validated['disc_number'] ?? null,
             'isrc_code' => $validated['isrc'] ?? null,
-            'credits' => !empty($validated['credits']) ? json_decode($validated['credits'], true) : null,
+            'credits' => ! empty($validated['credits']) ? json_decode($validated['credits'], true) : null,
             'featured_artists' => $validated['featured_artists'] ?? null,
             'duration_seconds' => $durationSeconds,
             'audio_file_original' => $audioPath,
@@ -236,7 +236,7 @@ class SongsApiController extends Controller
         ]);
 
         // Sync genres
-        if (!empty($validated['genre_ids'])) {
+        if (! empty($validated['genre_ids'])) {
             $song->genres()->sync($validated['genre_ids']);
         }
 
@@ -285,35 +285,61 @@ class SongsApiController extends Controller
 
         $updateData = [];
 
-        if (isset($validated['title'])) $updateData['title'] = $validated['title'];
-        if (isset($validated['artist_id'])) $updateData['artist_id'] = $validated['artist_id'];
-        if (isset($validated['status'])) $updateData['status'] = $validated['status'];
-        if (isset($validated['album_id'])) $updateData['album_id'] = $validated['album_id'];
-        if (isset($validated['description'])) $updateData['description'] = $validated['description'];
-        if (isset($validated['lyrics'])) $updateData['lyrics'] = $validated['lyrics'];
-        if (isset($validated['release_date'])) $updateData['release_date'] = $validated['release_date'];
-        if (isset($validated['track_number'])) $updateData['track_number'] = $validated['track_number'];
-        if (isset($validated['disc_number'])) $updateData['disc_number'] = $validated['disc_number'];
-        if (isset($validated['isrc'])) $updateData['isrc_code'] = $validated['isrc'];
-        if (isset($validated['featured_artists'])) $updateData['featured_artists'] = $validated['featured_artists'];
+        if (isset($validated['title'])) {
+            $updateData['title'] = $validated['title'];
+        }
+        if (isset($validated['artist_id'])) {
+            $updateData['artist_id'] = $validated['artist_id'];
+        }
+        if (isset($validated['status'])) {
+            $updateData['status'] = $validated['status'];
+        }
+        if (isset($validated['album_id'])) {
+            $updateData['album_id'] = $validated['album_id'];
+        }
+        if (isset($validated['description'])) {
+            $updateData['description'] = $validated['description'];
+        }
+        if (isset($validated['lyrics'])) {
+            $updateData['lyrics'] = $validated['lyrics'];
+        }
+        if (isset($validated['release_date'])) {
+            $updateData['release_date'] = $validated['release_date'];
+        }
+        if (isset($validated['track_number'])) {
+            $updateData['track_number'] = $validated['track_number'];
+        }
+        if (isset($validated['disc_number'])) {
+            $updateData['disc_number'] = $validated['disc_number'];
+        }
+        if (isset($validated['isrc'])) {
+            $updateData['isrc_code'] = $validated['isrc'];
+        }
+        if (isset($validated['featured_artists'])) {
+            $updateData['featured_artists'] = $validated['featured_artists'];
+        }
 
-        if ($request->has('explicit')) $updateData['is_explicit'] = $request->boolean('explicit');
-        if ($request->has('is_featured')) $updateData['is_featured'] = $request->boolean('is_featured');
+        if ($request->has('explicit')) {
+            $updateData['is_explicit'] = $request->boolean('explicit');
+        }
+        if ($request->has('is_featured')) {
+            $updateData['is_featured'] = $request->boolean('is_featured');
+        }
 
-        if (!empty($validated['credits'])) {
+        if (! empty($validated['credits'])) {
             $updateData['credits'] = json_decode($validated['credits'], true);
         }
 
         if (isset($validated['slug'])) {
             $slug = $validated['slug'];
             $existing = Song::where('slug', $slug)->where('id', '!=', $id)->exists();
-            if (!$existing) {
+            if (! $existing) {
                 $updateData['slug'] = $slug;
             }
         }
 
         // Parse duration
-        if (!empty($validated['duration'])) {
+        if (! empty($validated['duration'])) {
             $parts = explode(':', $validated['duration']);
             if (count($parts) === 2) {
                 $updateData['duration_seconds'] = (int) $parts[0] * 60 + (int) $parts[1];
@@ -348,7 +374,7 @@ class SongsApiController extends Controller
         }
 
         // Update genre
-        if (!empty($validated['genre_ids'])) {
+        if (! empty($validated['genre_ids'])) {
             $updateData['primary_genre_id'] = $validated['genre_ids'][0];
             $song->genres()->sync($validated['genre_ids']);
         }
@@ -413,7 +439,7 @@ class SongsApiController extends Controller
     public function toggleFeatured(int $id): JsonResponse
     {
         $song = Song::findOrFail($id);
-        $song->update(['is_featured' => !$song->is_featured]);
+        $song->update(['is_featured' => ! $song->is_featured]);
 
         return response()->json([
             'message' => $song->is_featured ? 'Song marked as featured' : 'Song removed from featured',
@@ -487,7 +513,7 @@ class SongsApiController extends Controller
                         'id' => $play->user->id,
                         'name' => $play->user->name,
                         'username' => $play->user->username,
-                        'avatar' => $play->user->avatar ? url('storage/' . $play->user->avatar) : null,
+                        'avatar' => $play->user->avatar ? url('storage/'.$play->user->avatar) : null,
                     ] : null,
                     'played_at' => $play->created_at->toIso8601String(),
                     'duration_listened' => $play->duration_listened ?? null,

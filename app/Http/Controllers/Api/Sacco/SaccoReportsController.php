@@ -4,14 +4,12 @@ namespace App\Http\Controllers\Api\Sacco;
 
 use App\Http\Controllers\Controller;
 use App\Models\Sacco\SaccoLoan;
-use App\Models\Sacco\SaccoLoanRepayment;
 use App\Models\Sacco\SaccoMember;
 use App\Models\Sacco\SaccoSavingsAccount;
 use App\Models\Sacco\SaccoSavingsTransaction;
 use App\Models\Sacco\SaccoShare;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class SaccoReportsController extends Controller
 {

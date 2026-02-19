@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Role;
 use App\Models\Permission;
+use App\Models\Role;
 use App\Models\User;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class RoleController extends Controller
 {
@@ -48,7 +48,7 @@ class RoleController extends Controller
     {
         $role->load(['permissions', 'users' => function ($query) {
             $query->select(['id', 'name', 'email', 'role', 'is_active'])
-                  ->limit(50);
+                ->limit(50);
         }]);
 
         return response()->json([
@@ -106,14 +106,14 @@ class RoleController extends Controller
      */
     public function update(Request $request, Role $role): JsonResponse
     {
-        if ($role->name === 'super_admin' && !$request->user()->isSuperAdmin()) {
+        if ($role->name === 'super_admin' && ! $request->user()->isSuperAdmin()) {
             return response()->json([
                 'message' => 'Cannot modify super admin role.',
             ], 403);
         }
 
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:roles,name,' . $role->id,
+            'name' => 'required|string|max:255|unique:roles,name,'.$role->id,
             'display_name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'priority' => 'required|integer|min:0|max:10',
@@ -177,13 +177,13 @@ class RoleController extends Controller
         $user = User::findOrFail($validated['user_id']);
         $currentUser = $request->user();
 
-        if (!$currentUser->canManageUser($user)) {
+        if (! $currentUser->canManageUser($user)) {
             return response()->json([
                 'message' => 'Insufficient permissions to manage this user.',
             ], 403);
         }
 
-        if ($validated['role_name'] === 'super_admin' && !$currentUser->isSuperAdmin()) {
+        if ($validated['role_name'] === 'super_admin' && ! $currentUser->isSuperAdmin()) {
             return response()->json([
                 'message' => 'Cannot assign super admin role.',
             ], 403);
@@ -214,13 +214,13 @@ class RoleController extends Controller
         $user = User::findOrFail($validated['user_id']);
         $currentUser = $request->user();
 
-        if (!$currentUser->canManageUser($user)) {
+        if (! $currentUser->canManageUser($user)) {
             return response()->json([
                 'message' => 'Insufficient permissions to manage this user.',
             ], 403);
         }
 
-        if ($validated['role_name'] === 'super_admin' && !$currentUser->isSuperAdmin()) {
+        if ($validated['role_name'] === 'super_admin' && ! $currentUser->isSuperAdmin()) {
             return response()->json([
                 'message' => 'Cannot remove super admin role.',
             ], 403);

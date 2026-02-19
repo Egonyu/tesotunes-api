@@ -86,22 +86,22 @@ class NotificationController extends Controller
 
         $settings = [
             'email_notifications' => [
-                'music'   => ['song_approved', 'distribution_live', 'royalty_payment'],
+                'music' => ['song_approved', 'distribution_live', 'royalty_payment'],
                 'podcast' => ['episode_published', 'new_subscriber'],
-                'store'   => ['order_received', 'payment_received'],
-                'sacco'   => ['loan_approved', 'payment_due'],
+                'store' => ['order_received', 'payment_received'],
+                'sacco' => ['loan_approved', 'payment_due'],
             ],
             'push_notifications' => [
-                'music'   => ['song_approved', 'distribution_live'],
+                'music' => ['song_approved', 'distribution_live'],
                 'podcast' => ['new_subscriber'],
-                'store'   => ['order_received'],
-                'sacco'   => ['loan_approved'],
+                'store' => ['order_received'],
+                'sacco' => ['loan_approved'],
             ],
             'in_app_notifications' => [
-                'music'   => true,
+                'music' => true,
                 'podcast' => true,
-                'store'   => true,
-                'sacco'   => true,
+                'store' => true,
+                'sacco' => true,
             ],
         ];
 
@@ -116,8 +116,8 @@ class NotificationController extends Controller
     public function updateSettings(Request $request)
     {
         $request->validate([
-            'email_notifications'  => 'array',
-            'push_notifications'   => 'array',
+            'email_notifications' => 'array',
+            'push_notifications' => 'array',
             'in_app_notifications' => 'array',
         ]);
 
@@ -193,10 +193,10 @@ class NotificationController extends Controller
 
         return response()->json([
             'data' => [
-                'total_sent'           => $totalSent,
-                'total_read'           => $totalRead,
-                'read_rate'            => $totalSent > 0 ? round(($totalRead / $totalSent) * 100, 1) : 0,
-                'period_days'          => $period,
+                'total_sent' => $totalSent,
+                'total_read' => $totalRead,
+                'read_rate' => $totalSent > 0 ? round(($totalRead / $totalSent) * 100, 1) : 0,
+                'period_days' => $period,
             ],
         ]);
     }
@@ -209,9 +209,9 @@ class NotificationController extends Controller
     public function preview(Request $request)
     {
         $request->validate([
-            'module'  => 'required|string',
-            'type'    => 'required|string',
-            'data'    => 'array',
+            'module' => 'required|string',
+            'type' => 'required|string',
+            'data' => 'array',
         ]);
 
         $tempNotification = new \App\Notifications\CrossModuleNotification(
@@ -224,7 +224,7 @@ class NotificationController extends Controller
 
         return response()->json([
             'data' => [
-                'preview'  => $tempNotification->toArray(Auth::user()),
+                'preview' => $tempNotification->toArray(Auth::user()),
                 'channels' => $tempNotification->via(Auth::user()),
             ],
         ]);

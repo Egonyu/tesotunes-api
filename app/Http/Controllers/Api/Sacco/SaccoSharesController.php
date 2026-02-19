@@ -134,7 +134,7 @@ class SaccoSharesController extends Controller
             ->where('member_id', $member)
             ->first();
 
-        if (!$share) {
+        if (! $share) {
             return response()->json(['data' => null, 'message' => 'No shares found for this member.']);
         }
 

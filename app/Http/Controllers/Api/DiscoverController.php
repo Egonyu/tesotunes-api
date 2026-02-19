@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Song;
 use App\Models\Artist;
 use App\Models\Genre;
 use App\Models\Playlist;
+use App\Models\Song;
 use Illuminate\Http\Request;
 
 class DiscoverController extends Controller
@@ -30,12 +30,12 @@ class DiscoverController extends Controller
             if ($type === 'all' || $type === 'songs') {
                 $songQuery = Song::published()
                     ->withOptimizedRelations()
-                    ->where(function($q) use ($query) {
+                    ->where(function ($q) use ($query) {
                         $q->where('title', 'LIKE', "%{$query}%")
-                          ->orWhere('lyrics', 'LIKE', "%{$query}%")
-                          ->orWhereHas('artist', function($subQuery) use ($query) {
-                              $subQuery->where('stage_name', 'LIKE', "%{$query}%");
-                          });
+                            ->orWhere('lyrics', 'LIKE', "%{$query}%")
+                            ->orWhereHas('artist', function ($subQuery) use ($query) {
+                                $subQuery->where('stage_name', 'LIKE', "%{$query}%");
+                            });
                     });
 
                 if ($genre) {
@@ -50,9 +50,9 @@ class DiscoverController extends Controller
             if ($type === 'all' || $type === 'artists') {
                 $artistQuery = Artist::approved()
                     ->withFreshStats()
-                    ->where(function($q) use ($query) {
+                    ->where(function ($q) use ($query) {
                         $q->where('stage_name', 'LIKE', "%{$query}%")
-                          ->orWhere('bio', 'LIKE', "%{$query}%");
+                            ->orWhere('bio', 'LIKE', "%{$query}%");
                     });
 
                 $this->applySorting($artistQuery, $sortBy, $query, 'stage_name');
@@ -64,9 +64,9 @@ class DiscoverController extends Controller
                 $playlistQuery = Playlist::public()
                     ->with(['owner'])
                     ->withCount(['songs', 'followers'])
-                    ->where(function($q) use ($query) {
+                    ->where(function ($q) use ($query) {
                         $q->where('title', 'LIKE', "%{$query}%")
-                          ->orWhere('description', 'LIKE', "%{$query}%");
+                            ->orWhere('description', 'LIKE', "%{$query}%");
                     });
 
                 $this->applySorting($playlistQuery, $sortBy, $query, 'title');
@@ -79,7 +79,7 @@ class DiscoverController extends Controller
                 'query' => $query,
                 'type' => $type,
                 'results' => $results,
-                'total_results' => collect($results)->sum(fn($items) => count($items)),
+                'total_results' => collect($results)->sum(fn ($items) => count($items)),
             ],
         ]);
     }
@@ -89,7 +89,7 @@ class DiscoverController extends Controller
         $period = $request->get('period', '7d');
         $limit = $request->get('limit', 20);
 
-        $days = match($period) {
+        $days = match ($period) {
             '1d' => 1,
             '7d' => 7,
             '30d' => 30,
@@ -104,7 +104,7 @@ class DiscoverController extends Controller
 
         $trendingArtists = Artist::approved()
             ->withFreshStats()
-            ->whereHas('songs', function($query) use ($days) {
+            ->whereHas('songs', function ($query) use ($days) {
                 $query->published()
                     ->where('created_at', '>=', now()->subDays($days));
             })
@@ -126,14 +126,14 @@ class DiscoverController extends Controller
         $withSongs = $request->boolean('with_songs', false);
         $limit = $request->get('limit', 50);
 
-        $query = Genre::withCount(['songs' => function($query) {
-                $query->published();
-            }])
+        $query = Genre::withCount(['songs' => function ($query) {
+            $query->published();
+        }])
             ->having('songs_count', '>', 0)
             ->orderBy('songs_count', 'desc');
 
         if ($withSongs) {
-            $query->with(['songs' => function($query) {
+            $query->with(['songs' => function ($query) {
                 $query->published()
                     ->withOptimizedRelations()
                     ->orderBy('play_count', 'desc')
@@ -255,7 +255,7 @@ class DiscoverController extends Controller
                         WHEN {$titleField} LIKE ? THEN 2
                         ELSE 3
                     END
-                ", [$searchQuery . '%', '%' . $searchQuery . '%']);
+                ", [$searchQuery.'%', '%'.$searchQuery.'%']);
 
                 if (method_exists($query->getModel(), 'play_count')) {
                     $query->orderBy('play_count', 'desc');

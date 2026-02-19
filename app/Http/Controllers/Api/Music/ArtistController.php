@@ -7,9 +7,8 @@ use App\Http\Resources\AlbumResource;
 use App\Http\Resources\ArtistResource;
 use App\Http\Resources\SongResource;
 use App\Models\Artist;
-use App\Models\UserFollow;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class ArtistController extends Controller
 {
@@ -27,7 +26,7 @@ class ArtistController extends Controller
             ->when($request->filled('country'), fn ($q) => $q->where('country', $request->country))
             ->when($request->filled('genre'), fn ($q) => $q->where('primary_genre_id', $request->genre))
             ->when($request->filled('search'), function ($q) use ($request) {
-                $q->where('stage_name', 'like', '%' . $request->search . '%');
+                $q->where('stage_name', 'like', '%'.$request->search.'%');
             })
             ->orderByDesc('followers_count')
             ->paginate($perPage);
@@ -50,8 +49,8 @@ class ArtistController extends Controller
             ->where('status', 'active')
             ->where(function ($q) use ($artist) {
                 $q->where('id', $artist)
-                  ->orWhere('slug', $artist)
-                  ->orWhere('uuid', $artist);
+                    ->orWhere('slug', $artist)
+                    ->orWhere('uuid', $artist);
             })
             ->firstOrFail();
 
@@ -73,8 +72,8 @@ class ArtistController extends Controller
         $record = Artist::where('status', 'active')
             ->where(function ($q) use ($artist) {
                 $q->where('id', $artist)
-                  ->orWhere('slug', $artist)
-                  ->orWhere('uuid', $artist);
+                    ->orWhere('slug', $artist)
+                    ->orWhere('uuid', $artist);
             })
             ->firstOrFail();
 
@@ -98,8 +97,8 @@ class ArtistController extends Controller
         $record = Artist::where('status', 'active')
             ->where(function ($q) use ($artist) {
                 $q->where('id', $artist)
-                  ->orWhere('slug', $artist)
-                  ->orWhere('uuid', $artist);
+                    ->orWhere('slug', $artist)
+                    ->orWhere('uuid', $artist);
             })
             ->firstOrFail();
 
@@ -141,20 +140,20 @@ class ArtistController extends Controller
                 'success' => true,
                 'message' => $message,
                 'is_following' => $following,
-                'follower_count' => $artist->fresh()->follower_count
+                'follower_count' => $artist->fresh()->follower_count,
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Artist toggle follow error: ' . $e->getMessage(), [
+            \Log::error('Artist toggle follow error: '.$e->getMessage(), [
                 'artist_id' => $artist->id,
                 'user_id' => auth()->id(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to toggle follow',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
@@ -175,7 +174,7 @@ class ArtistController extends Controller
             if ($isAlreadyFollowing) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Already following this artist'
+                    'message' => 'Already following this artist',
                 ], 400);
             }
 
@@ -190,20 +189,20 @@ class ArtistController extends Controller
                 'success' => true,
                 'message' => 'Artist followed successfully',
                 'is_following' => true,
-                'follower_count' => $artist->fresh()->follower_count
+                'follower_count' => $artist->fresh()->follower_count,
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Artist follow error: ' . $e->getMessage(), [
+            \Log::error('Artist follow error: '.$e->getMessage(), [
                 'artist_id' => $artist->id,
                 'user_id' => auth()->id(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to follow artist',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }
@@ -229,20 +228,20 @@ class ArtistController extends Controller
                 'success' => true,
                 'message' => 'Artist unfollowed successfully',
                 'is_following' => false,
-                'follower_count' => $artist->fresh()->follower_count
+                'follower_count' => $artist->fresh()->follower_count,
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('Artist unfollow error: ' . $e->getMessage(), [
+            \Log::error('Artist unfollow error: '.$e->getMessage(), [
                 'artist_id' => $artist->id,
                 'user_id' => auth()->id(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to unfollow artist',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
         }
     }

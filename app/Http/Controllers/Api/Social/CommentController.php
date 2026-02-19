@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api\Social;
 use App\Http\Controllers\Controller;
 use App\Models\Comment;
 use App\Models\Like;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class CommentController extends Controller
@@ -14,12 +14,12 @@ class CommentController extends Controller
     public function index(Request $request, string $commentableType, int $commentableId): JsonResponse
     {
         try {
-            $modelClass = 'App\\Models\\' . ucfirst($commentableType);
+            $modelClass = 'App\\Models\\'.ucfirst($commentableType);
 
-            if (!class_exists($modelClass)) {
+            if (! class_exists($modelClass)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid commentable type'
+                    'message' => 'Invalid commentable type',
                 ], 400);
             }
 
@@ -55,14 +55,14 @@ class CommentController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $comments
+                'data' => $comments,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch comments',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -74,23 +74,23 @@ class CommentController extends Controller
                 'commentable_type' => 'required|string',
                 'commentable_id' => 'required|integer',
                 'content' => 'required|string|max:1000',
-                'parent_id' => 'nullable|integer|exists:comments,id'
+                'parent_id' => 'nullable|integer|exists:comments,id',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
-            $modelClass = 'App\\Models\\' . ucfirst($request->commentable_type);
+            $modelClass = 'App\\Models\\'.ucfirst($request->commentable_type);
 
-            if (!class_exists($modelClass)) {
+            if (! class_exists($modelClass)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Invalid commentable type'
+                    'message' => 'Invalid commentable type',
                 ], 400);
             }
 
@@ -131,7 +131,7 @@ class CommentController extends Controller
                     $commentable->user->notifications()->create([
                         'type' => 'new_comment',
                         'title' => 'New Comment',
-                        'message' => "{$user->name} commented on your " . class_basename($commentable),
+                        'message' => "{$user->name} commented on your ".class_basename($commentable),
                         'data' => [
                             'comment_id' => $comment->id,
                             'commentable_type' => $modelClass,
@@ -143,26 +143,26 @@ class CommentController extends Controller
 
             // Create activity
             $user->activities()->create([
-                'type' => 'commented_on_' . strtolower(class_basename($commentable)),
+                'type' => 'commented_on_'.strtolower(class_basename($commentable)),
                 'activityable_type' => $modelClass,
                 'activityable_id' => $commentable->id,
                 'data' => [
                     'comment_id' => $comment->id,
                     'content_preview' => substr($request->content, 0, 100),
-                ]
+                ],
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Comment added successfully',
-                'data' => $comment->load('user')
+                'data' => $comment->load('user'),
             ], 201);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to add comment',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -172,41 +172,41 @@ class CommentController extends Controller
         try {
             $user = auth()->user();
 
-            if (!$comment->canBeEditedBy($user)) {
+            if (! $comment->canBeEditedBy($user)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You are not authorized to edit this comment'
+                    'message' => 'You are not authorized to edit this comment',
                 ], 403);
             }
 
             $validator = Validator::make($request->all(), [
-                'content' => 'required|string|max:1000'
+                'content' => 'required|string|max:1000',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
             $comment->update([
                 'content' => $request->content,
-                'status' => 'approved' // Reset to approved after edit
+                'status' => 'approved', // Reset to approved after edit
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Comment updated successfully',
-                'data' => $comment->fresh()->load('user')
+                'data' => $comment->fresh()->load('user'),
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update comment',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -216,10 +216,10 @@ class CommentController extends Controller
         try {
             $user = auth()->user();
 
-            if (!$comment->canBeDeletedBy($user)) {
+            if (! $comment->canBeDeletedBy($user)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You are not authorized to delete this comment'
+                    'message' => 'You are not authorized to delete this comment',
                 ], 403);
             }
 
@@ -233,14 +233,14 @@ class CommentController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Comment deleted successfully'
+                'message' => 'Comment deleted successfully',
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete comment',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -255,14 +255,14 @@ class CommentController extends Controller
                 'success' => true,
                 'message' => $isLiked ? 'Comment liked' : 'Comment unliked',
                 'is_liked' => $isLiked,
-                'like_count' => $comment->fresh()->like_count
+                'like_count' => $comment->fresh()->like_count,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to toggle like',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -271,14 +271,14 @@ class CommentController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'content' => 'required|string|max:1000'
+                'content' => 'required|string|max:1000',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -288,14 +288,14 @@ class CommentController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Reply added successfully',
-                'data' => $reply->load('user')
+                'data' => $reply->load('user'),
             ], 201);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to add reply',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

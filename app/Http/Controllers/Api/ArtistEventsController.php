@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\EventResource;
 use App\Models\Event;
 use App\Models\EventTicket;
-use App\Models\EventAttendee;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -70,29 +69,35 @@ class ArtistEventsController extends Controller
         ]);
 
         // Combine date+time if provided separately
-        if (!isset($validated['starts_at']) && isset($validated['start_date'])) {
-            $validated['starts_at'] = $validated['start_date'] . ' ' . ($validated['start_time'] ?? '00:00:00');
+        if (! isset($validated['starts_at']) && isset($validated['start_date'])) {
+            $validated['starts_at'] = $validated['start_date'].' '.($validated['start_time'] ?? '00:00:00');
         }
-        if (!isset($validated['ends_at']) && isset($validated['end_date'])) {
-            $validated['ends_at'] = $validated['end_date'] . ' ' . ($validated['end_time'] ?? '23:59:59');
+        if (! isset($validated['ends_at']) && isset($validated['end_date'])) {
+            $validated['ends_at'] = $validated['end_date'].' '.($validated['end_time'] ?? '23:59:59');
         }
 
         // Map frontend field names to DB fields
-        if (isset($validated['is_online'])) $validated['is_virtual'] = $validated['is_online'];
-        if (isset($validated['online_url'])) $validated['virtual_link'] = $validated['online_url'];
-        if (isset($validated['max_capacity'])) $validated['attendee_limit'] = $validated['max_capacity'];
+        if (isset($validated['is_online'])) {
+            $validated['is_virtual'] = $validated['is_online'];
+        }
+        if (isset($validated['online_url'])) {
+            $validated['virtual_link'] = $validated['online_url'];
+        }
+        if (isset($validated['max_capacity'])) {
+            $validated['attendee_limit'] = $validated['max_capacity'];
+        }
 
         // Handle image upload
         if ($request->hasFile('cover_image')) {
             $file = $request->file('cover_image');
-            $filename = time() . '_' . $file->getClientOriginalName();
+            $filename = time().'_'.$file->getClientOriginalName();
             $file->move(public_path('uploads/events'), $filename);
-            $validated['artwork'] = 'uploads/events/' . $filename;
+            $validated['artwork'] = 'uploads/events/'.$filename;
         }
 
         // Handle event_location creation
         $locationId = null;
-        if (!empty($validated['venue_name']) && !empty($validated['city'])) {
+        if (! empty($validated['venue_name']) && ! empty($validated['city'])) {
             $locationId = \DB::table('event_locations')->insertGetId([
                 'uuid' => (string) Str::uuid(),
                 'name' => $validated['venue_name'],
@@ -111,19 +116,21 @@ class ArtistEventsController extends Controller
         }
 
         // Clean up non-model fields
-        $nonModelFields = ['start_date', 'start_time', 'end_date', 'end_time', 'cover_image', 
-                          'is_online', 'online_url', 'max_capacity', 'ticket_tiers', 'min_age', 'short_description'];
+        $nonModelFields = ['start_date', 'start_time', 'end_date', 'end_time', 'cover_image',
+            'is_online', 'online_url', 'max_capacity', 'ticket_tiers', 'min_age', 'short_description'];
         foreach ($nonModelFields as $field) {
             unset($validated[$field]);
         }
 
         $validated['uuid'] = Str::uuid();
-        $validated['slug'] = $validated['slug'] ?? Str::slug($validated['title']) . '-' . Str::random(6);
+        $validated['slug'] = $validated['slug'] ?? Str::slug($validated['title']).'-'.Str::random(6);
         $validated['organizer_id'] = $user->id;
         $validated['organizer_type'] = 'user';
         $validated['status'] = $validated['status'] ?? 'draft';
         $validated['timezone'] = $validated['timezone'] ?? 'Africa/Kampala';
-        if ($locationId) $validated['event_location_id'] = $locationId;
+        if ($locationId) {
+            $validated['event_location_id'] = $locationId;
+        }
 
         $event = Event::create($validated);
 
@@ -213,18 +220,18 @@ class ArtistEventsController extends Controller
             'cover_image' => 'nullable|file|image|max:5120',
         ]);
 
-        if (!isset($validated['starts_at']) && isset($validated['start_date'])) {
-            $validated['starts_at'] = $validated['start_date'] . ' ' . ($validated['start_time'] ?? '00:00:00');
+        if (! isset($validated['starts_at']) && isset($validated['start_date'])) {
+            $validated['starts_at'] = $validated['start_date'].' '.($validated['start_time'] ?? '00:00:00');
         }
-        if (!isset($validated['ends_at']) && isset($validated['end_date'])) {
-            $validated['ends_at'] = $validated['end_date'] . ' ' . ($validated['end_time'] ?? '23:59:59');
+        if (! isset($validated['ends_at']) && isset($validated['end_date'])) {
+            $validated['ends_at'] = $validated['end_date'].' '.($validated['end_time'] ?? '23:59:59');
         }
 
         if ($request->hasFile('cover_image')) {
             $file = $request->file('cover_image');
-            $filename = time() . '_' . $file->getClientOriginalName();
+            $filename = time().'_'.$file->getClientOriginalName();
             $file->move(public_path('uploads/events'), $filename);
-            $validated['artwork'] = 'uploads/events/' . $filename;
+            $validated['artwork'] = 'uploads/events/'.$filename;
         }
 
         unset($validated['start_date'], $validated['start_time'], $validated['end_date'], $validated['end_time'], $validated['cover_image']);

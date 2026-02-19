@@ -25,7 +25,7 @@ class SubscriptionController extends Controller
 
         if (in_array($subscription->status, ['cancelled', 'expired'])) {
             return response()->json([
-                'message' => 'Subscription is already ' . $subscription->status . '.',
+                'message' => 'Subscription is already '.$subscription->status.'.',
             ], 422);
         }
 

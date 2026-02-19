@@ -105,7 +105,7 @@ class SaccoSavingsController extends Controller
 
         $account = SaccoSavingsAccount::findOrFail($validated['account_id']);
 
-        if (!$account->canWithdraw($validated['amount'])) {
+        if (! $account->canWithdraw($validated['amount'])) {
             return response()->json([
                 'message' => 'Insufficient balance or account not active.',
                 'data' => ['available_balance' => $account->balance_ugx - ($account->minimum_balance_ugx ?? 0)],

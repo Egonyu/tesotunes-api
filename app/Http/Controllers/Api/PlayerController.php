@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Song;
 use App\Models\PlayHistory;
-use Illuminate\Http\Request;
+use App\Models\Song;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class PlayerController extends Controller
 {
@@ -24,7 +24,7 @@ class PlayerController extends Controller
 
         $song = Song::findOrFail($validated['song_id']);
 
-        if (!$this->userCanAccessTrack($song, $request->user())) {
+        if (! $this->userCanAccessTrack($song, $request->user())) {
             return response()->json([
                 'message' => 'Access denied to this track.',
             ], 403);
@@ -54,7 +54,7 @@ class PlayerController extends Controller
 
         $song = Song::findOrFail($validated['song_id']);
 
-        if (!$this->userCanAccessTrack($song, $request->user())) {
+        if (! $this->userCanAccessTrack($song, $request->user())) {
             return response()->json([
                 'message' => 'Access denied to this track.',
             ], 403);
@@ -117,7 +117,7 @@ class PlayerController extends Controller
         $totalDuration = $validated['total_duration'] ?? $song->duration_seconds;
 
         // Get session ID safely
-        $sessionId = 'api-session-' . uniqid();
+        $sessionId = 'api-session-'.uniqid();
         try {
             if ($request->hasSession()) {
                 $sessionId = $request->session()->getId();
@@ -179,6 +179,7 @@ class PlayerController extends Controller
         } elseif (preg_match('/tablet|ipad/i', $userAgent)) {
             return 'tablet';
         }
+
         return 'desktop';
     }
 }

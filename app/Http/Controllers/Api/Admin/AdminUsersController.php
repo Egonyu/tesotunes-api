@@ -17,7 +17,7 @@ class AdminUsersController extends Controller
         $search = $request->get('search');
         $role = $request->get('role');
         $status = $request->get('status');
-        
+
         $query = DB::table('users')
             ->select([
                 'id',
@@ -32,15 +32,15 @@ class AdminUsersController extends Controller
                 'role',
                 'is_active',
                 'email_verified_at',
-                'created_at'
+                'created_at',
             ]);
-        
+
         if ($search) {
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('username', 'LIKE', "%{$search}%")
-                  ->orWhere('email', 'LIKE', "%{$search}%")
-                  ->orWhere('full_name', 'LIKE', "%{$search}%");
+                    ->orWhere('username', 'LIKE', "%{$search}%")
+                    ->orWhere('email', 'LIKE', "%{$search}%")
+                    ->orWhere('full_name', 'LIKE', "%{$search}%");
             });
         }
 
@@ -57,18 +57,19 @@ class AdminUsersController extends Controller
                 $query->whereNotNull('email_verified_at');
             }
         }
-        
+
         $users = $query->orderBy('created_at', 'desc')->paginate($perPage);
-        
+
         $data = collect($users->items())->map(function ($user) {
-            $user->avatar_url = $user->avatar 
-                ? url('storage/' . $user->avatar) 
+            $user->avatar_url = $user->avatar
+                ? url('storage/'.$user->avatar)
                 : null;
             // Add name field for frontend compatibility
             $user->name = $user->full_name ?: $user->username;
+
             return $user;
         })->toArray();
-        
+
         return response()->json([
             'data' => $data,
             'meta' => [
@@ -91,7 +92,7 @@ class AdminUsersController extends Controller
                 ->whereYear('created_at', date('Y'))
                 ->count(),
         ];
-        
+
         return response()->json([
             'data' => $stats,
         ]);
@@ -102,17 +103,17 @@ class AdminUsersController extends Controller
         $user = DB::table('users')
             ->where('id', $id)
             ->first();
-        
-        if (!$user) {
+
+        if (! $user) {
             return response()->json([
                 'message' => 'User not found.',
             ], 404);
         }
-        
-        $user->avatar_url = $user->avatar 
-            ? url('storage/' . $user->avatar) 
+
+        $user->avatar_url = $user->avatar
+            ? url('storage/'.$user->avatar)
             : null;
-        
+
         return response()->json([
             'data' => $user,
         ]);
@@ -152,8 +153,8 @@ class AdminUsersController extends Controller
 
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|string|max:255',
-            'email' => 'sometimes|email|unique:users,email,' . $id,
-            'username' => 'sometimes|string|max:100|unique:users,username,' . $id,
+            'email' => 'sometimes|email|unique:users,email,'.$id,
+            'username' => 'sometimes|string|max:100|unique:users,username,'.$id,
             'phone' => 'sometimes|string|max:20',
             'password' => 'sometimes|string|min:8',
         ]);

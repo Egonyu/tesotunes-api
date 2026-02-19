@@ -35,7 +35,7 @@ class PollsApiController extends Controller
 
         $polls = Poll::with(['user', 'options'])
             ->when($request->filled('search'), function ($q) use ($request) {
-                $q->where('title', 'like', '%' . $request->search . '%');
+                $q->where('title', 'like', '%'.$request->search.'%');
             })
             ->when($request->filled('status') && $request->status !== 'all', fn ($q) => $q->where('status', $request->status))
             ->orderByDesc('created_at')

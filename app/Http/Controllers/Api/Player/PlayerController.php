@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Api\Player;
 
 use App\Http\Controllers\Controller;
+use App\Models\PlayHistory;
 use App\Models\PlayQueue;
 use App\Models\Song;
-use App\Models\PlayHistory;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
 class PlayerController extends Controller
@@ -29,7 +29,7 @@ class PlayerController extends Controller
         $song = Song::findOrFail($validated['song_id']);
 
         // Check if user can play this song
-        if (!$song->is_free && (!$user->hasActiveSubscription() && !$user->canPlayPremiumContent())) {
+        if (! $song->is_free && (! $user->hasActiveSubscription() && ! $user->canPlayPremiumContent())) {
             return response()->json([
                 'message' => 'Premium subscription required to play this song.',
             ], 403);
@@ -66,7 +66,7 @@ class PlayerController extends Controller
             ->latest()
             ->first();
 
-        if (!$lastPlayHistory || $lastPlayHistory->played_at->lt(now()->subMinutes(5))) {
+        if (! $lastPlayHistory || $lastPlayHistory->played_at->lt(now()->subMinutes(5))) {
             PlayHistory::create([
                 'user_id' => $user->id,
                 'song_id' => $validated['song_id'],
@@ -95,7 +95,7 @@ class PlayerController extends Controller
 
         $playerState = Cache::get("player_state_{$user->id}");
 
-        if (!$playerState) {
+        if (! $playerState) {
             return response()->json([
                 'data' => [
                     'is_playing' => false,
@@ -135,7 +135,7 @@ class PlayerController extends Controller
         $user = auth()->user();
         $previousSong = PlayQueue::getPreviousSong($user);
 
-        if (!$previousSong) {
+        if (! $previousSong) {
             return response()->json([
                 'message' => 'No previous song in queue.',
             ], 404);
@@ -158,7 +158,7 @@ class PlayerController extends Controller
         $user = auth()->user();
         $nextSong = PlayQueue::getNextSong($user);
 
-        if (!$nextSong) {
+        if (! $nextSong) {
             return response()->json([
                 'message' => 'No next song in queue.',
             ], 404);

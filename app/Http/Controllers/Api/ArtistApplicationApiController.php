@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Models\User;
-use App\Models\Artist;
-use App\Models\Genre;
-use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
+use App\Models\Artist;
+use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -24,7 +23,7 @@ class ArtistApplicationApiController extends Controller
     public function status()
     {
         $user = Auth::user();
-        
+
         // Check if user already has artist profile
         if ($user->artist) {
             return response()->json([
@@ -97,14 +96,14 @@ class ArtistApplicationApiController extends Controller
         try {
             // Create artist record directly (instant approval for better UX)
             $genreIds = [$validated['primary_genre']];
-            if (!empty($validated['secondary_genres'])) {
+            if (! empty($validated['secondary_genres'])) {
                 $genreIds = array_merge($genreIds, $validated['secondary_genres']);
             }
-            
+
             $artist = Artist::create([
                 'user_id' => $user->id,
                 'stage_name' => $validated['stage_name'],
-                'slug' => Str::slug($validated['stage_name']) . '-' . Str::random(6),
+                'slug' => Str::slug($validated['stage_name']).'-'.Str::random(6),
                 'bio' => $validated['bio'],
                 'primary_genre_id' => $validated['primary_genre'],
                 'social_links' => $validated['social_links'] ?? [],
@@ -152,16 +151,16 @@ class ArtistApplicationApiController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             \Log::error('Artist application failed', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
-            
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to submit application: ' . $e->getMessage(),
+                'message' => 'Failed to submit application: '.$e->getMessage(),
                 'errors' => [
                     'general' => [$e->getMessage()],
                 ],

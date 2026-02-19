@@ -4,9 +4,8 @@ namespace App\Http\Controllers\Api\Podcast;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PodcastEpisodeResource;
-use App\Models\PodcastEpisode;
 use App\Models\Podcast;
-use Illuminate\Http\Request;
+use App\Models\PodcastEpisode;
 
 class EpisodeApiController extends Controller
 {
@@ -50,15 +49,15 @@ class EpisodeApiController extends Controller
             abort(404, 'Episode not found in this podcast.');
         }
 
-        if ($episode->is_premium && !auth()->check()) {
+        if ($episode->is_premium && ! auth()->check()) {
             return response()->json(['message' => 'Premium content requires authentication.'], 401);
         }
 
         return response()->json([
             'data' => [
-                'stream_url'       => $episode->getStreamUrl(),
+                'stream_url' => $episode->getStreamUrl(),
                 'duration_seconds' => $episode->duration_seconds,
-                'file_size'        => $episode->file_size,
+                'file_size' => $episode->file_size,
             ],
         ]);
     }

@@ -3,15 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Modules\Sacco\Models\SaccoMember;
 use App\Modules\Sacco\Models\SaccoAccount;
 use App\Modules\Sacco\Models\SaccoLoan;
 use App\Modules\Sacco\Models\SaccoLoanProduct;
-use App\Modules\Sacco\Models\SaccoTransaction;
-use App\Modules\Sacco\Services\SaccoLoanService;
+use App\Modules\Sacco\Models\SaccoMember;
 use App\Modules\Sacco\Services\SaccoAccountService;
-use Illuminate\Http\Request;
+use App\Modules\Sacco\Services\SaccoLoanService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
  * SACCO API Controller for AJAX/Mobile App requests
@@ -19,6 +18,7 @@ use Illuminate\Http\JsonResponse;
 class SaccoApiController extends Controller
 {
     protected $loanService;
+
     protected $accountService;
 
     public function __construct(
@@ -36,7 +36,7 @@ class SaccoApiController extends Controller
     {
         try {
             $member = SaccoMember::where('user_id', auth()->id())->firstOrFail();
-            
+
             $stats = [
                 'member' => [
                     'id' => $member->id,
@@ -127,7 +127,7 @@ class SaccoApiController extends Controller
     {
         try {
             $member = SaccoMember::where('user_id', auth()->id())->firstOrFail();
-            
+
             if ($account->member_id !== $member->id) {
                 return response()->json([
                     'success' => false,
@@ -200,7 +200,7 @@ class SaccoApiController extends Controller
     {
         try {
             $member = SaccoMember::where('user_id', auth()->id())->firstOrFail();
-            
+
             $products = SaccoLoanProduct::where('is_active', true)
                 ->get()
                 ->map(function ($product) use ($member) {
@@ -257,7 +257,7 @@ class SaccoApiController extends Controller
 
         try {
             $product = SaccoLoanProduct::findOrFail($validated['product_id']);
-            
+
             $schedule = $this->loanService->calculateRepaymentSchedule(
                 $validated['amount'],
                 $product->interest_rate,
@@ -286,7 +286,7 @@ class SaccoApiController extends Controller
     {
         try {
             $member = SaccoMember::where('user_id', auth()->id())->firstOrFail();
-            
+
             if ($loan->member_id !== $member->id) {
                 return response()->json([
                     'success' => false,
@@ -356,16 +356,16 @@ class SaccoApiController extends Controller
     {
         try {
             $member = SaccoMember::where('user_id', auth()->id())->firstOrFail();
-            
+
             $perPage = $request->input('per_page', 20);
             $type = $request->input('type'); // deposit, withdrawal, loan_repayment, etc.
-            
+
             $query = $member->transactions()->with('account')->latest();
-            
+
             if ($type) {
                 $query->where('transaction_type', $type);
             }
-            
+
             $transactions = $query->paginate($perPage);
 
             return response()->json([
@@ -389,20 +389,20 @@ class SaccoApiController extends Controller
     {
         try {
             $member = SaccoMember::where('user_id', auth()->id())->firstOrFail();
-            
+
             $search = $request->input('search');
-            
+
             $query = SaccoMember::where('status', 'active')
                 ->where('id', '!=', $member->id)
                 ->with('user');
-            
+
             if ($search) {
                 $query->whereHas('user', function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('email', 'like', "%{$search}%");
+                        ->orWhere('email', 'like', "%{$search}%");
                 });
             }
-            
+
             $guarantors = $query->limit(50)->get()->map(function ($guarantor) {
                 return [
                     'id' => $guarantor->id,

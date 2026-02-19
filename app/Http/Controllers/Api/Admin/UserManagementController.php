@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use App\Models\Role;
-use Illuminate\Http\Request;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
@@ -27,7 +27,7 @@ class UserManagementController extends Controller
 
             // Apply filters
             if ($request->filled('role')) {
-                $query->whereHas('roles', function($q) use ($request) {
+                $query->whereHas('roles', function ($q) use ($request) {
                     $q->where('name', $request->role);
                 });
             }
@@ -40,7 +40,7 @@ class UserManagementController extends Controller
                 $search = $request->search;
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('email', 'like', "%{$search}%");
+                        ->orWhere('email', 'like', "%{$search}%");
                 });
             }
 
@@ -76,13 +76,13 @@ class UserManagementController extends Controller
 
             return response()->json([
                 'success' => true,
-                'users' => $users
+                'users' => $users,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch users',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -101,7 +101,7 @@ class UserManagementController extends Controller
                 },
                 'activities' => function ($query) {
                     $query->latest()->limit(10);
-                }
+                },
             ]);
 
             return response()->json([
@@ -134,13 +134,13 @@ class UserManagementController extends Controller
                     'following_count' => $user->following()->count(),
                     'recent_playlists' => $user->playlists,
                     'recent_activities' => $user->activities,
-                ]
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch user details',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -164,7 +164,7 @@ class UserManagementController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -172,10 +172,10 @@ class UserManagementController extends Controller
             $currentUser = $request->user();
 
             // Prevent non-super admins from creating admin users
-            if (in_array($request->role, ['admin', 'super_admin']) && !$currentUser->isSuperAdmin()) {
+            if (in_array($request->role, ['admin', 'super_admin']) && ! $currentUser->isSuperAdmin()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insufficient permissions to create admin users'
+                    'message' => 'Insufficient permissions to create admin users',
                 ], 403);
             }
 
@@ -196,13 +196,13 @@ class UserManagementController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'User created successfully',
-                'user' => $user->load('activeRoles')
+                'user' => $user->load('activeRoles'),
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create user',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -215,16 +215,16 @@ class UserManagementController extends Controller
         $currentUser = $request->user();
 
         // Check if current user can manage the target user
-        if (!$currentUser->canManageUser($user)) {
+        if (! $currentUser->canManageUser($user)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Insufficient permissions to manage this user'
+                'message' => 'Insufficient permissions to manage this user',
             ], 403);
         }
 
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
+            'email' => 'required|string|email|max:255|unique:users,email,'.$user->id,
             'role' => 'required|string|in:user,artist,moderator,admin',
             'country' => 'nullable|string|max:2',
             'phone' => 'nullable|string|max:20',
@@ -237,16 +237,16 @@ class UserManagementController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         try {
             // Prevent non-super admins from modifying admin users
-            if (in_array($request->role, ['admin', 'super_admin']) && !$currentUser->isSuperAdmin()) {
+            if (in_array($request->role, ['admin', 'super_admin']) && ! $currentUser->isSuperAdmin()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insufficient permissions to assign admin roles'
+                    'message' => 'Insufficient permissions to assign admin roles',
                 ], 403);
             }
 
@@ -272,13 +272,13 @@ class UserManagementController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'User updated successfully',
-                'user' => $user->load('activeRoles')
+                'user' => $user->load('activeRoles'),
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update user',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -291,18 +291,18 @@ class UserManagementController extends Controller
         $currentUser = $request->user();
 
         // Check if current user can manage the target user
-        if (!$currentUser->canManageUser($user)) {
+        if (! $currentUser->canManageUser($user)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Insufficient permissions to manage this user'
+                'message' => 'Insufficient permissions to manage this user',
             ], 403);
         }
 
         // Prevent deletion of super admin by non-super admins
-        if ($user->isSuperAdmin() && !$currentUser->isSuperAdmin()) {
+        if ($user->isSuperAdmin() && ! $currentUser->isSuperAdmin()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Cannot delete super admin user'
+                'message' => 'Cannot delete super admin user',
             ], 403);
         }
 
@@ -312,13 +312,13 @@ class UserManagementController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'User deactivated successfully'
+                'message' => 'User deactivated successfully',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to deactivate user',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -330,10 +330,10 @@ class UserManagementController extends Controller
     {
         $currentUser = $request->user();
 
-        if (!$currentUser->canManageUser($user)) {
+        if (! $currentUser->canManageUser($user)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Insufficient permissions to manage this user'
+                'message' => 'Insufficient permissions to manage this user',
             ], 403);
         }
 
@@ -343,13 +343,13 @@ class UserManagementController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'User activated successfully',
-                'user' => $user
+                'user' => $user,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to activate user',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -361,17 +361,17 @@ class UserManagementController extends Controller
     {
         $currentUser = $request->user();
 
-        if (!$currentUser->canManageUser($user)) {
+        if (! $currentUser->canManageUser($user)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Insufficient permissions to manage this user'
+                'message' => 'Insufficient permissions to manage this user',
             ], 403);
         }
 
         if ($user->isSuperAdmin()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Cannot ban super admin user'
+                'message' => 'Cannot ban super admin user',
             ], 403);
         }
 
@@ -380,13 +380,13 @@ class UserManagementController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'User banned successfully'
+                'message' => 'User banned successfully',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to ban user',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -402,31 +402,31 @@ class UserManagementController extends Controller
                 'active_users' => User::where('is_active', true)->count(),
                 'inactive_users' => User::where('is_active', false)->count(),
                 'users_by_role' => User::select('role')
-                                      ->selectRaw('count(*) as count')
-                                      ->groupBy('role')
-                                      ->pluck('count', 'role'),
+                    ->selectRaw('count(*) as count')
+                    ->groupBy('role')
+                    ->pluck('count', 'role'),
                 'users_by_country' => User::select('country')
-                                          ->selectRaw('count(*) as count')
-                                          ->whereNotNull('country')
-                                          ->groupBy('country')
-                                          ->orderBy('count', 'desc')
-                                          ->limit(10)
-                                          ->pluck('count', 'country'),
+                    ->selectRaw('count(*) as count')
+                    ->whereNotNull('country')
+                    ->groupBy('country')
+                    ->orderBy('count', 'desc')
+                    ->limit(10)
+                    ->pluck('count', 'country'),
                 'new_users_this_month' => User::whereMonth('created_at', now()->month)
-                                              ->whereYear('created_at', now()->year)
-                                              ->count(),
+                    ->whereYear('created_at', now()->year)
+                    ->count(),
                 'online_users' => User::where('is_online', true)->count(),
             ];
 
             return response()->json([
                 'success' => true,
-                'statistics' => $stats
+                'statistics' => $stats,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch statistics',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

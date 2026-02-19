@@ -21,7 +21,7 @@ class PollVoteController extends Controller
         $user = $request->user();
 
         // Validate poll is active
-        if (!$poll->isActive()) {
+        if (! $poll->isActive()) {
             return response()->json(['message' => 'This poll is no longer accepting votes.'], 422);
         }
 

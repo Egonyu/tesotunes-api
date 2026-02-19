@@ -125,7 +125,7 @@ class FeedController extends Controller
     {
         $validModules = ['music', 'events', 'awards', 'store', 'ojokotau', 'sacco', 'loyalty', 'forum'];
 
-        if (!in_array($module, $validModules)) {
+        if (! in_array($module, $validModules)) {
             return response()->json(['message' => 'Invalid module.'], 422);
         }
 

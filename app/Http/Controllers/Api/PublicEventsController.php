@@ -20,8 +20,8 @@ class PublicEventsController extends Controller
             ->where('status', 'published')
             ->when($request->filled('search'), function ($q) use ($request) {
                 $q->where(function ($sub) use ($request) {
-                    $sub->where('title', 'like', '%' . $request->search . '%')
-                        ->orWhere('description', 'like', '%' . $request->search . '%');
+                    $sub->where('title', 'like', '%'.$request->search.'%')
+                        ->orWhere('description', 'like', '%'.$request->search.'%');
                 });
             })
             ->when($request->filled('category'), function ($q) use ($request) {

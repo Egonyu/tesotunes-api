@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Song;
-use App\Models\Artist;
 use App\Models\Album;
+use App\Models\Artist;
 use App\Models\Playlist;
+use App\Models\Song;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -18,15 +18,15 @@ class MobileContentController extends Controller
     public function trendingSongs(Request $request)
     {
         $limit = $request->input('limit', 10);
-        
+
         $songs = Song::with(['artist', 'album'])
             ->whereIn('status', ['approved', 'published'])
             ->where('visibility', 'public')
             ->select('songs.*')
             ->selectRaw('(play_count * 0.7 + like_count * 0.3) as trending_score')
-            ->where(function($query) {
+            ->where(function ($query) {
                 $query->where('created_at', '>=', now()->subDays(30))
-                      ->orWhere('play_count', '>', 0);
+                    ->orWhere('play_count', '>', 0);
             })
             ->orderByDesc('trending_score')
             ->limit($limit)
@@ -58,7 +58,7 @@ class MobileContentController extends Controller
     public function popularArtists(Request $request)
     {
         $limit = $request->input('limit', 10);
-        
+
         $artists = Artist::withCount(['followers', 'songs'])
             ->with(['user'])
             ->where('is_verified', true)
@@ -71,7 +71,7 @@ class MobileContentController extends Controller
                 return [
                     'id' => $artist->id,
                     'name' => $artist->stage_name,
-                    'bio' => $artist->bio ? (strlen($artist->bio) > 100 ? substr($artist->bio, 0, 100) . '...' : $artist->bio) : null,
+                    'bio' => $artist->bio ? (strlen($artist->bio) > 100 ? substr($artist->bio, 0, 100).'...' : $artist->bio) : null,
                     'avatar' => $artist->avatar_url,
                     'cover_image' => $artist->banner_url,
                     'is_verified' => $artist->is_verified,
@@ -92,7 +92,7 @@ class MobileContentController extends Controller
     public function popularAlbums(Request $request)
     {
         $limit = $request->input('limit', 10);
-        
+
         $albums = Album::with(['artist'])
             ->where('status', 'approved')
             ->select('albums.*')
@@ -128,12 +128,12 @@ class MobileContentController extends Controller
     public function radioStations(Request $request)
     {
         $limit = $request->input('limit', 10);
-        
+
         $stations = Playlist::with(['user'])
             ->where('is_public', true)
-            ->where(function($query) {
+            ->where(function ($query) {
                 $query->where('type', 'radio')
-                      ->orWhere('is_featured', true);
+                    ->orWhere('is_featured', true);
             })
             ->withCount('songs')
             ->orderByDesc('is_featured')
@@ -144,7 +144,7 @@ class MobileContentController extends Controller
                 return [
                     'id' => $playlist->id,
                     'title' => $playlist->title,
-                    'description' => $playlist->description ? (strlen($playlist->description) > 100 ? substr($playlist->description, 0, 100) . '...' : $playlist->description) : null,
+                    'description' => $playlist->description ? (strlen($playlist->description) > 100 ? substr($playlist->description, 0, 100).'...' : $playlist->description) : null,
                     'artwork' => $playlist->artwork ? \App\Helpers\StorageHelper::url($playlist->artwork) : asset('images/default-playlist.png'),
                     'curator' => $playlist->user->name ?? 'Music App',
                     'songs_count' => $playlist->songs_count ?? 0,
@@ -164,7 +164,7 @@ class MobileContentController extends Controller
     public function featuredCharts(Request $request)
     {
         $limit = $request->input('limit', 10);
-        
+
         // Get genre-based charts
         $charts = DB::table('genres')
             ->select('genres.id', 'genres.name', 'genres.slug')
@@ -186,11 +186,11 @@ class MobileContentController extends Controller
 
                 return [
                     'id' => $genre->id,
-                    'title' => $genre->name . ' Chart',
+                    'title' => $genre->name.' Chart',
                     'genre' => $genre->name,
                     'description' => "Top {$genre->name} tracks this week",
-                    'artwork' => $topSong && $topSong->artwork 
-                        ? \App\Helpers\StorageHelper::url($topSong->artwork) 
+                    'artwork' => $topSong && $topSong->artwork
+                        ? \App\Helpers\StorageHelper::url($topSong->artwork)
                         : asset('images/charts/default-chart.png'),
                     'songs_count' => $genre->songs_count ?? 0,
                     'total_plays' => $genre->total_plays ?? 0,
@@ -208,11 +208,13 @@ class MobileContentController extends Controller
      */
     private function formatDuration($seconds)
     {
-        if (!$seconds) return '0:00';
-        
+        if (! $seconds) {
+            return '0:00';
+        }
+
         $minutes = floor($seconds / 60);
         $seconds = $seconds % 60;
-        
+
         return sprintf('%d:%02d', $minutes, $seconds);
     }
 }

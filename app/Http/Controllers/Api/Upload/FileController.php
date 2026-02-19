@@ -3,13 +3,13 @@
 namespace App\Http\Controllers\Api\Upload;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use FFMpeg\FFMpeg;
+use FFMpeg\Format\Audio\Mp3;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use FFMpeg\FFMpeg;
-use FFMpeg\Format\Audio\Mp3;
 
 class FileController extends Controller
 {
@@ -19,14 +19,14 @@ class FileController extends Controller
             $validator = Validator::make($request->all(), [
                 'audio' => 'required|file|mimes:mp3,wav,flac,m4a,aac|max:51200', // 50MB max
                 'compress' => 'boolean',
-                'quality' => 'nullable|in:low,medium,high'
+                'quality' => 'nullable|in:low,medium,high',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -34,11 +34,11 @@ class FileController extends Controller
             $user = auth()->user();
 
             // Generate unique filename
-            $filename = time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
-            $path = 'audio/' . $user->id . '/' . $filename;
+            $filename = time().'_'.Str::random(10).'.'.$file->getClientOriginalExtension();
+            $path = 'audio/'.$user->id.'/'.$filename;
 
             // Store original file
-            $storedPath = $file->storeAs('audio/' . $user->id, $filename, 'public');
+            $storedPath = $file->storeAs('audio/'.$user->id, $filename, 'public');
 
             $fileData = [
                 'original_name' => $file->getClientOriginalName(),
@@ -57,7 +57,7 @@ class FileController extends Controller
                     $fileData['compressed_url'] = Storage::disk('public')->url($compressedPath);
                 } catch (\Exception $e) {
                     // If compression fails, continue with original file
-                    \Log::warning('Audio compression failed: ' . $e->getMessage());
+                    \Log::warning('Audio compression failed: '.$e->getMessage());
                 }
             }
 
@@ -68,14 +68,14 @@ class FileController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Audio uploaded successfully',
-                'data' => $fileData
+                'data' => $fileData,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload audio',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -88,14 +88,14 @@ class FileController extends Controller
                 'type' => 'required|in:cover,album,artist,playlist',
                 'resize' => 'boolean',
                 'width' => 'nullable|integer|min:100|max:2000',
-                'height' => 'nullable|integer|min:100|max:2000'
+                'height' => 'nullable|integer|min:100|max:2000',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -104,8 +104,8 @@ class FileController extends Controller
             $type = $request->type;
 
             // Generate unique filename
-            $filename = time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
-            $directory = "images/{$type}/" . $user->id;
+            $filename = time().'_'.Str::random(10).'.'.$file->getClientOriginalExtension();
+            $directory = "images/{$type}/".$user->id;
 
             // Store original image
             $storedPath = $file->storeAs($directory, $filename, 'public');
@@ -129,14 +129,14 @@ class FileController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Image uploaded successfully',
-                'data' => $fileData
+                'data' => $fileData,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload image',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -152,7 +152,7 @@ class FileController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation failed',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -165,7 +165,7 @@ class FileController extends Controller
             }
 
             // Generate unique filename
-            $filename = 'avatar_' . time() . '_' . Str::random(10) . '.' . $file->getClientOriginalExtension();
+            $filename = 'avatar_'.time().'_'.Str::random(10).'.'.$file->getClientOriginalExtension();
             $storedPath = $file->storeAs('avatars', $filename, 'public');
 
             // Create thumbnail versions
@@ -180,15 +180,15 @@ class FileController extends Controller
                 'data' => [
                     'path' => $storedPath,
                     'url' => Storage::disk('public')->url($storedPath),
-                    'thumbnails' => $thumbnails
-                ]
+                    'thumbnails' => $thumbnails,
+                ],
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload avatar',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -197,12 +197,12 @@ class FileController extends Controller
     {
         $fullPath = Storage::disk('public')->path($path);
         $pathInfo = pathinfo($path);
-        $compressedFilename = $pathInfo['filename'] . '_compressed.mp3';
-        $compressedPath = $pathInfo['dirname'] . '/' . $compressedFilename;
+        $compressedFilename = $pathInfo['filename'].'_compressed.mp3';
+        $compressedPath = $pathInfo['dirname'].'/'.$compressedFilename;
         $compressedFullPath = Storage::disk('public')->path($compressedPath);
 
         // Set bitrate based on quality for African market data efficiency
-        $bitrate = match($quality) {
+        $bitrate = match ($quality) {
             'low' => 96,     // Very data-efficient
             'medium' => 128, // Good balance
             'high' => 192,   // Higher quality
@@ -213,14 +213,14 @@ class FileController extends Controller
             $ffmpeg = FFMpeg::create();
             $audio = $ffmpeg->open($fullPath);
 
-            $format = new Mp3();
+            $format = new Mp3;
             $format->setAudioKiloBitrate($bitrate);
 
             $audio->save($format, $compressedFullPath);
 
             return $compressedPath;
         } catch (\Exception $e) {
-            \Log::error('Audio compression failed: ' . $e->getMessage());
+            \Log::error('Audio compression failed: '.$e->getMessage());
             throw $e;
         }
     }
@@ -235,38 +235,39 @@ class FileController extends Controller
 
             return [
                 'duration_seconds' => (int) $duration,
-                'duration_formatted' => $this->formatDuration((int) $duration)
+                'duration_formatted' => $this->formatDuration((int) $duration),
             ];
         } catch (\Exception $e) {
-            \Log::warning('Could not extract audio metadata: ' . $e->getMessage());
+            \Log::warning('Could not extract audio metadata: '.$e->getMessage());
+
             return [
                 'duration_seconds' => 0,
-                'duration_formatted' => '00:00'
+                'duration_formatted' => '00:00',
             ];
         }
     }
 
     private function createImageResizes(string $path, string $type): array
     {
-        $sizes = match($type) {
+        $sizes = match ($type) {
             'cover', 'album' => [
                 'thumbnail' => [150, 150],
                 'small' => [300, 300],
                 'medium' => [600, 600],
-                'large' => [1200, 1200]
+                'large' => [1200, 1200],
             ],
             'artist' => [
                 'thumbnail' => [100, 100],
                 'small' => [200, 200],
-                'medium' => [400, 400]
+                'medium' => [400, 400],
             ],
             'playlist' => [
                 'thumbnail' => [150, 150],
-                'small' => [300, 300]
+                'small' => [300, 300],
             ],
             default => [
                 'thumbnail' => [150, 150],
-                'small' => [300, 300]
+                'small' => [300, 300],
             ]
         };
 
@@ -276,8 +277,8 @@ class FileController extends Controller
 
         foreach ($sizes as $sizeName => [$width, $height]) {
             try {
-                $resizedFilename = $pathInfo['filename'] . "_{$sizeName}." . $pathInfo['extension'];
-                $resizedPath = $pathInfo['dirname'] . '/' . $resizedFilename;
+                $resizedFilename = $pathInfo['filename']."_{$sizeName}.".$pathInfo['extension'];
+                $resizedPath = $pathInfo['dirname'].'/'.$resizedFilename;
                 $resizedFullPath = Storage::disk('public')->path($resizedPath);
 
                 // Create resized image using GD or Imagick
@@ -287,10 +288,10 @@ class FileController extends Controller
                     'path' => $resizedPath,
                     'url' => Storage::disk('public')->url($resizedPath),
                     'width' => $width,
-                    'height' => $height
+                    'height' => $height,
                 ];
             } catch (\Exception $e) {
-                \Log::warning("Failed to create {$sizeName} resize: " . $e->getMessage());
+                \Log::warning("Failed to create {$sizeName} resize: ".$e->getMessage());
             }
         }
 
@@ -302,7 +303,7 @@ class FileController extends Controller
         $sizes = [
             'small' => [50, 50],
             'medium' => [100, 100],
-            'large' => [200, 200]
+            'large' => [200, 200],
         ];
 
         return $this->createImageResizes($path, 'avatar');
@@ -316,7 +317,7 @@ class FileController extends Controller
         $sourceType = $imageInfo[2];
 
         // Create source image
-        $sourceImage = match($sourceType) {
+        $sourceImage = match ($sourceType) {
             IMAGETYPE_JPEG => imagecreatefromjpeg($sourcePath),
             IMAGETYPE_PNG => imagecreatefrompng($sourcePath),
             default => throw new \Exception('Unsupported image type')
@@ -337,7 +338,7 @@ class FileController extends Controller
         imagecopyresampled($destImage, $sourceImage, 0, 0, 0, 0, $width, $height, $sourceWidth, $sourceHeight);
 
         // Save resized image
-        match($sourceType) {
+        match ($sourceType) {
             IMAGETYPE_JPEG => imagejpeg($destImage, $destPath, 85),
             IMAGETYPE_PNG => imagepng($destImage, $destPath),
             default => throw new \Exception('Unsupported image type')
