@@ -2,17 +2,17 @@
 
 namespace Tests\Feature\Api\ResponseStandardization;
 
-use App\Models\Song;
 use App\Models\Artist;
-use App\Models\Genre;
+use App\Models\Song;
 use App\Models\User;
 use Tests\TestCase;
 
 class SongApiTest extends TestCase
 {
-
     private User $user;
+
     private Artist $artist;
+
     private Song $song;
 
     protected function setUp(): void

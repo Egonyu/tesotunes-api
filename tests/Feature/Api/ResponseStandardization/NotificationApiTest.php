@@ -7,7 +7,6 @@ use Tests\TestCase;
 
 class NotificationApiTest extends TestCase
 {
-
     private User $user;
 
     protected function setUp(): void

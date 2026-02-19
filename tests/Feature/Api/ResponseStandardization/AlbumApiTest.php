@@ -10,9 +10,10 @@ use Tests\TestCase;
 
 class AlbumApiTest extends TestCase
 {
-
     private User $user;
+
     private Artist $artist;
+
     private Album $album;
 
     protected function setUp(): void

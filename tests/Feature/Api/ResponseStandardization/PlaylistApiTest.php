@@ -8,8 +8,8 @@ use Tests\TestCase;
 
 class PlaylistApiTest extends TestCase
 {
-
     private User $user;
+
     private Playlist $playlist;
 
     protected function setUp(): void

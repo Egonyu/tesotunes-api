@@ -2,14 +2,13 @@
 
 namespace Tests\Feature\Api\ResponseStandardization;
 
-use App\Models\User;
 use App\Models\Role;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class AdminApiStandardizationTest extends TestCase
 {
-
     private User $admin;
 
     protected function setUp(): void

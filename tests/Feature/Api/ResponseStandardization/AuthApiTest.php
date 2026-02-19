@@ -7,7 +7,6 @@ use Tests\TestCase;
 
 class AuthApiTest extends TestCase
 {
-
     // ─── Login ───────────────────────────────────────────────────
 
     public function test_login_returns_json_not_redirect(): void

@@ -93,6 +93,7 @@ test('feed show returns single item in data wrapper', function () {
 
     if ($response->status() === 404) {
         $response->assertJsonStructure(['message']);
+
         return;
     }
 

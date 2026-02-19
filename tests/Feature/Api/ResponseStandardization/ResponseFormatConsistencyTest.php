@@ -2,11 +2,11 @@
 
 namespace Tests\Feature\Api\ResponseStandardization;
 
-use App\Models\Genre;
-use App\Models\Song;
-use App\Models\Artist;
 use App\Models\Album;
+use App\Models\Artist;
+use App\Models\Genre;
 use App\Models\Playlist;
+use App\Models\Song;
 use App\Models\User;
 use Tests\TestCase;
 
@@ -23,7 +23,6 @@ use Tests\TestCase;
  */
 class ResponseFormatConsistencyTest extends TestCase
 {
-
     private User $user;
 
     protected function setUp(): void

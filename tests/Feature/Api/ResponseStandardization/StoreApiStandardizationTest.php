@@ -55,6 +55,7 @@ test('list orders returns data', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -68,6 +69,7 @@ test('orders contain no success key', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -107,6 +109,7 @@ test('public stores index returns paginated data', function () {
 
     if (in_array($response->status(), [404, 500])) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -124,6 +127,7 @@ test('public stores featured returns data', function () {
 
     if (in_array($response->status(), [404, 500])) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -136,11 +140,13 @@ test('public store show returns data wrapper', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
     if ($response->status() === 404) {
         $response->assertJsonStructure(['message']);
+
         return;
     }
 
@@ -153,6 +159,7 @@ test('public products index returns paginated data', function () {
 
     if (in_array($response->status(), [404, 500])) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -170,6 +177,7 @@ test('public products featured returns data', function () {
 
     if (in_array($response->status(), [404, 500])) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -182,6 +190,7 @@ test('public products trending returns data', function () {
 
     if (in_array($response->status(), [404, 500])) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -194,11 +203,13 @@ test('public product show returns data wrapper', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
     if ($response->status() === 404) {
         $response->assertJsonStructure(['message']);
+
         return;
     }
 
@@ -211,6 +222,7 @@ test('product availability returns data wrapper', function () {
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -223,6 +235,7 @@ test('product reviews returns data', function () {
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -287,6 +300,7 @@ test('admin store stats returns data wrapper', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -299,6 +313,7 @@ test('admin store products returns paginated data', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -317,6 +332,7 @@ test('admin store orders returns paginated data', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -329,6 +345,7 @@ test('admin store shops returns data', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -341,6 +358,7 @@ test('admin store analytics returns data', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 

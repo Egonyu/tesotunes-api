@@ -3,12 +3,10 @@
 namespace Tests\Feature\Api\ResponseStandardization;
 
 use App\Models\Podcast;
-use App\Models\User;
 use Tests\TestCase;
 
 class PodcastApiTest extends TestCase
 {
-
     protected function setUp(): void
     {
         parent::setUp();

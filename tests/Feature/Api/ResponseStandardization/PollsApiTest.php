@@ -20,11 +20,13 @@ test('poll results returns data wrapper', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
     if ($response->status() === 404) {
         $response->assertJsonStructure(['message']);
+
         return;
     }
 
@@ -67,12 +69,14 @@ test('poll vote returns data and message on success', function () {
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
     if ($response->status() === 422) {
         // Validation error or already voted or inactive poll
         $response->assertJsonStructure(['message']);
+
         return;
     }
 
@@ -89,6 +93,7 @@ test('poll vote validation returns message on error', function () {
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 

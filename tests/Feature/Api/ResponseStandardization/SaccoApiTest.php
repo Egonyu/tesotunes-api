@@ -39,6 +39,7 @@ function createSaccoAdmin(): User
         'updated_at' => now(),
     ]);
     cache()->forget("user:{$admin->id}:roles");
+
     return $admin;
 }
 
@@ -83,6 +84,7 @@ test('members index returns paginated data', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -102,11 +104,13 @@ test('member show returns data wrapper', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
     if ($response->status() === 404) {
         $response->assertJsonStructure(['message']);
+
         return;
     }
 
@@ -124,11 +128,13 @@ test('member registration returns 201 with data and message', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
     if ($response->status() === 422) {
         $response->assertJsonStructure(['message']);
+
         return;
     }
 
@@ -146,11 +152,13 @@ test('savings account show returns data wrapper', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
     if ($response->status() === 404) {
         $response->assertJsonStructure(['message']);
+
         return;
     }
 
@@ -165,6 +173,7 @@ test('savings transactions returns paginated data', function () {
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -179,6 +188,7 @@ test('savings balance returns data wrapper', function () {
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -195,11 +205,13 @@ test('savings open account returns 201 with data and message', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
     if ($response->status() === 422) {
         $response->assertJsonStructure(['message']);
+
         return;
     }
 
@@ -217,6 +229,7 @@ test('loan show returns data wrapper', function () {
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -231,6 +244,7 @@ test('member loans returns paginated data', function () {
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -245,6 +259,7 @@ test('loan schedule returns data wrapper', function () {
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -259,6 +274,7 @@ test('loan balance returns data wrapper', function () {
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -277,11 +293,13 @@ test('loan apply returns 201 with data and message', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
     if ($response->status() === 422) {
         $response->assertJsonStructure(['message']);
+
         return;
     }
 
@@ -299,6 +317,7 @@ test('shares current value returns data wrapper', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -313,6 +332,7 @@ test('member shares returns data wrapper', function () {
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -339,6 +359,7 @@ test('sacco reports return data wrapper', function () {
 
         if ($response->status() === 500) {
             expect($response->headers->get('Content-Type'))->toContain('json');
+
             continue;
         }
 
@@ -356,6 +377,7 @@ test('sacco analytics dashboard returns data wrapper', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -378,6 +400,7 @@ test('sacco analytics endpoints return data wrapper', function () {
 
         if ($response->status() === 500) {
             expect($response->headers->get('Content-Type'))->toContain('json');
+
             continue;
         }
 
@@ -414,6 +437,7 @@ test('admin sacco stats returns data wrapper', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -427,6 +451,7 @@ test('admin sacco members returns data', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -440,6 +465,7 @@ test('admin sacco loans returns data', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 

@@ -51,11 +51,13 @@ test('current season returns data or 404 json', function () {
     if ($response->status() === 500) {
         // Controller may have issues — but must be JSON not HTML
         expect($response->getContent())->not->toContain('<!DOCTYPE');
+
         return;
     }
 
     if ($response->status() === 404) {
         $response->assertJsonStructure(['message']);
+
         return;
     }
 
@@ -68,11 +70,13 @@ test('award show returns single resource', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
     if ($response->status() === 404) {
         $response->assertJsonStructure(['message']);
+
         return;
     }
 
@@ -85,6 +89,7 @@ test('award categories returns collection', function () {
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -97,6 +102,7 @@ test('award nominations returns paginated collection', function () {
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -109,17 +115,20 @@ test('award results returns data wrapper', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
     // May be 403 if results not available yet
     if ($response->status() === 403) {
         $response->assertJsonStructure(['message']);
+
         return;
     }
 
     if ($response->status() === 404) {
         $response->assertJsonStructure(['message']);
+
         return;
     }
 
@@ -155,11 +164,13 @@ test('vote returns data and message on success', function () {
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
     if ($response->status() === 422 || $response->status() === 403) {
         $response->assertJsonStructure(['message']);
+
         return;
     }
 

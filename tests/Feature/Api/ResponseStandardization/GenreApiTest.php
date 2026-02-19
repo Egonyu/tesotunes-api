@@ -2,16 +2,14 @@
 
 namespace Tests\Feature\Api\ResponseStandardization;
 
+use App\Models\Artist;
 use App\Models\Genre;
 use App\Models\Song;
-use App\Models\Artist;
-use App\Models\Album;
 use App\Models\User;
 use Tests\TestCase;
 
 class GenreApiTest extends TestCase
 {
-
     private Genre $genre;
 
     protected function setUp(): void
@@ -140,7 +138,7 @@ class GenreApiTest extends TestCase
     public function test_genre_responses_never_contain_success_key(): void
     {
         $endpoints = [
-            "/api/genres",
+            '/api/genres',
             "/api/genres/{$this->genre->id}",
             "/api/genres/{$this->genre->slug}",
             "/api/genres/{$this->genre->id}/songs",

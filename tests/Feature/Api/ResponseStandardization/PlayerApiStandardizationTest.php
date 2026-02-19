@@ -9,8 +9,8 @@ use Tests\TestCase;
 
 class PlayerApiStandardizationTest extends TestCase
 {
-
     private User $user;
+
     private Song $song;
 
     protected function setUp(): void

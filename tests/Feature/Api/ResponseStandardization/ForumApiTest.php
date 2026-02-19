@@ -9,8 +9,6 @@
  * - No legacy "success" key
  */
 
-use App\Models\Modules\Forum\ForumCategory;
-use App\Models\Modules\Forum\ForumTopic;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
@@ -37,6 +35,7 @@ test('forum topics index returns paginated data', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -54,6 +53,7 @@ test('forum stats returns data wrapper', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -66,6 +66,7 @@ test('forum categories returns data wrapper', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -79,11 +80,13 @@ test('forum show returns single resource', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
     if ($response->status() === 404) {
         $response->assertJsonStructure(['message']);
+
         return;
     }
 
@@ -96,6 +99,7 @@ test('forum replies returns paginated collection', function () {
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -124,6 +128,7 @@ test('forum delete returns json message', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -140,6 +145,7 @@ test('forum toggle pin returns json', function () {
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -152,6 +158,7 @@ test('forum toggle lock returns json', function () {
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 

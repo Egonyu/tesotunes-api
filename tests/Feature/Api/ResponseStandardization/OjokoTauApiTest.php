@@ -37,6 +37,7 @@ test('campaigns index returns paginated data wrapper', function () {
     // May 500 if table has issues - resilient check
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -55,6 +56,7 @@ test('campaigns stats returns data wrapper', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -69,11 +71,13 @@ test('campaigns show returns single resource in data wrapper', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
     if ($response->status() === 404) {
         $response->assertJsonStructure(['message']);
+
         return;
     }
 
@@ -114,11 +118,13 @@ test('campaign create returns 201 with data wrapper', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
     if ($response->status() === 422) {
         $response->assertJsonStructure(['message']);
+
         return;
     }
 
@@ -132,6 +138,7 @@ test('campaign pledges returns paginated collection', function () {
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -144,6 +151,7 @@ test('campaign updates returns paginated collection', function () {
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
@@ -156,6 +164,7 @@ test('campaign delete returns message', function () {
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
+
         return;
     }
 
