@@ -29,6 +29,7 @@ class UserFactory extends Factory
         
         return [
             'uuid' => Str::uuid()->toString(),
+            'name' => $firstName . ' ' . $lastName,
             'username' => fake()->unique()->userName(),
             'email' => $email,
             'email_verified_at' => now(),

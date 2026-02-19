@@ -19,7 +19,6 @@ class AlbumFactory extends Factory
         $title = fake()->words(3, true);
         
         return [
-            'user_id' => \App\Models\User::factory(),
             'artist_id' => \App\Models\Artist::factory(),
             'title' => $title,
             'slug' => \Illuminate\Support\Str::slug($title) . '-' . fake()->unique()->numberBetween(1, 10000),
@@ -27,9 +26,7 @@ class AlbumFactory extends Factory
             'artwork' => 'albums/' . fake()->uuid() . '.jpg',
             'album_type' => fake()->randomElement(['single', 'ep', 'album', 'compilation']),
             'release_date' => fake()->date(),
-            'release_year' => fake()->year(),
             'status' => fake()->randomElement(['draft', 'pending_review', 'approved', 'published', 'archived']),
-            'visibility' => fake()->randomElement(['public', 'private', 'unlisted']),
             'is_explicit' => fake()->boolean(20),
             'price' => null,
             'is_free' => true,

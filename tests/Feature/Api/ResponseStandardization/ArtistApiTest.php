@@ -103,7 +103,6 @@ class ArtistApiTest extends TestCase
     public function test_artist_albums_returns_paginated_response(): void
     {
         Album::factory()->count(2)->create([
-            'user_id' => $this->user->id,
             'artist_id' => $this->artist->id,
             'status' => 'published',
         ]);

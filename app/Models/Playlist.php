@@ -19,7 +19,7 @@ class Playlist extends Model
         'uuid',
         'user_id',
         'category_id',
-        'title',
+        'name',
         'slug',
         'description',
         'artwork',
@@ -48,7 +48,7 @@ class Playlist extends Model
      * Backward-compatible aliases for API responses
      */
     protected $appends = [
-        'name',
+        'title',
         'song_count',
     ];
 
@@ -64,9 +64,9 @@ class Playlist extends Model
                 $playlist->uuid = (string) Str::uuid();
             }
 
-            // Auto-generate slug from title
-            if (!$playlist->slug && $playlist->title) {
-                $playlist->slug = Str::slug($playlist->title);
+            // Auto-generate slug from name
+            if (!$playlist->slug && $playlist->name) {
+                $playlist->slug = Str::slug($playlist->name);
 
                 // Ensure uniqueness
                 $originalSlug = $playlist->slug;
@@ -207,19 +207,11 @@ class Playlist extends Model
 
     // Accessors — backward-compatible aliases
     /**
-     * Get name attribute (alias for title for backward compatibility)
+     * Get title attribute (alias for name for backward compatibility)
      */
-    public function getNameAttribute(): ?string
+    public function getTitleAttribute(): ?string
     {
-        return $this->title;
-    }
-
-    /**
-     * Set name attribute (alias for title for backward compatibility)
-     */
-    public function setNameAttribute($value): void
-    {
-        $this->attributes['title'] = $value;
+        return $this->name;
     }
 
     /**

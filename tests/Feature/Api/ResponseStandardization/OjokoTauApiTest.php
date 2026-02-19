@@ -10,19 +10,29 @@
  * - No legacy "success" key anywhere
  */
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\DB;
 
 uses(DatabaseTransactions::class);
 
-// Helper to create a user
-function createCampaignUser(): User
-{
-    return User::factory()->create();
-}
+beforeEach(function () {
+    $this->admin = User::factory()->create();
+    $role = Role::factory()->admin()->create();
+    DB::table('user_roles')->insert([
+        'user_id' => $this->admin->id,
+        'role_id' => $role->id,
+        'is_active' => true,
+        'assigned_at' => now(),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    cache()->forget("user:{$this->admin->id}:roles");
+});
 
 test('campaigns index returns paginated data wrapper', function () {
-    $response = $this->getJson('/api/admin/campaigns');
+    $response = $this->actingAs($this->admin)->getJson('/api/admin/campaigns');
 
     // May 500 if table has issues - resilient check
     if ($response->status() === 500) {
@@ -41,7 +51,7 @@ test('campaigns index returns paginated data wrapper', function () {
 });
 
 test('campaigns stats returns data wrapper', function () {
-    $response = $this->getJson('/api/admin/campaigns/stats');
+    $response = $this->actingAs($this->admin)->getJson('/api/admin/campaigns/stats');
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -55,7 +65,7 @@ test('campaigns stats returns data wrapper', function () {
 });
 
 test('campaigns show returns single resource in data wrapper', function () {
-    $response = $this->getJson('/api/admin/campaigns/1');
+    $response = $this->actingAs($this->admin)->getJson('/api/admin/campaigns/1');
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -78,7 +88,7 @@ test('campaigns responses contain no success key', function () {
     ];
 
     foreach ($endpoints as $endpoint) {
-        $response = $this->getJson($endpoint);
+        $response = $this->actingAs($this->admin)->getJson($endpoint);
         if ($response->status() === 200) {
             $response->assertJsonMissing(['success' => true])
                 ->assertJsonMissing(['success' => false]);
@@ -87,15 +97,13 @@ test('campaigns responses contain no success key', function () {
 });
 
 test('campaigns return json content type', function () {
-    $response = $this->getJson('/api/admin/campaigns');
+    $response = $this->actingAs($this->admin)->getJson('/api/admin/campaigns');
 
     expect($response->headers->get('Content-Type'))->toContain('json');
 });
 
 test('campaign create returns 201 with data wrapper', function () {
-    $user = createCampaignUser();
-
-    $response = $this->actingAs($user)->postJson('/api/admin/campaigns', [
+    $response = $this->actingAs($this->admin)->postJson('/api/admin/campaigns', [
         'title' => 'Test Campaign',
         'description' => 'A test campaign for API testing',
         'goal_amount' => 1000000,
@@ -120,7 +128,7 @@ test('campaign create returns 201 with data wrapper', function () {
 });
 
 test('campaign pledges returns paginated collection', function () {
-    $response = $this->getJson('/api/admin/campaigns/1/pledges');
+    $response = $this->actingAs($this->admin)->getJson('/api/admin/campaigns/1/pledges');
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -132,7 +140,7 @@ test('campaign pledges returns paginated collection', function () {
 });
 
 test('campaign updates returns paginated collection', function () {
-    $response = $this->getJson('/api/admin/campaigns/1/updates');
+    $response = $this->actingAs($this->admin)->getJson('/api/admin/campaigns/1/updates');
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -144,7 +152,7 @@ test('campaign updates returns paginated collection', function () {
 });
 
 test('campaign delete returns message', function () {
-    $response = $this->deleteJson('/api/admin/campaigns/999999');
+    $response = $this->actingAs($this->admin)->deleteJson('/api/admin/campaigns/999999');
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');

@@ -28,11 +28,9 @@ class SongFactory extends Factory
             'audio_file_original' => 'songs/original/' . fake()->uuid() . '.mp3',
             'audio_file_320' => 'songs/320kbps/' . fake()->uuid() . '.mp3',
             'audio_file_128' => 'songs/128kbps/' . fake()->uuid() . '.mp3',
-            'audio_file_preview' => 'songs/preview/' . fake()->uuid() . '.mp3',
             'artwork' => 'artwork/' . fake()->uuid() . '.jpg',
             'duration_seconds' => fake()->numberBetween(120, 360),
             'file_size_bytes' => fake()->numberBetween(3000000, 10000000),
-            'bitrate_original' => 320,
             'file_format' => 'mp3',
             'status' => fake()->randomElement(['draft', 'pending_review', 'approved', 'published']),
             'visibility' => fake()->randomElement(['public', 'private', 'unlisted']),
@@ -45,7 +43,6 @@ class SongFactory extends Factory
             'download_count' => fake()->numberBetween(0, 10000),
             'like_count' => fake()->numberBetween(0, 5000),
             'share_count' => fake()->numberBetween(0, 1000),
-            'comment_count' => fake()->numberBetween(0, 500),
         ];
     }
 }

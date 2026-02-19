@@ -11,13 +11,29 @@
 
 use App\Models\Modules\Forum\ForumCategory;
 use App\Models\Modules\Forum\ForumTopic;
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\DB;
 
 uses(DatabaseTransactions::class);
 
+beforeEach(function () {
+    $this->admin = User::factory()->create();
+    $role = Role::factory()->admin()->create();
+    DB::table('user_roles')->insert([
+        'user_id' => $this->admin->id,
+        'role_id' => $role->id,
+        'is_active' => true,
+        'assigned_at' => now(),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    cache()->forget("user:{$this->admin->id}:roles");
+});
+
 test('forum topics index returns paginated data', function () {
-    $response = $this->getJson('/api/admin/forums');
+    $response = $this->actingAs($this->admin)->getJson('/api/admin/forums');
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -34,7 +50,7 @@ test('forum topics index returns paginated data', function () {
 });
 
 test('forum stats returns data wrapper', function () {
-    $response = $this->getJson('/api/admin/forums/stats');
+    $response = $this->actingAs($this->admin)->getJson('/api/admin/forums/stats');
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -46,7 +62,7 @@ test('forum stats returns data wrapper', function () {
 });
 
 test('forum categories returns data wrapper', function () {
-    $response = $this->getJson('/api/admin/forums/categories');
+    $response = $this->actingAs($this->admin)->getJson('/api/admin/forums/categories');
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -59,7 +75,7 @@ test('forum categories returns data wrapper', function () {
 
 test('forum show returns single resource', function () {
     // Try with a topic that may exist
-    $response = $this->getJson('/api/admin/forums/1');
+    $response = $this->actingAs($this->admin)->getJson('/api/admin/forums/1');
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -76,7 +92,7 @@ test('forum show returns single resource', function () {
 });
 
 test('forum replies returns paginated collection', function () {
-    $response = $this->getJson('/api/admin/forums/1/replies');
+    $response = $this->actingAs($this->admin)->getJson('/api/admin/forums/1/replies');
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -95,7 +111,7 @@ test('forum responses contain no success key', function () {
     ];
 
     foreach ($endpoints as $endpoint) {
-        $response = $this->getJson($endpoint);
+        $response = $this->actingAs($this->admin)->getJson($endpoint);
         if ($response->status() === 200) {
             $response->assertJsonMissing(['success' => true])
                 ->assertJsonMissing(['success' => false]);
@@ -104,7 +120,7 @@ test('forum responses contain no success key', function () {
 });
 
 test('forum delete returns json message', function () {
-    $response = $this->deleteJson('/api/admin/forums/999999');
+    $response = $this->actingAs($this->admin)->deleteJson('/api/admin/forums/999999');
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -120,7 +136,7 @@ test('forum delete returns json message', function () {
 });
 
 test('forum toggle pin returns json', function () {
-    $response = $this->postJson('/api/admin/forums/1/pin');
+    $response = $this->actingAs($this->admin)->postJson('/api/admin/forums/1/pin');
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -132,7 +148,7 @@ test('forum toggle pin returns json', function () {
 });
 
 test('forum toggle lock returns json', function () {
-    $response = $this->postJson('/api/admin/forums/1/lock');
+    $response = $this->actingAs($this->admin)->postJson('/api/admin/forums/1/lock');
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -144,6 +160,6 @@ test('forum toggle lock returns json', function () {
 });
 
 test('forum endpoints return json content type', function () {
-    $response = $this->getJson('/api/admin/forums');
+    $response = $this->actingAs($this->admin)->getJson('/api/admin/forums');
     expect($response->headers->get('Content-Type'))->toContain('json');
 });

@@ -19,6 +19,7 @@ class PlaylistFactory extends Factory
         $name = fake()->words(3, true);
 
         return [
+            'user_id' => \App\Models\User::factory(),
             'name' => $name,
             'slug' => \Illuminate\Support\Str::slug($name) . '-' . fake()->unique()->numberBetween(1, 10000),
             'description' => fake()->paragraph(),
@@ -26,10 +27,10 @@ class PlaylistFactory extends Factory
             'visibility' => fake()->randomElement(['public', 'private', 'unlisted']),
             'is_collaborative' => fake()->boolean(20),
             'is_featured' => fake()->boolean(5),
-            'song_count' => fake()->numberBetween(0, 50),
-            'total_duration_seconds' => fake()->numberBetween(600, 7200), // 10 min to 2 hours
+            'total_tracks' => fake()->numberBetween(0, 50),
+            'total_duration_seconds' => fake()->numberBetween(600, 7200),
             'play_count' => fake()->numberBetween(0, 10000),
-            'follower_count' => fake()->numberBetween(0, 1000),
+            'followers_count' => fake()->numberBetween(0, 1000),
         ];
     }
 }

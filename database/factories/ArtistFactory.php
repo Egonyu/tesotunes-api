@@ -20,6 +20,7 @@ class ArtistFactory extends Factory
         
         return [
             'user_id' => \App\Models\User::factory(),
+            'name' => $stageName,
             'stage_name' => $stageName,
             'slug' => \Illuminate\Support\Str::slug($stageName) . '-' . fake()->unique()->numberBetween(1, 10000),
             'bio' => fake()->paragraphs(2, true),
@@ -32,10 +33,10 @@ class ArtistFactory extends Factory
             'verified_at' => fake()->boolean(50) ? now() : null,
             'status' => fake()->randomElement(['pending', 'active', 'suspended', 'rejected']),
             'total_plays' => fake()->numberBetween(0, 1000000),
-            'total_songs' => fake()->numberBetween(0, 100),
-            'total_albums' => fake()->numberBetween(0, 20),
+            'total_songs_count' => fake()->numberBetween(0, 100),
+            'total_albums_count' => fake()->numberBetween(0, 20),
             'total_revenue' => fake()->randomFloat(2, 0, 50000),
-            'follower_count' => fake()->numberBetween(0, 10000),
+            'followers_count' => fake()->numberBetween(0, 10000),
         ];
     }
 
@@ -49,11 +50,11 @@ class ArtistFactory extends Factory
             'verification_badge' => 'none',
             'verified_at' => null,
             'status' => 'pending',
-            'total_songs' => 0,
-            'total_albums' => 0,
+            'total_songs_count' => 0,
+            'total_albums_count' => 0,
             'total_plays' => 0,
             'total_revenue' => 0,
-            'follower_count' => 0,
+            'followers_count' => 0,
         ]);
     }
 

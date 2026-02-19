@@ -41,7 +41,6 @@ class ResponseFormatConsistencyTest extends TestCase
         $artistUser = User::factory()->create();
         $artist = Artist::factory()->create(['user_id' => $artistUser->id, 'status' => 'active']);
         $album = Album::factory()->create([
-            'user_id' => $artistUser->id,
             'artist_id' => $artist->id,
             'status' => 'published',
         ]);

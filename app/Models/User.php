@@ -360,10 +360,7 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Share::class);
     }
 
-    public function notifications(): HasMany
-    {
-        return $this->hasMany(Notification::class);
-    }
+    // notifications() provided by Notifiable trait (morphMany via notifiable_type/notifiable_id)
 
     /**
      * Get user's saved addresses

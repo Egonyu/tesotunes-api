@@ -21,7 +21,6 @@ class AlbumApiTest extends TestCase
         $this->user = User::factory()->create();
         $this->artist = Artist::factory()->create(['user_id' => $this->user->id]);
         $this->album = Album::factory()->create([
-            'user_id' => $this->user->id,
             'artist_id' => $this->artist->id,
             'status' => 'published',
         ]);
@@ -44,7 +43,6 @@ class AlbumApiTest extends TestCase
     public function test_list_albums_returns_pagination_meta(): void
     {
         Album::factory()->count(5)->create([
-            'user_id' => $this->user->id,
             'artist_id' => $this->artist->id,
             'status' => 'published',
         ]);

@@ -14,14 +14,32 @@
  * All Sacco user routes require auth:sanctum.
  */
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\DB;
 
 uses(DatabaseTransactions::class);
 
 function createSaccoUser(): User
 {
     return User::factory()->create();
+}
+
+function createSaccoAdmin(): User
+{
+    $admin = User::factory()->create();
+    $role = Role::factory()->admin()->create();
+    DB::table('user_roles')->insert([
+        'user_id' => $admin->id,
+        'role_id' => $role->id,
+        'is_active' => true,
+        'assigned_at' => now(),
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+    cache()->forget("user:{$admin->id}:roles");
+    return $admin;
 }
 
 // ─── Authentication ──────────────────────────────────────────
@@ -380,6 +398,7 @@ test('sacco responses contain no success key', function () {
 
     foreach ($endpoints as $endpoint) {
         $response = $this->actingAs($user)->getJson($endpoint);
+        expect($response->headers->get('Content-Type'))->toContain('json');
         if ($response->status() === 200) {
             $json = $response->json();
             expect($json)->not->toHaveKey('success');
@@ -390,7 +409,8 @@ test('sacco responses contain no success key', function () {
 // ─── Admin Sacco ─────────────────────────────────────────────
 
 test('admin sacco stats returns data wrapper', function () {
-    $response = $this->getJson('/api/admin/sacco/stats');
+    $admin = createSaccoAdmin();
+    $response = $this->actingAs($admin)->getJson('/api/admin/sacco/stats');
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -402,7 +422,8 @@ test('admin sacco stats returns data wrapper', function () {
 });
 
 test('admin sacco members returns data', function () {
-    $response = $this->getJson('/api/admin/sacco/members');
+    $admin = createSaccoAdmin();
+    $response = $this->actingAs($admin)->getJson('/api/admin/sacco/members');
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -414,7 +435,8 @@ test('admin sacco members returns data', function () {
 });
 
 test('admin sacco loans returns data', function () {
-    $response = $this->getJson('/api/admin/sacco/loans');
+    $admin = createSaccoAdmin();
+    $response = $this->actingAs($admin)->getJson('/api/admin/sacco/loans');
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');

@@ -14,7 +14,6 @@ class Album extends Model
     use HasFactory, SoftDeletes, Featurable;
 
     protected $fillable = [
-        'user_id',
         'artist_id',
         'title',
         'slug',
