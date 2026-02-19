@@ -16,6 +16,36 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::middleware('auth:sanctum')->prefix('payments')->name('api.payments.')->group(function () {
+    // Initiate mobile money deposit (wallet topup)
+    Route::post(
+        '/mobile-money/initiate',
+        [\App\Http\Controllers\Api\PaymentController::class, 'initiateMobileMoneyDeposit']
+    )->name('mobile-money.initiate');
+
+    // Check payment status by reference
+    Route::get(
+        '/mobile-money/status/{reference}',
+        [\App\Http\Controllers\Api\PaymentController::class, 'mobileMoneyStatus']
+    )->name('mobile-money.status');
+
+    // Get wallet info
+    Route::get(
+        '/wallet',
+        [\App\Http\Controllers\Api\PaymentController::class, 'wallet']
+    )->name('wallet');
+
+    // Wallet transactions
+    Route::get(
+        '/wallet/transactions',
+        [\App\Http\Controllers\Api\PaymentController::class, 'walletTransactions']
+    )->name('wallet.transactions');
+
+    // Wallet withdraw
+    Route::post(
+        '/wallet/withdraw',
+        [\App\Http\Controllers\Api\PaymentController::class, 'withdraw']
+    )->name('wallet.withdraw');
+
     // Check ZengaPay transaction status
     Route::get(
         '/status/{transactionId}',
