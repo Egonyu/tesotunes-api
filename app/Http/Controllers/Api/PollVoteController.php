@@ -81,4 +81,34 @@ class PollVoteController extends Controller
 
         return new PollResource($poll);
     }
+
+    /**
+     * GET /api/polls
+     * List active/recent polls (public).
+     */
+    public function index(Request $request)
+    {
+        $query = Poll::with(['options', 'user']);
+
+        if ($status = $request->get('status')) {
+            $query->where('status', $status);
+        } else {
+            // Default: show active polls, then recently closed
+            $query->whereIn('status', ['active', 'closed']);
+        }
+
+        if ($category = $request->get('category')) {
+            $query->where('category', $category);
+        }
+
+        $polls = $query->orderByDesc('created_at')
+            ->paginate($request->get('per_page', 10));
+
+        // Load votes relation for authenticated user context
+        if ($request->user()) {
+            $polls->load('votes');
+        }
+
+        return PollResource::collection($polls);
+    }
 }

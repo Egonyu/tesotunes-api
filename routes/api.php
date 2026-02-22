@@ -169,7 +169,9 @@ Route::middleware('auth:sanctum')->group(function () {
         ->name('api.polls.vote');
 });
 
-// Poll results (public)
+// Poll listing & results (public)
+Route::get('/polls', [\App\Http\Controllers\Api\PollVoteController::class, 'index'])
+    ->name('api.polls.index');
 Route::get('/polls/{poll}/results', [\App\Http\Controllers\Api\PollVoteController::class, 'results'])
     ->name('api.polls.results');
 
@@ -527,6 +529,8 @@ Route::prefix('sacco')
     ->group(function () {
 
         // Membership
+        Route::get('membership', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'myMembership'])->name('membership');
+        Route::post('join', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'join'])->name('join');
         Route::get('members', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'index'])->name('members.index');
         Route::post('members', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'store'])->name('members.store');
         Route::get('members/{member}', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'show'])->name('members.show');
@@ -545,6 +549,7 @@ Route::prefix('sacco')
 
         // Loans
         Route::prefix('loans')->name('loans.')->group(function () {
+            Route::get('', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'myLoans'])->name('index');
             Route::post('apply', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'apply'])->name('apply');
             Route::post('{loan}/approve', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'approve'])->name('approve');
             Route::post('{loan}/disburse', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'disburse'])->name('disburse');

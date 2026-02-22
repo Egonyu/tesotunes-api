@@ -14,6 +14,26 @@ use Illuminate\Support\Facades\DB;
 class SaccoLoanController extends Controller
 {
     /**
+     * GET /api/sacco/loans -- list authenticated user's own loans
+     */
+    public function myLoans(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $member = SaccoMember::where('user_id', $user->id)->first();
+
+        if (!$member) {
+            return response()->json(['data' => []], 200);
+        }
+
+        $loans = SaccoLoan::where('member_id', $member->id)
+            ->when($request->get('status'), fn ($q, $s) => $q->where('status', $s))
+            ->latest()
+            ->paginate($request->get('per_page', 15));
+
+        return response()->json(SaccoLoanResource::collection($loans)->response()->getData());
+    }
+
+    /**
      * POST /api/sacco/loans/apply — submit loan application
      */
     public function apply(Request $request): JsonResponse

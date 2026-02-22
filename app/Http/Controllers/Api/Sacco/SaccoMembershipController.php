@@ -11,6 +11,59 @@ use Illuminate\Http\Request;
 class SaccoMembershipController extends Controller
 {
     /**
+     * GET /api/sacco/membership — current user's membership
+     */
+    public function myMembership(Request $request): JsonResponse
+    {
+        $member = SaccoMember::with(['user:id,username,email', 'savingsAccounts', 'shares'])
+            ->withCount('loans')
+            ->where('user_id', $request->user()->id)
+            ->first();
+
+        if (!$member) {
+            return response()->json(['data' => null]);
+        }
+
+        return response()->json([
+            'data' => new SaccoMemberResource($member),
+        ]);
+    }
+
+    /**
+     * POST /api/sacco/join — self-registration for authenticated user
+     */
+    public function join(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        // Check if already a member
+        if (SaccoMember::where('user_id', $user->id)->exists()) {
+            return response()->json(['message' => 'You are already a SACCO member.'], 422);
+        }
+
+        $validated = $request->validate([
+            'initial_deposit' => 'nullable|numeric|min:0',
+            'initial_shares' => 'nullable|integer|min:0',
+            'phone_number' => 'required|string|max:20',
+            'payment_method' => 'nullable|string|in:mtn_momo,airtel_money',
+        ]);
+
+        $member = SaccoMember::create([
+            'user_id' => $user->id,
+            'status' => 'active',
+            'joined_at' => now(),
+            'member_number' => 'MBR'.now()->format('Ymd').rand(10000, 99999),
+        ]);
+
+        $member->load('user:id,username,email');
+
+        return response()->json([
+            'data' => new SaccoMemberResource($member),
+            'message' => 'Welcome to TesoTunes SACCO!',
+        ], 201);
+    }
+
+    /**
      * GET /api/sacco/members — list members
      */
     public function index(Request $request)

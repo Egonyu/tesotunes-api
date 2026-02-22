@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\Album;
 use App\Models\Artist;
+use App\Models\Event;
 use App\Models\Like;
 use App\Models\Playlist;
 use App\Models\Song;
@@ -25,6 +26,7 @@ class ActivityInteractionController extends Controller
             'artist', 'artists' => Artist::class,
             'playlist', 'playlists' => Playlist::class,
             'activity', 'activities' => Activity::class,
+            'event', 'events' => Event::class,
             default => null,
         };
     }
