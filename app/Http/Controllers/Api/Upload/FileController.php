@@ -13,6 +13,36 @@ use Illuminate\Support\Str;
 
 class FileController extends Controller
 {
+    /**
+     * Get the configured storage disk name for uploads.
+     * Uses FILESYSTEM_DISK env var, defaults to 'public' for backward compatibility.
+     */
+    private function getUploadDisk(): string
+    {
+        $disk = config('filesystems.default', 'local');
+        // If default is 'local' (private), fall back to 'public' for uploads
+        return $disk === 'local' ? 'public' : $disk;
+    }
+
+    /**
+     * Get a Storage disk instance for uploads.
+     */
+    private function disk(): \Illuminate\Contracts\Filesystem\Filesystem
+    {
+        return Storage::disk($this->getUploadDisk());
+    }
+
+    /**
+     * Check if the configured upload disk is a local driver.
+     * Compression and image resizing require local filesystem access.
+     */
+    private function isLocalDisk(): bool
+    {
+        $diskName = $this->getUploadDisk();
+        $driver = config("filesystems.disks.{$diskName}.driver", 'local');
+        return $driver === 'local';
+    }
+
     public function uploadAudio(Request $request): JsonResponse
     {
         try {
@@ -32,13 +62,14 @@ class FileController extends Controller
 
             $file = $request->file('audio');
             $user = auth()->user();
+            $uploadDisk = $this->getUploadDisk();
 
             // Generate unique filename
             $filename = time().'_'.Str::random(10).'.'.$file->getClientOriginalExtension();
-            $path = 'audio/'.$user->id.'/'.$filename;
+            $directory = 'audio/'.$user->id;
 
-            // Store original file
-            $storedPath = $file->storeAs('audio/'.$user->id, $filename, 'public');
+            // Store original file on configured disk
+            $storedPath = $file->storeAs($directory, $filename, $uploadDisk);
 
             $fileData = [
                 'original_name' => $file->getClientOriginalName(),
@@ -46,24 +77,27 @@ class FileController extends Controller
                 'path' => $storedPath,
                 'size' => $file->getSize(),
                 'mime_type' => $file->getMimeType(),
-                'url' => Storage::disk('public')->url($storedPath),
+                'url' => $this->disk()->url($storedPath),
             ];
 
             // Create compressed version if requested (for African market data efficiency)
-            if ($request->boolean('compress', true)) {
+            // Note: Compression only works with local storage (needs filesystem path)
+            if ($request->boolean('compress', true) && $this->isLocalDisk()) {
                 try {
                     $compressedPath = $this->compressAudio($storedPath, $request->get('quality', 'medium'));
                     $fileData['compressed_path'] = $compressedPath;
-                    $fileData['compressed_url'] = Storage::disk('public')->url($compressedPath);
+                    $fileData['compressed_url'] = $this->disk()->url($compressedPath);
                 } catch (\Exception $e) {
                     // If compression fails, continue with original file
                     \Log::warning('Audio compression failed: '.$e->getMessage());
                 }
             }
 
-            // Extract audio metadata
-            $metadata = $this->extractAudioMetadata($storedPath);
-            $fileData = array_merge($fileData, $metadata);
+            // Extract audio metadata (only works with local storage)
+            if ($this->isLocalDisk()) {
+                $metadata = $this->extractAudioMetadata($storedPath);
+                $fileData = array_merge($fileData, $metadata);
+            }
 
             return response()->json([
                 'success' => true,
@@ -107,8 +141,9 @@ class FileController extends Controller
             $filename = time().'_'.Str::random(10).'.'.$file->getClientOriginalExtension();
             $directory = "images/{$type}/".$user->id;
 
-            // Store original image
-            $storedPath = $file->storeAs($directory, $filename, 'public');
+            // Store original image on configured disk
+            $uploadDisk = $this->getUploadDisk();
+            $storedPath = $file->storeAs($directory, $filename, $uploadDisk);
 
             $fileData = [
                 'original_name' => $file->getClientOriginalName(),
@@ -117,7 +152,7 @@ class FileController extends Controller
                 'type' => $type,
                 'size' => $file->getSize(),
                 'mime_type' => $file->getMimeType(),
-                'url' => Storage::disk('public')->url($storedPath),
+                'url' => $this->disk()->url($storedPath),
             ];
 
             // Create resized versions for different use cases
@@ -159,17 +194,18 @@ class FileController extends Controller
             $file = $request->file('avatar');
             $user = auth()->user();
 
-            // Delete old avatar
+            // Delete old avatar from configured disk
             if ($user->avatar) {
-                Storage::disk('public')->delete($user->avatar);
+                $this->disk()->delete($user->avatar);
             }
 
             // Generate unique filename
+            $uploadDisk = $this->getUploadDisk();
             $filename = 'avatar_'.time().'_'.Str::random(10).'.'.$file->getClientOriginalExtension();
-            $storedPath = $file->storeAs('avatars', $filename, 'public');
+            $storedPath = $file->storeAs('avatars', $filename, $uploadDisk);
 
-            // Create thumbnail versions
-            $thumbnails = $this->createAvatarThumbnails($storedPath);
+            // Create thumbnail versions (only for local storage)
+            $thumbnails = $this->isLocalDisk() ? $this->createAvatarThumbnails($storedPath) : [];
 
             // Update user avatar
             $user->update(['avatar' => $storedPath]);
@@ -179,7 +215,7 @@ class FileController extends Controller
                 'message' => 'Avatar uploaded successfully',
                 'data' => [
                     'path' => $storedPath,
-                    'url' => Storage::disk('public')->url($storedPath),
+                    'url' => $this->disk()->url($storedPath),
                     'thumbnails' => $thumbnails,
                 ],
             ]);
@@ -195,11 +231,11 @@ class FileController extends Controller
 
     private function compressAudio(string $path, string $quality): string
     {
-        $fullPath = Storage::disk('public')->path($path);
+        $fullPath = $this->disk()->path($path);
         $pathInfo = pathinfo($path);
         $compressedFilename = $pathInfo['filename'].'_compressed.mp3';
         $compressedPath = $pathInfo['dirname'].'/'.$compressedFilename;
-        $compressedFullPath = Storage::disk('public')->path($compressedPath);
+        $compressedFullPath = $this->disk()->path($compressedPath);
 
         // Set bitrate based on quality for African market data efficiency
         $bitrate = match ($quality) {
@@ -227,7 +263,7 @@ class FileController extends Controller
 
     private function extractAudioMetadata(string $path): array
     {
-        $fullPath = Storage::disk('public')->path($path);
+        $fullPath = $this->disk()->path($path);
 
         try {
             $ffprobe = \FFMpeg\FFProbe::create();
@@ -272,21 +308,21 @@ class FileController extends Controller
         };
 
         $resized = [];
-        $fullPath = Storage::disk('public')->path($path);
+        $fullPath = $this->disk()->path($path);
         $pathInfo = pathinfo($path);
 
         foreach ($sizes as $sizeName => [$width, $height]) {
             try {
                 $resizedFilename = $pathInfo['filename']."_{$sizeName}.".$pathInfo['extension'];
                 $resizedPath = $pathInfo['dirname'].'/'.$resizedFilename;
-                $resizedFullPath = Storage::disk('public')->path($resizedPath);
+                $resizedFullPath = $this->disk()->path($resizedPath);
 
                 // Create resized image using GD or Imagick
                 $this->resizeImage($fullPath, $resizedFullPath, $width, $height);
 
                 $resized[$sizeName] = [
                     'path' => $resizedPath,
-                    'url' => Storage::disk('public')->url($resizedPath),
+                    'url' => $this->disk()->url($resizedPath),
                     'width' => $width,
                     'height' => $height,
                 ];

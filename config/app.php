@@ -68,6 +68,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Frontend URL
+    |--------------------------------------------------------------------------
+    |
+    | The URL of the frontend application. Used for redirects from the API
+    | (e.g., admin middleware login redirects) and CORS configuration.
+    |
+    */
+
+    'frontend_url' => env('FRONTEND_URL', 'https://beta.tesotunes.com'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

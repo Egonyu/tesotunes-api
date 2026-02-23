@@ -14,6 +14,7 @@ class AdminMiddleware
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
+        $frontendUrl = config('app.frontend_url', 'https://beta.tesotunes.com');
 
         if (! $user) {
             if ($request->expectsJson()) {
@@ -22,8 +23,8 @@ class AdminMiddleware
                     'message' => 'Authentication required',
                 ], 401);
             }
-
-            return redirect()->route('admin.login');
+            $returnUrl = urlencode($request->fullUrl());
+            return redirect("{$frontendUrl}/login?admin=true&return={$returnUrl}");
         }
 
         if (! $user->isActive()) {
@@ -33,8 +34,7 @@ class AdminMiddleware
                     'message' => 'Account is suspended',
                 ], 403);
             }
-
-            return redirect()->route('admin.login')->with('error', 'Account is suspended');
+            return redirect("{$frontendUrl}/login?error=suspended");
         }
 
         // Allow admin and moderator access

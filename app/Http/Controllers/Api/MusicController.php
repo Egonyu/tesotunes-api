@@ -5,9 +5,49 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Song;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 class MusicController extends Controller
 {
+    /**
+     * The ordered list of storage disks to check for audio files.
+     * Checks configured disk first, then local fallbacks for backward compatibility.
+     */
+    private function getAudioDisks(): array
+    {
+        $defaultDisk = config('filesystems.default', 'local');
+        $disks = [$defaultDisk];
+
+        // Add local fallbacks for backward compatibility with existing files
+        foreach (['music_private', 'music_public', 'public'] as $fallback) {
+            if (! in_array($fallback, $disks)) {
+                $disks[] = $fallback;
+            }
+        }
+
+        return $disks;
+    }
+
+    /**
+     * Find an audio file across configured storage disks.
+     * Returns [disk_name, path] or null if not found.
+     */
+    private function findAudioFile(string $filePath): ?array
+    {
+        foreach ($this->getAudioDisks() as $diskName) {
+            try {
+                $disk = Storage::disk($diskName);
+                if ($disk->exists($filePath)) {
+                    return [$diskName, $filePath];
+                }
+            } catch (\Exception $e) {
+                \Log::debug("Disk {$diskName} check failed for {$filePath}: ".$e->getMessage());
+            }
+        }
+
+        return null;
+    }
+
     /**
      * Get streaming URL for a track
      */
@@ -35,27 +75,14 @@ class MusicController extends Controller
                 return response()->json(['error' => 'Track file not found'], 404);
             }
 
-            // Check multiple possible storage locations for the file
-            // Files can be in storage/app/public, storage/app/music/music, or storage/app/music
-            $possiblePaths = [
-                storage_path('app/public/'.$audioFile),
-                storage_path('app/music/music/'.$audioFile),
-                storage_path('app/music/'.$audioFile),
-            ];
+            // Check configured storage disks for the file
+            $found = $this->findAudioFile($audioFile);
 
-            $actualPath = null;
-            foreach ($possiblePaths as $path) {
-                if (file_exists($path)) {
-                    $actualPath = $path;
-                    break;
-                }
-            }
-
-            if (! $actualPath) {
-                \Log::error('Audio file not found on disk', [
+            if (! $found) {
+                \Log::error('Audio file not found on any disk', [
                     'song_id' => $song->id,
                     'db_path' => $audioFile,
-                    'checked_paths' => $possiblePaths,
+                    'checked_disks' => $this->getAudioDisks(),
                 ]);
 
                 return response()->json(['error' => 'Audio file not found on server'], 404);
@@ -112,31 +139,38 @@ class MusicController extends Controller
                 abort(404, 'No audio file configured');
             }
 
-            // Check multiple possible storage locations
-            $possiblePaths = [
-                storage_path('app/public/'.$filePath),
-                storage_path('app/music/music/'.$filePath),
-                storage_path('app/music/'.$filePath),
-            ];
+            // Find file across configured storage disks
+            $found = $this->findAudioFile($filePath);
 
-            $actualPath = null;
-            foreach ($possiblePaths as $path) {
-                if (file_exists($path)) {
-                    $actualPath = $path;
-                    break;
-                }
-            }
-
-            if (! $actualPath) {
+            if (! $found) {
                 \Log::error('Stream: Audio file not found', [
                     'song_id' => $songId,
                     'file_path' => $filePath,
-                    'checked_paths' => $possiblePaths,
+                    'checked_disks' => $this->getAudioDisks(),
                 ]);
                 abort(404, 'File not found');
             }
 
-            // Stream the file with proper headers for audio
+            [$diskName, $foundPath] = $found;
+            $disk = Storage::disk($diskName);
+
+            // For local disks, stream directly from filesystem
+            // For cloud disks (S3/DO Spaces), redirect to a temporary URL
+            $diskDriver = config("filesystems.disks.{$diskName}.driver", 'local');
+
+            if ($diskDriver !== 'local') {
+                // Cloud storage: generate temporary signed URL and redirect
+                try {
+                    $temporaryUrl = $disk->temporaryUrl($foundPath, now()->addMinutes(15));
+                    return redirect($temporaryUrl);
+                } catch (\Exception $e) {
+                    // If temporaryUrl not supported, fall back to regular URL
+                    return redirect($disk->url($foundPath));
+                }
+            }
+
+            // Local storage: stream the file with proper headers
+            $actualPath = $disk->path($foundPath);
             $fileSize = filesize($actualPath);
             $mimeType = mime_content_type($actualPath) ?: 'audio/mpeg';
 
@@ -183,8 +217,27 @@ class MusicController extends Controller
                 return response()->json(['error' => 'Track file not found'], 404);
             }
 
-            // Build download URL
-            $downloadUrl = \App\Helpers\StorageHelper::url($filePath);
+            // Build download URL from configured storage
+            $found = $this->findAudioFile($filePath);
+
+            if (! $found) {
+                return response()->json(['error' => 'Track file not found on storage'], 404);
+            }
+
+            [$diskName, $foundPath] = $found;
+            $disk = Storage::disk($diskName);
+            $diskDriver = config("filesystems.disks.{$diskName}.driver", 'local');
+
+            // For cloud storage, generate temporary signed URL
+            if ($diskDriver !== 'local') {
+                try {
+                    $downloadUrl = $disk->temporaryUrl($foundPath, now()->addMinutes(15));
+                } catch (\Exception $e) {
+                    $downloadUrl = $disk->url($foundPath);
+                }
+            } else {
+                $downloadUrl = $disk->url($foundPath);
+            }
 
             return response()->json([
                 'url' => $downloadUrl,
