@@ -9,6 +9,16 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (!Schema::hasTable('loyalty_cards')) {
+            return;
+        }
+
+        // Only alter if the column type is an enum (not already a varchar/string)
+        $columnType = Schema::getColumnType('loyalty_cards', 'status');
+        if ($columnType === 'string') {
+            return; // Already a string, nothing to do
+        }
+
         // Change enum to string for more flexibility (add 'suspended', 'pending_review', etc.)
         DB::statement("ALTER TABLE loyalty_cards MODIFY COLUMN status VARCHAR(255) NOT NULL DEFAULT 'draft'");
     }

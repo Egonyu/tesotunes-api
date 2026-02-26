@@ -9,6 +9,53 @@ return new class extends Migration
     public function up(): void
     {
         // ─── loyalty_cards ───────────────────────────────────────────
+        if (Schema::hasTable('loyalty_cards')) {
+            // Table exists — add any missing columns
+            Schema::table('loyalty_cards', function (Blueprint $table) {
+                if (!Schema::hasColumn('loyalty_cards', 'uuid')) {
+                    $table->uuid('uuid')->unique()->after('id');
+                }
+                if (!Schema::hasColumn('loyalty_cards', 'slug')) {
+                    $table->string('slug')->unique()->after('name');
+                }
+                if (!Schema::hasColumn('loyalty_cards', 'logo_url')) {
+                    $table->string('logo_url', 500)->nullable()->after('description');
+                }
+                if (!Schema::hasColumn('loyalty_cards', 'banner_url')) {
+                    $table->string('banner_url', 500)->nullable()->after('logo_url');
+                }
+                if (!Schema::hasColumn('loyalty_cards', 'primary_color')) {
+                    $table->string('primary_color', 7)->nullable()->after('banner_url');
+                }
+                if (!Schema::hasColumn('loyalty_cards', 'secondary_color')) {
+                    $table->string('secondary_color', 7)->nullable()->after('primary_color');
+                }
+                if (!Schema::hasColumn('loyalty_cards', 'tiers')) {
+                    $table->json('tiers')->after('secondary_color');
+                }
+                if (!Schema::hasColumn('loyalty_cards', 'published_at')) {
+                    $table->timestamp('published_at')->nullable()->after('status');
+                }
+                if (!Schema::hasColumn('loyalty_cards', 'total_members')) {
+                    $table->unsignedInteger('total_members')->default(0)->after('published_at');
+                }
+                if (!Schema::hasColumn('loyalty_cards', 'monthly_revenue')) {
+                    $table->decimal('monthly_revenue', 12, 2)->default(0)->after('total_members');
+                }
+                if (!Schema::hasColumn('loyalty_cards', 'allow_monthly')) {
+                    $table->boolean('allow_monthly')->default(true)->after('monthly_revenue');
+                }
+                if (!Schema::hasColumn('loyalty_cards', 'allow_yearly')) {
+                    $table->boolean('allow_yearly')->default(true)->after('allow_monthly');
+                }
+                if (!Schema::hasColumn('loyalty_cards', 'auto_renew')) {
+                    $table->boolean('auto_renew')->default(true)->after('allow_yearly');
+                }
+                if (!Schema::hasColumn('loyalty_cards', 'deleted_at')) {
+                    $table->softDeletes();
+                }
+            });
+        } else {
         Schema::create('loyalty_cards', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
@@ -43,8 +90,10 @@ return new class extends Migration
             $table->index('artist_id');
             $table->index('status');
         });
+        }
 
         // ─── loyalty_card_members ──────────────────────────────────
+        if (!Schema::hasTable('loyalty_card_members')) {
         Schema::create('loyalty_card_members', function (Blueprint $table) {
             $table->id();
             $table->foreignId('loyalty_card_id')->constrained('loyalty_cards')->cascadeOnDelete();
@@ -87,8 +136,10 @@ return new class extends Migration
             $table->index('status');
             $table->index('expires_at');
         });
+        }
 
         // ─── loyalty_rewards ───────────────────────────────────────
+        if (!Schema::hasTable('loyalty_rewards')) {
         Schema::create('loyalty_rewards', function (Blueprint $table) {
             $table->id();
             $table->foreignId('loyalty_card_id')->constrained('loyalty_cards')->cascadeOnDelete();
@@ -129,8 +180,10 @@ return new class extends Migration
             $table->index('type');
             $table->index('required_tier');
         });
+        }
 
         // ─── loyalty_reward_redemptions ─────────────────────────────
+        if (!Schema::hasTable('loyalty_reward_redemptions')) {
         Schema::create('loyalty_reward_redemptions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('loyalty_reward_id')->constrained('loyalty_rewards')->cascadeOnDelete();
@@ -146,8 +199,10 @@ return new class extends Migration
             $table->index('user_id');
             $table->index('status');
         });
+        }
 
         // ─── loyalty_points ────────────────────────────────────────
+        if (!Schema::hasTable('loyalty_points')) {
         Schema::create('loyalty_points', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->unique()->constrained('users')->cascadeOnDelete();
@@ -159,8 +214,10 @@ return new class extends Migration
 
             $table->timestamps();
         });
+        }
 
         // ─── loyalty_transactions ──────────────────────────────────
+        if (!Schema::hasTable('loyalty_transactions')) {
         Schema::create('loyalty_transactions', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
@@ -186,6 +243,7 @@ return new class extends Migration
             $table->index('source');
             $table->index('created_at');
         });
+        }
 
         // ─── Add missing loyalty columns to event_tickets ──────────
         if (Schema::hasTable('event_tickets') && !Schema::hasColumn('event_tickets', 'required_loyalty_tier')) {
@@ -199,7 +257,11 @@ return new class extends Migration
         // ─── Add hide_from_non_qualifying to events if missing ─────
         if (Schema::hasTable('events') && !Schema::hasColumn('events', 'hide_from_non_qualifying')) {
             Schema::table('events', function (Blueprint $table) {
-                $table->boolean('hide_from_non_qualifying')->default(false)->after('loyalty_card_id');
+                if (Schema::hasColumn('events', 'loyalty_card_id')) {
+                    $table->boolean('hide_from_non_qualifying')->default(false)->after('loyalty_card_id');
+                } else {
+                    $table->boolean('hide_from_non_qualifying')->default(false);
+                }
             });
         }
     }
