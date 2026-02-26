@@ -10,46 +10,49 @@ return new class extends Migration
     {
         // ─── loyalty_cards ───────────────────────────────────────────
         if (Schema::hasTable('loyalty_cards')) {
-            // Table exists — add any missing columns
+            // Table exists — add any missing columns (no after() to avoid referencing missing columns)
             Schema::table('loyalty_cards', function (Blueprint $table) {
                 if (!Schema::hasColumn('loyalty_cards', 'uuid')) {
-                    $table->uuid('uuid')->unique()->after('id');
+                    $table->uuid('uuid')->unique()->nullable();
                 }
                 if (!Schema::hasColumn('loyalty_cards', 'slug')) {
-                    $table->string('slug')->unique()->after('name');
+                    $table->string('slug')->unique()->nullable();
                 }
                 if (!Schema::hasColumn('loyalty_cards', 'logo_url')) {
-                    $table->string('logo_url', 500)->nullable()->after('description');
+                    $table->string('logo_url', 500)->nullable();
                 }
                 if (!Schema::hasColumn('loyalty_cards', 'banner_url')) {
-                    $table->string('banner_url', 500)->nullable()->after('logo_url');
+                    $table->string('banner_url', 500)->nullable();
                 }
                 if (!Schema::hasColumn('loyalty_cards', 'primary_color')) {
-                    $table->string('primary_color', 7)->nullable()->after('banner_url');
+                    $table->string('primary_color', 7)->nullable();
                 }
                 if (!Schema::hasColumn('loyalty_cards', 'secondary_color')) {
-                    $table->string('secondary_color', 7)->nullable()->after('primary_color');
+                    $table->string('secondary_color', 7)->nullable();
                 }
                 if (!Schema::hasColumn('loyalty_cards', 'tiers')) {
-                    $table->json('tiers')->after('secondary_color');
+                    $table->json('tiers')->nullable();
+                }
+                if (!Schema::hasColumn('loyalty_cards', 'status')) {
+                    $table->string('status')->default('draft');
                 }
                 if (!Schema::hasColumn('loyalty_cards', 'published_at')) {
-                    $table->timestamp('published_at')->nullable()->after('status');
+                    $table->timestamp('published_at')->nullable();
                 }
                 if (!Schema::hasColumn('loyalty_cards', 'total_members')) {
-                    $table->unsignedInteger('total_members')->default(0)->after('published_at');
+                    $table->unsignedInteger('total_members')->default(0);
                 }
                 if (!Schema::hasColumn('loyalty_cards', 'monthly_revenue')) {
-                    $table->decimal('monthly_revenue', 12, 2)->default(0)->after('total_members');
+                    $table->decimal('monthly_revenue', 12, 2)->default(0);
                 }
                 if (!Schema::hasColumn('loyalty_cards', 'allow_monthly')) {
-                    $table->boolean('allow_monthly')->default(true)->after('monthly_revenue');
+                    $table->boolean('allow_monthly')->default(true);
                 }
                 if (!Schema::hasColumn('loyalty_cards', 'allow_yearly')) {
-                    $table->boolean('allow_yearly')->default(true)->after('allow_monthly');
+                    $table->boolean('allow_yearly')->default(true);
                 }
                 if (!Schema::hasColumn('loyalty_cards', 'auto_renew')) {
-                    $table->boolean('auto_renew')->default(true)->after('allow_yearly');
+                    $table->boolean('auto_renew')->default(true);
                 }
                 if (!Schema::hasColumn('loyalty_cards', 'deleted_at')) {
                     $table->softDeletes();
