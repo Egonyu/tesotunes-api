@@ -159,11 +159,17 @@ return new class extends Migration
             $table->string('content_url', 500)->nullable();
 
             // Merchandise rewards
-            $table->foreignId('product_id')->nullable()->constrained('store_products')->nullOnDelete();
+            $table->unsignedBigInteger('product_id')->nullable();
+            if (Schema::hasTable('store_products')) {
+                $table->foreign('product_id')->references('id')->on('store_products')->nullOnDelete();
+            }
             $table->decimal('discount_percentage', 5, 2)->nullable();
 
             // Experience rewards
-            $table->foreignId('event_id')->nullable()->constrained('events')->nullOnDelete();
+            $table->unsignedBigInteger('event_id')->nullable();
+            if (Schema::hasTable('events')) {
+                $table->foreign('event_id')->references('id')->on('events')->nullOnDelete();
+            }
             $table->string('experience_type', 100)->nullable();
 
             // Points rewards
@@ -251,9 +257,9 @@ return new class extends Migration
         // ─── Add missing loyalty columns to event_tickets ──────────
         if (Schema::hasTable('event_tickets') && !Schema::hasColumn('event_tickets', 'required_loyalty_tier')) {
             Schema::table('event_tickets', function (Blueprint $table) {
-                $table->string('required_loyalty_tier')->nullable()->after('is_active');
-                $table->unsignedInteger('tier_early_access_hours')->nullable()->after('required_loyalty_tier');
-                $table->json('tier_discounts')->nullable()->after('tier_early_access_hours');
+                $table->string('required_loyalty_tier')->nullable();
+                $table->unsignedInteger('tier_early_access_hours')->nullable();
+                $table->json('tier_discounts')->nullable();
             });
         }
 
@@ -281,7 +287,13 @@ return new class extends Migration
 
         if (Schema::hasTable('event_tickets')) {
             Schema::table('event_tickets', function (Blueprint $table) {
-                $table->dropColumn(['required_loyalty_tier', 'tier_early_access_hours', 'tier_discounts']);
+                $columns = array_filter(
+                    ['required_loyalty_tier', 'tier_early_access_hours', 'tier_discounts'],
+                    fn ($col) => Schema::hasColumn('event_tickets', $col)
+                );
+                if (!empty($columns)) {
+                    $table->dropColumn($columns);
+                }
             });
         }
 

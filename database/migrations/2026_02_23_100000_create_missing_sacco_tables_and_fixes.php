@@ -36,7 +36,10 @@ return new class extends Migration
                 $table->id();
                 $table->uuid('uuid')->unique();
                 $table->string('account_number')->unique();
-                $table->foreignId('member_id')->constrained('sacco_members')->cascadeOnDelete();
+                $table->unsignedBigInteger('member_id');
+                if (Schema::hasTable('sacco_members')) {
+                    $table->foreign('member_id')->references('id')->on('sacco_members')->cascadeOnDelete();
+                }
                 $table->string('account_type')->default('regular'); // regular, fixed, junior
                 $table->string('account_name')->nullable();
                 $table->decimal('balance_ugx', 15, 2)->default(0);
@@ -62,7 +65,10 @@ return new class extends Migration
                 $table->uuid('uuid')->unique();
                 $table->string('transaction_code')->unique();
                 $table->foreignId('account_id')->constrained('sacco_savings_accounts')->cascadeOnDelete();
-                $table->foreignId('member_id')->constrained('sacco_members')->cascadeOnDelete();
+                $table->unsignedBigInteger('member_id');
+                if (Schema::hasTable('sacco_members')) {
+                    $table->foreign('member_id')->references('id')->on('sacco_members')->cascadeOnDelete();
+                }
                 $table->string('type'); // deposit, withdrawal, interest, fee
                 $table->decimal('amount_ugx', 15, 2);
                 $table->decimal('balance_before_ugx', 15, 2)->default(0);
@@ -84,8 +90,14 @@ return new class extends Migration
                 $table->id();
                 $table->uuid('uuid')->unique();
                 $table->string('payment_code')->unique();
-                $table->foreignId('loan_id')->constrained('sacco_loans')->cascadeOnDelete();
-                $table->foreignId('member_id')->constrained('sacco_members')->cascadeOnDelete();
+                $table->unsignedBigInteger('loan_id');
+                if (Schema::hasTable('sacco_loans')) {
+                    $table->foreign('loan_id')->references('id')->on('sacco_loans')->cascadeOnDelete();
+                }
+                $table->unsignedBigInteger('member_id');
+                if (Schema::hasTable('sacco_members')) {
+                    $table->foreign('member_id')->references('id')->on('sacco_members')->cascadeOnDelete();
+                }
                 $table->decimal('amount_ugx', 15, 2);
                 $table->decimal('principal_paid_ugx', 15, 2)->default(0);
                 $table->decimal('interest_paid_ugx', 15, 2)->default(0);
@@ -129,7 +141,10 @@ return new class extends Migration
             Schema::create('sacco_shares', function (Blueprint $table) {
                 $table->id();
                 $table->uuid('uuid')->unique();
-                $table->foreignId('member_id')->constrained('sacco_members')->cascadeOnDelete();
+                $table->unsignedBigInteger('member_id');
+                if (Schema::hasTable('sacco_members')) {
+                    $table->foreign('member_id')->references('id')->on('sacco_members')->cascadeOnDelete();
+                }
                 $table->integer('total_shares')->default(0);
                 $table->decimal('share_value_ugx', 15, 2)->default(0);
                 $table->decimal('total_value_ugx', 15, 2)->default(0);
@@ -146,7 +161,10 @@ return new class extends Migration
                 $table->id();
                 $table->uuid('uuid')->unique();
                 $table->string('transaction_code')->unique();
-                $table->foreignId('member_id')->constrained('sacco_members')->cascadeOnDelete();
+                $table->unsignedBigInteger('member_id');
+                if (Schema::hasTable('sacco_members')) {
+                    $table->foreign('member_id')->references('id')->on('sacco_members')->cascadeOnDelete();
+                }
                 $table->foreignId('share_id')->constrained('sacco_shares')->cascadeOnDelete();
                 $table->string('type'); // purchase, transfer_in, transfer_out
                 $table->integer('shares_quantity');
@@ -181,7 +199,10 @@ return new class extends Migration
             Schema::create('sacco_member_dividends', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('dividend_id')->constrained('sacco_dividends')->cascadeOnDelete();
-                $table->foreignId('member_id')->constrained('sacco_members')->cascadeOnDelete();
+                $table->unsignedBigInteger('member_id');
+                if (Schema::hasTable('sacco_members')) {
+                    $table->foreign('member_id')->references('id')->on('sacco_members')->cascadeOnDelete();
+                }
                 $table->decimal('shares_amount', 15, 2)->default(0);
                 $table->decimal('dividend_amount', 15, 2)->default(0);
                 $table->string('status')->default('pending'); // pending, paid
@@ -208,7 +229,10 @@ return new class extends Migration
         if (! Schema::hasTable('sacco_accounts')) {
             Schema::create('sacco_accounts', function (Blueprint $table) {
                 $table->id();
-                $table->foreignId('member_id')->constrained('sacco_members')->cascadeOnDelete();
+                $table->unsignedBigInteger('member_id');
+                if (Schema::hasTable('sacco_members')) {
+                    $table->foreign('member_id')->references('id')->on('sacco_members')->cascadeOnDelete();
+                }
                 $table->string('account_number')->unique();
                 $table->string('account_type'); // savings, shares, loan
                 $table->decimal('balance', 15, 2)->default(0);
@@ -247,7 +271,10 @@ return new class extends Migration
         if (! Schema::hasTable('sacco_board_members')) {
             Schema::create('sacco_board_members', function (Blueprint $table) {
                 $table->id();
-                $table->foreignId('member_id')->constrained('sacco_members')->cascadeOnDelete();
+                $table->unsignedBigInteger('member_id');
+                if (Schema::hasTable('sacco_members')) {
+                    $table->foreign('member_id')->references('id')->on('sacco_members')->cascadeOnDelete();
+                }
                 $table->string('position'); // chairperson, secretary, treasurer, member
                 $table->date('term_start_date')->nullable();
                 $table->date('term_end_date')->nullable();
@@ -299,7 +326,10 @@ return new class extends Migration
             Schema::create('artist_profiles', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-                $table->foreignId('artist_id')->nullable()->constrained('artists')->nullOnDelete();
+                $table->unsignedBigInteger('artist_id')->nullable();
+                if (Schema::hasTable('artists')) {
+                    $table->foreign('artist_id')->references('id')->on('artists')->nullOnDelete();
+                }
                 $table->string('stage_name')->nullable();
                 $table->string('real_name')->nullable();
                 $table->string('nin_number')->nullable();

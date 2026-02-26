@@ -13,6 +13,10 @@ return new class extends Migration
             return;
         }
 
+        if (!Schema::hasColumn('loyalty_cards', 'status')) {
+            return; // Column doesn't exist yet, nothing to alter
+        }
+
         // Only alter if the column type is an enum (not already a varchar/string)
         $columnType = Schema::getColumnType('loyalty_cards', 'status');
         if ($columnType === 'string') {
@@ -25,6 +29,10 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (!Schema::hasTable('loyalty_cards') || !Schema::hasColumn('loyalty_cards', 'status')) {
+            return;
+        }
+
         DB::statement("ALTER TABLE loyalty_cards MODIFY COLUMN status ENUM('draft','active','paused','archived') NOT NULL DEFAULT 'draft'");
     }
 };
