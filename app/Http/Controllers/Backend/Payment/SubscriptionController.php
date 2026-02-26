@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\SubscriptionPlan;
 use App\Models\UserSubscription;
+use App\Notifications\SubscriptionNotification;
 use App\Services\Payment\MobileMoneyService;
 use App\Services\Payment\StripeService;
 use Illuminate\Http\JsonResponse;
@@ -109,6 +110,12 @@ class SubscriptionController extends Controller
                 'bank_transfer' => $this->createBankTransferInstructions($payment),
                 default => throw new \Exception('Unsupported payment method')
             };
+
+            // Notify user about subscription initiation
+            $user->notify(new SubscriptionNotification(
+                SubscriptionNotification::SUBSCRIBED,
+                $plan->name ?? 'Premium'
+            ));
 
             return response()->json([
                 'success' => true,
@@ -311,7 +318,7 @@ class SubscriptionController extends Controller
                 ->where('status', 'completed')
                 ->with('subscriptionPlan')
                 ->orderBy('completed_at', 'desc')
-                ->paginate($request->get('per_page', 20));
+                ->paginate($this->getPerPage($request));
 
             return response()->json([
                 'success' => true,

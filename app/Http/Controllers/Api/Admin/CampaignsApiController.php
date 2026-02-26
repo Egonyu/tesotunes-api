@@ -47,7 +47,7 @@ class CampaignsApiController extends Controller
                 $q->where('category', $request->get('category'));
             })
             ->latest()
-            ->paginate($request->get('per_page', 10));
+            ->paginate($this->getPerPage($request, 10));
 
         return CampaignResource::collection($campaigns);
     }
@@ -201,7 +201,7 @@ class CampaignsApiController extends Controller
         $pledges = $campaign->pledges()
             ->with('user')
             ->latest()
-            ->paginate($request->get('per_page', 20));
+            ->paginate($this->getPerPage($request));
 
         return PledgeResource::collection($pledges);
     }
@@ -216,7 +216,7 @@ class CampaignsApiController extends Controller
         $updates = $campaign->updates()
             ->with('user')
             ->latest()
-            ->paginate($request->get('per_page', 20));
+            ->paginate($this->getPerPage($request));
 
         return CampaignUpdateResource::collection($updates);
     }

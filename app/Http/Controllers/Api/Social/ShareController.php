@@ -18,7 +18,7 @@ class ShareController extends Controller
             $shares = Share::where('user_id', $user->id)
                 ->with(['shareable', 'user'])
                 ->orderBy('created_at', 'desc')
-                ->paginate($request->get('per_page', 20));
+                ->paginate($this->getPerPage($request));
 
             return response()->json([
                 'success' => true,

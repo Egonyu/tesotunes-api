@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Models\UserSetting;
+use App\Notifications\SecurityAlertNotification;
+use App\Notifications\WelcomeNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -46,6 +48,9 @@ class AuthController extends Controller
         ]);
 
         UserSetting::createDefault($user);
+
+        // Send welcome notification
+        $user->notify(new WelcomeNotification);
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -89,6 +94,16 @@ class AuthController extends Controller
         }
 
         $user->update(['last_login_at' => now()]);
+
+        // Security alert for new login
+        $user->notify(new SecurityAlertNotification(
+            SecurityAlertNotification::NEW_LOGIN,
+            [
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'time' => now()->format('M d, Y H:i'),
+            ]
+        ));
 
         $tokenName = $request->remember_me ? 'long_lived_token' : 'auth_token';
         $token = $user->createToken($tokenName)->plainTextToken;

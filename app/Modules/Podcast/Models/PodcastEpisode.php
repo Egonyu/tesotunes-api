@@ -2,6 +2,7 @@
 
 namespace App\Modules\Podcast\Models;
 
+use App\Traits\HasComments;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class PodcastEpisode extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasComments, HasFactory, SoftDeletes;
 
     protected $fillable = [
         'podcast_id',

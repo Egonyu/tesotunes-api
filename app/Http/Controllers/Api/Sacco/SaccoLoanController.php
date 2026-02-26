@@ -28,7 +28,7 @@ class SaccoLoanController extends Controller
         $loans = SaccoLoan::where('member_id', $member->id)
             ->when($request->get('status'), fn ($q, $s) => $q->where('status', $s))
             ->latest()
-            ->paginate($request->get('per_page', 15));
+            ->paginate($this->getPerPage($request, 15));
 
         return response()->json(SaccoLoanResource::collection($loans)->response()->getData());
     }
@@ -202,7 +202,7 @@ class SaccoLoanController extends Controller
         $loans = SaccoLoan::where('member_id', $member)
             ->when($request->get('status'), fn ($q, $s) => $q->where('status', $s))
             ->latest()
-            ->paginate($request->get('per_page', 15));
+            ->paginate($this->getPerPage($request, 15));
 
         return SaccoLoanResource::collection($loans);
     }

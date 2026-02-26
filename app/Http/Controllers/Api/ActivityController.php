@@ -69,7 +69,7 @@ class ActivityController extends Controller
         $comments = $activity->comments()
             ->with('user:id,username,profile_photo_path')
             ->latest()
-            ->paginate($request->get('per_page', 20));
+            ->paginate($this->getPerPage($request));
 
         return response()->json([
             'data' => $comments->items(),

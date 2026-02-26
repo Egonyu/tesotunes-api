@@ -19,9 +19,6 @@ Route::get('/health', [HealthCheckController::class, 'index']);
 Route::get('/health/detailed', [HealthCheckController::class, 'detailed']);
 Route::get('/health/system', [HealthCheckController::class, 'system']);
 
-// Wazuh SIEM Integration
-require __DIR__.'/api/wazuh.php';
-
 // Authentication API Routes
 require __DIR__.'/api/auth.php';
 
@@ -37,11 +34,17 @@ require __DIR__.'/api/payment.php';
 // Webhook API Routes (ZengaPay, etc.)
 require __DIR__.'/api/webhooks.php';
 
-// E-commerce API Routes (Day 5)
-require __DIR__.'/api/ecommerce.php';
-
-// Social & Events API Routes (Day 6)
+// Social API Routes (follows, shares, comments)
 require __DIR__.'/api/social.php';
+
+// Posts API Routes (Edula social posts)
+require __DIR__.'/api/posts.php';
+
+// Announcements (public)
+Route::get('/announcements', [\App\Http\Controllers\Api\FeedController::class, 'announcements'])->name('api.announcements');
+
+// Loyalty API Routes (fan clubs, memberships, rewards, points)
+require __DIR__.'/api/loyalty.php';
 
 // Public Events API Routes (no auth required)
 Route::prefix('events')->name('api.events.')->group(function () {
@@ -113,9 +116,6 @@ Route::middleware('auth:sanctum')->prefix('artist')->name('api.artist.')->group(
     Route::post('/referrals/share', [\App\Http\Controllers\Api\ArtistApiController::class, 'trackShare'])->name('referrals.share');
 });
 
-// Loyalty (Artist Fan Clubs) API Routes
-require __DIR__.'/api/loyalty.php';
-
 // Ad tracking endpoints (no auth required for impressions)
 Route::post('/ads/impression', [\App\Http\Controllers\Api\AdTrackingController::class, 'recordImpression']);
 Route::post('/ads/click', [\App\Http\Controllers\Api\AdTrackingController::class, 'recordClick']);
@@ -163,33 +163,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Event interest
     Route::post('/events/{id}/interest', [\App\Http\Controllers\Api\ActivityInteractionController::class, 'toggleEventInterest'])
         ->name('api.events.interest');
-
-    // Poll voting
-    Route::post('/polls/{poll}/vote', [\App\Http\Controllers\Api\PollVoteController::class, 'vote'])
-        ->name('api.polls.vote');
 });
 
-// Poll listing & results (public)
-Route::get('/polls', [\App\Http\Controllers\Api\PollVoteController::class, 'index'])
-    ->name('api.polls.index');
-Route::get('/polls/{poll}/results', [\App\Http\Controllers\Api\PollVoteController::class, 'results'])
-    ->name('api.polls.results');
-
-// Awards API Routes (public)
-Route::prefix('awards')->name('api.awards.')->group(function () {
-    Route::get('/', [\App\Http\Controllers\Api\AwardsApiController::class, 'index'])->name('index');
-    Route::get('/current-season', [\App\Http\Controllers\Api\AwardsApiController::class, 'currentSeason'])->name('current-season');
-    Route::get('/{id}', [\App\Http\Controllers\Api\AwardsApiController::class, 'show'])->name('show');
-    Route::get('/{id}/categories', [\App\Http\Controllers\Api\AwardsApiController::class, 'categories'])->name('categories');
-    Route::get('/{id}/categories/{categoryId}/nominations', [\App\Http\Controllers\Api\AwardsApiController::class, 'nominations'])->name('nominations');
-    Route::get('/{id}/results', [\App\Http\Controllers\Api\AwardsApiController::class, 'results'])->name('results');
-});
-
-// Awards API Routes (auth required)
-Route::middleware('auth:sanctum')->prefix('awards')->name('api.awards.auth.')->group(function () {
-    Route::post('/{id}/nominations', [\App\Http\Controllers\Api\AwardsApiController::class, 'submitNomination'])->name('nominate');
-    Route::post('/{id}/vote', [\App\Http\Controllers\Api\AwardsApiController::class, 'vote'])->name('vote');
-}); // Content API (Genres & Moods)
+// Content API (Genres & Moods)
 require __DIR__.'/api/content.php';
 
 Route::prefix('v1')->name('api.v1.')->group(function () {
@@ -256,6 +232,14 @@ Route::middleware('auth:sanctum')->prefix('notifications')->name('api.notificati
         Route::get('/analytics', [\App\Http\Controllers\Api\NotificationController::class, 'analytics'])->name('analytics');
         Route::post('/preview', [\App\Http\Controllers\Api\NotificationController::class, 'preview'])->name('preview');
     });
+});
+
+// Device Token Management (Push Notifications)
+Route::middleware('auth:sanctum')->prefix('device-tokens')->name('api.device-tokens.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Api\DeviceTokenController::class, 'index'])->name('index');
+    Route::post('/', [\App\Http\Controllers\Api\DeviceTokenController::class, 'store'])->name('store');
+    Route::delete('/{id}', [\App\Http\Controllers\Api\DeviceTokenController::class, 'destroy'])->name('destroy');
+    Route::post('/deactivate-all', [\App\Http\Controllers\Api\DeviceTokenController::class, 'deactivateAll'])->name('deactivate-all');
 });
 
 // Mobile Content API Routes (for sliders)
@@ -403,10 +387,12 @@ Route::middleware(['auth:sanctum', 'role:admin,Super Admin'])->prefix('admin')->
     Route::post('/awards/nominations/{id}/set-winner', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'setWinner'])->name('awards.nominations.set-winner');
 });
 
-// Payment Webhooks (Public - no auth required)
-Route::post('/webhooks/payment/{provider}', [\App\Http\Controllers\Api\PaymentController::class, 'webhook'])->name('api.webhooks.payment');
-Route::post('/payments/webhook', [\App\Http\Controllers\Api\PaymentController::class, 'webhook'])->name('api.payments.webhook');
-Route::post('/webhooks/mobile-money', [\App\Http\Controllers\Api\MobileMoneyWebhookController::class, 'handle'])->name('webhooks.mobile-money');
+// Payment Webhooks (Public - no auth required, rate limited)
+Route::middleware('webhook.rate_limit')->group(function () {
+    Route::post('/webhooks/payment/{provider}', [\App\Http\Controllers\Api\PaymentController::class, 'webhook'])->name('api.webhooks.payment');
+    Route::post('/payments/webhook', [\App\Http\Controllers\Api\PaymentController::class, 'webhook'])->name('api.payments.webhook');
+    Route::post('/webhooks/mobile-money', [\App\Http\Controllers\Api\MobileMoneyWebhookController::class, 'handle'])->name('webhooks.mobile-money');
+});
 
 // ISRC Generation Routes
 Route::middleware('auth:sanctum')->group(function () {
@@ -424,13 +410,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/isrc/export', [\App\Http\Controllers\Api\ISRCController::class, 'export'])->name('api.isrc.export');
     Route::post('/isrc/check-duplicate', [\App\Http\Controllers\Api\ISRCController::class, 'checkDuplicate'])->name('api.isrc.check-duplicate');
     Route::get('/isrc/analytics', [\App\Http\Controllers\Api\ISRCController::class, 'analytics'])->name('api.isrc.analytics');
-});
-
-// Artist Follow API Routes
-Route::middleware('auth:sanctum')->prefix('artists')->name('api.artists.')->group(function () {
-    Route::post('/{artist}/follow', [\App\Http\Controllers\Api\Social\ArtistFollowController::class, 'follow'])->name('follow');
-    Route::delete('/{artist}/follow', [\App\Http\Controllers\Api\Social\ArtistFollowController::class, 'unfollow'])->name('unfollow');
-    Route::get('/{artist}/follow/status', [\App\Http\Controllers\Api\Social\ArtistFollowController::class, 'status'])->name('follow.status');
 });
 
 // Song Management API Routes
@@ -466,7 +445,7 @@ Route::middleware('auth:sanctum')->prefix('artist')->name('api.artist.')->group(
     Route::post('/apply', [\App\Http\Controllers\Api\ArtistApplicationApiController::class, 'store'])->name('apply');
 });
 
-Route::prefix('webhooks/distribution')->name('api.webhooks.distribution.')->group(function () {
+Route::prefix('webhooks/distribution')->middleware('webhook.rate_limit')->name('api.webhooks.distribution.')->group(function () {
     Route::post('/{platform}', [\App\Http\Controllers\DistributionWebhookController::class, 'handle'])->name('handle');
 });
 
@@ -474,17 +453,6 @@ Route::prefix('webhooks/distribution')->name('api.webhooks.distribution.')->grou
 // Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin/distribution-performance')->name('api.admin.distribution.')->group(function () {
 //     Route::get('/', [...])->name('performance');
 // });
-
-// Activity Interaction Routes
-Route::prefix('activities')->name('api.activities.')->group(function () {
-    // Like/Unlike activity (requires auth)
-    Route::middleware('auth:sanctum')->post('/{activity}/like', [\App\Http\Controllers\Api\ActivityController::class, 'like'])->name('like');
-    Route::middleware('auth:sanctum')->delete('/{activity}/like', [\App\Http\Controllers\Api\ActivityController::class, 'unlike'])->name('unlike');
-
-    // Comments (requires auth for creating)
-    Route::get('/{activity}/comments', [\App\Http\Controllers\Api\ActivityController::class, 'getComments'])->name('comments');
-    Route::middleware('auth:sanctum')->post('/{activity}/comments', [\App\Http\Controllers\Api\ActivityController::class, 'addComment'])->name('comments.add');
-});
 
 // ============================================================================
 // PODCAST API ROUTES (Consolidated from routes/podcast-api.php)
@@ -609,6 +577,7 @@ Route::prefix('feed')->name('api.feed.')->group(function () {
     Route::get('/discover', [\App\Http\Controllers\Api\FeedController::class, 'discover'])->name('discover');
     Route::get('/module/{module}', [\App\Http\Controllers\Api\FeedController::class, 'module'])->name('module');
     Route::get('/tabs', [\App\Http\Controllers\Api\FeedController::class, 'tabs'])->name('tabs');
+    Route::get('/trending', [\App\Http\Controllers\Api\FeedController::class, 'trending'])->name('trending');
 
     // Authenticated feed endpoints (MUST be before /{uuid} to avoid route conflicts)
     Route::middleware('auth:sanctum')->group(function () {
@@ -640,6 +609,12 @@ Route::prefix('feed')->name('api.feed.')->group(function () {
 Route::prefix('auth')->group(function () {
     Route::post('/login', [\App\Http\Controllers\Api\Auth\AuthController::class, 'login']);
     Route::post('/register', [\App\Http\Controllers\Api\Auth\AuthController::class, 'register']);
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::post('/logout', [\App\Http\Controllers\Api\Auth\AuthController::class, 'logout']);
+        Route::post('/refresh', [\App\Http\Controllers\Api\Auth\AuthController::class, 'refresh']);
+        Route::get('/user', [\App\Http\Controllers\Api\Auth\AuthController::class, 'user']);
+    });
 });
 
 // TEST: Simple upload endpoint for debugging

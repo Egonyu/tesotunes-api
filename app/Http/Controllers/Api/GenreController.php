@@ -64,7 +64,7 @@ class GenreController extends Controller
      */
     public function songs(Request $request, Genre $genre)
     {
-        $perPage = $request->integer('per_page', 20);
+        $perPage = $this->getPerPage($request);
 
         $songs = $genre->songs()
             ->published()
@@ -83,7 +83,7 @@ class GenreController extends Controller
      */
     public function artists(Request $request, Genre $genre)
     {
-        $perPage = $request->integer('per_page', 20);
+        $perPage = $this->getPerPage($request);
 
         $artists = \App\Models\Artist::where('primary_genre_id', $genre->id)
             ->approved()
@@ -101,7 +101,7 @@ class GenreController extends Controller
      */
     public function albums(Request $request, Genre $genre)
     {
-        $perPage = $request->integer('per_page', 20);
+        $perPage = $this->getPerPage($request);
 
         $albums = \App\Models\Album::where('primary_genre_id', $genre->id)
             ->published()

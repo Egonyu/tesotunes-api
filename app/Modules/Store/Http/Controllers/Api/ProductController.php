@@ -67,7 +67,7 @@ class ProductController extends Controller
             $query->orderBy($sortField, $sortOrder);
         }
 
-        $products = $query->paginate($request->get('per_page', 20));
+        $products = $query->paginate($this->getPerPage($request));
 
         return response()->json([
             'data' => $products->items(),
@@ -112,7 +112,7 @@ class ProductController extends Controller
             $query->where('category_id', $categoryId);
         }
 
-        $products = $query->paginate($request->get('per_page', 20));
+        $products = $query->paginate($this->getPerPage($request));
 
         return response()->json([
             'data' => $products->items(),

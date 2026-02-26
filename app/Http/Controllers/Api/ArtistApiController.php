@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Album;
 use App\Models\Artist;
 use App\Models\Song;
+use App\Services\PayoutService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -694,10 +695,34 @@ class ArtistApiController extends Controller
             ], 422);
         }
 
-        // TODO: Create withdrawal request and process via queue
-        return response()->json([
-            'message' => 'Withdrawal request submitted. You will receive your funds within 24-48 hours.',
-        ]);
+        try {
+            $payoutService = app(PayoutService::class);
+
+            $result = $payoutService->requestPayout(
+                artist: $artist,
+                amount: $validated['amount'],
+                method: $validated['payment_method'],
+                payoutData: [
+                    'phone_number' => $validated['phone_number'] ?? null,
+                ],
+                requestedBy: $request->user()
+            );
+
+            return response()->json([
+                'message' => $result['message'] ?? 'Withdrawal request submitted. You will receive your funds within 24-48 hours.',
+                'data' => [
+                    'transaction_id' => $result['transaction_id'] ?? null,
+                    'amount' => $result['amount'] ?? $validated['amount'],
+                    'fee' => $result['fee'] ?? 0,
+                    'net_amount' => $result['net_amount'] ?? $validated['amount'],
+                    'estimated_processing_time' => $result['estimated_processing_time'] ?? '1-3 business days',
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
     }
 
     // ========================================================================

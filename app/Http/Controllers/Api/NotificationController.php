@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\NotificationResource;
+use App\Models\UserSetting;
 use App\Services\CrossModuleNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -39,7 +40,7 @@ class NotificationController extends Controller
         }
 
         return NotificationResource::collection(
-            $query->paginate($request->integer('per_page', 20))
+            $query->paginate($this->getPerPage($request))
         );
     }
 
@@ -121,8 +122,20 @@ class NotificationController extends Controller
             'in_app_notifications' => 'array',
         ]);
 
-        // TODO: persist to user_preferences table
-        // Auth::user()->updateNotificationPreferences($request->only([...]))
+        $user = Auth::user();
+
+        UserSetting::updateOrCreate(
+            ['user_id' => $user->id],
+            [
+                'email_notifications' => ! empty($request->input('email_notifications')),
+                'push_notifications' => ! empty($request->input('push_notifications')),
+                'notification_preferences' => [
+                    'email_notifications' => $request->input('email_notifications', []),
+                    'push_notifications' => $request->input('push_notifications', []),
+                    'in_app_notifications' => $request->input('in_app_notifications', []),
+                ],
+            ]
+        );
 
         return response()->json(['message' => 'Notification settings updated.']);
     }

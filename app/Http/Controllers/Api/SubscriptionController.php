@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\UserSubscription;
+use App\Notifications\SubscriptionNotification;
 use App\Services\PaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -37,6 +38,13 @@ class SubscriptionController extends Controller
             $subscription,
             $validated['reason'] ?? ''
         );
+
+        // Notify user about subscription cancellation
+        $request->user()->notify(new SubscriptionNotification(
+            SubscriptionNotification::CANCELLED,
+            $subscription->plan->name ?? 'Premium',
+            ['expires_at' => $subscription->ends_at?->format('M d, Y') ?? 'N/A']
+        ));
 
         return response()->json([
             'data' => $result,

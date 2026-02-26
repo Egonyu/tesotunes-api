@@ -132,6 +132,19 @@ class PaymentController extends Controller
             ], 404);
         }
 
+        // Idempotency: don't re-process already paid or refunded orders
+        if (in_array($order->payment_status, ['paid', 'refunded'])) {
+            Log::info('Store webhook: order already processed', [
+                'order_id' => $order->id,
+                'payment_status' => $order->payment_status,
+            ]);
+
+            return response()->json([
+                'message' => 'Order already processed.',
+                'payment_status' => $order->payment_status,
+            ]);
+        }
+
         if ($status === 'successful' || $status === 'completed') {
             $order->update([
                 'payment_status' => 'paid',

@@ -7,6 +7,7 @@ use App\Models\CreditTransaction;
 use App\Models\User;
 use App\Models\UserActivityCredit;
 use App\Models\UserCredit;
+use App\Notifications\CreditsEarnedNotification;
 
 class CreditService
 {
@@ -310,8 +311,17 @@ class CreditService
     private function awardCredits(User $user, float $amount, string $source, string $description, array $metadata = []): CreditTransaction
     {
         $wallet = $this->getUserWallet($user);
+        $transaction = $wallet->addCredits($amount, $source, $description, $metadata);
 
-        return $wallet->addCredits($amount, $source, $description, $metadata);
+        // Notify user about credits earned
+        $user->notify(new CreditsEarnedNotification(
+            $amount,
+            $source,
+            $description,
+            $wallet->balance ?? 0
+        ));
+
+        return $transaction;
     }
 
     private function getTodayEarnings(User $user, string $source): float

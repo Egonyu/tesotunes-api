@@ -10,7 +10,7 @@ class EventAttendee extends Model
 {
     use HasFactory;
 
-    protected $table = 'event_registrations';
+    protected $table = 'event_attendees';
 
     protected $fillable = [
         'uuid',

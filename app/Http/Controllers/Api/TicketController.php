@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Event;
 use App\Models\EventAttendee;
 use App\Models\EventTicket;
+use App\Models\Payment;
+use App\Services\Payment\ZengaPayService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -131,7 +133,38 @@ class TicketController extends Controller
         $paymentReference = null;
         if (in_array($paymentMethod, ['mtn_momo', 'airtel_money'])) {
             $paymentReference = 'PAY-'.strtoupper(Str::random(12));
-            // TODO: Integrate ZengaPay API call here
+
+            $payment = Payment::create([
+                'user_id' => auth()->id(),
+                'amount' => $grandTotal,
+                'currency' => 'UGX',
+                'payment_reference' => $paymentReference,
+                'payment_method' => $paymentMethod,
+                'payment_type' => 'ticket_purchase',
+                'provider' => 'zengapay',
+                'phone_number' => $validated['phone_number'] ?? null,
+                'status' => 'pending',
+                'description' => "Ticket purchase for event #{$event->id} - Order {$orderId}",
+                'metadata' => [
+                    'order_id' => $orderId,
+                    'event_id' => $event->id,
+                    'ticket_type_id' => $ticketType->id,
+                    'quantity' => $validated['quantity'],
+                ],
+            ]);
+
+            try {
+                $zengaPay = app(ZengaPayService::class);
+                $zengaPay->processPayment($payment, [
+                    'phone_number' => $validated['phone_number'] ?? null,
+                ]);
+            } catch (\Exception $e) {
+                // Payment initiation failed but tickets are reserved — payment can be retried
+                \Illuminate\Support\Facades\Log::warning('ZengaPay ticket payment initiation failed', [
+                    'payment_id' => $payment->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         return response()->json([
@@ -305,18 +338,17 @@ class TicketController extends Controller
         // Award loyalty points if event has a loyalty card
         $event = $registration->event;
         if ($event && $event->loyalty_points_per_checkin > 0 && $registration->user_id) {
-            // Award points via loyalty system
+            // Award points via loyalty service
             try {
-                \DB::table('loyalty_point_transactions')->insert([
-                    'loyalty_card_id' => $event->loyalty_card_id,
-                    'user_id' => $registration->user_id,
-                    'points' => $event->loyalty_points_per_checkin,
-                    'type' => 'earn',
-                    'source' => 'event_checkin',
-                    'description' => "Check-in at: {$event->title}",
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+                $pointsService = app(\App\Services\Loyalty\LoyaltyPointsService::class);
+                $pointsService->awardPoints(
+                    user: \App\Models\User::find($registration->user_id),
+                    basePoints: $event->loyalty_points_per_checkin,
+                    source: 'event_checkin',
+                    sourceId: $event->id,
+                    sourceType: get_class($event),
+                    description: "Check-in at: {$event->title}",
+                );
             } catch (\Exception $e) {
                 // Log but don't fail the check-in
                 \Log::warning("Failed to award loyalty points for event check-in: {$e->getMessage()}");

@@ -4,10 +4,11 @@ namespace App\Modules\Sacco\Notifications;
 
 use App\Modules\Sacco\Models\SaccoLoanRepayment;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class RepaymentDueNotification extends Notification
+class RepaymentDueNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 

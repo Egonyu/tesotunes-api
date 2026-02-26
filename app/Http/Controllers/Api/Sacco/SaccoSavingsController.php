@@ -163,7 +163,7 @@ class SaccoSavingsController extends Controller
         }
 
         $transactions = $query->latest()
-            ->paginate($request->get('per_page', 20));
+            ->paginate($this->getPerPage($request));
 
         return SaccoTransactionResource::collection($transactions);
     }

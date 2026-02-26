@@ -119,9 +119,19 @@ class PaymentController extends Controller
         $provider = $provider ?? 'zengapay';
         $payload = $request->all();
 
-        \Illuminate\Support\Facades\Log::info("Payment webhook received from {$provider}", [
+        Log::info("Payment webhook received from {$provider}", [
             'payload' => $payload,
+            'ip' => $request->ip(),
         ]);
+
+        // Verify webhook signature
+        if (! $this->verifyWebhookSignature($request, $provider)) {
+            Log::warning("Payment webhook: invalid signature from {$provider}", [
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json(['message' => 'Invalid signature.'], 403);
+        }
 
         // Find the payment by transaction reference
         $transactionId = $payload['transactionId'] ?? $payload['transaction_id'] ?? $payload['reference'] ?? null;
@@ -135,9 +145,22 @@ class PaymentController extends Controller
             ->first();
 
         if (! $payment) {
-            \Illuminate\Support\Facades\Log::warning("Payment not found for webhook transaction: {$transactionId}");
+            Log::warning("Payment not found for webhook transaction: {$transactionId}");
 
             return response()->json(['message' => 'Payment not found.'], 404);
+        }
+
+        // Idempotency: don't re-process finalized payments
+        if (in_array($payment->status, ['completed', 'refunded', 'cancelled'])) {
+            Log::info("Payment webhook: already finalized", [
+                'payment_id' => $payment->id,
+                'status' => $payment->status,
+            ]);
+
+            return response()->json([
+                'message' => 'Payment already processed.',
+                'status' => $payment->status,
+            ]);
         }
 
         $status = strtolower($payload['status'] ?? '');
@@ -154,7 +177,44 @@ class PaymentController extends Controller
             ])->save();
         }
 
-        return response()->json(['message' => 'Webhook processed.']);
+        return response()->json([
+            'message' => 'Webhook processed.',
+            'payment_id' => $payment->id,
+            'new_status' => $payment->fresh()->status,
+        ]);
+    }
+
+    /**
+     * Verify webhook signature from payment provider.
+     */
+    protected function verifyWebhookSignature(Request $request, string $provider): bool
+    {
+        $signature = $request->header('X-Signature')
+            ?? $request->header('X-Webhook-Signature')
+            ?? $request->header('X-ZengaPay-Signature')
+            ?? '';
+
+        $secret = match ($provider) {
+            'zengapay' => config('services.zengapay.webhook_secret'),
+            'airtel' => config('services.airtel.webhook_secret'),
+            default => config('services.payment.webhook_secret'),
+        };
+
+        if (empty($secret)) {
+            if (app()->environment('local', 'testing')) {
+                Log::warning("Webhook signature verification skipped in {$provider} — no secret configured");
+
+                return true;
+            }
+
+            Log::error("Webhook secret not configured for provider: {$provider}");
+
+            return false;
+        }
+
+        $computed = hash_hmac('sha256', $request->getContent(), $secret);
+
+        return hash_equals($computed, $signature);
     }
 
     /**
@@ -412,7 +472,7 @@ class PaymentController extends Controller
         $payments = Payment::where('user_id', $request->user()->id)
             ->whereIn('payment_type', ['wallet_topup', 'credits_purchase', 'withdrawal'])
             ->orderBy('created_at', 'desc')
-            ->paginate($request->input('per_page', 20));
+            ->paginate($this->getPerPage($request));
 
         return response()->json($payments);
     }
@@ -528,7 +588,7 @@ class PaymentController extends Controller
     {
         $payments = Payment::where('user_id', $request->user()->id)
             ->orderBy('created_at', 'desc')
-            ->paginate($request->input('per_page', 15));
+            ->paginate($this->getPerPage($request, 15));
 
         return response()->json($payments);
     }

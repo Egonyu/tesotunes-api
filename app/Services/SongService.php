@@ -7,10 +7,13 @@ use App\Models\Like;
 use App\Models\PlayHistory;
 use App\Models\Song;
 use App\Models\User;
+use App\Notifications\DownloadMilestoneNotification;
+use App\Notifications\SongUploadedNotification;
 use Exception;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 
 /**
  * Service class for handling song-related business logic
@@ -219,6 +222,15 @@ class SongService
         // Increment download count
         $song->increment('download_count');
 
+        // Notify artist about the download
+        if ($song->user && $song->user->id !== $user->id) {
+            $song->user->notify(new DownloadMilestoneNotification(
+                $song,
+                $user,
+                $song->fresh()->download_count
+            ));
+        }
+
         // Create activity
         $this->createUserActivity($user, 'downloaded_song', $song);
 
@@ -296,6 +308,21 @@ class SongService
             }
 
             DB::commit();
+
+            // Notify artist's followers about the new song
+            try {
+                $followerIds = $user->followers()->pluck('follower_id')->toArray();
+
+                if (! empty($followerIds)) {
+                    $followers = User::whereIn('id', $followerIds)->get();
+                    Notification::send($followers, new SongUploadedNotification($song, $user));
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Failed to send song upload notifications', [
+                    'song_id' => $song->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
 
             return $song;
 

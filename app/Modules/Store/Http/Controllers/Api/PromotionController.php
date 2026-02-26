@@ -19,7 +19,7 @@ class PromotionController extends Controller
             ->active()
             ->orderBy('priority', 'desc')
             ->orderBy('ends_at', 'asc')
-            ->paginate($request->get('limit', 20));
+            ->paginate($this->getPerPage($request));
 
         return response()->json([
             'data' => $promotions->items(),

@@ -82,7 +82,7 @@ class SaccoMembershipController extends Controller
         }
 
         $members = $query->latest('joined_at')
-            ->paginate($request->get('per_page', 20));
+            ->paginate($this->getPerPage($request));
 
         return SaccoMemberResource::collection($members);
     }

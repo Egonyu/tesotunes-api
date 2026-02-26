@@ -135,7 +135,7 @@ class SaccoApiController extends Controller
                 ], 403);
             }
 
-            $perPage = $request->input('per_page', 20);
+            $perPage = $this->getPerPage($request);
             $transactions = $account->transactions()
                 ->latest()
                 ->paginate($perPage);
@@ -357,7 +357,7 @@ class SaccoApiController extends Controller
         try {
             $member = SaccoMember::where('user_id', auth()->id())->firstOrFail();
 
-            $perPage = $request->input('per_page', 20);
+            $perPage = $this->getPerPage($request);
             $type = $request->input('type'); // deposit, withdrawal, loan_repayment, etc.
 
             $query = $member->transactions()->with('account')->latest();

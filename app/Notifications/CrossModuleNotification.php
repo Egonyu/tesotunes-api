@@ -35,7 +35,7 @@ class CrossModuleNotification extends Notification implements ShouldQueue
         ?string $actionText = null
     ) {
         $this->module = $module;
-        $this->following_type = $type;
+        $this->type = $type;
         $this->title = $title;
         $this->message = $message;
         $this->data = $data;

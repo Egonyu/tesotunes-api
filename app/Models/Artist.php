@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Traits\Featurable;
+use App\Traits\HasComments;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,7 +15,7 @@ use Spatie\MediaLibrary\InteractsWithMedia;
 
 class Artist extends Model implements HasMedia
 {
-    use Featurable, HasFactory, InteractsWithMedia, SoftDeletes;
+    use Featurable, HasComments, HasFactory, InteractsWithMedia, SoftDeletes;
 
     protected static function booted(): void
     {
@@ -202,11 +203,6 @@ class Artist extends Model implements HasMedia
     public function activities()
     {
         return $this->morphMany(Activity::class, 'subject');
-    }
-
-    public function comments()
-    {
-        return $this->morphMany(Comment::class, 'commentable');
     }
 
     public function likes()

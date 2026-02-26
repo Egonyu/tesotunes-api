@@ -44,7 +44,7 @@ class StoreController extends Controller
         $sortOrder = $request->get('order', 'desc');
         $query->orderBy($sortField, $sortOrder);
 
-        $stores = $query->paginate($request->get('per_page', 20));
+        $stores = $query->paginate($this->getPerPage($request));
 
         return response()->json([
             'data' => $stores->items(),

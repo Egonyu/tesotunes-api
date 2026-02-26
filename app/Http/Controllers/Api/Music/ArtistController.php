@@ -7,6 +7,7 @@ use App\Http\Resources\AlbumResource;
 use App\Http\Resources\ArtistResource;
 use App\Http\Resources\SongResource;
 use App\Models\Artist;
+use App\Notifications\NewFollowerNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -134,6 +135,11 @@ class ArtistController extends Controller
                 $artist->increment('follower_count');
                 $message = 'Artist followed';
                 $following = true;
+
+                // Notify the artist about their new follower
+                if ($artist->user && $artist->user->id !== $user->id) {
+                    $artist->user->notify(new NewFollowerNotification($user));
+                }
             }
 
             return response()->json([

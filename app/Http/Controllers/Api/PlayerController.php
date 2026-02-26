@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\PlayHistory;
 use App\Models\Song;
+use App\Notifications\StreamMilestoneNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -81,6 +82,13 @@ class PlayerController extends Controller
 
         if ($qualifiedPlay) {
             $song->increment('play_count');
+
+            // Check for stream milestone and notify artist
+            $newPlayCount = $song->fresh()->play_count;
+            $milestone = StreamMilestoneNotification::isMilestone($newPlayCount);
+            if ($milestone && $song->user) {
+                $song->user->notify(new StreamMilestoneNotification($song, $milestone));
+            }
 
             // Process streaming revenue for the artist
             $user = $request->user();

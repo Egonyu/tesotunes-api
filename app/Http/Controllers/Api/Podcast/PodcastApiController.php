@@ -52,7 +52,7 @@ class PodcastApiController extends Controller
         };
 
         return PodcastResource::collection(
-            $query->paginate($request->integer('per_page', 20))
+            $query->paginate($this->getPerPage($request))
         );
     }
 
@@ -93,7 +93,7 @@ class PodcastApiController extends Controller
         };
 
         return PodcastEpisodeResource::collection(
-            $query->paginate($request->integer('per_page', 20))
+            $query->paginate($this->getPerPage($request))
         );
     }
 
@@ -165,7 +165,7 @@ class PodcastApiController extends Controller
             ->search($request->q);
 
         return PodcastResource::collection(
-            $query->paginate($request->integer('per_page', 20))
+            $query->paginate($this->getPerPage($request))
         );
     }
 
@@ -217,7 +217,7 @@ class PodcastApiController extends Controller
         $podcasts = Podcast::whereHas('subscriptions', fn ($q) => $q->where('user_id', $request->user()->id))
             ->with(['creator', 'category'])
             ->latest()
-            ->paginate($request->integer('per_page', 20));
+            ->paginate($this->getPerPage($request));
 
         return PodcastResource::collection($podcasts);
     }

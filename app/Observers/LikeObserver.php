@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Models\Like;
+use App\Notifications\NewLikeNotification;
 use App\Services\ActivityService;
 
 class LikeObserver
@@ -34,6 +35,21 @@ class LikeObserver
 
             if ($activity) {
                 ActivityService::incrementEngagement($activity, 'likes');
+            }
+
+            // Send push notification for likes (DB notification handled by Like::toggle)
+            if (method_exists($like->likeable, 'user')
+                && $like->likeable->user
+                && $like->likeable->user->id !== $like->user_id) {
+                $contentTitle = $like->likeable->title ?? $like->likeable->name ?? '';
+                $contentType = strtolower(class_basename($like->likeable_type));
+
+                $like->likeable->user->notify(new NewLikeNotification(
+                    $like,
+                    $like->user->name,
+                    $contentTitle,
+                    $contentType
+                ));
             }
         }
     }

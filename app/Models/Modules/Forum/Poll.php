@@ -3,6 +3,7 @@
 namespace App\Models\Modules\Forum;
 
 use App\Models\User;
+use App\Traits\HasComments;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Poll extends Model
 {
-    use HasFactory;
+    use HasComments, HasFactory;
 
     protected $fillable = [
         'user_id',

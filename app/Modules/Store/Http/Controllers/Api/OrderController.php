@@ -29,7 +29,7 @@ class OrderController extends Controller
             $query->where('status', $status);
         }
 
-        $orders = $query->paginate($request->get('per_page', 20));
+        $orders = $query->paginate($this->getPerPage($request));
 
         return response()->json([
             'data' => $orders->items(),
@@ -320,7 +320,7 @@ class OrderController extends Controller
             $query->where('status', $status);
         }
 
-        $orders = $query->paginate($request->get('per_page', 20));
+        $orders = $query->paginate($this->getPerPage($request));
 
         return response()->json([
             'data' => $orders->items(),

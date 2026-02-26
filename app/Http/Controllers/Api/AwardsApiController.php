@@ -23,7 +23,7 @@ class AwardsApiController extends Controller
         $awards = Award::published()
             ->withCount(['categories', 'nominations'])
             ->latest('year')
-            ->paginate($request->get('per_page', 15));
+            ->paginate($this->getPerPage($request, 15));
 
         return AwardResource::collection($awards);
     }
@@ -87,7 +87,7 @@ class AwardsApiController extends Controller
             ->where('category_id', $categoryId)
             ->approved()
             ->with('nominatedBy:id,username')
-            ->paginate($request->get('per_page', 20));
+            ->paginate($this->getPerPage($request));
 
         return AwardNominationResource::collection($nominations);
     }

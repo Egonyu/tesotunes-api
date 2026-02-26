@@ -31,4 +31,4 @@ Route::post('/webhooks/zengapay', function (\Illuminate\Http\Request $request) {
     $statusCode = ($result['success'] ?? false) ? 200 : 404;
 
     return response()->json($result, $statusCode);
-})->name('api.webhooks.zengapay');
+})->middleware('webhook.rate_limit')->name('api.webhooks.zengapay');

@@ -107,9 +107,9 @@ class AppServiceProvider extends ServiceProvider
         // \App\Modules\Ojokotau\Models\CampaignPledge::observe(\App\Observers\Ojokotau\CampaignPledgeObserver::class); // Not yet implemented
 
         // Register observers for Loyalty module
-        // \App\Models\Loyalty\LoyaltyCardMember::observe(\App\Observers\Loyalty\LoyaltyCardMemberObserver::class); // Not yet implemented
-        // \App\Models\Loyalty\LoyaltyCard::observe(\App\Observers\Loyalty\LoyaltyCardObserver::class); // Not yet implemented
-        // \App\Models\Loyalty\LoyaltyReward::observe(\App\Observers\Loyalty\LoyaltyRewardObserver::class); // Not yet implemented
+        \App\Models\Loyalty\LoyaltyCard::observe(\App\Observers\Loyalty\LoyaltyCardObserver::class);
+        \App\Models\Loyalty\LoyaltyCardMember::observe(\App\Observers\Loyalty\LoyaltyCardMemberObserver::class);
+        \App\Models\Loyalty\LoyaltyReward::observe(\App\Observers\Loyalty\LoyaltyRewardObserver::class);
 
         // Register event listeners for loyalty points
         EventFacade::listen(

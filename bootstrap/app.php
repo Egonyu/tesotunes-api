@@ -16,8 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // Disable default API throttling
-        $middleware->throttleApi('');
+        // Enable API rate limiting (defined in AppServiceProvider)
+        $middleware->throttleApi('api');
 
         // Exclude auth endpoints from CSRF verification (for API/NextAuth)
         $middleware->validateCsrfTokens(except: [
@@ -38,10 +38,14 @@ return Application::configure(basePath: dirname(__DIR__))
             'check.environment' => \App\Http\Middleware\CheckEnvironment::class,
             'webhook.rate_limit' => \App\Http\Middleware\WebhookRateLimiter::class,
             'loyalty.tier' => \App\Http\Middleware\CheckLoyaltyTierAccess::class,
+            'deprecated' => \App\Http\Middleware\DeprecationMiddleware::class,
         ]);
 
         // Add security headers to all requests
         $middleware->append(\App\Http\Middleware\SecurityHeadersMiddleware::class);
+
+        // Log API requests (method, URI, status, duration, user)
+        $middleware->appendToGroup('api', \App\Http\Middleware\ApiLoggingMiddleware::class);
 
         // For a pure API backend, unauthenticated requests should get JSON 401
         // instead of being redirected to a login page

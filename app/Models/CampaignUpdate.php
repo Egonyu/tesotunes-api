@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\HasComments;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -9,7 +10,7 @@ use Illuminate\Support\Str;
 
 class CampaignUpdate extends Model
 {
-    use SoftDeletes;
+    use HasComments, SoftDeletes;
 
     protected $table = 'campaign_updates';
 

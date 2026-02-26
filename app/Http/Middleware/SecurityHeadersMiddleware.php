@@ -45,6 +45,14 @@ class SecurityHeadersMiddleware
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
         }
 
+        // API versioning header
+        $response->headers->set('X-API-Version', config('app.api_version', '1.0'));
+
+        // Cache-Control: prevent caching of API responses by default
+        if ($request->is('api/*') && ! $response->headers->has('Cache-Control')) {
+            $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+        }
+
         return $response;
     }
 

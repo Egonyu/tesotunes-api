@@ -45,7 +45,7 @@ class PlaylistController extends Controller
             default => $query->orderBy($sortBy, $sortOrder),
         };
 
-        $playlists = $query->paginate($request->integer('per_page', 20));
+        $playlists = $query->paginate($this->getPerPage($request));
 
         return PlaylistResource::collection($playlists);
     }
@@ -61,7 +61,7 @@ class PlaylistController extends Controller
             ->with(['songs.artist'])
             ->withCount('songs')
             ->orderByDesc('created_at')
-            ->paginate($request->integer('per_page', 20));
+            ->paginate($this->getPerPage($request));
 
         return PlaylistResource::collection($playlists);
     }
@@ -158,7 +158,7 @@ class PlaylistController extends Controller
         $songs = $playlist->songs()
             ->with(['artist', 'album'])
             ->published()
-            ->paginate($request->integer('per_page', 20));
+            ->paginate($this->getPerPage($request));
 
         return SongResource::collection($songs);
     }

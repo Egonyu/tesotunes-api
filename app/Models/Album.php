@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Traits\Featurable;
+use App\Traits\HasComments;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Album extends Model
 {
-    use Featurable, HasFactory, SoftDeletes;
+    use Featurable, HasComments, HasFactory, SoftDeletes;
 
     protected $fillable = [
         'artist_id',
@@ -98,11 +99,6 @@ class Album extends Model
     public function activities()
     {
         return $this->morphMany(Activity::class, 'subject');
-    }
-
-    public function comments()
-    {
-        return $this->morphMany(Comment::class, 'commentable');
     }
 
     public function likes()

@@ -102,7 +102,7 @@ class PollVoteController extends Controller
         }
 
         $polls = $query->orderByDesc('created_at')
-            ->paginate($request->get('per_page', 10));
+            ->paginate($this->getPerPage($request, 10));
 
         // Load votes relation for authenticated user context
         if ($request->user()) {

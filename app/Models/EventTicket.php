@@ -12,7 +12,7 @@ class EventTicket extends Model
 {
     use HasFactory;
 
-    protected $table = 'event_ticket_types';
+    protected $table = 'event_tickets';
 
     protected $fillable = [
         'uuid',

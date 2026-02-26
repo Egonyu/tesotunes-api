@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Social;
 use App\Http\Controllers\Controller;
 use App\Models\Comment;
 use App\Models\Like;
+use App\Notifications\NewCommentNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -14,9 +15,9 @@ class CommentController extends Controller
     public function index(Request $request, string $commentableType, int $commentableId): JsonResponse
     {
         try {
-            $modelClass = 'App\\Models\\'.ucfirst($commentableType);
+            $modelClass = Comment::resolveCommentableClass($commentableType);
 
-            if (! class_exists($modelClass)) {
+            if (! $modelClass || ! class_exists($modelClass)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid commentable type',
@@ -31,7 +32,7 @@ class CommentController extends Controller
                 ->topLevel()
                 ->with(['user', 'replies.user'])
                 ->ordered()
-                ->paginate($request->get('per_page', 20));
+                ->paginate($this->getPerPage($request));
 
             // Add user-specific data
             if (auth()->check()) {
@@ -85,9 +86,9 @@ class CommentController extends Controller
                 ], 422);
             }
 
-            $modelClass = 'App\\Models\\'.ucfirst($request->commentable_type);
+            $modelClass = Comment::resolveCommentableClass($request->commentable_type);
 
-            if (! class_exists($modelClass)) {
+            if (! $modelClass || ! class_exists($modelClass)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Invalid commentable type',
@@ -109,48 +110,67 @@ class CommentController extends Controller
             // If it's a reply, increment parent reply count and notify
             if ($request->parent_id) {
                 $parentComment = Comment::find($request->parent_id);
-                $parentComment->increment('reply_count');
+                $parentComment->increment('replies_count');
 
                 // Notify parent comment author
                 if ($parentComment->user_id !== $user->id) {
                     $parentComment->user->notifications()->create([
                         'type' => 'comment_reply',
-                        'title' => 'New Reply',
-                        'message' => "{$user->name} replied to your comment",
                         'data' => [
+                            'title' => 'New Reply',
+                            'message' => "{$user->name} replied to your comment",
                             'comment_id' => $parentComment->id,
                             'reply_id' => $comment->id,
                             'commentable_type' => $modelClass,
                             'commentable_id' => $commentable->id,
                         ],
                     ]);
+
+                    // Push notification for reply
+                    $parentComment->user->notify(new NewCommentNotification(
+                        $comment,
+                        $user->name,
+                        class_basename($commentable),
+                        isReply: true
+                    ));
                 }
             } else {
                 // Notify content owner if it's a top-level comment
                 if (method_exists($commentable, 'user') && $commentable->user && $commentable->user->id !== $user->id) {
                     $commentable->user->notifications()->create([
                         'type' => 'new_comment',
-                        'title' => 'New Comment',
-                        'message' => "{$user->name} commented on your ".class_basename($commentable),
                         'data' => [
+                            'title' => 'New Comment',
+                            'message' => "{$user->name} commented on your ".class_basename($commentable),
                             'comment_id' => $comment->id,
                             'commentable_type' => $modelClass,
                             'commentable_id' => $commentable->id,
                         ],
                     ]);
+
+                    // Push notification for top-level comment
+                    $commentable->user->notify(new NewCommentNotification(
+                        $comment,
+                        $user->name,
+                        class_basename($commentable)
+                    ));
                 }
             }
 
             // Create activity
-            $user->activities()->create([
-                'type' => 'commented_on_'.strtolower(class_basename($commentable)),
-                'activityable_type' => $modelClass,
-                'activityable_id' => $commentable->id,
-                'data' => [
-                    'comment_id' => $comment->id,
-                    'content_preview' => substr($request->content, 0, 100),
-                ],
-            ]);
+            try {
+                $user->activities()->create([
+                    'type' => 'commented_on_'.strtolower(class_basename($commentable)),
+                    'subject_type' => $modelClass,
+                    'subject_id' => $commentable->id,
+                    'properties' => [
+                        'comment_id' => $comment->id,
+                        'content_preview' => substr($request->content, 0, 100),
+                    ],
+                ]);
+            } catch (\Exception $e) {
+                // Activity logging failure should not block comment creation
+            }
 
             return response()->json([
                 'success' => true,

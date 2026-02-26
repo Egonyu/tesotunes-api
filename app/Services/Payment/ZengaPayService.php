@@ -116,9 +116,15 @@ class ZengaPayService
         $secret = config('services.zengapay.webhook_secret');
 
         if (empty($secret)) {
-            Log::warning('ZengaPay webhook secret is not configured — skipping signature verification');
+            if (app()->environment('local', 'testing')) {
+                Log::warning('ZengaPay webhook secret is not configured — skipping signature verification in dev');
 
-            return true;
+                return true;
+            }
+
+            Log::error('ZengaPay webhook secret is not configured in production — rejecting webhook');
+
+            return false;
         }
 
         $computed = hash_hmac('sha256', $payload, $secret);
@@ -153,8 +159,8 @@ class ZengaPayService
             return ['success' => false, 'message' => 'Payment not found'];
         }
 
-        // Don't re-process already completed or failed payments
-        if (in_array($payment->status, ['completed', 'refunded'])) {
+        // Don't re-process already finalized payments
+        if (in_array($payment->status, ['completed', 'refunded', 'failed'])) {
             return ['success' => true, 'message' => 'Payment already finalized'];
         }
 

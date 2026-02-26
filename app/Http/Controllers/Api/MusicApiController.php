@@ -13,7 +13,7 @@ class MusicApiController extends Controller
      */
     public function songs(Request $request)
     {
-        $perPage = $request->get('limit', 20);
+        $perPage = min((int) $request->get('limit', 20), 100);
         $genreId = $request->get('genre');
 
         $query = DB::table('songs')
@@ -121,7 +121,7 @@ class MusicApiController extends Controller
      */
     public function artists(Request $request)
     {
-        $perPage = $request->get('limit', 20);
+        $perPage = min((int) $request->get('limit', 20), 100);
 
         $artists = DB::table('artists')
             ->select([
@@ -227,7 +227,7 @@ class MusicApiController extends Controller
      */
     public function artistSongs($id, Request $request)
     {
-        $perPage = $request->get('limit', 20);
+        $perPage = min((int) $request->get('limit', 20), 100);
 
         $songs = DB::table('songs')
             ->select([
@@ -283,7 +283,7 @@ class MusicApiController extends Controller
      */
     public function artistAlbums($id, Request $request)
     {
-        $perPage = $request->get('limit', 20);
+        $perPage = min((int) $request->get('limit', 20), 100);
 
         $albums = DB::table('albums')
             ->select([
@@ -332,7 +332,7 @@ class MusicApiController extends Controller
      */
     public function albums(Request $request)
     {
-        $perPage = $request->get('limit', 20);
+        $perPage = min((int) $request->get('limit', 20), 100);
 
         $albums = DB::table('albums')
             ->select([
@@ -420,7 +420,7 @@ class MusicApiController extends Controller
      */
     public function albumSongs($id, Request $request)
     {
-        $perPage = $request->get('limit', 50);
+        $perPage = min((int) $request->get('limit', 50), 100);
 
         $songs = DB::table('songs')
             ->select([
@@ -463,7 +463,7 @@ class MusicApiController extends Controller
      */
     public function trending(Request $request)
     {
-        $limit = $request->get('limit', 10);
+        $limit = min((int) $request->get('limit', 10), 100);
 
         $songs = DB::table('songs')
             ->select([
@@ -500,7 +500,7 @@ class MusicApiController extends Controller
      */
     public function playlists(Request $request)
     {
-        $perPage = $request->get('limit', 20);
+        $perPage = min((int) $request->get('limit', 20), 100);
 
         $playlists = DB::table('playlists')
             ->select([
@@ -592,7 +592,7 @@ class MusicApiController extends Controller
      */
     public function featuredPlaylists(Request $request)
     {
-        $limit = $request->get('limit', 10);
+        $limit = min((int) $request->get('limit', 10), 100);
 
         $playlists = DB::table('playlists')
             ->select([
