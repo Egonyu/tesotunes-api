@@ -227,7 +227,7 @@ Route::middleware('auth:sanctum')->prefix('notifications')->name('api.notificati
     Route::delete('/{notification}', [\App\Http\Controllers\Api\NotificationController::class, 'destroy'])->name('delete');
 
     // Admin only routes
-    Route::middleware('role:admin')->group(function () {
+    Route::middleware('role:admin,super_admin')->group(function () {
         // Removed send-test route - use proper notification testing
         Route::get('/analytics', [\App\Http\Controllers\Api\NotificationController::class, 'analytics'])->name('analytics');
         Route::post('/preview', [\App\Http\Controllers\Api\NotificationController::class, 'preview'])->name('preview');
@@ -269,16 +269,16 @@ Route::middleware('auth:sanctum')->prefix('payouts')->name('api.payouts.')->grou
 // Subscription API Routes
 Route::middleware('auth:sanctum')->prefix('subscriptions')->name('api.subscriptions.')->group(function () {
     Route::post('/{subscription}/cancel', [\App\Http\Controllers\Api\SubscriptionController::class, 'cancel'])->name('cancel');
-    Route::post('/{subscription}/extend', [\App\Http\Controllers\Api\SubscriptionController::class, 'extend'])->name('extend')->middleware('role:admin');
+    Route::post('/{subscription}/extend', [\App\Http\Controllers\Api\SubscriptionController::class, 'extend'])->name('extend')->middleware('role:admin,super_admin');
 });
 
 // Admin Payment Analytics
-Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->name('api.admin.')->group(function () {
+Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin')->name('api.admin.')->group(function () {
     Route::get('/payment-analytics', [\App\Http\Controllers\Api\PaymentController::class, 'analytics'])->name('payment-analytics');
 });
 
 // Admin Dashboard & Settings API
-Route::middleware(['auth:sanctum', 'role:admin,Super Admin'])->prefix('admin')->name('api.admin.')->group(function () {
+Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin')->name('api.admin.')->group(function () {
     // Base admin route
     Route::get('/', \App\Http\Controllers\Api\Admin\AdminIndexController::class)->name('index');
 
@@ -495,7 +495,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // SACCO API Routes
 Route::prefix('sacco')
-    ->middleware(['auth:sanctum'])
+    ->middleware(['auth:sanctum', 'sacco.member.api'])
     ->name('api.sacco.')
     ->group(function () {
         // Base sacco route

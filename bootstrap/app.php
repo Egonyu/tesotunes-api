@@ -34,6 +34,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'api.rate_limit' => \App\Http\Middleware\ApiRateLimitMiddleware::class,
             'secure.upload' => \App\Http\Middleware\SecureFileUploadMiddleware::class,
             'sacco.member' => \App\Http\Middleware\SaccoMemberMiddleware::class,
+            'sacco.member.api' => \App\Http\Middleware\CheckSaccoMembershipApi::class,
             'module.enabled' => \App\Http\Middleware\CheckModuleEnabled::class,
             'check.environment' => \App\Http\Middleware\CheckEnvironment::class,
             'webhook.rate_limit' => \App\Http\Middleware\WebhookRateLimiter::class,

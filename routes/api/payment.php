@@ -56,7 +56,7 @@ Route::middleware('auth:sanctum')->prefix('payments')->name('api.payments.')->gr
     Route::get(
         '/zengapay/balance',
         [\App\Http\Controllers\Api\PaymentController::class, 'zengapayBalance']
-    )->name('zengapay.balance')->middleware('role:admin');
+    )->name('zengapay.balance')->middleware('role:admin,super_admin');
 
     // Get user's payment history
     Route::get(

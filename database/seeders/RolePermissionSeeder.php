@@ -58,7 +58,7 @@ class RolePermissionSeeder extends Seeder
 
         // Create roles
         $superAdmin = Role::firstOrCreate(
-            ['name' => 'Super Admin'],
+            ['name' => 'super_admin'],
             [
                 'display_name' => 'Super Administrator',
                 'description' => 'Full system access',
@@ -69,7 +69,7 @@ class RolePermissionSeeder extends Seeder
         $superAdmin->permissions()->sync(array_values($permissionIds));
 
         $admin = Role::firstOrCreate(
-            ['name' => 'Admin'],
+            ['name' => 'admin'],
             [
                 'display_name' => 'Administrator',
                 'description' => 'General administration access',
@@ -91,7 +91,7 @@ class RolePermissionSeeder extends Seeder
         ]);
 
         $moderator = Role::firstOrCreate(
-            ['name' => 'Moderator'],
+            ['name' => 'moderator'],
             [
                 'display_name' => 'Content Moderator',
                 'description' => 'Content moderation access',
@@ -106,7 +106,7 @@ class RolePermissionSeeder extends Seeder
         ]);
 
         $artist = Role::firstOrCreate(
-            ['name' => 'Artist'],
+            ['name' => 'artist'],
             [
                 'display_name' => 'Artist',
                 'description' => 'Music artist account',
@@ -122,7 +122,7 @@ class RolePermissionSeeder extends Seeder
         ]);
 
         $user = Role::firstOrCreate(
-            ['name' => 'User'],
+            ['name' => 'user'],
             [
                 'display_name' => 'Regular User',
                 'description' => 'Standard user account',
@@ -136,7 +136,7 @@ class RolePermissionSeeder extends Seeder
 
         // Record Label Manager Role
         $labelManager = Role::firstOrCreate(
-            ['name' => 'Label Manager'],
+            ['name' => 'label_manager'],
             [
                 'display_name' => 'Record Label Manager',
                 'description' => 'Manages a record label and its artists',
@@ -154,7 +154,7 @@ class RolePermissionSeeder extends Seeder
 
         // Promoter Role
         $promoter = Role::firstOrCreate(
-            ['name' => 'Promoter'],
+            ['name' => 'promoter'],
             [
                 'display_name' => 'Event Promoter',
                 'description' => 'Promotes events and artists',
@@ -169,7 +169,7 @@ class RolePermissionSeeder extends Seeder
 
         // Producer Role
         $producer = Role::firstOrCreate(
-            ['name' => 'Producer'],
+            ['name' => 'producer'],
             [
                 'display_name' => 'Music Producer',
                 'description' => 'Creates beats and produces music',
@@ -185,7 +185,7 @@ class RolePermissionSeeder extends Seeder
 
         // DJ Role
         $dj = Role::firstOrCreate(
-            ['name' => 'DJ'],
+            ['name' => 'dj'],
             [
                 'display_name' => 'Disc Jockey',
                 'description' => 'DJ and playlist curator',
