@@ -280,18 +280,7 @@ Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin')->name('api.ad
 // Admin Dashboard & Settings API
 Route::middleware(['auth:sanctum', 'role:admin,Super Admin'])->prefix('admin')->name('api.admin.')->group(function () {
     // Base admin route
-    Route::get('/', function () {
-        return response()->json([
-            'message' => 'Admin API',
-            'version' => '1.0',
-            'endpoints' => [
-                'dashboard' => '/admin/dashboard/stats',
-                'users' => '/admin/users',
-                'settings' => '/admin/settings',
-                'sacco' => '/admin/sacco/stats',
-            ]
-        ]);
-    })->name('index');
+    Route::get('/', \App\Http\Controllers\Api\Admin\AdminIndexController::class)->name('index');
 
     // Dashboard API
     Route::get('/dashboard/stats', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'stats'])->name('dashboard.stats');
@@ -510,19 +499,7 @@ Route::prefix('sacco')
     ->name('api.sacco.')
     ->group(function () {
         // Base sacco route
-        Route::get('/', function () {
-            return response()->json([
-                'message' => 'SACCO API',
-                'version' => '1.0',
-                'endpoints' => [
-                    'membership' => '/sacco/membership',
-                    'members' => '/sacco/members',
-                    'savings' => '/sacco/savings/accounts',
-                    'loans' => '/sacco/loans',
-                    'shares' => '/sacco/shares/value',
-                ]
-            ]);
-        })->name('index');
+        Route::get('/', \App\Http\Controllers\Api\Sacco\SaccoIndexController::class)->name('index');
 
         // Membership
         Route::get('membership', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'myMembership'])->name('membership');
