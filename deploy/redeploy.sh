@@ -28,7 +28,8 @@ chmod -R 775 storage bootstrap/cache
 echo "▸ Restarting queue worker..."
 supervisorctl restart tesotunes-worker:* 2>/dev/null || true
 
-echo "▸ Reloading Nginx..."
+echo "▸ Reloading PHP-FPM and Nginx..."
+systemctl reload php8.4-fpm 2>/dev/null || systemctl reload php-fpm 2>/dev/null || true
 nginx -t && systemctl reload nginx
 
 echo ""

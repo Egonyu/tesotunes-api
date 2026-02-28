@@ -159,6 +159,9 @@ jobs:
 
             php artisan up
 
+            # Reload PHP-FPM to clear opcache and realpath cache
+            sudo systemctl reload php8.4-fpm || sudo systemctl reload php-fpm || true
+
             # Restart workers
             sudo supervisorctl restart tesotunes-worker:* || true
 
