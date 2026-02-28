@@ -105,6 +105,11 @@ class Payment extends Model
     // Payment provider — ZengaPay only
     const PROVIDER_ZENGAPAY = 'zengapay';
 
+    // Mobile money providers (used by MobileMoneyService)
+    const PROVIDER_MTN = 'mtn';
+
+    const PROVIDER_AIRTEL = 'airtel';
+
     // Relationships
     public function user(): BelongsTo
     {
