@@ -30,5 +30,8 @@ class DatabaseSeeder extends Seeder
 
         // Always run test data last
         $this->call([TestDataSeeder::class]);
+
+        // Comprehensive data for full-featured testing
+        $this->call([ComprehensiveTestDataSeeder::class]);
     }
 }
