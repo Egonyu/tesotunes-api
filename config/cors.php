@@ -25,6 +25,7 @@ return [
         'http://tesotunes.test',
         'http://tesotunes-api.test',
         'https://api.tesotunes.com',
+        'https://engine.tesotunes.com',
         'https://tesotunes.com',
         'https://www.tesotunes.com',
         env('FRONTEND_URL', 'http://localhost:3000'),

@@ -24,7 +24,7 @@ class ArtistRevenueNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        $amount = number_format($this->payment->amount);
+        $amount = number_format((float) ($this->payment->amount ?? 0));
         $currency = $this->payment->currency ?? 'UGX';
 
         return match ($this->eventType) {
@@ -65,9 +65,9 @@ class ArtistRevenueNotification extends Notification implements ShouldQueue
             'currency' => $this->payment->currency ?? 'UGX',
             'event_type' => $this->eventType,
             'message' => match ($this->eventType) {
-                'revenue_received' => 'You earned UGX '.number_format($this->payment->amount).' in revenue!',
-                'payout_failed' => 'Your payout of UGX '.number_format($this->payment->amount).' failed.',
-                default => 'Revenue update: UGX '.number_format($this->payment->amount),
+                'revenue_received' => 'You earned UGX '.number_format((float) ($this->payment->amount ?? 0)).' in revenue!',
+                'payout_failed' => 'Your payout of UGX '.number_format((float) ($this->payment->amount ?? 0)).' failed.',
+                default => 'Revenue update: UGX '.number_format((float) ($this->payment->amount ?? 0)),
             },
         ];
     }

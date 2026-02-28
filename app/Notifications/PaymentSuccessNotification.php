@@ -23,7 +23,7 @@ class PaymentSuccessNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        $amount = number_format($this->payment->amount);
+        $amount = number_format((float) ($this->payment->amount ?? 0));
         $currency = $this->payment->currency ?? 'UGX';
 
         return (new MailMessage)
@@ -48,7 +48,7 @@ class PaymentSuccessNotification extends Notification implements ShouldQueue
             'amount' => $this->payment->amount,
             'currency' => $this->payment->currency ?? 'UGX',
             'transaction_reference' => $this->payment->transaction_reference,
-            'message' => 'Your payment of '.number_format($this->payment->amount).' has been processed successfully.',
+            'message' => 'Your payment of '.number_format((float) ($this->payment->amount ?? 0)).' has been processed successfully.',
         ];
     }
 }

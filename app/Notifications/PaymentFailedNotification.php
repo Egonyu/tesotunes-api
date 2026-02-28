@@ -23,7 +23,7 @@ class PaymentFailedNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        $amount = number_format($this->payment->amount);
+        $amount = number_format((float) ($this->payment->amount ?? 0));
         $currency = $this->payment->currency ?? 'UGX';
         $reason = $this->payment->failure_reason ?? 'An error occurred during processing';
 
@@ -50,7 +50,7 @@ class PaymentFailedNotification extends Notification implements ShouldQueue
             'currency' => $this->payment->currency ?? 'UGX',
             'transaction_reference' => $this->payment->transaction_reference,
             'failure_reason' => $this->payment->failure_reason,
-            'message' => 'Your payment of '.number_format($this->payment->amount).' failed. Please try again.',
+            'message' => 'Your payment of '.number_format((float) ($this->payment->amount ?? 0)).' failed. Please try again.',
         ];
     }
 }

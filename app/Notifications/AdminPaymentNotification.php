@@ -24,7 +24,7 @@ class AdminPaymentNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        $amount = number_format($this->payment->amount);
+        $amount = number_format((float) ($this->payment->amount ?? 0));
         $currency = $this->payment->currency ?? 'UGX';
         $user = $this->payment->user;
 
@@ -36,7 +36,7 @@ class AdminPaymentNotification extends Notification implements ShouldQueue
                 ->subject("[Admin] High-Value Payment: {$currency} {$amount}")
                 ->line("A high-value payment of **{$currency} {$amount}** has been processed.")
                 ->line('**Payment Details:**')
-                ->line("- User: ".($user->display_name ?? 'Unknown')." ({$user->email ?? 'N/A'})")
+                ->line("- User: ".($user->display_name ?? 'Unknown')." (".($user->email ?? 'N/A').")")
                 ->line("- Amount: {$currency} {$amount}")
                 ->line("- Reference: {$this->payment->transaction_reference}")
                 ->line("- Status: ".ucfirst($this->payment->status))
@@ -77,9 +77,9 @@ class AdminPaymentNotification extends Notification implements ShouldQueue
             'user_id' => $this->payment->user_id,
             'transaction_reference' => $this->payment->transaction_reference,
             'message' => match ($this->eventType) {
-                'high_value' => 'High-value payment: UGX '.number_format($this->payment->amount),
-                'failed' => 'Payment failed: UGX '.number_format($this->payment->amount),
-                'refunded' => 'Payment refunded: UGX '.number_format($this->payment->amount),
+                'high_value' => 'High-value payment: UGX '.number_format((float) ($this->payment->amount ?? 0)),
+                'failed' => 'Payment failed: UGX '.number_format((float) ($this->payment->amount ?? 0)),
+                'refunded' => 'Payment refunded: UGX '.number_format((float) ($this->payment->amount ?? 0)),
                 default => "Payment event: {$this->eventType}",
             },
         ];
