@@ -15,7 +15,6 @@ class CreditController extends Controller
 
     public function __construct(CreditService $creditService)
     {
-        $this->middleware('auth:sanctum');
         $this->creditService = $creditService;
     }
 

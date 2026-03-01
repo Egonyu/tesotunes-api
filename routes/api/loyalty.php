@@ -96,7 +96,7 @@ Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('ar
 // Admin routes
 // ──────────────────────────────────────────────────────────
 
-Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin/loyalty')->name('api.admin.loyalty.')->group(function () {
+Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin/loyalty')->name('api.admin.loyalty.')->group(function () {
     Route::get('/cards', [LoyaltyAdminController::class, 'cards'])->name('cards');
     Route::get('/cards/{loyaltyCard}', [LoyaltyAdminController::class, 'showCard'])->name('cards.show');
     Route::post('/cards/{loyaltyCard}/approve', [LoyaltyAdminController::class, 'approve'])->name('cards.approve');

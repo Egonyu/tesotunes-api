@@ -28,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
+            'admin.exceptions' => \App\Http\Middleware\HandleAdminExceptions::class,
             'role' => \App\Http\Middleware\RoleMiddleware::class,
             'permission' => \App\Http\Middleware\PermissionMiddleware::class,
             'feature' => \App\Http\Middleware\FeatureMiddleware::class,
@@ -129,13 +130,27 @@ return Application::configure(basePath: dirname(__DIR__))
 
                 if ($e instanceof \Illuminate\Validation\ValidationException) {
                     return response()->json([
+                        'success' => false,
                         'message' => $e->getMessage(),
                         'errors' => $e->errors(),
                     ], 422);
                 }
 
+                if ($e instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
+                    $status = 404;
+                    $message = 'The requested resource was not found.';
+                }
+
+                if ($e instanceof \Illuminate\Database\QueryException) {
+                    $status = 500;
+                    $message = 'A database error occurred. Please try again later.';
+                }
+
                 // In production, never leak stack traces
-                $payload = ['message' => $message];
+                $payload = [
+                    'success' => false,
+                    'message' => $message,
+                ];
                 if (! app()->isProduction()) {
                     $payload['exception'] = get_class($e);
                     $payload['trace'] = collect($e->getTrace())->take(5)->toArray();

@@ -141,6 +141,20 @@ Route::prefix('slideshow')->name('api.slideshow.')->group(function () {
 Route::middleware('auth:sanctum')->prefix('player')->name('api.player.')->group(function () {
     Route::post('/update-now-playing', [\App\Http\Controllers\Api\PlayerController::class, 'updateNowPlaying'])->name('now-playing');
     Route::post('/record-play', [\App\Http\Controllers\Api\PlayerController::class, 'recordPlay'])->name('record-play');
+
+    // Extended player controls
+    Route::get('/status', [\App\Http\Controllers\Api\Player\PlayerController::class, 'getStatus'])->name('status');
+    Route::post('/previous', [\App\Http\Controllers\Api\Player\PlayerController::class, 'previous'])->name('previous');
+    Route::post('/next', [\App\Http\Controllers\Api\Player\PlayerController::class, 'next'])->name('next');
+    Route::post('/seek', [\App\Http\Controllers\Api\Player\PlayerController::class, 'seek'])->name('seek');
+
+    // Queue management
+    Route::get('/queue', [\App\Http\Controllers\Api\Player\QueueController::class, 'getQueue'])->name('queue.index');
+    Route::post('/queue', [\App\Http\Controllers\Api\Player\QueueController::class, 'addToQueue'])->name('queue.add');
+    Route::delete('/queue', [\App\Http\Controllers\Api\Player\QueueController::class, 'clearQueue'])->name('queue.clear');
+    Route::post('/queue/shuffle', [\App\Http\Controllers\Api\Player\QueueController::class, 'shuffleQueue'])->name('queue.shuffle');
+    Route::put('/queue/reorder', [\App\Http\Controllers\Api\Player\QueueController::class, 'reorderQueue'])->name('queue.reorder');
+    Route::delete('/queue/{queueItem}', [\App\Http\Controllers\Api\Player\QueueController::class, 'removeFromQueue'])->name('queue.remove');
 });
 
 // Activity Interaction API endpoints
@@ -184,7 +198,7 @@ if (config('store.enabled', false)) {
 require __DIR__.'/api/store.php';
 
 // Admin Store API — SECURED with auth + role middleware (SEC-CRIT-2 fix)
-Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin/store')->name('admin.store.api.')->group(function () {
+Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin/store')->name('admin.store.api.')->group(function () {
     // Store Management API (for admin/store dashboard)
     Route::get('/stats', [\App\Http\Controllers\Api\Admin\StoreApiController::class, 'stats'])->name('stats');
     Route::get('/products', [\App\Http\Controllers\Api\Admin\StoreApiController::class, 'products'])->name('products.index');
@@ -207,9 +221,6 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin/sto
     Route::delete('/shops/{store}', [\App\Http\Controllers\Api\Admin\StoreApiController::class, 'deleteShop'])->name('shops.delete');
     Route::get('/analytics', [\App\Http\Controllers\Api\Admin\StoreApiController::class, 'analytics'])->name('analytics');
 });
-
-// TODO: Backend Store API Routes - need migration to Api\Admin\StoreApiController
-// These were using deleted Backend\Store controllers and need proper API implementations
 
 // Cross-Module Notification API Routes
 Route::middleware('auth:sanctum')->prefix('notifications')->name('api.notifications.')->group(function () {
@@ -269,17 +280,17 @@ Route::middleware('auth:sanctum')->prefix('subscriptions')->name('api.subscripti
 });
 
 // Admin Payment Analytics
-Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin')->name('api.admin.')->group(function () {
+Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin')->name('api.admin.')->group(function () {
     Route::get('/payment-analytics', [\App\Http\Controllers\Api\PaymentController::class, 'analytics'])->name('payment-analytics');
 });
 
 // Admin Dashboard & Settings API — SECURED (dashboard stats are sensitive)
-Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin')->name('api.admin.')->group(function () {
+Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin')->name('api.admin.')->group(function () {
     Route::get('/dashboard/stats', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'stats'])->name('dashboard.stats');
     Route::get('/dashboard/recent-activity', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'recentActivity'])->name('dashboard.recent-activity');
 });
 
-Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin')->name('api.admin.')->group(function () {
+Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin')->name('api.admin.')->group(function () {
     // Base admin route
     Route::get('/', \App\Http\Controllers\Api\Admin\AdminIndexController::class)->name('index');
 
@@ -294,6 +305,7 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin')->
     Route::post('/users', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'store'])->name('users.store');
     Route::put('/users/{id}', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'update'])->name('users.update');
     Route::post('/users/{id}/ban', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'ban'])->name('users.ban');
+    Route::post('/users/{id}/activate', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'activate'])->name('users.activate');
     Route::delete('/users/{id}', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'destroy'])->name('users.destroy');
 
     // Events API
@@ -385,6 +397,16 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin')->
     Route::post('/awards/nominations/{id}/approve', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'approveNomination'])->name('awards.nominations.approve');
     Route::post('/awards/nominations/{id}/reject', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'rejectNomination'])->name('awards.nominations.reject');
     Route::post('/awards/nominations/{id}/set-winner', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'setWinner'])->name('awards.nominations.set-winner');
+
+    // Roles & Permissions API
+    Route::get('/roles', [\App\Http\Controllers\Api\Admin\RoleController::class, 'index'])->name('roles.index');
+    Route::get('/roles/permissions', [\App\Http\Controllers\Api\Admin\RoleController::class, 'permissions'])->name('roles.permissions');
+    Route::get('/roles/{role}', [\App\Http\Controllers\Api\Admin\RoleController::class, 'show'])->name('roles.show');
+    Route::post('/roles', [\App\Http\Controllers\Api\Admin\RoleController::class, 'store'])->name('roles.store');
+    Route::put('/roles/{role}', [\App\Http\Controllers\Api\Admin\RoleController::class, 'update'])->name('roles.update');
+    Route::delete('/roles/{role}', [\App\Http\Controllers\Api\Admin\RoleController::class, 'destroy'])->name('roles.destroy');
+    Route::post('/roles/assign', [\App\Http\Controllers\Api\Admin\RoleController::class, 'assignToUser'])->name('roles.assign');
+    Route::post('/roles/remove', [\App\Http\Controllers\Api\Admin\RoleController::class, 'removeFromUser'])->name('roles.remove');
 });
 
 // Payment Webhooks (Public - no auth required, rate limited)
@@ -413,12 +435,8 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 // Song Management API Routes
+// Note: Artist song CRUD (create/update/delete) is handled by ArtistApiController at /api/artist/songs/*
 Route::middleware('auth:sanctum')->prefix('songs')->name('api.songs.')->group(function () {
-    // TODO: Song CRUD - needs migration from deleted Frontend\Artist\MusicController to a proper API controller
-    // Route::post('/', [...])->name('store');
-    // Route::put('/{song}', [...])->name('update');
-    // Route::delete('/{song}', [...])->name('destroy');
-
     // Distribution
     Route::post('/{song}/distribute', [\App\Http\Controllers\DistributionController::class, 'submitSongDistribution'])->name('distribute');
     Route::get('/{song}/distributions', [\App\Http\Controllers\DistributionController::class, 'getSongDistributions'])->name('distributions');
@@ -449,10 +467,13 @@ Route::prefix('webhooks/distribution')->middleware('webhook.rate_limit')->name('
     Route::post('/{platform}', [\App\Http\Controllers\DistributionWebhookController::class, 'handle'])->name('handle');
 });
 
-// TODO: Admin distribution performance - needs proper API controller
-// Route::middleware(['auth:sanctum', 'role:admin'])->prefix('admin/distribution-performance')->name('api.admin.distribution.')->group(function () {
-//     Route::get('/', [...])->name('performance');
-// });
+// Admin Distribution Performance
+Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])
+    ->prefix('admin/distribution-performance')
+    ->name('api.admin.distribution.')
+    ->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\Admin\DistributionPerformanceController::class, 'performance'])->name('performance');
+    });
 
 // ============================================================================
 // PODCAST API ROUTES (Consolidated from routes/podcast-api.php)
@@ -484,6 +505,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/episodes/{episode:uuid}/play', [\App\Http\Controllers\Api\Podcast\PlayerApiController::class, 'play']);
     Route::post('/episodes/{episode:uuid}/progress', [\App\Http\Controllers\Api\Podcast\PlayerApiController::class, 'updateProgress']);
     Route::post('/episodes/{episode:uuid}/complete', [\App\Http\Controllers\Api\Podcast\PlayerApiController::class, 'markComplete']);
+
+    // Episode analytics tracking
+    Route::post('/episodes/{episode:uuid}/track-listen', [\App\Http\Controllers\Api\Podcast\AnalyticsApiController::class, 'trackListen']);
+    Route::post('/episodes/{episode:uuid}/track-download', [\App\Http\Controllers\Api\Podcast\AnalyticsApiController::class, 'trackDownload']);
+    Route::post('/episodes/{episode:uuid}/track-skip', [\App\Http\Controllers\Api\Podcast\AnalyticsApiController::class, 'trackSkip']);
 
     Route::get('/my-podcast-subscriptions', [\App\Http\Controllers\Api\Podcast\PodcastApiController::class, 'mySubscriptions']);
     Route::get('/my-listening-queue', [\App\Http\Controllers\Api\Podcast\PlayerApiController::class, 'listeningQueue']);
@@ -605,6 +631,18 @@ Route::prefix('feed')->name('api.feed.')->group(function () {
 
     // Single item view (MUST be after named routes like /following, /saved)
     Route::get('/{uuid}', [\App\Http\Controllers\Api\FeedController::class, 'show'])->name('show');
+});
+
+// ============================================================================
+// USER CREDITS ROUTES
+// ============================================================================
+Route::prefix('credits')->middleware('auth:sanctum')->name('api.credits.')->group(function () {
+    Route::get('/dashboard', [\App\Http\Controllers\Api\User\CreditController::class, 'dashboard'])->name('dashboard');
+    Route::get('/transactions', [\App\Http\Controllers\Api\User\CreditController::class, 'transactions'])->name('transactions');
+    Route::post('/claim-daily-bonus', [\App\Http\Controllers\Api\User\CreditController::class, 'claimDailyBonus'])->name('claim-daily-bonus');
+    Route::post('/transfer', [\App\Http\Controllers\Api\User\CreditController::class, 'transfer'])->name('transfer');
+    Route::get('/promotions', [\App\Http\Controllers\Api\User\CreditController::class, 'promotions'])->name('promotions');
+    Route::post('/promotions/{promotion}/participate', [\App\Http\Controllers\Api\User\CreditController::class, 'participateInPromotion'])->name('promotions.participate');
 });
 
 // Auth prefix routes (rate-limited, for compatibility with frontend)

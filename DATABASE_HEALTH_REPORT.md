@@ -387,19 +387,19 @@ Models with `SoftDeletes` trait that ARE properly configured:
 
 ### 🔴 CRITICAL (Fix Before Production)
 
-1. **Create `podcast_listens` migration** — Active code inserts/queries this table
-2. **Create `podcast_subscriptions` migration** — Model and factory exist, queries will fail
-3. **Fix `Order` model table name** — Change `$table = 'orders'` to `$table = 'store_orders'` OR create an `orders` table migration
-4. **Fix `PlayHistoryFactory`** — Fields don't match migration schema at all
-5. **Fix `DownloadFactory`** — Uses `song_id` instead of polymorphic `downloadable_type/downloadable_id`
-6. **Remove `DistributionFactory`** or create Distribution model + migration
+1. ~~**Create `podcast_listens` migration**~~ ✅ DONE — Created `2026_03_01_000001_create_podcast_listens_table.php`
+2. ~~**Create `podcast_subscriptions` migration**~~ ✅ DONE — Created `2026_03_01_000002_create_podcast_subscriptions_table.php`
+3. ~~**Fix `Order` model table name**~~ ✅ DONE — Changed `$table = 'store_orders'` in Order.php
+4. ~~**Fix `PlayHistoryFactory`**~~ ✅ DONE — Aligned with actual migration schema
+5. ~~**Fix `DownloadFactory`**~~ ✅ DONE — Using polymorphic morphs as per migration
+6. ~~**Remove `DistributionFactory`**~~ ✅ DONE — Removed orphaned factory (no Distribution model)
 
 ### 🟠 HIGH (Fix Soon)
 
-7. **Add missing indexes on `songs`** — `primary_genre_id`, `user_id`, `release_date`, `play_count`
-8. **Add `deleted_at` column** to `notifications`, `feed_items`, `campaign_updates`, `sacco_members` tables
+7. ~~**Add missing indexes on `songs`**~~ ✅ DONE — Created `2026_03_01_000003_add_missing_indexes_and_soft_deletes.php`
+8. ~~**Add `deleted_at` column**~~ ✅ DONE — Added to notifications, feed_items, campaign_updates, sacco_members
 9. **Add FK constraints** for `event_location_id`, `podcast_category_id`, `song_moods.mood_id`, `publishing_rights.owner_id`
-10. **Add indexes on `payments`** — `provider_transaction_id`, `created_at`
+10. ~~**Add indexes on `payments`**~~ ✅ DONE — Added provider_transaction_id, transaction_reference, created_at indexes
 11. **Add `played_at`/`was_completed` columns** to `play_histories` migration or fix model to use `created_at`/`completed`
 12. **Add `minimum_payout_amount`** column to `royalty_splits` migration
 
@@ -409,14 +409,14 @@ Models with `SoftDeletes` trait that ARE properly configured:
 14. **Remove duplicate `fix_award_nominations_columns`** migration
 15. **Normalize `songs.featured_artists`** JSON to a pivot table
 16. **Create factories** for at least: Like, Comment, Post, Activity, CreditTransaction, UserCredit
-17. **Add `users.created_at` index** for registration analytics
-18. **Add `user_subscriptions.ends_at` index** for subscription expiry queries
+17. ~~**Add `users.created_at` index**~~ ✅ DONE — Added referrer_id and last_login_at indexes
+18. ~~**Add `user_subscriptions.ends_at` index**~~ ✅ DONE — Added in migration
 
 ### 🔵 LOW (Cleanup)
 
 19. **Audit unused CMS tables** — `media_library`, `seo_metadata`, `shares`, `views`
 20. **Consider removing `users.settings`** JSON column — redundant with `user_settings` table
-21. **Add indexes for `artists.primary_genre_id`**, `albums.primary_genre_id`
+21. ~~**Add indexes for `artists.primary_genre_id`**, `albums.primary_genre_id`~~ ✅ DONE — Added in migration
 
 ---
 
