@@ -7,6 +7,7 @@ use App\Models\Loyalty\LoyaltyCard;
 use App\Models\Loyalty\LoyaltyCardMember;
 use App\Models\Loyalty\LoyaltyReward;
 use App\Models\LoyaltyPoints;
+use App\Models\Role;
 use App\Models\User;
 use Tests\TestCase;
 
@@ -26,6 +27,9 @@ class LoyaltyCardApiTest extends TestCase
 
         $this->user = User::factory()->create();
         $this->artistUser = User::factory()->create();
+        $artistRole = Role::firstOrCreate(['name' => 'artist'], ['display_name' => 'Artist', 'is_active' => true]);
+        $this->artistUser->roles()->syncWithoutDetaching([$artistRole->id => ['assigned_at' => now()]]);
+
         $this->artist = Artist::factory()->create(['user_id' => $this->artistUser->id]);
 
         $this->card = LoyaltyCard::factory()->create([
