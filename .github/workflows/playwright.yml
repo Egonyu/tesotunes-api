@@ -1,16 +1,8 @@
 name: Playwright E2E Tests
 
 on:
-  # Only run Playwright on manual trigger or specific branches
+  # Manual trigger only — this is an API-only repo with no frontend assets
   workflow_dispatch:
-  pull_request:
-    branches: [ main ]
-    paths:
-      - 'resources/**'
-      - 'routes/**'
-      - 'app/Http/Controllers/**'
-      - 'playwright.config.ts'
-      - 'e2e/**'
 
 jobs:
   test:

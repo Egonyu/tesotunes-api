@@ -71,7 +71,7 @@ jobs:
       - name: Setup test environment
         run: |
           cp .env.testing .env
-          php artisan key:generate --env=testing
+          php artisan key:generate --force
 
       - name: Create test database
         run: bash scripts/ci/create_test_db_mysql.sh
