@@ -14,9 +14,9 @@ trait HandlesApiErrors
         try {
             return $callback();
         } catch (\Throwable $e) {
-            \Log::error(class_basename($this) . ' error', [
+            \Log::error(class_basename($this).' error', [
                 'error' => $e->getMessage(),
-                'file' => $e->getFile() . ':' . $e->getLine(),
+                'file' => $e->getFile().':'.$e->getLine(),
                 'trace' => $e->getTraceAsString(),
             ]);
 

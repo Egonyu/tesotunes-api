@@ -107,7 +107,7 @@ test('forum replies returns paginated collection', function () {
         ->assertJsonStructure(['data']);
 });
 
-test('forum responses contain no success key', function () {
+test('forum admin responses include success key', function () {
     $endpoints = [
         '/api/admin/forums',
         '/api/admin/forums/stats',
@@ -117,8 +117,8 @@ test('forum responses contain no success key', function () {
     foreach ($endpoints as $endpoint) {
         $response = $this->actingAs($this->admin)->getJson($endpoint);
         if ($response->status() === 200) {
-            $response->assertJsonMissing(['success' => true])
-                ->assertJsonMissing(['success' => false]);
+            // Admin endpoints use standardized {success, data} format
+            $response->assertJsonFragment(['success' => true]);
         }
     }
 });

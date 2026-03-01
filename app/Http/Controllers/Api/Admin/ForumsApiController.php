@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
 class ForumsApiController extends Controller
 {
     use HandlesApiErrors;
+
     /**
      * GET /api/admin/forums/stats
      */

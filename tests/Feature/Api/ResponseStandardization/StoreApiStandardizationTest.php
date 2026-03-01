@@ -376,7 +376,7 @@ test('admin store analytics returns data', function () {
         ->assertJsonStructure(['data']);
 });
 
-test('admin store responses contain no success key', function () {
+test('admin store responses include success key', function () {
     $admin = createAdminUser();
     $endpoints = [
         '/api/admin/store/stats',
@@ -388,8 +388,10 @@ test('admin store responses contain no success key', function () {
         $response = $this->actingAs($admin)->getJson($endpoint);
         expect($response->headers->get('Content-Type'))->toContain('json');
         if ($response->status() === 200) {
+            // Admin endpoints use standardized {success, data} format
             $json = $response->json();
-            expect($json)->not->toHaveKey('success');
+            expect($json)->toHaveKey('success');
+            expect($json['success'])->toBeTrue();
         }
     }
 });

@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Album;
 use App\Models\Distribution;
 use App\Models\Song;
-use App\Models\Album;
 use App\Services\DistributionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,7 +26,7 @@ class DistributionController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'platforms' => 'required|array|min:1',
-            'platforms.*' => 'string|in:' . implode(',', array_keys(DistributionService::PLATFORMS)),
+            'platforms.*' => 'string|in:'.implode(',', array_keys(DistributionService::PLATFORMS)),
             'release_date' => 'nullable|date|after:today',
             'territories' => 'nullable|array',
         ]);
@@ -164,7 +164,7 @@ class DistributionController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'platforms' => 'required|array|min:1',
-            'platforms.*' => 'string|in:' . implode(',', array_keys(DistributionService::PLATFORMS)),
+            'platforms.*' => 'string|in:'.implode(',', array_keys(DistributionService::PLATFORMS)),
             'release_date' => 'nullable|date|after:today',
             'territories' => 'nullable|array',
         ]);
@@ -243,7 +243,7 @@ class DistributionController extends Controller
             'song_ids' => 'required|array|min:1|max:50',
             'song_ids.*' => 'integer|exists:songs,id',
             'platforms' => 'required|array|min:1',
-            'platforms.*' => 'string|in:' . implode(',', array_keys(DistributionService::PLATFORMS)),
+            'platforms.*' => 'string|in:'.implode(',', array_keys(DistributionService::PLATFORMS)),
         ]);
 
         if ($validator->fails()) {
@@ -263,6 +263,7 @@ class DistributionController extends Controller
 
                 if (! $song || ($song->user_id !== $user->id && $song->artist?->user_id !== $user->id)) {
                     $results[] = ['song_id' => $songId, 'status' => 'skipped', 'reason' => 'Not found or not owned'];
+
                     continue;
                 }
 
@@ -278,7 +279,7 @@ class DistributionController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => "{$submitted} of " . count($request->song_ids) . " songs submitted for distribution",
+                'message' => "{$submitted} of ".count($request->song_ids).' songs submitted for distribution',
                 'data' => $results,
             ], 201);
         } catch (\Exception $e) {

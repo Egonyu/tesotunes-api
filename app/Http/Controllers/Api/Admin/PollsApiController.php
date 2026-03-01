@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 class PollsApiController extends Controller
 {
     use HandlesApiErrors;
+
     /**
      * GET /api/admin/polls/stats
      */

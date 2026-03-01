@@ -47,12 +47,14 @@ class AdminApiStandardizationTest extends TestCase
         }
     }
 
-    public function test_dashboard_stats_contains_no_success_key(): void
+    public function test_dashboard_stats_returns_success_key(): void
     {
         $response = $this->actingAs($this->admin)->getJson('/api/admin/dashboard/stats');
 
         if ($response->status() === 200) {
-            $this->assertArrayNotHasKey('success', $response->json());
+            // Admin endpoints use standardized {success, data} format
+            $this->assertArrayHasKey('success', $response->json());
+            $this->assertTrue($response->json('success'));
         } else {
             // Controller bug (probably missing table), but returns JSON
             $response->assertHeader('Content-Type', 'application/json');

@@ -7,13 +7,14 @@ use App\Http\Resources\EventResource;
 use App\Models\Event;
 use App\Models\EventLocation;
 use App\Models\EventTicket;
+use App\Traits\HandlesApiErrors;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use App\Traits\HandlesApiErrors;
 
 class EventsApiController extends Controller
 {
     use HandlesApiErrors;
+
     /**
      * GET /api/admin/events/stats
      */

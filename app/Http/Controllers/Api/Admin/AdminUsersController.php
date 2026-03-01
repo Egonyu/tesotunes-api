@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\Validator;
 class AdminUsersController extends Controller
 {
     use HandlesApiErrors;
+
     /**
      * List users with filtering, searching, and pagination.
      */
@@ -27,75 +28,75 @@ class AdminUsersController extends Controller
         return $this->handleApiAction(function () use ($request) {
             $query = User::query();
 
-        // Search
-        if ($request->filled('search')) {
-            $escaped = addcslashes($request->search, '%_');
-            $query->where(function ($q) use ($escaped) {
-                $q->where('name', 'LIKE', "%{$escaped}%")
-                    ->orWhere('username', 'LIKE', "%{$escaped}%")
-                    ->orWhere('email', 'LIKE', "%{$escaped}%")
-                    ->orWhere('full_name', 'LIKE', "%{$escaped}%");
+            // Search
+            if ($request->filled('search')) {
+                $escaped = addcslashes($request->search, '%_');
+                $query->where(function ($q) use ($escaped) {
+                    $q->where('name', 'LIKE', "%{$escaped}%")
+                        ->orWhere('username', 'LIKE', "%{$escaped}%")
+                        ->orWhere('email', 'LIKE', "%{$escaped}%")
+                        ->orWhere('full_name', 'LIKE', "%{$escaped}%");
+                });
+            }
+
+            // Filter by role
+            if ($request->filled('role') && $request->role !== 'all') {
+                $query->where('role', $request->role);
+            }
+
+            // Filter by status
+            if ($request->filled('status') && $request->status !== 'all') {
+                match ($request->status) {
+                    'active' => $query->where('is_active', true),
+                    'inactive', 'banned' => $query->where('is_active', false),
+                    'verified' => $query->whereNotNull('email_verified_at'),
+                    default => null,
+                };
+            }
+
+            // Filter by active flag
+            if ($request->has('is_active')) {
+                $query->where('is_active', $request->boolean('is_active'));
+            }
+
+            // Filter by country
+            if ($request->filled('country')) {
+                $query->where('country', $request->country);
+            }
+
+            // Sorting
+            $sortBy = $request->get('sort_by', 'created_at');
+            $sortOrder = $request->get('sort_order', 'desc');
+            $allowed = ['created_at', 'name', 'email', 'username', 'role', 'is_active'];
+            if (in_array($sortBy, $allowed)) {
+                $query->orderBy($sortBy, $sortOrder === 'asc' ? 'asc' : 'desc');
+            } else {
+                $query->latest();
+            }
+
+            $perPage = min((int) $request->get('per_page', 20), 100);
+            $users = $query->paginate($perPage);
+
+            // Transform for frontend compatibility
+            $users->getCollection()->transform(function (User $user) {
+                return [
+                    'id' => $user->id,
+                    'uuid' => $user->uuid,
+                    'name' => $user->full_name ?: $user->username,
+                    'username' => $user->username,
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'country' => $user->country,
+                    'role' => $user->role,
+                    'is_active' => (bool) $user->is_active,
+                    'email_verified_at' => $user->email_verified_at,
+                    'last_login_at' => $user->last_login_at ?? null,
+                    'avatar_url' => $user->avatar
+                        ? url('storage/'.$user->avatar)
+                        : null,
+                    'created_at' => $user->created_at,
+                ];
             });
-        }
-
-        // Filter by role
-        if ($request->filled('role') && $request->role !== 'all') {
-            $query->where('role', $request->role);
-        }
-
-        // Filter by status
-        if ($request->filled('status') && $request->status !== 'all') {
-            match ($request->status) {
-                'active' => $query->where('is_active', true),
-                'inactive', 'banned' => $query->where('is_active', false),
-                'verified' => $query->whereNotNull('email_verified_at'),
-                default => null,
-            };
-        }
-
-        // Filter by active flag
-        if ($request->has('is_active')) {
-            $query->where('is_active', $request->boolean('is_active'));
-        }
-
-        // Filter by country
-        if ($request->filled('country')) {
-            $query->where('country', $request->country);
-        }
-
-        // Sorting
-        $sortBy = $request->get('sort_by', 'created_at');
-        $sortOrder = $request->get('sort_order', 'desc');
-        $allowed = ['created_at', 'name', 'email', 'username', 'role', 'is_active'];
-        if (in_array($sortBy, $allowed)) {
-            $query->orderBy($sortBy, $sortOrder === 'asc' ? 'asc' : 'desc');
-        } else {
-            $query->latest();
-        }
-
-        $perPage = min((int) $request->get('per_page', 20), 100);
-        $users = $query->paginate($perPage);
-
-        // Transform for frontend compatibility
-        $users->getCollection()->transform(function (User $user) {
-            return [
-                'id' => $user->id,
-                'uuid' => $user->uuid,
-                'name' => $user->full_name ?: $user->username,
-                'username' => $user->username,
-                'email' => $user->email,
-                'phone' => $user->phone,
-                'country' => $user->country,
-                'role' => $user->role,
-                'is_active' => (bool) $user->is_active,
-                'email_verified_at' => $user->email_verified_at,
-                'last_login_at' => $user->last_login_at ?? null,
-                'avatar_url' => $user->avatar
-                    ? url('storage/'.$user->avatar)
-                    : null,
-                'created_at' => $user->created_at,
-            ];
-        });
 
             return response()->json([
                 'success' => true,
@@ -150,27 +151,27 @@ class AdminUsersController extends Controller
         return $this->handleApiAction(function () use ($id) {
             $user = User::findOrFail($id);
 
-        $data = [
-            'id' => $user->id,
-            'uuid' => $user->uuid,
-            'name' => $user->name,
-            'full_name' => $user->full_name,
-            'username' => $user->username,
-            'email' => $user->email,
-            'phone' => $user->phone,
-            'bio' => $user->bio ?? null,
-            'country' => $user->country,
-            'city' => $user->city ?? null,
-            'role' => $user->role,
-            'is_active' => (bool) $user->is_active,
-            'email_verified_at' => $user->email_verified_at,
-            'last_login_at' => $user->last_login_at ?? null,
-            'avatar_url' => $user->avatar
-                ? url('storage/'.$user->avatar)
-                : null,
-            'created_at' => $user->created_at,
-            'updated_at' => $user->updated_at,
-        ];
+            $data = [
+                'id' => $user->id,
+                'uuid' => $user->uuid,
+                'name' => $user->name,
+                'full_name' => $user->full_name,
+                'username' => $user->username,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'bio' => $user->bio ?? null,
+                'country' => $user->country,
+                'city' => $user->city ?? null,
+                'role' => $user->role,
+                'is_active' => (bool) $user->is_active,
+                'email_verified_at' => $user->email_verified_at,
+                'last_login_at' => $user->last_login_at ?? null,
+                'avatar_url' => $user->avatar
+                    ? url('storage/'.$user->avatar)
+                    : null,
+                'created_at' => $user->created_at,
+                'updated_at' => $user->updated_at,
+            ];
 
             return response()->json([
                 'success' => true,
@@ -186,43 +187,43 @@ class AdminUsersController extends Controller
     {
         return $this->handleApiAction(function () use ($request) {
             $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:8',
-            'phone' => 'nullable|string|max:20',
-            'role' => 'nullable|string|in:user,artist,moderator,admin',
-            'country' => 'nullable|string|max:2',
-            'is_active' => 'nullable|boolean',
-        ]);
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|unique:users,email',
+                'password' => 'required|string|min:8',
+                'phone' => 'nullable|string|max:20',
+                'role' => 'nullable|string|in:user,artist,moderator,admin',
+                'country' => 'nullable|string|max:2',
+                'is_active' => 'nullable|boolean',
+            ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
 
-        $currentUser = $request->user();
+            $currentUser = $request->user();
 
-        // Prevent non-super admins from creating admin users
-        if (in_array($request->role, ['admin', 'super_admin']) && ! $currentUser->isSuperAdmin()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Insufficient permissions to create admin users.',
-            ], 403);
-        }
+            // Prevent non-super admins from creating admin users
+            if (in_array($request->role, ['admin', 'super_admin']) && ! $currentUser->isSuperAdmin()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient permissions to create admin users.',
+                ], 403);
+            }
 
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'phone' => $request->phone,
-            'role' => $request->role ?? 'user',
-            'country' => $request->country ?? 'UG',
-            'is_active' => $request->boolean('is_active', true),
-            'email_verified_at' => now(),
-        ]);
+            $user = User::create([
+                'name' => $request->name,
+                'email' => $request->email,
+                'password' => Hash::make($request->password),
+                'phone' => $request->phone,
+                'role' => $request->role ?? 'user',
+                'country' => $request->country ?? 'UG',
+                'is_active' => $request->boolean('is_active', true),
+                'email_verified_at' => now(),
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -241,54 +242,54 @@ class AdminUsersController extends Controller
             $user = User::findOrFail($id);
             $currentUser = $request->user();
 
-        // Permission check
-        if (! $currentUser->canManageUser($user)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Insufficient permissions to manage this user.',
-            ], 403);
-        }
+            // Permission check
+            if (! $currentUser->canManageUser($user)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient permissions to manage this user.',
+                ], 403);
+            }
 
-        $validator = Validator::make($request->all(), [
-            'name' => 'sometimes|string|max:255',
-            'email' => 'sometimes|email|unique:users,email,'.$id,
-            'username' => 'sometimes|string|max:100|unique:users,username,'.$id,
-            'phone' => 'sometimes|string|max:20',
-            'password' => 'sometimes|string|min:8',
-            'role' => 'sometimes|string|in:user,artist,moderator,admin',
-            'country' => 'nullable|string|max:2',
-            'bio' => 'nullable|string|max:500',
-            'city' => 'nullable|string|max:255',
-            'is_active' => 'nullable|boolean',
-        ]);
+            $validator = Validator::make($request->all(), [
+                'name' => 'sometimes|string|max:255',
+                'email' => 'sometimes|email|unique:users,email,'.$id,
+                'username' => 'sometimes|string|max:100|unique:users,username,'.$id,
+                'phone' => 'sometimes|string|max:20',
+                'password' => 'sometimes|string|min:8',
+                'role' => 'sometimes|string|in:user,artist,moderator,admin',
+                'country' => 'nullable|string|max:2',
+                'bio' => 'nullable|string|max:500',
+                'city' => 'nullable|string|max:255',
+                'is_active' => 'nullable|boolean',
+            ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
 
-        // Prevent non-super admins from assigning admin role
-        if ($request->filled('role') && in_array($request->role, ['admin', 'super_admin']) && ! $currentUser->isSuperAdmin()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Insufficient permissions to assign admin roles.',
-            ], 403);
-        }
+            // Prevent non-super admins from assigning admin role
+            if ($request->filled('role') && in_array($request->role, ['admin', 'super_admin']) && ! $currentUser->isSuperAdmin()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient permissions to assign admin roles.',
+                ], 403);
+            }
 
-        $data = $request->only(['name', 'email', 'username', 'phone', 'role', 'country', 'bio', 'city']);
+            $data = $request->only(['name', 'email', 'username', 'phone', 'role', 'country', 'bio', 'city']);
 
-        if ($request->has('is_active')) {
-            $data['is_active'] = $request->boolean('is_active');
-        }
+            if ($request->has('is_active')) {
+                $data['is_active'] = $request->boolean('is_active');
+            }
 
-        if ($request->filled('password')) {
-            $data['password'] = Hash::make($request->password);
-        }
+            if ($request->filled('password')) {
+                $data['password'] = Hash::make($request->password);
+            }
 
-        $user->update(array_filter($data, fn ($v) => $v !== null));
+            $user->update(array_filter($data, fn ($v) => $v !== null));
 
             return response()->json([
                 'success' => true,

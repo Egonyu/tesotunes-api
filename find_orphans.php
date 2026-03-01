@@ -1,4 +1,5 @@
 <?php
+
 // Get all controller files
 $controllers = [];
 $dir = new RecursiveDirectoryIterator('app/Http/Controllers');
@@ -7,7 +8,9 @@ foreach ($iter as $file) {
     if ($file->isFile() && $file->getExtension() === 'php') {
         $path = str_replace('\\', '/', $file->getPathname());
         $basename = $file->getBasename('.php');
-        if ($basename === 'Controller') continue;
+        if ($basename === 'Controller') {
+            continue;
+        }
         $controllers[$basename][] = $path;
     }
 }
@@ -18,7 +21,7 @@ $routeDir = new RecursiveDirectoryIterator('routes');
 $routeIter = new RecursiveIteratorIterator($routeDir);
 foreach ($routeIter as $file) {
     if ($file->isFile() && $file->getExtension() === 'php') {
-        $routeContent .= file_get_contents($file->getPathname()) . "\n";
+        $routeContent .= file_get_contents($file->getPathname())."\n";
     }
 }
 
@@ -39,7 +42,7 @@ foreach ($orphaned as $name => $paths) {
         echo "  $name => $p\n";
     }
 }
-echo "\nTotal orphaned: " . count($orphaned) . "\n";
+echo "\nTotal orphaned: ".count($orphaned)."\n";
 
 echo "\n=== REFERENCED CONTROLLERS (for verification) ===\n\n";
 foreach ($referenced as $name => $paths) {
@@ -47,7 +50,7 @@ foreach ($referenced as $name => $paths) {
         echo "  $name => $p\n";
     }
 }
-echo "\nTotal referenced: " . count($referenced) . "\n";
+echo "\nTotal referenced: ".count($referenced)."\n";
 
 // Now for orphaned controllers, get their public methods
 echo "\n=== ORPHANED CONTROLLER PUBLIC METHODS ===\n\n";
@@ -57,7 +60,9 @@ foreach ($orphaned as $name => $paths) {
         $content = file_get_contents($p);
         preg_match_all('/public\s+function\s+(\w+)\s*\(/', $content, $matches);
         foreach ($matches[1] as $method) {
-            if ($method === '__construct') continue;
+            if ($method === '__construct') {
+                continue;
+            }
             echo "  - $method()\n";
         }
         echo "\n";

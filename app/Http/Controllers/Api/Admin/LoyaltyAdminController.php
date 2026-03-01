@@ -7,13 +7,14 @@ use App\Http\Resources\Loyalty\LoyaltyCardResource;
 use App\Models\Loyalty\LoyaltyCard;
 use App\Models\Loyalty\LoyaltyCardMember;
 use App\Models\Loyalty\LoyaltyRewardRedemption;
+use App\Traits\HandlesApiErrors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use App\Traits\HandlesApiErrors;
 
 class LoyaltyAdminController extends Controller
 {
     use HandlesApiErrors;
+
     /**
      * GET /api/admin/loyalty/cards
      */

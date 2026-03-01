@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 class CampaignsApiController extends Controller
 {
     use HandlesApiErrors;
+
     /**
      * GET /api/admin/campaigns/stats
      */

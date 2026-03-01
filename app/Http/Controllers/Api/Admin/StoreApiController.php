@@ -6,14 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Modules\Store\Models\Order;
 use App\Modules\Store\Models\Product;
 use App\Modules\Store\Models\Store;
+use App\Traits\HandlesApiErrors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use App\Traits\HandlesApiErrors;
 
 class StoreApiController extends Controller
 {
     use HandlesApiErrors;
+
     /**
      * Get store statistics.
      */

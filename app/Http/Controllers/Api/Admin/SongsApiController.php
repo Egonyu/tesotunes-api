@@ -5,15 +5,16 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SongResource;
 use App\Models\Song;
+use App\Traits\HandlesApiErrors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use App\Traits\HandlesApiErrors;
 
 class SongsApiController extends Controller
 {
     use HandlesApiErrors;
+
     /**
      * List songs with filtering, searching, and pagination.
      */

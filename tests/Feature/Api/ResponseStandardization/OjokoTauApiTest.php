@@ -85,7 +85,7 @@ test('campaigns show returns single resource in data wrapper', function () {
         ->assertJsonStructure(['data']);
 });
 
-test('campaigns responses contain no success key', function () {
+test('campaigns admin responses include success key', function () {
     $endpoints = [
         '/api/admin/campaigns',
         '/api/admin/campaigns/stats',
@@ -94,8 +94,8 @@ test('campaigns responses contain no success key', function () {
     foreach ($endpoints as $endpoint) {
         $response = $this->actingAs($this->admin)->getJson($endpoint);
         if ($response->status() === 200) {
-            $response->assertJsonMissing(['success' => true])
-                ->assertJsonMissing(['success' => false]);
+            // Admin endpoints use standardized {success, data} format
+            $response->assertJsonFragment(['success' => true]);
         }
     }
 });

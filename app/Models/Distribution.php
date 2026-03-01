@@ -93,7 +93,7 @@ class Distribution extends Model
 
     public function getFormattedRevenueAttribute(): string
     {
-        return '$' . number_format($this->total_revenue ?? 0, 2);
+        return '$'.number_format($this->total_revenue ?? 0, 2);
     }
 
     public function getFormattedStreamsAttribute(): string

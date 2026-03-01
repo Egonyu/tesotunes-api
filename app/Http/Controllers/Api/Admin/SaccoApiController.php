@@ -8,13 +8,14 @@ use App\Models\Sacco\SaccoLoanRepayment;
 use App\Models\Sacco\SaccoMember;
 use App\Models\Sacco\SaccoSavingsAccount;
 use App\Models\Sacco\SaccoSavingsTransaction;
+use App\Traits\HandlesApiErrors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use App\Traits\HandlesApiErrors;
 
 class SaccoApiController extends Controller
 {
     use HandlesApiErrors;
+
     /**
      * Get SACCO statistics.
      */
@@ -170,7 +171,7 @@ class SaccoApiController extends Controller
      */
     public function approveLoan(Request $request, $id): JsonResponse
     {
-        return $this->handleApiAction(function () use ($request, $id) {
+        return $this->handleApiAction(function () use ($id) {
             $loan = SaccoLoan::findOrFail($id);
 
             // Use forceFill since status/approved_by are guarded (financial protection)

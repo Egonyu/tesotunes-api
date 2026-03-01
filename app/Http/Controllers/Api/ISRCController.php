@@ -57,7 +57,7 @@ class ISRCController extends Controller
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to generate ISRC code: ' . $e->getMessage(),
+                'message' => 'Failed to generate ISRC code: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -81,7 +81,7 @@ class ISRCController extends Controller
 
             $song = $album->songs()->whereNull('isrc_code')->first();
 
-            if (!$song) {
+            if (! $song) {
                 return response()->json([
                     'success' => false,
                     'message' => 'All songs in this album already have ISRC codes.',
@@ -103,7 +103,7 @@ class ISRCController extends Controller
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to generate ISRC code: ' . $e->getMessage(),
+                'message' => 'Failed to generate ISRC code: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -147,7 +147,7 @@ class ISRCController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => count($generated) . ' ISRC codes generated.',
+                'message' => count($generated).' ISRC codes generated.',
                 'data' => [
                     'total_songs' => $songs->count(),
                     'generated' => count($generated),
@@ -158,7 +158,7 @@ class ISRCController extends Controller
         } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to generate batch ISRC codes: ' . $e->getMessage(),
+                'message' => 'Failed to generate batch ISRC codes: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -288,7 +288,7 @@ class ISRCController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => count($generated) . ' ISRC codes generated.',
+                'message' => count($generated).' ISRC codes generated.',
                 'data' => [
                     'requested' => count($validated['song_ids']),
                     'eligible' => $songs->count(),
@@ -328,13 +328,15 @@ class ISRCController extends Controller
                     ->orWhere('formatted_isrc', $code)
                     ->first();
 
-                if (!$record) {
+                if (! $record) {
                     $errors[] = ['code' => $code, 'reason' => 'Not found'];
+
                     continue;
                 }
 
                 if ($record->status === 'registered') {
                     $errors[] = ['code' => $code, 'reason' => 'Already registered'];
+
                     continue;
                 }
 
@@ -386,13 +388,15 @@ class ISRCController extends Controller
                     ->orWhere('formatted_isrc', $code)
                     ->first();
 
-                if (!$record) {
+                if (! $record) {
                     $errors[] = ['code' => $code, 'reason' => 'Not found'];
+
                     continue;
                 }
 
                 if ($record->cleared_for_distribution) {
                     $errors[] = ['code' => $code, 'reason' => 'Already cleared'];
+
                     continue;
                 }
 
@@ -482,10 +486,10 @@ class ISRCController extends Controller
             $results = ISRCCode::with(['song:id,title,slug', 'artist:id,name,stage_name'])
                 ->where(function ($q) use ($escapedTerm) {
                     $q->where('isrc_code', 'like', "%{$escapedTerm}%")
-                      ->orWhere('formatted_isrc', 'like', "%{$escapedTerm}%")
-                      ->orWhereHas('song', fn ($s) => $s->where('title', 'like', "%{$escapedTerm}%"))
-                      ->orWhereHas('artist', fn ($a) => $a->where('name', 'like', "%{$escapedTerm}%")
-                          ->orWhere('stage_name', 'like', "%{$escapedTerm}%"));
+                        ->orWhere('formatted_isrc', 'like', "%{$escapedTerm}%")
+                        ->orWhereHas('song', fn ($s) => $s->where('title', 'like', "%{$escapedTerm}%"))
+                        ->orWhereHas('artist', fn ($a) => $a->where('name', 'like', "%{$escapedTerm}%")
+                            ->orWhere('stage_name', 'like', "%{$escapedTerm}%"));
                 })
                 ->orderByDesc('created_at')
                 ->limit(50)
@@ -529,17 +533,17 @@ class ISRCController extends Controller
             foreach ($records as $record) {
                 $csv .= implode(',', [
                     $record->formatted_isrc ?? $record->isrc_code,
-                    '"' . str_replace('"', '""', $record->song?->title ?? 'N/A') . '"',
-                    '"' . str_replace('"', '""', $record->artist?->stage_name ?? $record->artist?->name ?? 'N/A') . '"',
+                    '"'.str_replace('"', '""', $record->song?->title ?? 'N/A').'"',
+                    '"'.str_replace('"', '""', $record->artist?->stage_name ?? $record->artist?->name ?? 'N/A').'"',
                     $record->status ?? 'pending',
                     $record->cleared_for_distribution ? 'Yes' : 'No',
                     $record->registered_at?->toDateString() ?? '',
-                ]) . "\n";
+                ])."\n";
             }
 
             return response($csv, 200, [
                 'Content-Type' => 'text/csv',
-                'Content-Disposition' => 'attachment; filename="isrc_codes_' . now()->format('Y-m-d') . '.csv"',
+                'Content-Disposition' => 'attachment; filename="isrc_codes_'.now()->format('Y-m-d').'.csv"',
             ]);
         } catch (\Throwable $e) {
             return response()->json([
