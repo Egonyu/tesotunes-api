@@ -278,25 +278,27 @@ These sections use hardcoded fallback data instead of (or alongside) real API ca
 ## 10. REALISTIC TIMELINE TO PRODUCTION-READY
 
 ### Phase 1: Security Hardening (1-2 days) — NON-NEGOTIABLE
-- [ ] Remove unprotected admin routes from music.php
-- [ ] Add auth middleware to admin store routes
-- [ ] Add role:admin to payout endpoint
-- [ ] Set Sanctum token expiration (24h)
-- [ ] Delete debug endpoint
-- [ ] Remove console.log statements that leak tokens
-- [ ] Add rate limiting to login/register
-- [ ] Add role:artist middleware to artist routes
-- [ ] Sanitize User $fillable — remove privilege fields
-- [ ] Add ownership check to refund endpoint
+- [x] Remove unprotected admin routes from music.php ✅ (FIXED: auth + role middleware added)
+- [x] Add auth middleware to admin store routes ✅ (FIXED: store.php has auth:sanctum)
+- [x] Add role:admin to payout endpoint ✅ (FIXED: api.php line 257)
+- [x] Set Sanctum token expiration (24h) ✅ (FIXED: sanctum.php line 49)
+- [ ] Delete debug endpoint (N/A for Laravel backend — frontend task)
+- [ ] Remove console.log statements that leak tokens (frontend task)
+- [x] Add rate limiting to login/register ✅ (FIXED: auth.php throttle middleware)
+- [x] Add role:artist middleware to artist routes ✅ (FIXED: api.php line 82)
+- [x] Sanitize User $fillable — remove privilege fields ✅ (ALREADY DONE: credits, ugx_balance, permissions, is_premium, is_active commented out)
+- [x] Add ownership check to refund endpoint ✅ (FIXED: PaymentController.php)
+
+**PHASE 1 STATUS: 8/10 complete (2 remaining are frontend tasks)**
 
 ### Phase 2: Stability & Error Handling (3-5 days)
 - [ ] Add try-catch to all 14 admin controllers
 - [ ] Replace raw DB queries with Eloquent in 3 controllers
 - [ ] Standardize API response format across all controllers
-- [ ] Create missing database migrations (podcast tables)
-- [ ] Fix Order model table name
-- [ ] Add missing database indexes
-- [ ] Fix broken factories
+- [x] Create missing database migrations (podcast tables) ✅ (CREATED: podcast_listens, podcast_subscriptions)
+- [x] Fix Order model table name ✅ (FIXED: changed to store_orders)
+- [x] Add missing database indexes ✅ (CREATED: migration with indexes for songs, albums, artists, payments, users)
+- [x] Fix broken factories ✅ (FIXED: PlayHistoryFactory, DownloadFactory; REMOVED: DistributionFactory)
 - [ ] Wire orphaned controllers to routes
 
 ### Phase 3: Feature Completion (1-2 weeks)
