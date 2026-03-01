@@ -1,0 +1,127 @@
+
+  GET|HEAD  api/admin ....... api.admin.index ΓÇ║ Api\Admin\AdminIndexController
+  GET|HEAD  api/admin/artists ......... Api\Admin\AdminArtistsController@index
+  GET|HEAD  api/admin/artists/statistics Api\Admin\AdminArtistsController@staΓÇª
+  GET|HEAD  api/admin/artists/{id} ..... Api\Admin\AdminArtistsController@show
+  POST      api/admin/artists/{id} ... Api\Admin\AdminArtistsController@update
+  DELETE    api/admin/artists/{id} .. Api\Admin\AdminArtistsController@destroy
+  POST      api/admin/artists/{id}/approve Api\Admin\AdminArtistsController@aΓÇª
+  POST      api/admin/artists/{id}/status Api\Admin\AdminArtistsController@upΓÇª
+  POST      api/admin/artists/{id}/suspend Api\Admin\AdminArtistsController@sΓÇª
+  POST      api/admin/artists/{id}/toggle-featured Api\Admin\AdminArtistsContΓÇª
+  POST      api/admin/artists/{id}/toggle-verify Api\Admin\AdminArtistsControΓÇª
+  POST      api/admin/artists/{id}/verify Api\Admin\AdminArtistsController@veΓÇª
+  GET|HEAD  api/admin/awards api.admin.awards.index ΓÇ║ Api\Admin\AdminAwardsApΓÇª
+  GET|HEAD  api/admin/awards/categories api.admin.awards.categories.index ΓÇ║ AΓÇª
+  POST      api/admin/awards/categories api.admin.awards.categories.store ΓÇ║ AΓÇª
+  GET|HEAD  api/admin/awards/categories/{id} api.admin.awards.categories.showΓÇª
+  PUT       api/admin/awards/categories/{id} api.admin.awards.categories.updaΓÇª
+  DELETE    api/admin/awards/categories/{id} api.admin.awards.categories.destΓÇª
+  GET|HEAD  api/admin/awards/nominations api.admin.awards.nominations.index  ΓÇª
+  POST      api/admin/awards/nominations api.admin.awards.nominations.store  ΓÇª
+  POST      api/admin/awards/nominations/{id}/approve api.admin.awards.nominaΓÇª
+  POST      api/admin/awards/nominations/{id}/reject api.admin.awards.nominatΓÇª
+  POST      api/admin/awards/nominations/{id}/set-winner api.admin.awards.nomΓÇª
+  GET|HEAD  api/admin/awards/seasons api.admin.awards.seasons ΓÇ║ Api\Admin\AdmΓÇª
+  POST      api/admin/awards/seasons api.admin.awards.seasons.store ΓÇ║ Api\AdmΓÇª
+  GET|HEAD  api/admin/awards/seasons/{id} api.admin.awards.seasons.show ΓÇ║ ApiΓÇª
+  PUT       api/admin/awards/seasons/{id} api.admin.awards.seasons.update ΓÇ║ AΓÇª
+  DELETE    api/admin/awards/seasons/{id} api.admin.awards.seasons.destroy ΓÇ║ ΓÇª
+  GET|HEAD  api/admin/awards/stats api.admin.awards.stats ΓÇ║ Api\Admin\AdminAwΓÇª
+  GET|HEAD  api/admin/campaigns api.admin.campaigns.index ΓÇ║ Api\Admin\CampaigΓÇª
+  POST      api/admin/campaigns api.admin.campaigns.store ΓÇ║ Api\Admin\CampaigΓÇª
+  GET|HEAD  api/admin/campaigns/stats api.admin.campaigns.stats ΓÇ║ Api\Admin\CΓÇª
+  GET|HEAD  api/admin/campaigns/{id} api.admin.campaigns.show ΓÇ║ Api\Admin\CamΓÇª
+  PUT       api/admin/campaigns/{id} api.admin.campaigns.update ΓÇ║ Api\Admin\CΓÇª
+  DELETE    api/admin/campaigns/{id} api.admin.campaigns.destroy ΓÇ║ Api\Admin\ΓÇª
+  POST      api/admin/campaigns/{id}/approve api.admin.campaigns.approve ΓÇ║ ApΓÇª
+  GET|HEAD  api/admin/campaigns/{id}/pledges api.admin.campaigns.pledges ΓÇ║ ApΓÇª
+  POST      api/admin/campaigns/{id}/reject api.admin.campaigns.reject ΓÇ║ Api\ΓÇª
+  GET|HEAD  api/admin/campaigns/{id}/updates api.admin.campaigns.updates ΓÇ║ ApΓÇª
+  GET|HEAD  api/admin/dashboard/recent-activity api.admin.dashboard.recent-acΓÇª
+  GET|HEAD  api/admin/dashboard/stats api.admin.dashboard.stats ΓÇ║ Api\Admin\DΓÇª
+  GET|HEAD  api/admin/events api.admin.events.index ΓÇ║ Api\Admin\EventsApiContΓÇª
+  POST      api/admin/events api.admin.events.store ΓÇ║ Api\Admin\EventsApiContΓÇª
+  GET|HEAD  api/admin/events/stats api.admin.events.stats ΓÇ║ Api\Admin\EventsAΓÇª
+  GET|HEAD  api/admin/events/{id} api.admin.events.show ΓÇ║ Api\Admin\EventsApiΓÇª
+  PUT       api/admin/events/{id} api.admin.events.update ΓÇ║ Api\Admin\EventsAΓÇª
+  DELETE    api/admin/events/{id} api.admin.events.destroy ΓÇ║ Api\Admin\EventsΓÇª
+  GET|HEAD  api/admin/events/{id}/registrations api.admin.events.registrationΓÇª
+  GET|HEAD  api/admin/forums api.admin.forums.index ΓÇ║ Api\Admin\ForumsApiContΓÇª
+  POST      api/admin/forums api.admin.forums.store ΓÇ║ Api\Admin\ForumsApiContΓÇª
+  GET|HEAD  api/admin/forums/categories api.admin.forums.categories.index ΓÇ║ AΓÇª
+  POST      api/admin/forums/categories api.admin.forums.categories.store ΓÇ║ AΓÇª
+  GET|HEAD  api/admin/forums/categories/{id} api.admin.forums.categories.showΓÇª
+  PUT       api/admin/forums/categories/{id} api.admin.forums.categories.updaΓÇª
+  DELETE    api/admin/forums/categories/{id} api.admin.forums.categories.destΓÇª
+  GET|HEAD  api/admin/forums/stats api.admin.forums.stats ΓÇ║ Api\Admin\ForumsAΓÇª
+  GET|HEAD  api/admin/forums/{id} api.admin.forums.show ΓÇ║ Api\Admin\ForumsApiΓÇª
+  PUT       api/admin/forums/{id} api.admin.forums.update ΓÇ║ Api\Admin\ForumsAΓÇª
+  DELETE    api/admin/forums/{id} api.admin.forums.destroy ΓÇ║ Api\Admin\ForumsΓÇª
+  POST      api/admin/forums/{id}/lock api.admin.forums.lock ΓÇ║ Api\Admin\ForuΓÇª
+  POST      api/admin/forums/{id}/pin api.admin.forums.pin ΓÇ║ Api\Admin\ForumsΓÇª
+  GET|HEAD  api/admin/forums/{id}/replies api.admin.forums.replies ΓÇ║ Api\AdmiΓÇª
+  GET|HEAD  api/admin/loyalty/analytics api.admin.loyalty.analytics ΓÇ║ Api\AdmΓÇª
+  GET|HEAD  api/admin/loyalty/cards api.admin.loyalty.cards ΓÇ║ Api\Admin\LoyalΓÇª
+  GET|HEAD  api/admin/loyalty/cards/{loyaltyCard} api.admin.loyalty.cards.shoΓÇª
+  POST      api/admin/loyalty/cards/{loyaltyCard}/approve api.admin.loyalty.cΓÇª
+  POST      api/admin/loyalty/cards/{loyaltyCard}/suspend api.admin.loyalty.cΓÇª
+  GET|HEAD  api/admin/payment-analytics api.admin.payment-analytics ΓÇ║ Api\PayΓÇª
+  GET|HEAD  api/admin/polls api.admin.polls.index ΓÇ║ Api\Admin\PollsApiControlΓÇª
+  POST      api/admin/polls api.admin.polls.store ΓÇ║ Api\Admin\PollsApiControlΓÇª
+  GET|HEAD  api/admin/polls/stats api.admin.polls.stats ΓÇ║ Api\Admin\PollsApiCΓÇª
+  GET|HEAD  api/admin/polls/{id} api.admin.polls.show ΓÇ║ Api\Admin\PollsApiConΓÇª
+  PUT       api/admin/polls/{id} api.admin.polls.update ΓÇ║ Api\Admin\PollsApiCΓÇª
+  DELETE    api/admin/polls/{id} api.admin.polls.destroy ΓÇ║ Api\Admin\PollsApiΓÇª
+  POST      api/admin/polls/{id}/close api.admin.polls.close ΓÇ║ Api\Admin\PollΓÇª
+  POST      api/admin/polls/{id}/reopen api.admin.polls.reopen ΓÇ║ Api\Admin\PoΓÇª
+  GET|HEAD  api/admin/sacco/loans api.admin.sacco.loans ΓÇ║ Api\Admin\SaccoApiCΓÇª
+  GET|HEAD  api/admin/sacco/loans/{id} api.admin.sacco.loans.show ΓÇ║ Api\AdminΓÇª
+  POST      api/admin/sacco/loans/{id}/approve api.admin.sacco.loans.approve ΓÇª
+  POST      api/admin/sacco/loans/{id}/disburse api.admin.sacco.loans.disbursΓÇª
+  POST      api/admin/sacco/loans/{id}/reject api.admin.sacco.loans.reject ΓÇ║ ΓÇª
+  GET|HEAD  api/admin/sacco/loans/{id}/repayments api.admin.sacco.loans.repayΓÇª
+  GET|HEAD  api/admin/sacco/members api.admin.sacco.members ΓÇ║ Api\Admin\SaccoΓÇª
+  GET|HEAD  api/admin/sacco/stats api.admin.sacco.stats ΓÇ║ Api\Admin\SaccoApiCΓÇª
+  GET|HEAD  api/admin/sacco/transactions api.admin.sacco.transactions ΓÇ║ Api\AΓÇª
+  GET|HEAD  api/admin/settings api.admin.settings.index ΓÇ║ Api\Admin\SettingsCΓÇª
+  PUT       api/admin/settings api.admin.settings.update ΓÇ║ Api\Admin\SettingsΓÇª
+  GET|HEAD  api/admin/songs api.admin.songs.index ΓÇ║ Api\Admin\SongsApiControlΓÇª
+  POST      api/admin/songs api.admin.songs.store ΓÇ║ Api\Admin\SongsApiControlΓÇª
+  POST      api/admin/songs/bulk-approve api.admin.songs.bulk-approve ΓÇ║ Api\AΓÇª
+  POST      api/admin/songs/bulk-reject api.admin.songs.bulk-reject ΓÇ║ Api\AdmΓÇª
+  GET|HEAD  api/admin/songs/statistics api.admin.songs.statistics ΓÇ║ Api\AdminΓÇª
+  GET|HEAD  api/admin/songs/{id} api.admin.songs.show ΓÇ║ Api\Admin\SongsApiConΓÇª
+  PUT       api/admin/songs/{id} api.admin.songs.update ΓÇ║ Api\Admin\SongsApiCΓÇª
+  DELETE    api/admin/songs/{id} api.admin.songs.destroy ΓÇ║ Api\Admin\SongsApiΓÇª
+  GET|HEAD  api/admin/songs/{id}/play-history api.admin.songs.play-history ΓÇ║ ΓÇª
+  POST      api/admin/songs/{id}/toggle-featured api.admin.songs.toggle-featuΓÇª
+  POST      api/admin/songs/{id}/toggle-status api.admin.songs.toggle-status ΓÇª
+  GET|HEAD  api/admin/store/analytics admin.store.api.analytics ΓÇ║ Api\Admin\SΓÇª
+  GET|HEAD  api/admin/store/orders admin.store.api.orders.index ΓÇ║ Api\Admin\SΓÇª
+  POST      api/admin/store/orders/{order}/status admin.store.api.orders.statΓÇª
+  GET|HEAD  api/admin/store/products admin.store.api.products.index ΓÇ║ Api\AdmΓÇª
+  POST      api/admin/store/products admin.store.api.products.store ΓÇ║ Api\AdmΓÇª
+  PUT       api/admin/store/products/{product} admin.store.api.products.updatΓÇª
+  DELETE    api/admin/store/products/{product} admin.store.api.products.deletΓÇª
+  POST      api/admin/store/products/{product}/toggle-status admin.store.api.ΓÇª
+  GET|HEAD  api/admin/store/shops admin.store.api.shops.index ΓÇ║ Api\Admin\StoΓÇª
+  POST      api/admin/store/shops admin.store.api.shops.store ΓÇ║ Api\Admin\StoΓÇª
+  PUT       api/admin/store/shops/{store} admin.store.api.shops.update ΓÇ║ Api\ΓÇª
+  DELETE    api/admin/store/shops/{store} admin.store.api.shops.delete ΓÇ║ Api\ΓÇª
+  POST      api/admin/store/shops/{store}/approve admin.store.api.shops.approΓÇª
+  POST      api/admin/store/shops/{store}/suspend admin.store.api.shops.suspeΓÇª
+  POST      api/admin/store/shops/{store}/toggle-status admin.store.api.shopsΓÇª
+  POST      api/admin/store/shops/{store}/unverify admin.store.api.shops.unveΓÇª
+  POST      api/admin/store/shops/{store}/verify admin.store.api.shops.verifyΓÇª
+  GET|HEAD  api/admin/store/stats admin.store.api.stats ΓÇ║ Api\Admin\StoreApiCΓÇª
+  GET|HEAD  api/admin/users api.admin.users.index ΓÇ║ Api\Admin\AdminUsersContrΓÇª
+  POST      api/admin/users api.admin.users.store ΓÇ║ Api\Admin\AdminUsersContrΓÇª
+  GET|HEAD  api/admin/users/statistics api.admin.users.statistics ΓÇ║ Api\AdminΓÇª
+  GET|HEAD  api/admin/users/{id} api.admin.users.show ΓÇ║ Api\Admin\AdminUsersCΓÇª
+  PUT       api/admin/users/{id} api.admin.users.update ΓÇ║ Api\Admin\AdminUserΓÇª
+  DELETE    api/admin/users/{id} api.admin.users.destroy ΓÇ║ Api\Admin\AdminUseΓÇª
+  POST      api/admin/users/{id}/ban api.admin.users.ban ΓÇ║ Api\Admin\AdminUseΓÇª
+
+                                                          Showing [123] routes
+

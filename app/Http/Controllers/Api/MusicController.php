@@ -162,6 +162,7 @@ class MusicController extends Controller
                 // Cloud storage: generate temporary signed URL and redirect
                 try {
                     $temporaryUrl = $disk->temporaryUrl($foundPath, now()->addMinutes(15));
+
                     return redirect($temporaryUrl);
                 } catch (\Exception $e) {
                     // If temporaryUrl not supported, fall back to regular URL

@@ -6,7 +6,6 @@ use App\Models\Artist;
 use App\Models\Loyalty\LoyaltyCard;
 use App\Models\Loyalty\LoyaltyCardMember;
 use App\Models\Loyalty\LoyaltyReward;
-use App\Models\User;
 use Tests\TestCase;
 
 class LoyaltyCardModelTest extends TestCase
@@ -31,7 +30,7 @@ class LoyaltyCardModelTest extends TestCase
 
     public function test_route_key_is_slug(): void
     {
-        $card = new LoyaltyCard();
+        $card = new LoyaltyCard;
 
         $this->assertEquals('slug', $card->getRouteKeyName());
     }
@@ -82,10 +81,10 @@ class LoyaltyCardModelTest extends TestCase
         $card = LoyaltyCard::factory()->create([
             'tiers' => [
                 [
-                    'name'          => 'bronze',
+                    'name' => 'bronze',
                     'price_monthly' => 5000,
-                    'price_yearly'  => 50000,
-                    'benefits'      => ['Test'],
+                    'price_yearly' => 50000,
+                    'benefits' => ['Test'],
                 ],
             ],
         ]);
@@ -97,7 +96,7 @@ class LoyaltyCardModelTest extends TestCase
     public function test_belongs_to_artist(): void
     {
         $artist = Artist::factory()->create();
-        $card   = LoyaltyCard::factory()->create(['artist_id' => $artist->id]);
+        $card = LoyaltyCard::factory()->create(['artist_id' => $artist->id]);
 
         $this->assertEquals($artist->id, $card->artist->id);
     }

@@ -5,7 +5,41 @@ on:
     branches: [main]
 
 jobs:
+  security-gate:
+    name: Pre-Deploy Security Gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction
+
+      - name: Sanctum token expiration check
+        run: |
+          if grep -q "'expiration' => null" config/sanctum.php; then
+            echo "::error::CRITICAL: Sanctum token expiration is null!"
+            exit 1
+          fi
+
+      - name: Debug endpoint check
+        run: |
+          if grep -rn "test-upload" routes/ --include="*.php" | grep -v "REMOVED\|//"; then
+            echo "::error::Debug endpoints found in routes!"
+            exit 1
+          fi
+
+      - name: Composer audit
+        run: composer audit
+
   deploy:
+    name: Deploy to Production
+    needs: security-gate
     runs-on: ubuntu-latest
     steps:
       - name: Deploy to server via SSH
@@ -19,8 +53,17 @@ jobs:
             cd /var/www/api.tesotunes.com
             git pull origin main
             composer install --no-dev --no-interaction --optimize-autoloader
+
+            # Security gate — abort if issues found
+            php artisan security:audit-routes --fail-on-issues
+            php artisan security:audit-models --fail-on-issues
+
             php artisan migrate --force
             php artisan config:cache
             php artisan route:cache
             php artisan view:cache
+
+            # Post-deploy smoke test
+            bash scripts/security-smoke-test.sh "https://api.tesotunes.com/api" || echo "⚠️ Security smoke test had warnings"
+
             echo "Deploy completed at $(date)"

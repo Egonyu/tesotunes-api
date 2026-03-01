@@ -34,11 +34,11 @@ class LoyaltyController extends Controller
             ->when($request->filled('search'), fn ($q) => $q->where('name', 'like', "%{$request->search}%"))
             ->when($request->filled('sort'), function ($q) use ($request) {
                 return match ($request->sort) {
-                    'popular'    => $q->orderByDesc('total_members'),
-                    'newest'     => $q->latest(),
-                    'price_asc'  => $q->orderByRaw("JSON_EXTRACT(tiers, '$.bronze.price_monthly') ASC"),
+                    'popular' => $q->orderByDesc('total_members'),
+                    'newest' => $q->latest(),
+                    'price_asc' => $q->orderByRaw("JSON_EXTRACT(tiers, '$.bronze.price_monthly') ASC"),
                     'price_desc' => $q->orderByRaw("JSON_EXTRACT(tiers, '$.bronze.price_monthly') DESC"),
-                    default      => $q->latest(),
+                    default => $q->latest(),
                 };
             }, fn ($q) => $q->latest())
             ->paginate(min((int) $request->get('per_page', 12), 50));
@@ -80,14 +80,14 @@ class LoyaltyController extends Controller
             );
 
             return response()->json([
-                'message'    => 'Welcome! Your membership is now active.',
+                'message' => 'Welcome! Your membership is now active.',
                 'membership' => [
-                    'id'                => $member->id,
-                    'tier'              => $member->tier,
-                    'status'            => $member->status,
-                    'expires_at'        => $member->expires_at->toIso8601String(),
+                    'id' => $member->id,
+                    'tier' => $member->tier,
+                    'status' => $member->status,
+                    'expires_at' => $member->expires_at->toIso8601String(),
                     'subscription_type' => $member->subscription_type,
-                    'price_paid'        => $member->price_paid,
+                    'price_paid' => $member->price_paid,
                 ],
             ], 201);
         } catch (\InvalidArgumentException $e) {
@@ -108,7 +108,7 @@ class LoyaltyController extends Controller
             ->active()
             ->first();
 
-        if (!$membership) {
+        if (! $membership) {
             return response()->json([
                 'message' => 'You do not have an active membership for this loyalty card.',
             ], 403);
@@ -130,10 +130,10 @@ class LoyaltyController extends Controller
             $redemption = $this->rewardService->redeemReward($request->user(), $rewardModel);
 
             return response()->json([
-                'message'    => 'Reward redeemed successfully!',
+                'message' => 'Reward redeemed successfully!',
                 'redemption' => [
-                    'id'          => $redemption->id,
-                    'status'      => $redemption->status,
+                    'id' => $redemption->id,
+                    'status' => $redemption->status,
                     'content_url' => $rewardModel->type === 'content' ? $rewardModel->content_url : null,
                 ],
             ]);

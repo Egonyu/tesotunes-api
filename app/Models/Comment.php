@@ -66,7 +66,7 @@ class Comment extends Model
         }
 
         // Fallback: try App\Models\{StudlyCase}
-        $class = 'App\\Models\\' . Str::studly($type);
+        $class = 'App\\Models\\'.Str::studly($type);
 
         return class_exists($class) ? $class : null;
     }

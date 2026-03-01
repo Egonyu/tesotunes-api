@@ -2,7 +2,6 @@
 
 namespace Tests\Unit\Services\Loyalty;
 
-use App\Models\Artist;
 use App\Models\Loyalty\LoyaltyCard;
 use App\Models\Loyalty\LoyaltyCardMember;
 use App\Models\User;
@@ -12,7 +11,9 @@ use Tests\TestCase;
 class MembershipServiceTest extends TestCase
 {
     private MembershipService $service;
+
     private User $user;
+
     private LoyaltyCard $card;
 
     protected function setUp(): void
@@ -20,8 +21,8 @@ class MembershipServiceTest extends TestCase
         parent::setUp();
 
         $this->service = app(MembershipService::class);
-        $this->user    = User::factory()->create();
-        $this->card    = LoyaltyCard::factory()->create();
+        $this->user = User::factory()->create();
+        $this->card = LoyaltyCard::factory()->create();
     }
 
     public function test_subscribe_creates_active_membership(): void
@@ -107,10 +108,10 @@ class MembershipServiceTest extends TestCase
     public function test_renew_extends_expiry(): void
     {
         $member = LoyaltyCardMember::factory()->create([
-            'loyalty_card_id'   => $this->card->id,
-            'user_id'           => $this->user->id,
+            'loyalty_card_id' => $this->card->id,
+            'user_id' => $this->user->id,
             'subscription_type' => 'monthly',
-            'expires_at'        => now()->addDays(2),
+            'expires_at' => now()->addDays(2),
         ]);
 
         $oldExpiry = $member->expires_at->copy();

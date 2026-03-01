@@ -1,12 +1,12 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\Admin\LoyaltyAdminController;
 use App\Http\Controllers\Api\Artist\LoyaltyCardController;
 use App\Http\Controllers\Api\Artist\LoyaltyRewardController;
 use App\Http\Controllers\Api\LoyaltyController;
 use App\Http\Controllers\Api\LoyaltyPointsController;
 use App\Http\Controllers\Api\MembershipController;
-use App\Http\Controllers\Api\Admin\LoyaltyAdminController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
@@ -66,7 +66,7 @@ Route::middleware('auth:sanctum')->group(function () {
 // Artist routes (auth + artist role)
 // ──────────────────────────────────────────────────────────
 
-Route::middleware(['auth:sanctum'])->prefix('artist/loyalty-cards')->name('api.artist.loyalty-cards.')->group(function () {
+Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('artist/loyalty-cards')->name('api.artist.loyalty-cards.')->group(function () {
 
     Route::get('/', [LoyaltyCardController::class, 'index'])->name('index');
     Route::post('/', [LoyaltyCardController::class, 'store'])->name('store');
@@ -96,7 +96,7 @@ Route::middleware(['auth:sanctum'])->prefix('artist/loyalty-cards')->name('api.a
 // Admin routes
 // ──────────────────────────────────────────────────────────
 
-Route::middleware(['auth:sanctum'])->prefix('admin/loyalty')->name('api.admin.loyalty.')->group(function () {
+Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin/loyalty')->name('api.admin.loyalty.')->group(function () {
     Route::get('/cards', [LoyaltyAdminController::class, 'cards'])->name('cards');
     Route::get('/cards/{loyaltyCard}', [LoyaltyAdminController::class, 'showCard'])->name('cards.show');
     Route::post('/cards/{loyaltyCard}/approve', [LoyaltyAdminController::class, 'approve'])->name('cards.approve');

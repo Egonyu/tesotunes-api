@@ -24,12 +24,12 @@ class AwardStoreLoyaltyPoints implements ShouldQueue
         try {
             $order = $event->order;
 
-            if (!$order || !$order->user_id) {
+            if (! $order || ! $order->user_id) {
                 return;
             }
 
             $user = \App\Models\User::find($order->user_id);
-            if (!$user) {
+            if (! $user) {
                 return;
             }
 

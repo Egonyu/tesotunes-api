@@ -13,6 +13,7 @@ use Tests\TestCase;
 class LoyaltyPointsServiceTest extends TestCase
 {
     private LoyaltyPointsService $service;
+
     private User $user;
 
     protected function setUp(): void
@@ -20,7 +21,7 @@ class LoyaltyPointsServiceTest extends TestCase
         parent::setUp();
 
         $this->service = app(LoyaltyPointsService::class);
-        $this->user    = User::factory()->create();
+        $this->user = User::factory()->create();
     }
 
     public function test_award_points_creates_transaction_and_updates_balance(): void
@@ -59,10 +60,10 @@ class LoyaltyPointsServiceTest extends TestCase
 
         LoyaltyCardMember::factory()->create([
             'loyalty_card_id' => $card->id,
-            'user_id'         => $this->user->id,
-            'tier'            => 'gold',
-            'status'          => 'active',
-            'expires_at'      => now()->addMonth(),
+            'user_id' => $this->user->id,
+            'tier' => 'gold',
+            'status' => 'active',
+            'expires_at' => now()->addMonth(),
         ]);
 
         $transaction = $this->service->awardPoints(
@@ -79,9 +80,9 @@ class LoyaltyPointsServiceTest extends TestCase
         LoyaltyPoints::updateOrCreate(
             ['user_id' => $this->user->id],
             [
-                'balance'         => 500,
+                'balance' => 500,
                 'lifetime_earned' => 500,
-                'lifetime_spent'  => 0,
+                'lifetime_spent' => 0,
             ]
         );
 
@@ -105,9 +106,9 @@ class LoyaltyPointsServiceTest extends TestCase
         LoyaltyPoints::updateOrCreate(
             ['user_id' => $this->user->id],
             [
-                'balance'         => 50,
+                'balance' => 50,
                 'lifetime_earned' => 50,
-                'lifetime_spent'  => 0,
+                'lifetime_spent' => 0,
             ]
         );
 
@@ -125,9 +126,9 @@ class LoyaltyPointsServiceTest extends TestCase
         LoyaltyPoints::updateOrCreate(
             ['user_id' => $this->user->id],
             [
-                'balance'         => 1000,
+                'balance' => 1000,
                 'lifetime_earned' => 1000,
-                'lifetime_spent'  => 0,
+                'lifetime_spent' => 0,
             ]
         );
 
@@ -143,9 +144,9 @@ class LoyaltyPointsServiceTest extends TestCase
         LoyaltyPoints::updateOrCreate(
             ['user_id' => $this->user->id],
             [
-                'balance'            => 750,
-                'lifetime_earned'    => 1200,
-                'lifetime_spent'     => 450,
+                'balance' => 750,
+                'lifetime_earned' => 1200,
+                'lifetime_spent' => 450,
                 'current_multiplier' => 1.5,
             ]
         );

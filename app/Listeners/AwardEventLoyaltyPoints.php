@@ -24,12 +24,12 @@ class AwardEventLoyaltyPoints implements ShouldQueue
     {
         try {
             $attendee = $event->attendee;
-            if (!$attendee || !$attendee->user_id) {
+            if (! $attendee || ! $attendee->user_id) {
                 return;
             }
 
             $user = \App\Models\User::find($attendee->user_id);
-            if (!$user) {
+            if (! $user) {
                 return;
             }
 
@@ -59,12 +59,12 @@ class AwardEventLoyaltyPoints implements ShouldQueue
     {
         try {
             $attendee = $event->attendee;
-            if (!$attendee || !$attendee->user_id) {
+            if (! $attendee || ! $attendee->user_id) {
                 return;
             }
 
             $user = \App\Models\User::find($attendee->user_id);
-            if (!$user) {
+            if (! $user) {
                 return;
             }
 

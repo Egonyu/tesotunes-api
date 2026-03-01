@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware(['auth'])->prefix('store')->name('store.')->group(function () {
+Route::middleware(['auth:sanctum'])->prefix('store')->name('store.')->group(function () {
 
     // Promotion endpoints (Buyer)
     Route::prefix('promotions')->name('promotions.')->group(function () {

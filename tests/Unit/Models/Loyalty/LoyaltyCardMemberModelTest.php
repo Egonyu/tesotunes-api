@@ -12,7 +12,7 @@ class LoyaltyCardMemberModelTest extends TestCase
     public function test_is_active_when_status_active_and_not_expired(): void
     {
         $member = LoyaltyCardMember::factory()->create([
-            'status'     => 'active',
+            'status' => 'active',
             'expires_at' => now()->addMonth(),
         ]);
 
@@ -65,7 +65,7 @@ class LoyaltyCardMemberModelTest extends TestCase
 
     public function test_belongs_to_loyalty_card(): void
     {
-        $card   = LoyaltyCard::factory()->create();
+        $card = LoyaltyCard::factory()->create();
         $member = LoyaltyCardMember::factory()->create(['loyalty_card_id' => $card->id]);
 
         $this->assertEquals($card->id, $member->loyaltyCard->id);
@@ -73,7 +73,7 @@ class LoyaltyCardMemberModelTest extends TestCase
 
     public function test_belongs_to_user(): void
     {
-        $user   = User::factory()->create();
+        $user = User::factory()->create();
         $member = LoyaltyCardMember::factory()->create(['user_id' => $user->id]);
 
         $this->assertEquals($user->id, $member->user->id);
@@ -85,8 +85,8 @@ class LoyaltyCardMemberModelTest extends TestCase
 
         LoyaltyCardMember::factory()->create([
             'loyalty_card_id' => $card->id,
-            'status'          => 'active',
-            'expires_at'      => now()->addMonth(),
+            'status' => 'active',
+            'expires_at' => now()->addMonth(),
         ]);
         LoyaltyCardMember::factory()->expired()->create(['loyalty_card_id' => $card->id]);
         LoyaltyCardMember::factory()->cancelled()->create(['loyalty_card_id' => $card->id]);
@@ -102,14 +102,14 @@ class LoyaltyCardMemberModelTest extends TestCase
 
         LoyaltyCardMember::factory()->create([
             'loyalty_card_id' => $card->id,
-            'status'          => 'active',
-            'expires_at'      => now()->addDays(2),
+            'status' => 'active',
+            'expires_at' => now()->addDays(2),
         ]);
 
         LoyaltyCardMember::factory()->create([
             'loyalty_card_id' => $card->id,
-            'status'          => 'active',
-            'expires_at'      => now()->addDays(30),
+            'status' => 'active',
+            'expires_at' => now()->addDays(30),
         ]);
 
         $expiring = LoyaltyCardMember::expiring(7)->get();

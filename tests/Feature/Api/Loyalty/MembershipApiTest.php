@@ -12,7 +12,9 @@ use Tests\TestCase;
 class MembershipApiTest extends TestCase
 {
     private User $user;
+
     private LoyaltyCard $card;
+
     private LoyaltyCardMember $membership;
 
     protected function setUp(): void
@@ -24,8 +26,8 @@ class MembershipApiTest extends TestCase
 
         $this->membership = LoyaltyCardMember::factory()->create([
             'loyalty_card_id' => $this->card->id,
-            'user_id'         => $this->user->id,
-            'tier'            => 'bronze',
+            'user_id' => $this->user->id,
+            'tier' => 'bronze',
         ]);
     }
 
@@ -45,7 +47,7 @@ class MembershipApiTest extends TestCase
 
     public function test_fan_cannot_view_other_users_membership(): void
     {
-        $otherUser   = User::factory()->create();
+        $otherUser = User::factory()->create();
         $otherMember = LoyaltyCardMember::factory()->create(['user_id' => $otherUser->id]);
 
         $response = $this->actingAs($this->user)->getJson("/api/my/memberships/{$otherMember->id}");
@@ -61,7 +63,7 @@ class MembershipApiTest extends TestCase
 
         $response->assertOk();
         $this->assertDatabaseHas('loyalty_card_members', [
-            'id'         => $this->membership->id,
+            'id' => $this->membership->id,
             'auto_renew' => false,
         ]);
     }
@@ -72,7 +74,7 @@ class MembershipApiTest extends TestCase
 
         $response->assertOk();
         $this->assertDatabaseHas('loyalty_card_members', [
-            'id'     => $this->membership->id,
+            'id' => $this->membership->id,
             'status' => 'cancelled',
         ]);
     }
@@ -93,9 +95,9 @@ class MembershipApiTest extends TestCase
         LoyaltyPoints::updateOrCreate(
             ['user_id' => $this->user->id],
             [
-                'balance'         => 1000,
+                'balance' => 1000,
                 'lifetime_earned' => 1500,
-                'lifetime_spent'  => 500,
+                'lifetime_spent' => 500,
             ]
         );
 
@@ -110,19 +112,19 @@ class MembershipApiTest extends TestCase
         LoyaltyPoints::updateOrCreate(
             ['user_id' => $this->user->id],
             [
-                'balance'         => 100,
+                'balance' => 100,
                 'lifetime_earned' => 100,
-                'lifetime_spent'  => 0,
+                'lifetime_spent' => 0,
             ]
         );
 
         LoyaltyTransaction::create([
-            'user_id'     => $this->user->id,
-            'type'        => 'earned',
-            'points'      => 100,
-            'source'      => 'event_checkin',
+            'user_id' => $this->user->id,
+            'type' => 'earned',
+            'points' => 100,
+            'source' => 'event_checkin',
             'description' => 'Test check-in',
-            'created_at'  => now(),
+            'created_at' => now(),
         ]);
 
         $response = $this->actingAs($this->user)->getJson('/api/my/loyalty-points/transactions');
@@ -135,9 +137,9 @@ class MembershipApiTest extends TestCase
         LoyaltyPoints::updateOrCreate(
             ['user_id' => $this->user->id],
             [
-                'balance'         => 500,
+                'balance' => 500,
                 'lifetime_earned' => 500,
-                'lifetime_spent'  => 0,
+                'lifetime_spent' => 0,
             ]
         );
 
@@ -154,9 +156,9 @@ class MembershipApiTest extends TestCase
         LoyaltyPoints::updateOrCreate(
             ['user_id' => $this->user->id],
             [
-                'balance'         => 50,
+                'balance' => 50,
                 'lifetime_earned' => 50,
-                'lifetime_spent'  => 0,
+                'lifetime_spent' => 0,
             ]
         );
 

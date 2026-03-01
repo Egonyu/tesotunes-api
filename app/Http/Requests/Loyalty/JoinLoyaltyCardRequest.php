@@ -14,11 +14,11 @@ class JoinLoyaltyCardRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'tier'              => ['required', 'string', 'in:bronze,silver,gold,platinum'],
+            'tier' => ['required', 'string', 'in:bronze,silver,gold,platinum'],
             'subscription_type' => ['required', 'string', 'in:monthly,yearly'],
-            'payment_method'    => ['required', 'string', 'in:mobile_money,credits,hybrid'],
-            'mobile_number'     => ['required_if:payment_method,mobile_money', 'nullable', 'string'],
-            'auto_renew'        => ['boolean'],
+            'payment_method' => ['required', 'string', 'in:mobile_money,credits,hybrid'],
+            'mobile_number' => ['required_if:payment_method,mobile_money', 'nullable', 'string'],
+            'auto_renew' => ['boolean'],
         ];
     }
 }

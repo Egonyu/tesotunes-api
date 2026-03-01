@@ -34,7 +34,7 @@ class ArtistRevenueNotification extends Notification implements ShouldQueue
                 ->line("You've earned **{$currency} {$amount}** in revenue!")
                 ->line('**Revenue Details:**')
                 ->line("- Amount: {$currency} {$amount}")
-                ->line("- Type: ".ucfirst(str_replace('_', ' ', $this->payment->payment_type ?? 'streaming')))
+                ->line('- Type: '.ucfirst(str_replace('_', ' ', $this->payment->payment_type ?? 'streaming')))
                 ->line('- Date: '.now()->format('M d, Y'))
                 ->action('View Earnings', url('/artist/earnings'))
                 ->line('Keep creating amazing music!'),

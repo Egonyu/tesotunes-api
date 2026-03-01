@@ -32,7 +32,7 @@ class ProcessRenewals extends Command
         $this->info("Found {$expiring->count()} membership(s) to renew.");
 
         $renewed = 0;
-        $failed  = 0;
+        $failed = 0;
 
         foreach ($expiring as $member) {
             $label = "User #{$member->user_id} — {$member->loyaltyCard->name} ({$member->tier})";

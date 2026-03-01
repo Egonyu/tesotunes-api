@@ -24,7 +24,7 @@ class LoyaltySeeder extends Seeder
         foreach ($artists as $artist) {
             $card = LoyaltyCard::factory()->create([
                 'artist_id' => $artist->id,
-                'name'      => $artist->name . ' Fan Club',
+                'name' => $artist->name.' Fan Club',
             ]);
 
             // Create rewards
@@ -39,13 +39,13 @@ class LoyaltySeeder extends Seeder
                 $tier = match (true) {
                     $index < 2 => 'bronze',
                     $index < 4 => 'silver',
-                    default    => 'gold',
+                    default => 'gold',
                 };
 
                 LoyaltyCardMember::factory()->create([
                     'loyalty_card_id' => $card->id,
-                    'user_id'         => $user->id,
-                    'tier'            => $tier,
+                    'user_id' => $user->id,
+                    'tier' => $tier,
                 ]);
             }
 

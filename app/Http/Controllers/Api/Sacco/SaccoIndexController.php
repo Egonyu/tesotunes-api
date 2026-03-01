@@ -21,7 +21,7 @@ class SaccoIndexController extends Controller
                 'savings' => '/sacco/savings/accounts',
                 'loans' => '/sacco/loans',
                 'shares' => '/sacco/shares/value',
-            ]
+            ],
         ]);
     }
 }

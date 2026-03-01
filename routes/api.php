@@ -64,8 +64,8 @@ Route::middleware('auth:sanctum')->prefix('tickets')->name('api.tickets.')->grou
     Route::get('/{id}', [\App\Http\Controllers\Api\TicketController::class, 'show'])->name('show');
 });
 
-// Artist Events API Routes (auth required)
-Route::middleware('auth:sanctum')->prefix('artist/events')->name('api.artist.events.')->group(function () {
+// Artist Events API Routes (auth + artist role required)
+Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('artist/events')->name('api.artist.events.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Api\ArtistEventsController::class, 'index'])->name('index');
     Route::post('/', [\App\Http\Controllers\Api\ArtistEventsController::class, 'store'])->name('store');
     Route::get('/{id}', [\App\Http\Controllers\Api\ArtistEventsController::class, 'show'])->name('show');
@@ -77,8 +77,9 @@ Route::middleware('auth:sanctum')->prefix('artist/events')->name('api.artist.eve
 
 // ============================================================================
 // Artist API Routes — Dashboard, Songs, Albums, Profile, Earnings, Analytics
+// SECURED: Requires auth + artist/admin role (HIGH-5 fix)
 // ============================================================================
-Route::middleware('auth:sanctum')->prefix('artist')->name('api.artist.')->group(function () {
+Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('artist')->name('api.artist.')->group(function () {
     // Dashboard
     Route::get('/dashboard', [\App\Http\Controllers\Api\ArtistApiController::class, 'dashboard'])->name('dashboard');
 
@@ -182,13 +183,8 @@ if (config('store.enabled', false)) {
 // Store API routes
 require __DIR__.'/api/store.php';
 
-// Admin Store Settings API
-// Admin Store API (temporarily without strict auth to match other admin routes)
-Route::prefix('admin/store')->name('admin.store.api.')->group(function () {
-    // TODO: Migrate store settings to a proper Api\Admin controller
-    // Route::get('/settings', [...])->name('settings.get');
-    // Route::post('/settings', [...])->name('settings.update');
-
+// Admin Store API — SECURED with auth + role middleware (SEC-CRIT-2 fix)
+Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin/store')->name('admin.store.api.')->group(function () {
     // Store Management API (for admin/store dashboard)
     Route::get('/stats', [\App\Http\Controllers\Api\Admin\StoreApiController::class, 'stats'])->name('stats');
     Route::get('/products', [\App\Http\Controllers\Api\Admin\StoreApiController::class, 'products'])->name('products.index');
@@ -254,11 +250,11 @@ Route::prefix('mobile')->name('api.mobile.')->group(function () {
 // Mobile App API Routes (React Native)
 require __DIR__.'/api/mobile.php';
 
-// Payment API Routes
+// Payment API Routes — artist-payout RESTRICTED to admin only (SEC-CRIT-3 fix)
 Route::middleware('auth:sanctum')->prefix('payments')->name('api.payments.')->group(function () {
     Route::post('/subscription', [\App\Http\Controllers\Api\PaymentController::class, 'processSubscription'])->name('subscription');
     Route::post('/{payment}/refund', [\App\Http\Controllers\Api\PaymentController::class, 'refund'])->name('refund');
-    Route::post('/artist-payout', [\App\Http\Controllers\Api\PaymentController::class, 'artistPayout'])->name('artist-payout');
+    Route::post('/artist-payout', [\App\Http\Controllers\Api\PaymentController::class, 'artistPayout'])->name('artist-payout')->middleware('role:admin,super_admin');
 });
 
 // Payout API Routes
@@ -277,9 +273,8 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin')->
     Route::get('/payment-analytics', [\App\Http\Controllers\Api\PaymentController::class, 'analytics'])->name('payment-analytics');
 });
 
-// Admin Dashboard & Settings API
-// Dashboard endpoints are unprotected so the frontend fallback works without auth token
-Route::prefix('admin')->name('api.admin.')->group(function () {
+// Admin Dashboard & Settings API — SECURED (dashboard stats are sensitive)
+Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin')->name('api.admin.')->group(function () {
     Route::get('/dashboard/stats', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'stats'])->name('dashboard.stats');
     Route::get('/dashboard/recent-activity', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'recentActivity'])->name('dashboard.recent-activity');
 });
@@ -612,10 +607,10 @@ Route::prefix('feed')->name('api.feed.')->group(function () {
     Route::get('/{uuid}', [\App\Http\Controllers\Api\FeedController::class, 'show'])->name('show');
 });
 
-// Auth prefix routes (for compatibility with frontend)
+// Auth prefix routes (rate-limited, for compatibility with frontend)
 Route::prefix('auth')->group(function () {
-    Route::post('/login', [\App\Http\Controllers\Api\Auth\AuthController::class, 'login']);
-    Route::post('/register', [\App\Http\Controllers\Api\Auth\AuthController::class, 'register']);
+    Route::middleware('throttle:login')->post('/login', [\App\Http\Controllers\Api\Auth\AuthController::class, 'login']);
+    Route::middleware('throttle:register')->post('/register', [\App\Http\Controllers\Api\Auth\AuthController::class, 'register']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [\App\Http\Controllers\Api\Auth\AuthController::class, 'logout']);
@@ -624,13 +619,4 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-// TEST: Simple upload endpoint for debugging
-Route::middleware('auth:sanctum')->post('/test-upload', function (Illuminate\Http\Request $request) {
-    return response()->json([
-        'success' => true,
-        'has_file' => $request->hasFile('audio'),
-        'files' => array_keys($request->allFiles()),
-        'all_keys' => array_keys($request->all()),
-        'user_id' => $request->user()->id,
-    ]);
-});
+// REMOVED: test-upload debug endpoint — security hardening

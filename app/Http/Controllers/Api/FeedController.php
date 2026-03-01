@@ -257,7 +257,7 @@ class FeedController extends Controller
             ->whereNotNull('published_at')
             ->where('published_at', '<=', now())
             ->whereIn('user_id', $followingIds)
-            ->where(function ($q) use ($user) {
+            ->where(function ($q) {
                 $q->where('visibility', 'public')
                     ->orWhere('visibility', 'followers');
             })

@@ -3,8 +3,8 @@
 use App\Http\Controllers\Api\AuthController;
 use Illuminate\Support\Facades\Route;
 
-// Authentication routes for API tokens
-Route::post('/auth/login', [AuthController::class, 'login'])->name('api.auth.login');
+// Authentication routes for API tokens (rate limited)
+Route::middleware('throttle:login')->post('/auth/login', [AuthController::class, 'login'])->name('api.auth.login');
 
 // Authenticated auth management routes
 Route::middleware(['auth:sanctum'])->prefix('auth')->group(function () {

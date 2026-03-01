@@ -45,13 +45,13 @@ class LoyaltyAdminController extends Controller
         $card = LoyaltyCard::findOrFail($loyaltyCard);
 
         $card->update([
-            'status'       => 'active',
+            'status' => 'active',
             'published_at' => $card->published_at ?? now(),
         ]);
 
         return response()->json([
             'message' => "Loyalty card '{$card->name}' approved and active.",
-            'data'    => new LoyaltyCardResource($card->fresh()),
+            'data' => new LoyaltyCardResource($card->fresh()),
         ]);
     }
 
@@ -70,7 +70,7 @@ class LoyaltyAdminController extends Controller
 
         return response()->json([
             'message' => "Loyalty card '{$card->name}' suspended.",
-            'data'    => new LoyaltyCardResource($card->fresh()),
+            'data' => new LoyaltyCardResource($card->fresh()),
         ]);
     }
 
@@ -79,11 +79,11 @@ class LoyaltyAdminController extends Controller
      */
     public function analytics(): JsonResponse
     {
-        $totalCards        = LoyaltyCard::count();
-        $activeCards       = LoyaltyCard::where('status', 'active')->count();
-        $totalMembers      = LoyaltyCardMember::count();
-        $activeMembers     = LoyaltyCardMember::where('status', 'active')->count();
-        $totalRedemptions  = LoyaltyRewardRedemption::count();
+        $totalCards = LoyaltyCard::count();
+        $activeCards = LoyaltyCard::where('status', 'active')->count();
+        $totalMembers = LoyaltyCardMember::count();
+        $activeMembers = LoyaltyCardMember::where('status', 'active')->count();
+        $totalRedemptions = LoyaltyRewardRedemption::count();
 
         $membersByTier = LoyaltyCardMember::where('status', 'active')
             ->selectRaw('tier, count(*) as count')
@@ -95,20 +95,20 @@ class LoyaltyAdminController extends Controller
             ->limit(10)
             ->get(['id', 'name', 'total_members', 'artist_id'])
             ->map(fn ($c) => [
-                'id'            => $c->id,
-                'name'          => $c->name,
+                'id' => $c->id,
+                'name' => $c->name,
                 'total_members' => $c->total_members,
             ]);
 
         return response()->json([
             'data' => [
-                'total_cards'       => $totalCards,
-                'active_cards'      => $activeCards,
-                'total_members'     => $totalMembers,
-                'active_members'    => $activeMembers,
+                'total_cards' => $totalCards,
+                'active_cards' => $activeCards,
+                'total_members' => $totalMembers,
+                'active_members' => $activeMembers,
                 'total_redemptions' => $totalRedemptions,
-                'members_by_tier'   => $membersByTier,
-                'top_cards'         => $topCards,
+                'members_by_tier' => $membersByTier,
+                'top_cards' => $topCards,
             ],
         ]);
     }

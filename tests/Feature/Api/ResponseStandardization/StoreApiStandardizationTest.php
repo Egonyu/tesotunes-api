@@ -14,6 +14,7 @@
  * - No legacy "success" key
  */
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 
@@ -26,6 +27,15 @@ beforeEach(function () {
 function createStoreUser(): User
 {
     return User::factory()->create();
+}
+
+function createAdminUser(): User
+{
+    $admin = User::factory()->create();
+    $role = Role::firstOrCreate(['name' => 'admin'], ['display_name' => 'Admin', 'is_active' => true]);
+    $admin->roles()->syncWithoutDetaching([$role->id => ['assigned_at' => now()]]);
+
+    return $admin;
 }
 
 // ─── AJAX Store Routes (/api/store/*) ────────────────────────
@@ -296,7 +306,7 @@ test('seller store creation requires auth', function () {
 // ─── Admin Store Routes (/api/admin/store/*) ─────────────────
 
 test('admin store stats returns data wrapper', function () {
-    $response = $this->getJson('/api/admin/store/stats');
+    $response = $this->actingAs(createAdminUser())->getJson('/api/admin/store/stats');
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -309,7 +319,7 @@ test('admin store stats returns data wrapper', function () {
 });
 
 test('admin store products returns paginated data', function () {
-    $response = $this->getJson('/api/admin/store/products');
+    $response = $this->actingAs(createAdminUser())->getJson('/api/admin/store/products');
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -328,7 +338,7 @@ test('admin store products returns paginated data', function () {
 });
 
 test('admin store orders returns paginated data', function () {
-    $response = $this->getJson('/api/admin/store/orders');
+    $response = $this->actingAs(createAdminUser())->getJson('/api/admin/store/orders');
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -341,7 +351,7 @@ test('admin store orders returns paginated data', function () {
 });
 
 test('admin store shops returns data', function () {
-    $response = $this->getJson('/api/admin/store/shops');
+    $response = $this->actingAs(createAdminUser())->getJson('/api/admin/store/shops');
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -354,7 +364,7 @@ test('admin store shops returns data', function () {
 });
 
 test('admin store analytics returns data', function () {
-    $response = $this->getJson('/api/admin/store/analytics');
+    $response = $this->actingAs(createAdminUser())->getJson('/api/admin/store/analytics');
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -367,6 +377,7 @@ test('admin store analytics returns data', function () {
 });
 
 test('admin store responses contain no success key', function () {
+    $admin = createAdminUser();
     $endpoints = [
         '/api/admin/store/stats',
         '/api/admin/store/products',
@@ -374,7 +385,7 @@ test('admin store responses contain no success key', function () {
     ];
 
     foreach ($endpoints as $endpoint) {
-        $response = $this->getJson($endpoint);
+        $response = $this->actingAs($admin)->getJson($endpoint);
         expect($response->headers->get('Content-Type'))->toContain('json');
         if ($response->status() === 200) {
             $json = $response->json();

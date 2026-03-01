@@ -24,11 +24,11 @@ class LoyaltyTransaction extends Model
     ];
 
     protected $casts = [
-        'points'        => 'integer',
+        'points' => 'integer',
         'balance_after' => 'integer',
-        'base_points'   => 'integer',
-        'multiplier'    => 'decimal:2',
-        'created_at'    => 'datetime',
+        'base_points' => 'integer',
+        'multiplier' => 'decimal:2',
+        'created_at' => 'datetime',
     ];
 
     // ── Relationships ─────────────────────────────────────────────

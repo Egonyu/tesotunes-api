@@ -82,10 +82,10 @@
         ],
         "test": [
             "@test:prepare",
-            "@php vendor/bin/phpunit"
+            "@php vendor/bin/pest"
         ],
         "test:fast": [
-            "@php vendor/bin/phpunit"
+            "@php vendor/bin/pest"
         ]
     },
     "extra": {

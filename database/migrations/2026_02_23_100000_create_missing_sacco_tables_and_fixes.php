@@ -446,6 +446,7 @@ return new class extends Migration
                 "SHOW INDEX FROM `{$table}` WHERE Key_name = ?",
                 [$indexName]
             );
+
             return count($result) > 0;
         } catch (\Exception) {
             return false;

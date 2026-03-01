@@ -25,21 +25,21 @@ class MembershipService
         ?string $paymentTransactionId = null,
     ): LoyaltyCardMember {
         // Validate the card is active
-        if (!$card->isActive()) {
+        if (! $card->isActive()) {
             throw new \InvalidArgumentException('This loyalty card is not currently accepting members.');
         }
 
         // Validate tier exists
         $tierConfig = $card->tierConfig($tier);
-        if (!$tierConfig) {
+        if (! $tierConfig) {
             throw new \InvalidArgumentException("Invalid tier: {$tier}");
         }
 
         // Check subscription type allowed
-        if ($subscriptionType === 'monthly' && !$card->allow_monthly) {
+        if ($subscriptionType === 'monthly' && ! $card->allow_monthly) {
             throw new \InvalidArgumentException('Monthly subscriptions are not available for this card.');
         }
-        if ($subscriptionType === 'yearly' && !$card->allow_yearly) {
+        if ($subscriptionType === 'yearly' && ! $card->allow_yearly) {
             throw new \InvalidArgumentException('Yearly subscriptions are not available for this card.');
         }
 
@@ -59,19 +59,19 @@ class MembershipService
 
         return DB::transaction(function () use ($user, $card, $tier, $subscriptionType, $price, $expiresAt, $paymentMethod, $paymentTransactionId) {
             $member = LoyaltyCardMember::create([
-                'loyalty_card_id'        => $card->id,
-                'user_id'                => $user->id,
-                'tier'                   => $tier,
-                'subscription_type'      => $subscriptionType,
-                'price_paid'             => $price,
-                'currency'               => 'UGX',
-                'status'                 => 'active',
-                'joined_at'              => now(),
-                'expires_at'             => $expiresAt,
-                'auto_renew'             => $card->auto_renew,
-                'payment_method'         => $paymentMethod,
+                'loyalty_card_id' => $card->id,
+                'user_id' => $user->id,
+                'tier' => $tier,
+                'subscription_type' => $subscriptionType,
+                'price_paid' => $price,
+                'currency' => 'UGX',
+                'status' => 'active',
+                'joined_at' => now(),
+                'expires_at' => $expiresAt,
+                'auto_renew' => $card->auto_renew,
+                'payment_method' => $paymentMethod,
                 'payment_transaction_id' => $paymentTransactionId,
-                'lifetime_value'         => $price,
+                'lifetime_value' => $price,
             ]);
 
             // Increment the card's member count
@@ -94,9 +94,9 @@ class MembershipService
         }
 
         $membership->update([
-            'status'       => 'cancelled',
+            'status' => 'cancelled',
             'cancelled_at' => now(),
-            'auto_renew'   => false,
+            'auto_renew' => false,
         ]);
 
         // Safely decrement total_members (avoid underflow on unsigned column)
@@ -124,14 +124,14 @@ class MembershipService
 
         return DB::transaction(function () use ($membership, $price, $newExpiry, $paymentTransactionId) {
             $membership->update([
-                'status'                 => 'active',
-                'expires_at'             => $newExpiry,
-                'renewed_at'             => now(),
-                'renewal_reminder_sent'  => false,
+                'status' => 'active',
+                'expires_at' => $newExpiry,
+                'renewed_at' => now(),
+                'renewal_reminder_sent' => false,
                 'payment_transaction_id' => $paymentTransactionId,
-                'total_renewals'         => $membership->total_renewals + 1,
-                'lifetime_value'         => $membership->lifetime_value + $price,
-                'price_paid'             => $price,
+                'total_renewals' => $membership->total_renewals + 1,
+                'lifetime_value' => $membership->lifetime_value + $price,
+                'price_paid' => $price,
             ]);
 
             return $membership->fresh();
@@ -146,14 +146,14 @@ class MembershipService
         $card = $membership->loyaltyCard;
         $tierConfig = $card->tierConfig($newTier);
 
-        if (!$tierConfig) {
+        if (! $tierConfig) {
             throw new \InvalidArgumentException("Invalid tier: {$newTier}");
         }
 
         $newPrice = $card->tierPrice($newTier, $membership->subscription_type);
 
         $membership->update([
-            'tier'       => $newTier,
+            'tier' => $newTier,
             'price_paid' => $newPrice,
         ]);
 

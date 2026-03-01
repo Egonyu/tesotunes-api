@@ -71,7 +71,7 @@ jobs:
       - name: Setup test environment
         run: |
           cp .env.testing .env
-          php artisan key:generate --env=testing
+          php artisan key:generate --force
 
       - name: Create test database
         run: bash scripts/ci/create_test_db_mysql.sh
@@ -139,6 +139,16 @@ jobs:
     name: Security Checks
     runs-on: ubuntu-latest
 
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: music_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -154,8 +164,56 @@ jobs:
       - name: Run Composer audit
         run: composer audit
 
-      - name: Check for secrets
+      - name: Setup application for route audit
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: music_test
+          DB_USERNAME: root
+          DB_PASSWORD: root
         run: |
-          if grep -r "password.*=.*[^=]" .env.example | grep -v "DB_PASSWORD\|MAIL_PASSWORD"; then
-            echo "Warning: Potential exposed secrets found"
+          cp .env.testing .env 2>/dev/null || cp .env.example .env
+          php artisan key:generate --force
+
+      - name: Security - Route authentication audit
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: music_test
+          DB_USERNAME: root
+          DB_PASSWORD: root
+        run: php artisan security:audit-routes --fail-on-issues
+
+      - name: Security - Model $fillable audit
+        run: php artisan security:audit-models --fail-on-issues
+
+      - name: Security - Sanctum token expiration check
+        run: |
+          if grep -q "'expiration' => null" config/sanctum.php; then
+            echo "::error::CRITICAL: Sanctum token expiration is null — tokens never expire!"
+            exit 1
           fi
+          echo "✅ Sanctum token expiration is set"
+
+      - name: Security - Debug/test endpoint check
+        run: |
+          FOUND=0
+          if grep -rn "test-upload\|debug.*route" routes/ --include="*.php" | grep -v "REMOVED\|//"; then
+            echo "::warning::Debug/test endpoints found in routes"
+            FOUND=1
+          fi
+          if [ $FOUND -eq 1 ]; then
+            echo "::error::Debug endpoints must be removed before production deployment"
+            exit 1
+          fi
+          echo "✅ No debug endpoints found"
+
+      - name: Security - Check for hardcoded secrets
+        run: |
+          if grep -rn "sk-proj-\|sk_live_\|pk_live_\|AKIA" --include="*.php" --include="*.env" app/ config/ routes/ 2>/dev/null; then
+            echo "::error::Hardcoded secrets found in source code!"
+            exit 1
+          fi
+          echo "✅ No hardcoded secrets found"

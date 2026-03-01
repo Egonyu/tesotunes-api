@@ -4,12 +4,14 @@ namespace Tests\Feature\Api\Loyalty;
 
 use App\Models\Loyalty\LoyaltyCard;
 use App\Models\Loyalty\LoyaltyCardMember;
+use App\Models\Role;
 use App\Models\User;
 use Tests\TestCase;
 
 class LoyaltyAdminApiTest extends TestCase
 {
     private User $admin;
+
     private LoyaltyCard $card;
 
     protected function setUp(): void
@@ -17,7 +19,9 @@ class LoyaltyAdminApiTest extends TestCase
         parent::setUp();
 
         $this->admin = User::factory()->create();
-        // Assume admin role is checked at middleware level; these tests verify controller logic
+        $role = Role::firstOrCreate(['name' => 'admin'], ['display_name' => 'Admin', 'is_active' => true]);
+        $this->admin->roles()->syncWithoutDetaching([$role->id => ['assigned_at' => now()]]);
+
         $this->card = LoyaltyCard::factory()->create();
     }
 
@@ -45,7 +49,7 @@ class LoyaltyAdminApiTest extends TestCase
 
         $response->assertOk();
         $this->assertDatabaseHas('loyalty_cards', [
-            'id'     => $draft->id,
+            'id' => $draft->id,
             'status' => 'active',
         ]);
     }
@@ -58,7 +62,7 @@ class LoyaltyAdminApiTest extends TestCase
 
         $response->assertOk();
         $this->assertDatabaseHas('loyalty_cards', [
-            'id'     => $this->card->id,
+            'id' => $this->card->id,
             'status' => 'suspended',
         ]);
     }

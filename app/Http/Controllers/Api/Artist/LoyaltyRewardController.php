@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Loyalty\CreateRewardRequest;
 use App\Http\Resources\Loyalty\LoyaltyRewardResource;
 use App\Models\Loyalty\LoyaltyCard;
-use App\Models\Loyalty\LoyaltyReward;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -46,7 +45,7 @@ class LoyaltyRewardController extends Controller
 
         return response()->json([
             'message' => 'Reward created successfully.',
-            'data'    => new LoyaltyRewardResource($reward),
+            'data' => new LoyaltyRewardResource($reward),
         ], 201);
     }
 
@@ -70,7 +69,7 @@ class LoyaltyRewardController extends Controller
 
         return response()->json([
             'message' => 'Reward updated successfully.',
-            'data'    => new LoyaltyRewardResource($reward->fresh()),
+            'data' => new LoyaltyRewardResource($reward->fresh()),
         ]);
     }
 

@@ -19,7 +19,7 @@ class CheckLoyaltyTierAccess
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
@@ -42,8 +42,8 @@ class CheckLoyaltyTierAccess
 
         if ($userLevel < $requiredLevel) {
             return response()->json([
-                'message'       => "This feature requires {$requiredTier} tier or higher.",
-                'current_tier'  => $userTier,
+                'message' => "This feature requires {$requiredTier} tier or higher.",
+                'current_tier' => $userTier,
                 'required_tier' => $requiredTier,
             ], 403);
         }
