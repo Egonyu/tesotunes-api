@@ -16,20 +16,20 @@
 
 | # | Task | Priority | Status | File(s) | Notes |
 |---|------|----------|--------|---------|-------|
-| 1.1 | Remove unprotected admin routes from music.php | CRITICAL | 🔴 | `routes/api/music.php` lines 42-68 | Delete the unprotected route block entirely |
-| 1.2 | Add auth:sanctum + role:admin to admin store routes | CRITICAL | 🔴 | `routes/api.php` lines 224-261 | Wrap store admin group in middleware |
-| 1.3 | Add role restriction to artist payout endpoint | CRITICAL | 🔴 | `PaymentController.php` line 87 | Add `role:admin` middleware |
-| 1.4 | Set Sanctum token expiration | CRITICAL | 🔴 | `config/sanctum.php` line 51 | Set to `1440` (24 hours) |
+| 1.1 | Remove unprotected admin routes from music.php | CRITICAL | 🟢 | `routes/api/music.php` lines 42-68 | Secured with auth:sanctum + role:admin,super_admin |
+| 1.2 | Add auth:sanctum + role:admin to admin store routes | CRITICAL | 🟢 | `routes/api.php` lines 224-261 | Wrapped store admin group in middleware |
+| 1.3 | Add role restriction to artist payout endpoint | CRITICAL | 🟢 | `PaymentController.php` line 87 | Restricted to role:admin,super_admin |
+| 1.4 | Set Sanctum token expiration | CRITICAL | 🟢 | `config/sanctum.php` line 51 | Set to `1440` (24 hours) |
 | 1.5 | Delete debug endpoint | CRITICAL | 🔴 | `src/app/api/auth/debug/route.ts` | Delete the entire file |
 | 1.6 | Remove token-leaking console.log | HIGH | 🔴 | `src/lib/auth.ts` lines 204-228 | Remove or replace with non-sensitive logging |
-| 1.7 | Add rate limiting to login/register | HIGH | 🔴 | `routes/api/auth.php` | Apply `throttle:5,1` to login, `throttle:3,5` to register |
-| 1.8 | Add role:artist to artist routes | HIGH | 🔴 | `routes/api.php` lines 86-120 | Add `role:artist` middleware to group |
-| 1.9 | Sanitize User $fillable array | HIGH | 🔴 | `app/Models/User.php` | Remove: `is_active`, `is_verified`, `is_premium`, `credits`, `ugx_balance`, `permissions` from $fillable |
-| 1.10 | Add ownership verification to refund endpoint | HIGH | 🔴 | `PaymentController.php` line 66 | Verify `payment.user_id === auth.user.id` |
+| 1.7 | Add rate limiting to login/register | HIGH | 🟢 | `routes/api/auth.php` | Applied `throttle:5,1` to login, `throttle:3,60` to register |
+| 1.8 | Add role:artist to artist routes | HIGH | 🟢 | `routes/api.php` lines 86-120 | Added `role:artist` middleware to group |
+| 1.9 | Sanitize User $fillable array | HIGH | 🟢 | `app/Models/User.php` | Removed: `is_active`, `is_premium`, `credits`, `ugx_balance`, `permissions`, `email_verified_at` from $fillable |
+| 1.10 | Add ownership verification to refund endpoint | HIGH | 🟢 | `PaymentController.php` line 66 | Added `payment.user_id === auth.user.id` check |
 | 1.11 | Escape LIKE wildcard characters | HIGH | 🔴 | 30+ controller/service files | Create helper: `escapeLike($str)` → `addcslashes($str, '%_')` |
 | 1.12 | Protect admin dashboard routes | CRITICAL | 🔴 | `routes/api.php` lines 282-286 | Move back inside `auth:sanctum` + `role:admin` (fix frontend to send token properly) |
 
-### Phase 1 Progress: 0/12 complete
+### Phase 1 Progress: 7/12 complete
 
 ---
 
@@ -107,10 +107,10 @@
 
 | Phase | Tasks | Complete | Remaining |
 |-------|-------|----------|-----------|
-| 1. Security | 12 | 0 | 12 |
+| 1. Security | 12 | 7 | 5 |
 | 2. Stability | 22 | 0 | 22 |
 | 3. Features | 13 | 0 | 13 |
 | 4. Cleanup | 8 | 0 | 8 |
-| **TOTAL** | **55** | **0** | **55** |
+| **TOTAL** | **55** | **7** | **48** |
 
-### Overall Remediation Progress: 0%
+### Overall Remediation Progress: 13%

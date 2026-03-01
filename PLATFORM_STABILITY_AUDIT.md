@@ -11,7 +11,7 @@ TesoTunes is an ambitious African music platform with **~210 frontend pages** an
 
 **The good:** 91% of frontend pages are wired to real API endpoints. The feature surface area far exceeds typical music platforms.
 
-**The bad:** The codebase has **4 critical security vulnerabilities** actively exploitable in production, **14 of 16 admin controllers lack error handling**, admin routes are exposed without authentication, database schema has integrity gaps, and the platform would not survive a basic penetration test.
+**The bad:** The codebase has **4 critical security vulnerabilities** that have been mitigated in the current PR (see Section 1 for updated status), **14 of 16 admin controllers lack error handling**, database schema has integrity gaps, and the platform would not survive a full penetration test.
 
 ### Overall Stability Score: 55/100
 
@@ -41,7 +41,7 @@ TesoTunes is an ambitious African music platform with **~210 frontend pages** an
 
 The routes in `music.php` are marked "temporarily without auth for testing" but are deployed to production. They shadow the protected routes in `api.php`.
 
-**Status:** 🔴 EXPLOITABLE NOW
+**Status:** 🟢 FIXED — Admin routes in music.php secured with `auth:sanctum` + `role:admin,super_admin`
 
 ---
 
@@ -53,7 +53,7 @@ The routes in `music.php` are marked "temporarily without auth for testing" but 
 - Modify orders, manage shipping  
 - View store analytics
 
-**Status:** 🔴 EXPLOITABLE NOW
+**Status:** 🟢 FIXED — Admin store routes wrapped with `auth:sanctum` + `role:admin,super_admin`
 
 ---
 
@@ -63,7 +63,7 @@ The routes in `music.php` are marked "temporarily without auth for testing" but 
 - Trigger payouts of arbitrary amounts to any artist
 - Drain the company's escrow funds
 
-**Status:** 🔴 EXPLOITABLE NOW
+**Status:** 🟢 FIXED — Artist payout endpoint restricted to `role:admin,super_admin`
 
 ---
 
@@ -71,7 +71,7 @@ The routes in `music.php` are marked "temporarily without auth for testing" but 
 **File:** `config/sanctum.php` line 51 — `'expiration' => null`  
 **Impact:** A leaked token grants permanent access. No forced rotation.
 
-**Status:** 🔴 ACTIVE RISK
+**Status:** 🟢 FIXED — Sanctum token expiration set to `1440` (24 hours)
 
 ---
 
@@ -85,20 +85,20 @@ The routes in `music.php` are marked "temporarily without auth for testing" but 
 
 ## 2. HIGH-PRIORITY ISSUES
 
-| ID | Category | Issue | Files |
-|----|----------|-------|-------|
-| HIGH-1 | Security | No rate limiting on login/register | `routes/api/auth.php` |
-| HIGH-2 | Security | LIKE queries with unescaped `%`/`_` wildcards (30+ files) | Multiple services/repositories |
-| HIGH-3 | Security | console.log leaks Bearer tokens in production | `src/lib/auth.ts` lines 204-228 |
-| HIGH-4 | Security | User model $fillable includes `is_active`, `credits`, `ugx_balance`, `permissions`, `is_premium` | `app/Models/User.php` |
-| HIGH-5 | Security | Artist routes have no role check — regular users can upload songs/withdraw earnings | `routes/api.php` lines 86-120 |
-| HIGH-6 | Security | `email_verified_at` auto-set on registration — no email verification | `AuthController.php` line 50 |
-| HIGH-7 | Security | Refund endpoint has no ownership check — any user can refund any payment | `PaymentController.php` line 66 |
-| HIGH-8 | Stability | 14 of 16 admin controllers have ZERO try-catch — any DB error = raw 500 | All admin controllers |
-| HIGH-9 | Stability | 3 admin controllers use raw DB::table() bypassing Eloquent events/casts/soft-deletes | `AdminArtistsController`, `SaccoApiController`, `StoreApiController` |
-| HIGH-10 | DB | `Order` model sets `$table = 'orders'` but migration creates `store_orders` — queries crash | `app/Modules/Store/Models/Order.php` |
-| HIGH-11 | DB | `podcast_listens` and `podcast_subscriptions` tables have NO migrations | Missing migration files |
-| HIGH-12 | Code | 13 controllers exist with ZERO routes (dead code) including 2 large admin controllers | See Section 5 |
+| ID | Category | Issue | Files | Status |
+|----|----------|-------|-------|--------|
+| HIGH-1 | Security | No rate limiting on login/register | `routes/api/auth.php` | 🟢 FIXED |
+| HIGH-2 | Security | LIKE queries with unescaped `%`/`_` wildcards (30+ files) | Multiple services/repositories | 🔴 Open |
+| HIGH-3 | Security | console.log leaks Bearer tokens in production | `src/lib/auth.ts` lines 204-228 | 🔴 Open |
+| HIGH-4 | Security | User model $fillable includes `is_active`, `credits`, `ugx_balance`, `permissions`, `is_premium` | `app/Models/User.php` | 🟢 FIXED |
+| HIGH-5 | Security | Artist routes have no role check — regular users can upload songs/withdraw earnings | `routes/api.php` lines 86-120 | 🟢 FIXED |
+| HIGH-6 | Security | `email_verified_at` auto-set on registration — no email verification | `AuthController.php` line 50 | 🟢 FIXED |
+| HIGH-7 | Security | Refund endpoint has no ownership check — any user can refund any payment | `PaymentController.php` line 66 | 🟢 FIXED |
+| HIGH-8 | Stability | 14 of 16 admin controllers have ZERO try-catch — any DB error = raw 500 | All admin controllers | 🔴 Open |
+| HIGH-9 | Stability | 3 admin controllers use raw DB::table() bypassing Eloquent events/casts/soft-deletes | `AdminArtistsController`, `SaccoApiController`, `StoreApiController` | 🔴 Open |
+| HIGH-10 | DB | `Order` model sets `$table = 'orders'` but migration creates `store_orders` — queries crash | `app/Modules/Store/Models/Order.php` | 🔴 Open |
+| HIGH-11 | DB | `podcast_listens` and `podcast_subscriptions` tables have NO migrations | Missing migration files | 🔴 Open |
+| HIGH-12 | Code | 13 controllers exist with ZERO routes (dead code) including 2 large admin controllers | See Section 5 | 🔴 Open |
 
 ---
 

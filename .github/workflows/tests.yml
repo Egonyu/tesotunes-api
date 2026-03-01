@@ -176,6 +176,16 @@ jobs:
           cp .env.testing .env 2>/dev/null || cp .env.example .env
           php artisan key:generate --force
 
+      - name: Run database migrations for audits
+        env:
+          DB_CONNECTION: mysql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: music_test
+          DB_USERNAME: root
+          DB_PASSWORD: root
+        run: php artisan migrate --force
+
       - name: Security - Route authentication audit
         env:
           DB_CONNECTION: mysql
