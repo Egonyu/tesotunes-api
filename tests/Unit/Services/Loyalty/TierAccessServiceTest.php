@@ -12,7 +12,9 @@ use Tests\TestCase;
 class TierAccessServiceTest extends TestCase
 {
     private TierAccessService $service;
+
     private User $user;
+
     private LoyaltyCard $card;
 
     protected function setUp(): void
@@ -20,8 +22,8 @@ class TierAccessServiceTest extends TestCase
         parent::setUp();
 
         $this->service = app(TierAccessService::class);
-        $this->user    = User::factory()->create();
-        $this->card    = LoyaltyCard::factory()->create();
+        $this->user = User::factory()->create();
+        $this->card = LoyaltyCard::factory()->create();
     }
 
     public function test_can_access_event_without_tier_requirement(): void
@@ -38,7 +40,7 @@ class TierAccessServiceTest extends TestCase
     public function test_cannot_access_tier_gated_event_without_membership(): void
     {
         $event = Event::factory()->create([
-            'loyalty_card_id'       => $this->card->id,
+            'loyalty_card_id' => $this->card->id,
             'required_loyalty_tier' => 'gold',
         ]);
 
@@ -50,16 +52,16 @@ class TierAccessServiceTest extends TestCase
     public function test_can_access_tier_gated_event_with_qualifying_membership(): void
     {
         $event = Event::factory()->create([
-            'loyalty_card_id'       => $this->card->id,
+            'loyalty_card_id' => $this->card->id,
             'required_loyalty_tier' => 'bronze',
         ]);
 
         LoyaltyCardMember::factory()->create([
             'loyalty_card_id' => $this->card->id,
-            'user_id'         => $this->user->id,
-            'tier'            => 'silver',
-            'status'          => 'active',
-            'expires_at'      => now()->addMonth(),
+            'user_id' => $this->user->id,
+            'tier' => 'silver',
+            'status' => 'active',
+            'expires_at' => now()->addMonth(),
         ]);
 
         $result = $this->service->canAccessEvent($this->user, $event);
@@ -70,16 +72,16 @@ class TierAccessServiceTest extends TestCase
     public function test_cannot_access_with_lower_tier(): void
     {
         $event = Event::factory()->create([
-            'loyalty_card_id'       => $this->card->id,
+            'loyalty_card_id' => $this->card->id,
             'required_loyalty_tier' => 'gold',
         ]);
 
         LoyaltyCardMember::factory()->create([
             'loyalty_card_id' => $this->card->id,
-            'user_id'         => $this->user->id,
-            'tier'            => 'bronze',
-            'status'          => 'active',
-            'expires_at'      => now()->addMonth(),
+            'user_id' => $this->user->id,
+            'tier' => 'bronze',
+            'status' => 'active',
+            'expires_at' => now()->addMonth(),
         ]);
 
         $result = $this->service->canAccessEvent($this->user, $event);
@@ -91,10 +93,10 @@ class TierAccessServiceTest extends TestCase
     {
         LoyaltyCardMember::factory()->create([
             'loyalty_card_id' => $this->card->id,
-            'user_id'         => $this->user->id,
-            'tier'            => 'gold',
-            'status'          => 'active',
-            'expires_at'      => now()->addMonth(),
+            'user_id' => $this->user->id,
+            'tier' => 'gold',
+            'status' => 'active',
+            'expires_at' => now()->addMonth(),
         ]);
 
         $tier = $this->service->getUserTierForCard($this->user, $this->card->id);
@@ -112,14 +114,14 @@ class TierAccessServiceTest extends TestCase
     public function test_expired_membership_does_not_grant_access(): void
     {
         $event = Event::factory()->create([
-            'loyalty_card_id'       => $this->card->id,
+            'loyalty_card_id' => $this->card->id,
             'required_loyalty_tier' => 'bronze',
         ]);
 
         LoyaltyCardMember::factory()->expired()->create([
             'loyalty_card_id' => $this->card->id,
-            'user_id'         => $this->user->id,
-            'tier'            => 'gold',
+            'user_id' => $this->user->id,
+            'tier' => 'gold',
         ]);
 
         $result = $this->service->canAccessEvent($this->user, $event);

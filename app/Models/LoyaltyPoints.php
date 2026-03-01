@@ -17,9 +17,9 @@ class LoyaltyPoints extends Model
     ];
 
     protected $casts = [
-        'balance'            => 'integer',
-        'lifetime_earned'    => 'integer',
-        'lifetime_spent'     => 'integer',
+        'balance' => 'integer',
+        'lifetime_earned' => 'integer',
+        'lifetime_spent' => 'integer',
         'current_multiplier' => 'decimal:2',
     ];
 

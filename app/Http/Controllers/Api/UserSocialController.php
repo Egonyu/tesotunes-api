@@ -76,7 +76,7 @@ class UserSocialController extends Controller
 
         return response()->json([
             'data' => ['following' => true],
-            'message' => 'Now following ' . $user->name,
+            'message' => 'Now following '.$user->name,
         ]);
     }
 
@@ -94,7 +94,7 @@ class UserSocialController extends Controller
 
         return response()->json([
             'data' => ['following' => false],
-            'message' => 'Unfollowed ' . $user->name,
+            'message' => 'Unfollowed '.$user->name,
         ]);
     }
 }

@@ -35,7 +35,7 @@ class PaymentFailedNotification extends Notification implements ShouldQueue
             ->line('**Transaction Details:**')
             ->line("- Reference: {$this->payment->transaction_reference}")
             ->line("- Amount: {$currency} {$amount}")
-            ->line("- Method: ".ucfirst($this->payment->payment_method ?? 'Mobile Money'))
+            ->line('- Method: '.ucfirst($this->payment->payment_method ?? 'Mobile Money'))
             ->action('Retry Payment', url('/payments'))
             ->line('If the issue persists, please contact support.');
     }

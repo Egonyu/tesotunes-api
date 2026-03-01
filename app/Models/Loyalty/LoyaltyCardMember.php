@@ -33,15 +33,15 @@ class LoyaltyCardMember extends Model
     ];
 
     protected $casts = [
-        'price_paid'             => 'decimal:2',
-        'lifetime_value'         => 'decimal:2',
-        'joined_at'              => 'datetime',
-        'expires_at'             => 'datetime',
-        'renewed_at'             => 'datetime',
-        'cancelled_at'           => 'datetime',
-        'auto_renew'             => 'boolean',
-        'renewal_reminder_sent'  => 'boolean',
-        'total_renewals'         => 'integer',
+        'price_paid' => 'decimal:2',
+        'lifetime_value' => 'decimal:2',
+        'joined_at' => 'datetime',
+        'expires_at' => 'datetime',
+        'renewed_at' => 'datetime',
+        'cancelled_at' => 'datetime',
+        'auto_renew' => 'boolean',
+        'renewal_reminder_sent' => 'boolean',
+        'total_renewals' => 'integer',
     ];
 
     // ── Relationships ─────────────────────────────────────────────
@@ -98,7 +98,7 @@ class LoyaltyCardMember extends Model
 
     public function tierLevel(): int
     {
-        return config('loyalty.tier_levels.' . $this->tier, 0);
+        return config('loyalty.tier_levels.'.$this->tier, 0);
     }
 
     public function meetsOrExceedsTier(string $requiredTier): bool

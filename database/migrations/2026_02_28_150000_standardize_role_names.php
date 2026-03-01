@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -16,15 +15,15 @@ return new class extends Migration
     public function up(): void
     {
         $mappings = [
-            'Super Admin'    => 'super_admin',
-            'Admin'          => 'admin',
-            'Moderator'      => 'moderator',
-            'Artist'         => 'artist',
-            'User'           => 'user',
-            'Label Manager'  => 'label_manager',
-            'Promoter'       => 'promoter',
-            'Producer'       => 'producer',
-            'DJ'             => 'dj',
+            'Super Admin' => 'super_admin',
+            'Admin' => 'admin',
+            'Moderator' => 'moderator',
+            'Artist' => 'artist',
+            'User' => 'user',
+            'Label Manager' => 'label_manager',
+            'Promoter' => 'promoter',
+            'Producer' => 'producer',
+            'DJ' => 'dj',
         ];
 
         foreach ($mappings as $oldName => $newName) {
@@ -40,15 +39,15 @@ return new class extends Migration
     public function down(): void
     {
         $mappings = [
-            'super_admin'    => 'Super Admin',
-            'admin'          => 'Admin',
-            'moderator'      => 'Moderator',
-            'artist'         => 'Artist',
-            'user'           => 'User',
-            'label_manager'  => 'Label Manager',
-            'promoter'       => 'Promoter',
-            'producer'       => 'Producer',
-            'dj'             => 'DJ',
+            'super_admin' => 'Super Admin',
+            'admin' => 'Admin',
+            'moderator' => 'Moderator',
+            'artist' => 'Artist',
+            'user' => 'User',
+            'label_manager' => 'Label Manager',
+            'promoter' => 'Promoter',
+            'producer' => 'Producer',
+            'dj' => 'DJ',
         ];
 
         foreach ($mappings as $oldName => $newName) {

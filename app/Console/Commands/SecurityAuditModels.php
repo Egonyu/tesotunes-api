@@ -59,7 +59,7 @@ class SecurityAuditModels extends Command
             }
 
             $content = File::get($file->getPathname());
-            $relativePath = str_replace(base_path() . DIRECTORY_SEPARATOR, '', $file->getPathname());
+            $relativePath = str_replace(base_path().DIRECTORY_SEPARATOR, '', $file->getPathname());
             $modelName = $file->getFilenameWithoutExtension();
             $isUserModel = $modelName === 'User';
 
@@ -142,6 +142,7 @@ class SecurityAuditModels extends Command
         // Display results
         if (empty($issues)) {
             $this->info('✅ No model security issues found!');
+
             return Command::SUCCESS;
         }
 
@@ -150,21 +151,21 @@ class SecurityAuditModels extends Command
         $mediums = array_filter($issues, fn ($i) => $i['severity'] === 'MEDIUM');
 
         if (! empty($criticals)) {
-            $this->error('🔴 CRITICAL Issues (' . count($criticals) . ')');
+            $this->error('🔴 CRITICAL Issues ('.count($criticals).')');
             $this->table(['Severity', 'File', 'Field', 'Issue'], array_map(fn ($i) => [
                 $i['severity'], $i['file'], $i['field'], $i['issue'],
             ], $criticals));
         }
 
         if (! empty($highs)) {
-            $this->warn('🟠 HIGH Issues (' . count($highs) . ')');
+            $this->warn('🟠 HIGH Issues ('.count($highs).')');
             $this->table(['Severity', 'File', 'Field', 'Issue'], array_map(fn ($i) => [
                 $i['severity'], $i['file'], $i['field'], $i['issue'],
             ], $highs));
         }
 
         if (! empty($mediums)) {
-            $this->line('🟡 MEDIUM Issues (' . count($mediums) . ')');
+            $this->line('🟡 MEDIUM Issues ('.count($mediums).')');
             $this->table(['Severity', 'File', 'Field', 'Issue'], array_map(fn ($i) => [
                 $i['severity'], $i['file'], $i['field'], $i['issue'],
             ], $mediums));
@@ -174,6 +175,7 @@ class SecurityAuditModels extends Command
 
         if ($this->option('fail-on-issues') && count($criticals) > 0) {
             $this->error('Model security audit FAILED.');
+
             return Command::FAILURE;
         }
 

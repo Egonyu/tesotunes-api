@@ -20,6 +20,7 @@ class FileController extends Controller
     private function getUploadDisk(): string
     {
         $disk = config('filesystems.default', 'local');
+
         // If default is 'local' (private), fall back to 'public' for uploads
         return $disk === 'local' ? 'public' : $disk;
     }
@@ -40,6 +41,7 @@ class FileController extends Controller
     {
         $diskName = $this->getUploadDisk();
         $driver = config("filesystems.disks.{$diskName}.driver", 'local');
+
         return $driver === 'local';
     }
 

@@ -134,6 +134,7 @@ class SecurityAuditRoutes extends Command
                         ];
                     }
                 }
+
                 continue;
             }
 
@@ -157,6 +158,7 @@ class SecurityAuditRoutes extends Command
                         'middleware' => $middlewareStr,
                     ];
                 }
+
                 continue;
             }
 
@@ -185,12 +187,13 @@ class SecurityAuditRoutes extends Command
                         'middleware' => $middlewareStr,
                     ];
                 }
+
                 continue;
             }
 
             // Check state-changing routes (POST/PUT/DELETE/PATCH) must have auth
             if (array_intersect(['POST', 'PUT', 'DELETE', 'PATCH'], $route->methods())) {
-                if (! $this->hasMiddleware($middleware, 'auth:sanctum') 
+                if (! $this->hasMiddleware($middleware, 'auth:sanctum')
                     && ! $this->hasMiddleware($middleware, 'auth')
                     && ! $this->hasMiddleware($middleware, 'webhook.rate_limit')) {
                     $issues[] = [
@@ -207,6 +210,7 @@ class SecurityAuditRoutes extends Command
         // Display results
         if (empty($issues)) {
             $this->info('✅ No security issues found!');
+
             return Command::SUCCESS;
         }
 
@@ -215,31 +219,32 @@ class SecurityAuditRoutes extends Command
         $mediums = array_filter($issues, fn ($i) => $i['severity'] === 'MEDIUM');
 
         if (! empty($criticals)) {
-            $this->error('🔴 CRITICAL Issues (' . count($criticals) . ')');
+            $this->error('🔴 CRITICAL Issues ('.count($criticals).')');
             $this->table(['Severity', 'Methods', 'URI', 'Issue', 'Current Middleware'], array_map(fn ($i) => [
                 $i['severity'], $i['methods'], $i['uri'], $i['issue'], $i['middleware'] ?: '(none)',
             ], $criticals));
         }
 
         if (! empty($highs)) {
-            $this->warn('🟠 HIGH Issues (' . count($highs) . ')');
+            $this->warn('🟠 HIGH Issues ('.count($highs).')');
             $this->table(['Severity', 'Methods', 'URI', 'Issue', 'Current Middleware'], array_map(fn ($i) => [
                 $i['severity'], $i['methods'], $i['uri'], $i['issue'], $i['middleware'] ?: '(none)',
             ], $highs));
         }
 
         if (! empty($mediums)) {
-            $this->line('🟡 MEDIUM Issues (' . count($mediums) . ')');
+            $this->line('🟡 MEDIUM Issues ('.count($mediums).')');
             $this->table(['Severity', 'Methods', 'URI', 'Issue', 'Current Middleware'], array_map(fn ($i) => [
                 $i['severity'], $i['methods'], $i['uri'], $i['issue'], $i['middleware'] ?: '(none)',
             ], $mediums));
         }
 
         $this->newLine();
-        $this->info("Total: " . count($criticals) . " critical, " . count($highs) . " high, " . count($mediums) . " medium");
+        $this->info('Total: '.count($criticals).' critical, '.count($highs).' high, '.count($mediums).' medium');
 
         if ($this->option('fail-on-issues') && (count($criticals) > 0 || count($highs) > 0)) {
             $this->error('Security audit FAILED — fix critical/high issues before deployment.');
+
             return Command::FAILURE;
         }
 
@@ -253,6 +258,7 @@ class SecurityAuditRoutes extends Command
                 return true;
             }
         }
+
         return false;
     }
 
@@ -268,6 +274,7 @@ class SecurityAuditRoutes extends Command
                 return true;
             }
         }
+
         return false;
     }
 }

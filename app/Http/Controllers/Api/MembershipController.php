@@ -53,7 +53,7 @@ class MembershipController extends Controller
             ->findOrFail($id);
 
         $validated = $request->validate([
-            'auto_renew'   => ['sometimes', 'boolean'],
+            'auto_renew' => ['sometimes', 'boolean'],
             'upgrade_tier' => ['sometimes', 'string', 'in:bronze,silver,gold,platinum'],
         ]);
 
@@ -71,7 +71,7 @@ class MembershipController extends Controller
 
         return response()->json([
             'message' => 'Membership updated.',
-            'data'    => new LoyaltyCardMemberResource($membership->fresh()->load('loyaltyCard')),
+            'data' => new LoyaltyCardMemberResource($membership->fresh()->load('loyaltyCard')),
         ]);
     }
 
@@ -87,7 +87,7 @@ class MembershipController extends Controller
             $membership = $this->membershipService->cancel($membership);
 
             return response()->json([
-                'message'    => 'Membership cancelled. It remains active until the expiry date.',
+                'message' => 'Membership cancelled. It remains active until the expiry date.',
                 'expires_at' => $membership->expires_at?->toIso8601String(),
             ]);
         } catch (\InvalidArgumentException $e) {
@@ -108,7 +108,7 @@ class MembershipController extends Controller
 
             return response()->json([
                 'message' => 'Membership renewed successfully.',
-                'data'    => new LoyaltyCardMemberResource($membership->load('loyaltyCard')),
+                'data' => new LoyaltyCardMemberResource($membership->load('loyaltyCard')),
             ]);
         } catch (\InvalidArgumentException $e) {
             return response()->json(['message' => $e->getMessage()], 422);

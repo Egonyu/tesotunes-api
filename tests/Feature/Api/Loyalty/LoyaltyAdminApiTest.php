@@ -10,6 +10,7 @@ use Tests\TestCase;
 class LoyaltyAdminApiTest extends TestCase
 {
     private User $admin;
+
     private LoyaltyCard $card;
 
     protected function setUp(): void
@@ -45,7 +46,7 @@ class LoyaltyAdminApiTest extends TestCase
 
         $response->assertOk();
         $this->assertDatabaseHas('loyalty_cards', [
-            'id'     => $draft->id,
+            'id' => $draft->id,
             'status' => 'active',
         ]);
     }
@@ -58,7 +59,7 @@ class LoyaltyAdminApiTest extends TestCase
 
         $response->assertOk();
         $this->assertDatabaseHas('loyalty_cards', [
-            'id'     => $this->card->id,
+            'id' => $this->card->id,
             'status' => 'suspended',
         ]);
     }

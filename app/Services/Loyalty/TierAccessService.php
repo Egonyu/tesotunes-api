@@ -15,9 +15,9 @@ class TierAccessService
     public function __construct()
     {
         $this->tierLevels = config('loyalty.tier_levels', [
-            'bronze'   => 1,
-            'silver'   => 2,
-            'gold'     => 3,
+            'bronze' => 1,
+            'silver' => 2,
+            'gold' => 3,
             'platinum' => 4,
         ]);
     }
@@ -27,25 +27,25 @@ class TierAccessService
      */
     public function canAccessEvent(User $user, Event $event): array
     {
-        if (!$event->requiresLoyaltyTier()) {
+        if (! $event->requiresLoyaltyTier()) {
             return ['can_access' => true];
         }
 
         $membership = $this->getActiveMembership($user, $event->loyalty_card_id);
 
-        if (!$membership) {
+        if (! $membership) {
             return [
-                'can_access'    => false,
-                'reason'        => 'No active membership for this loyalty card.',
+                'can_access' => false,
+                'reason' => 'No active membership for this loyalty card.',
                 'required_tier' => $event->required_loyalty_tier,
             ];
         }
 
-        if (!$membership->meetsOrExceedsTier($event->required_loyalty_tier)) {
+        if (! $membership->meetsOrExceedsTier($event->required_loyalty_tier)) {
             return [
-                'can_access'    => false,
-                'reason'        => 'Your tier does not meet the requirement.',
-                'current_tier'  => $membership->tier,
+                'can_access' => false,
+                'reason' => 'Your tier does not meet the requirement.',
+                'current_tier' => $membership->tier,
                 'required_tier' => $event->required_loyalty_tier,
             ];
         }
@@ -61,14 +61,14 @@ class TierAccessService
      */
     public function canPurchaseTicket(User $user, EventTicket $ticket): array
     {
-        if (!$ticket->requiresLoyaltyTier()) {
+        if (! $ticket->requiresLoyaltyTier()) {
             return ['can_access' => true, 'discount' => null];
         }
 
         $event = $ticket->event;
         $eventAccess = $this->canAccessEvent($user, $event);
 
-        if (!$eventAccess['can_access']) {
+        if (! $eventAccess['can_access']) {
             return $eventAccess;
         }
 
@@ -77,9 +77,9 @@ class TierAccessService
         $earlyAccess = $this->hasEarlyAccess($user, $ticket);
 
         return [
-            'can_access'       => true,
+            'can_access' => true,
             'has_early_access' => $earlyAccess['has_early_access'] ?? false,
-            'discount'         => $discount,
+            'discount' => $discount,
         ];
     }
 
@@ -89,13 +89,13 @@ class TierAccessService
     public function hasEarlyAccess(User $user, EventTicket $ticket): array
     {
         $event = $ticket->event;
-        if (!$event->loyalty_card_id) {
+        if (! $event->loyalty_card_id) {
             return ['has_early_access' => false];
         }
 
         $membership = $this->getActiveMembership($user, $event->loyalty_card_id);
 
-        if (!$membership) {
+        if (! $membership) {
             return ['has_early_access' => false];
         }
 
@@ -105,17 +105,17 @@ class TierAccessService
         }
 
         $publicSaleStart = $ticket->sale_starts_at;
-        if (!$publicSaleStart) {
+        if (! $publicSaleStart) {
             return ['has_early_access' => false];
         }
 
         $memberSaleStart = $publicSaleStart->copy()->subHours($earlyAccessHours);
 
         return [
-            'has_early_access'        => true,
-            'early_access_starts_at'  => $memberSaleStart->toIso8601String(),
-            'public_sale_starts_at'   => $publicSaleStart->toIso8601String(),
-            'hours_advantage'         => $earlyAccessHours,
+            'has_early_access' => true,
+            'early_access_starts_at' => $memberSaleStart->toIso8601String(),
+            'public_sale_starts_at' => $publicSaleStart->toIso8601String(),
+            'hours_advantage' => $earlyAccessHours,
         ];
     }
 
@@ -161,7 +161,7 @@ class TierAccessService
 
     private function getActiveMembership(User $user, ?int $loyaltyCardId): ?LoyaltyCardMember
     {
-        if (!$loyaltyCardId) {
+        if (! $loyaltyCardId) {
             return null;
         }
 
@@ -174,7 +174,7 @@ class TierAccessService
 
     private function calculateTicketDiscount(EventTicket $ticket, ?LoyaltyCardMember $membership): ?array
     {
-        if (!$membership) {
+        if (! $membership) {
             return null;
         }
 
@@ -192,10 +192,10 @@ class TierAccessService
         $discountedPrice = round($originalPrice * (1 - $discountPercentage / 100));
 
         return [
-            'percentage'       => $discountPercentage,
-            'original_price'   => $originalPrice,
+            'percentage' => $discountPercentage,
+            'original_price' => $originalPrice,
             'discounted_price' => $discountedPrice,
-            'savings'          => $originalPrice - $discountedPrice,
+            'savings' => $originalPrice - $discountedPrice,
         ];
     }
 

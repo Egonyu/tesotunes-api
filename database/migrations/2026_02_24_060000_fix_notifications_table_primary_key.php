@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (!Schema::hasTable('notifications')) {
+        if (! Schema::hasTable('notifications')) {
             // Table doesn't exist — create it fresh with integer id
             Schema::create('notifications', function (Blueprint $table) {
                 $table->id();
@@ -19,12 +19,13 @@ return new class extends Migration
                 $table->timestamps();
                 $table->index(['notifiable_type', 'notifiable_id', 'read_at']);
             });
+
             return;
         }
 
         // Table exists — check if it needs conversion from uuid to integer id
         $columns = Schema::getColumnListing('notifications');
-        if (!in_array('id', $columns)) {
+        if (! in_array('id', $columns)) {
             return; // No id column, skip
         }
 

@@ -40,19 +40,19 @@ class RewardService
                 ->where('expires_at', '>', now())
                 ->first();
 
-            if (!$membership) {
+            if (! $membership) {
                 throw new \InvalidArgumentException('You do not have an active membership for this loyalty card.');
             }
 
             // Tier check
-            if (!$reward->canBeRedeemedByTier($membership->tier)) {
+            if (! $reward->canBeRedeemedByTier($membership->tier)) {
                 throw new \InvalidArgumentException(
                     "This reward requires {$reward->required_tier} tier or higher. Your tier: {$membership->tier}."
                 );
             }
 
             // Availability check
-            if (!$reward->isAvailable()) {
+            if (! $reward->isAvailable()) {
                 throw new \InvalidArgumentException('This reward is no longer available.');
             }
 
@@ -68,11 +68,11 @@ class RewardService
 
             // Create redemption
             $redemption = LoyaltyRewardRedemption::create([
-                'loyalty_reward_id'      => $reward->id,
-                'user_id'                => $user->id,
+                'loyalty_reward_id' => $reward->id,
+                'user_id' => $user->id,
                 'loyalty_card_member_id' => $membership->id,
-                'status'                 => $this->shouldAutoFulfil($reward) ? 'fulfilled' : 'pending',
-                'fulfilled_at'           => $this->shouldAutoFulfil($reward) ? now() : null,
+                'status' => $this->shouldAutoFulfil($reward) ? 'fulfilled' : 'pending',
+                'fulfilled_at' => $this->shouldAutoFulfil($reward) ? now() : null,
             ]);
 
             // Increment redemption counter
@@ -115,8 +115,8 @@ class RewardService
     public function fulfilRedemption(LoyaltyRewardRedemption $redemption, ?string $notes = null): LoyaltyRewardRedemption
     {
         $redemption->update([
-            'status'           => 'fulfilled',
-            'fulfilled_at'     => now(),
+            'status' => 'fulfilled',
+            'fulfilled_at' => now(),
             'fulfilment_notes' => $notes,
         ]);
 

@@ -5,8 +5,8 @@ namespace App\Http\Controllers\Api\Artist;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Loyalty\CreateLoyaltyCardRequest;
 use App\Http\Requests\Loyalty\UpdateLoyaltyCardRequest;
-use App\Http\Resources\Loyalty\LoyaltyCardResource;
 use App\Http\Resources\Loyalty\LoyaltyCardMemberResource;
+use App\Http\Resources\Loyalty\LoyaltyCardResource;
 use App\Models\Loyalty\LoyaltyCard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -50,23 +50,23 @@ class LoyaltyCardController extends Controller
         }
 
         $card = LoyaltyCard::create([
-            'artist_id'       => $artist->id,
-            'name'            => $request->name,
-            'description'     => $request->description,
-            'logo_url'        => $request->logo_url,
-            'banner_url'      => $request->banner_url,
-            'primary_color'   => $request->primary_color,
+            'artist_id' => $artist->id,
+            'name' => $request->name,
+            'description' => $request->description,
+            'logo_url' => $request->logo_url,
+            'banner_url' => $request->banner_url,
+            'primary_color' => $request->primary_color,
             'secondary_color' => $request->secondary_color,
-            'tiers'           => $request->tiers,
-            'allow_monthly'   => $request->boolean('allow_monthly', true),
-            'allow_yearly'    => $request->boolean('allow_yearly', true),
-            'auto_renew'      => $request->boolean('auto_renew', true),
-            'status'          => config('loyalty.requires_admin_approval') ? 'draft' : 'active',
+            'tiers' => $request->tiers,
+            'allow_monthly' => $request->boolean('allow_monthly', true),
+            'allow_yearly' => $request->boolean('allow_yearly', true),
+            'auto_renew' => $request->boolean('auto_renew', true),
+            'status' => config('loyalty.requires_admin_approval') ? 'draft' : 'active',
         ]);
 
         return response()->json([
             'message' => 'Loyalty card created successfully.',
-            'data'    => new LoyaltyCardResource($card),
+            'data' => new LoyaltyCardResource($card),
         ], 201);
     }
 
@@ -101,7 +101,7 @@ class LoyaltyCardController extends Controller
 
         return response()->json([
             'message' => 'Loyalty card updated successfully.',
-            'data'    => new LoyaltyCardResource($card->fresh()),
+            'data' => new LoyaltyCardResource($card->fresh()),
         ]);
     }
 
@@ -142,7 +142,7 @@ class LoyaltyCardController extends Controller
         }
 
         $card->update([
-            'status'       => config('loyalty.requires_admin_approval') ? 'draft' : 'active',
+            'status' => config('loyalty.requires_admin_approval') ? 'draft' : 'active',
             'published_at' => now(),
         ]);
 
@@ -219,14 +219,14 @@ class LoyaltyCardController extends Controller
 
         return response()->json([
             'data' => [
-                'total_members'           => $totalMembers,
-                'active_members'          => $activeMembers,
-                'new_members_this_month'  => $newThisMonth,
-                'churn_rate'              => $churnRate,
-                'renewal_rate'            => $renewalRate,
-                'monthly_revenue'         => $monthlyRevenue,
-                'tier_breakdown'          => $tierBreakdown,
-                'average_ltv'             => round($avgLtv, 2),
+                'total_members' => $totalMembers,
+                'active_members' => $activeMembers,
+                'new_members_this_month' => $newThisMonth,
+                'churn_rate' => $churnRate,
+                'renewal_rate' => $renewalRate,
+                'monthly_revenue' => $monthlyRevenue,
+                'tier_breakdown' => $tierBreakdown,
+                'average_ltv' => round($avgLtv, 2),
             ],
         ]);
     }

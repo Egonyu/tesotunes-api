@@ -34,7 +34,7 @@ class PaymentSuccessNotification extends Notification implements ShouldQueue
             ->line("- Reference: {$this->payment->transaction_reference}")
             ->line("- Amount: {$currency} {$amount}")
             ->line('- Date: '.($this->payment->completed_at?->format('M d, Y H:i') ?? now()->format('M d, Y H:i')))
-            ->line("- Method: ".ucfirst($this->payment->payment_method ?? 'Mobile Money'))
+            ->line('- Method: '.ucfirst($this->payment->payment_method ?? 'Mobile Money'))
             ->action('View Transaction', url('/payments'))
             ->line('Thank you for using TesoTunes!');
     }

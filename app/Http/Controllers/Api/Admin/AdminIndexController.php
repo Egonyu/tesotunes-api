@@ -20,7 +20,7 @@ class AdminIndexController extends Controller
                 'users' => '/admin/users',
                 'settings' => '/admin/settings',
                 'sacco' => '/admin/sacco/stats',
-            ]
+            ],
         ]);
     }
 }

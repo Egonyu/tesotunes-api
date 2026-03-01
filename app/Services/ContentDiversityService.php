@@ -39,9 +39,9 @@ class ContentDiversityService
      * by $categoryFn, then interleaved so that consecutive items are from
      * different categories when possible.
      *
-     * @param  Collection  $items       The items to balance
-     * @param  callable    $categoryFn  A closure that receives an item and returns its category string
-     * @param  int         $limit       Maximum number of items to return
+     * @param  Collection  $items  The items to balance
+     * @param  callable  $categoryFn  A closure that receives an item and returns its category string
+     * @param  int  $limit  Maximum number of items to return
      */
     public function balanceByCategory(Collection $items, callable $categoryFn, int $limit): Collection
     {
@@ -73,8 +73,8 @@ class ContentDiversityService
      * Prevent clustering by ensuring no more than $maxConsecutive items from the
      * same module/actor appear in sequence.
      *
-     * @param  Collection  $items            The sorted items
-     * @param  int         $maxConsecutive   Max consecutive items from same module
+     * @param  Collection  $items  The sorted items
+     * @param  int  $maxConsecutive  Max consecutive items from same module
      */
     public function preventClustering(Collection $items, int $maxConsecutive = 3): Collection
     {

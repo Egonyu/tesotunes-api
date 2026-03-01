@@ -51,8 +51,8 @@ class LoyaltyPointsController extends Controller
             $result = $this->pointsService->convertToCredits($request->user(), $validated['points']);
 
             return response()->json([
-                'message'        => "Converted {$result['points_spent']} points to {$result['credits_earned']} credits.",
-                'points_spent'   => $result['points_spent'],
+                'message' => "Converted {$result['points_spent']} points to {$result['credits_earned']} credits.",
+                'points_spent' => $result['points_spent'],
                 'credits_earned' => $result['credits_earned'],
             ]);
         } catch (\InvalidArgumentException $e) {

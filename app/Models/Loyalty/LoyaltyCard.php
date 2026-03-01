@@ -37,13 +37,13 @@ class LoyaltyCard extends Model
     ];
 
     protected $casts = [
-        'tiers'            => 'array',
-        'published_at'     => 'datetime',
-        'allow_monthly'    => 'boolean',
-        'allow_yearly'     => 'boolean',
-        'auto_renew'       => 'boolean',
-        'total_members'    => 'integer',
-        'monthly_revenue'  => 'decimal:2',
+        'tiers' => 'array',
+        'published_at' => 'datetime',
+        'allow_monthly' => 'boolean',
+        'allow_yearly' => 'boolean',
+        'auto_renew' => 'boolean',
+        'total_members' => 'integer',
+        'monthly_revenue' => 'decimal:2',
     ];
 
     // ── Boot ──────────────────────────────────────────────────────
@@ -142,7 +142,7 @@ class LoyaltyCard extends Model
     public function tierPrice(string $tier, string $subscriptionType = 'monthly'): ?float
     {
         $config = $this->tierConfig($tier);
-        if (!$config) {
+        if (! $config) {
             return null;
         }
 

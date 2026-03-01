@@ -35,11 +35,11 @@ class LoyaltyReward extends Model
 
     protected $casts = [
         'discount_percentage' => 'decimal:2',
-        'points_amount'       => 'integer',
-        'is_active'           => 'boolean',
-        'available_from'      => 'datetime',
-        'available_until'     => 'datetime',
-        'max_redemptions'     => 'integer',
+        'points_amount' => 'integer',
+        'is_active' => 'boolean',
+        'available_from' => 'datetime',
+        'available_until' => 'datetime',
+        'max_redemptions' => 'integer',
         'current_redemptions' => 'integer',
     ];
 
@@ -98,7 +98,7 @@ class LoyaltyReward extends Model
 
     public function isAvailable(): bool
     {
-        if (!$this->is_active) {
+        if (! $this->is_active) {
             return false;
         }
 

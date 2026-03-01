@@ -16,24 +16,24 @@ class LoyaltyCardMemberFactory extends Factory
         $joinedAt = $this->faker->dateTimeBetween('-6 months', 'now');
 
         return [
-            'loyalty_card_id'   => LoyaltyCard::factory(),
-            'user_id'           => User::factory(),
-            'tier'              => 'bronze',
-            'status'            => 'active',
+            'loyalty_card_id' => LoyaltyCard::factory(),
+            'user_id' => User::factory(),
+            'tier' => 'bronze',
+            'status' => 'active',
             'subscription_type' => $this->faker->randomElement(['monthly', 'yearly']),
-            'auto_renew'        => true,
-            'price_paid'        => 5000,
-            'payment_method'    => 'mobile_money',
-            'joined_at'         => $joinedAt,
-            'expires_at'        => now()->addMonth(),
-            'renewed_at'        => null,
+            'auto_renew' => true,
+            'price_paid' => 5000,
+            'payment_method' => 'mobile_money',
+            'joined_at' => $joinedAt,
+            'expires_at' => now()->addMonth(),
+            'renewed_at' => null,
         ];
     }
 
     public function expired(): static
     {
         return $this->state(fn () => [
-            'status'     => 'expired',
+            'status' => 'expired',
             'expires_at' => now()->subDays(5),
         ]);
     }
@@ -48,7 +48,7 @@ class LoyaltyCardMemberFactory extends Factory
     public function silver(): static
     {
         return $this->state(fn () => [
-            'tier'       => 'silver',
+            'tier' => 'silver',
             'price_paid' => 10000,
         ]);
     }
@@ -56,7 +56,7 @@ class LoyaltyCardMemberFactory extends Factory
     public function gold(): static
     {
         return $this->state(fn () => [
-            'tier'       => 'gold',
+            'tier' => 'gold',
             'price_paid' => 25000,
         ]);
     }
@@ -64,7 +64,7 @@ class LoyaltyCardMemberFactory extends Factory
     public function platinum(): static
     {
         return $this->state(fn () => [
-            'tier'       => 'platinum',
+            'tier' => 'platinum',
             'price_paid' => 50000,
         ]);
     }

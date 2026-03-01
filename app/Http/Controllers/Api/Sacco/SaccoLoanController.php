@@ -21,7 +21,7 @@ class SaccoLoanController extends Controller
         $user = $request->user();
         $member = SaccoMember::where('user_id', $user->id)->first();
 
-        if (!$member) {
+        if (! $member) {
             return response()->json(['data' => []], 200);
         }
 

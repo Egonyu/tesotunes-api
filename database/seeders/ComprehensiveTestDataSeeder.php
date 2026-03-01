@@ -35,20 +35,21 @@ class ComprehensiveTestDataSeeder extends Seeder
             try {
                 $this->call([MoodSeeder::class]);
             } catch (\Exception $e) {
-                $this->command->warn('MoodSeeder skipped: ' . Str::limit($e->getMessage(), 80));
+                $this->command->warn('MoodSeeder skipped: '.Str::limit($e->getMessage(), 80));
             }
         }
 
         $genres = Genre::all();
         if ($genres->isEmpty()) {
             $this->command->error('No genres found — cannot continue.');
+
             return;
         }
 
         // ─── 1. Users (10 extra listeners + 5 artist users) ───
         $this->command->info('Seeding users...');
         $listenerUsers = $this->seedListeners(10);
-        $artistUsers   = $this->seedArtistUsers(5);
+        $artistUsers = $this->seedArtistUsers(5);
 
         // ─── 2. Artists (5 profiles) ───
         $this->command->info('Seeding artists...');
@@ -105,25 +106,25 @@ class ComprehensiveTestDataSeeder extends Seeder
         ];
 
         foreach (array_slice($names, 0, $count) as $i => $name) {
-            $email = strtolower($name['first']) . '.' . strtolower($name['last']) . '@tesotunes-test.com';
+            $email = strtolower($name['first']).'.'.strtolower($name['last']).'@tesotunes-test.com';
             $users[] = User::firstOrCreate(
                 ['email' => $email],
                 [
-                    'uuid'              => Str::uuid()->toString(),
-                    'name'              => $name['first'] . ' ' . $name['last'],
-                    'username'          => strtolower($name['first']) . strtolower($name['last']),
-                    'first_name'        => $name['first'],
-                    'last_name'         => $name['last'],
-                    'display_name'      => $name['first'] . ' ' . $name['last'],
-                    'password'          => Hash::make('password'),
+                    'uuid' => Str::uuid()->toString(),
+                    'name' => $name['first'].' '.$name['last'],
+                    'username' => strtolower($name['first']).strtolower($name['last']),
+                    'first_name' => $name['first'],
+                    'last_name' => $name['last'],
+                    'display_name' => $name['first'].' '.$name['last'],
+                    'password' => Hash::make('password'),
                     'email_verified_at' => now(),
-                    'is_active'         => true,
-                    'status'            => 'active',
-                    'country'           => 'Uganda',
-                    'city'              => fake()->randomElement(['Kampala', 'Entebbe', 'Jinja', 'Mbarara', 'Gulu']),
-                    'timezone'          => 'Africa/Kampala',
-                    'language'          => 'en',
-                    'credits'           => fake()->numberBetween(50, 500),
+                    'is_active' => true,
+                    'status' => 'active',
+                    'country' => 'Uganda',
+                    'city' => fake()->randomElement(['Kampala', 'Entebbe', 'Jinja', 'Mbarara', 'Gulu']),
+                    'timezone' => 'Africa/Kampala',
+                    'language' => 'en',
+                    'credits' => fake()->numberBetween(50, 500),
                 ]
             );
         }
@@ -146,27 +147,27 @@ class ComprehensiveTestDataSeeder extends Seeder
         ];
 
         foreach (array_slice($artistPeople, 0, $count) as $person) {
-            $email = strtolower(str_replace(' ', '', $person['stage'])) . '@tesotunes-test.com';
+            $email = strtolower(str_replace(' ', '', $person['stage'])).'@tesotunes-test.com';
             $user = User::firstOrCreate(
                 ['email' => $email],
                 [
-                    'uuid'              => Str::uuid()->toString(),
-                    'name'              => $person['first'] . ' ' . $person['last'],
-                    'username'          => strtolower(str_replace(' ', '', $person['stage'])),
-                    'first_name'        => $person['first'],
-                    'last_name'         => $person['last'],
-                    'display_name'      => $person['stage'],
-                    'stage_name'        => $person['stage'],
-                    'password'          => Hash::make('password'),
+                    'uuid' => Str::uuid()->toString(),
+                    'name' => $person['first'].' '.$person['last'],
+                    'username' => strtolower(str_replace(' ', '', $person['stage'])),
+                    'first_name' => $person['first'],
+                    'last_name' => $person['last'],
+                    'display_name' => $person['stage'],
+                    'stage_name' => $person['stage'],
+                    'password' => Hash::make('password'),
                     'email_verified_at' => now(),
-                    'is_active'         => true,
-                    'is_artist'         => true,
-                    'status'            => 'active',
-                    'country'           => 'Uganda',
-                    'city'              => 'Kampala',
-                    'timezone'          => 'Africa/Kampala',
-                    'language'          => 'en',
-                    'credits'           => fake()->numberBetween(200, 2000),
+                    'is_active' => true,
+                    'is_artist' => true,
+                    'status' => 'active',
+                    'country' => 'Uganda',
+                    'city' => 'Kampala',
+                    'timezone' => 'Africa/Kampala',
+                    'language' => 'en',
+                    'credits' => fake()->numberBetween(200, 2000),
                 ]
             );
             $user->_stage = $person['stage'];
@@ -191,22 +192,22 @@ class ComprehensiveTestDataSeeder extends Seeder
             $artists[] = Artist::firstOrCreate(
                 ['user_id' => $user->id],
                 [
-                    'uuid'               => Str::uuid()->toString(),
-                    'stage_name'         => $stageName,
-                    'slug'               => $slug,
-                    'bio'                => "Award-winning East African artist {$stageName}, known for chart-topping hits across the continent.",
-                    'avatar'             => 'artists/avatars/' . $slug . '.jpg',
-                    'cover_image'        => 'artists/covers/' . $slug . '.jpg',
-                    'primary_genre_id'   => fake()->randomElement($genreIds),
-                    'status'             => 'active',
-                    'is_verified'        => true,
-                    'verified_at'        => now()->subMonths(6),
-                    'can_upload'         => true,
-                    'auto_publish'       => false,
-                    'career_start_year'  => fake()->numberBetween(2010, 2022),
-                    'followers_count'    => fake()->numberBetween(500, 50000),
-                    'total_plays'        => fake()->numberBetween(10000, 500000),
-                    'total_revenue'      => fake()->randomFloat(2, 100000, 5000000),
+                    'uuid' => Str::uuid()->toString(),
+                    'stage_name' => $stageName,
+                    'slug' => $slug,
+                    'bio' => "Award-winning East African artist {$stageName}, known for chart-topping hits across the continent.",
+                    'avatar' => 'artists/avatars/'.$slug.'.jpg',
+                    'cover_image' => 'artists/covers/'.$slug.'.jpg',
+                    'primary_genre_id' => fake()->randomElement($genreIds),
+                    'status' => 'active',
+                    'is_verified' => true,
+                    'verified_at' => now()->subMonths(6),
+                    'can_upload' => true,
+                    'auto_publish' => false,
+                    'career_start_year' => fake()->numberBetween(2010, 2022),
+                    'followers_count' => fake()->numberBetween(500, 50000),
+                    'total_plays' => fake()->numberBetween(10000, 500000),
+                    'total_revenue' => fake()->randomFloat(2, 100000, 5000000),
                 ]
             );
         }
@@ -245,27 +246,27 @@ class ComprehensiveTestDataSeeder extends Seeder
             for ($i = 0; $i < 3; $i++) {
                 $tplIdx = ($idx * 3 + $i) % count($albumTemplates);
                 $tpl = $albumTemplates[$tplIdx];
-                $slug = Str::slug($tpl['title'] . '-' . $artist->slug);
+                $slug = Str::slug($tpl['title'].'-'.$artist->slug);
 
                 $album = Album::firstOrCreate(
                     ['slug' => $slug],
                     [
-                        'uuid'                   => Str::uuid()->toString(),
-                        'artist_id'              => $artist->id,
-                        'title'                  => $tpl['title'],
-                        'description'            => "The {$tpl['type']} \"{$tpl['title']}\" by {$artist->stage_name} — a masterful blend of East African sounds.",
-                        'artwork'                => 'albums/' . $slug . '.jpg',
-                        'album_type'             => $tpl['type'],
-                        'release_date'           => fake()->dateTimeBetween('-2 years', 'now')->format('Y-m-d'),
-                        'status'                 => 'published',
-                        'is_explicit'            => fake()->boolean(15),
-                        'is_free'                => fake()->boolean(40),
-                        'price'                  => fake()->boolean(60) ? null : fake()->numberBetween(5000, 30000),
-                        'total_tracks'           => $tpl['tracks'],
+                        'uuid' => Str::uuid()->toString(),
+                        'artist_id' => $artist->id,
+                        'title' => $tpl['title'],
+                        'description' => "The {$tpl['type']} \"{$tpl['title']}\" by {$artist->stage_name} — a masterful blend of East African sounds.",
+                        'artwork' => 'albums/'.$slug.'.jpg',
+                        'album_type' => $tpl['type'],
+                        'release_date' => fake()->dateTimeBetween('-2 years', 'now')->format('Y-m-d'),
+                        'status' => 'published',
+                        'is_explicit' => fake()->boolean(15),
+                        'is_free' => fake()->boolean(40),
+                        'price' => fake()->boolean(60) ? null : fake()->numberBetween(5000, 30000),
+                        'total_tracks' => $tpl['tracks'],
                         'total_duration_seconds' => $tpl['tracks'] * fake()->numberBetween(180, 280),
-                        'play_count'             => fake()->numberBetween(500, 50000),
-                        'download_count'         => fake()->numberBetween(100, 10000),
-                        'like_count'             => fake()->numberBetween(50, 5000),
+                        'play_count' => fake()->numberBetween(500, 50000),
+                        'download_count' => fake()->numberBetween(100, 10000),
+                        'like_count' => fake()->numberBetween(50, 5000),
                     ]
                 );
 
@@ -302,57 +303,57 @@ class ComprehensiveTestDataSeeder extends Seeder
         $titleIdx = 0;
 
         foreach ($albumData as $data) {
-            $album  = $data['album'];
+            $album = $data['album'];
             $artist = $data['artist'];
             $trackCount = min($data['track_count'], 6); // cap at 6 songs per album for seeding
 
             for ($t = 1; $t <= $trackCount; $t++) {
                 $title = $songTitles[$titleIdx % count($songTitles)];
                 $titleIdx++;
-                $slug = Str::slug($title . '-' . $artist->slug . '-' . $titleIdx);
+                $slug = Str::slug($title.'-'.$artist->slug.'-'.$titleIdx);
 
                 $genreId = fake()->randomElement($genreIds);
                 $song = Song::firstOrCreate(
                     ['slug' => $slug],
                     [
-                        'uuid'                => Str::uuid()->toString(),
-                        'user_id'             => $artist->user_id,
-                        'artist_id'           => $artist->id,
-                        'album_id'            => $album->id,
-                        'title'               => $title,
-                        'description'         => "Track {$t} from \"{$album->title}\" by {$artist->stage_name}.",
-                        'lyrics'              => "Verse 1:\n" . fake()->paragraph() . "\n\nChorus:\n" . fake()->sentence(8) . "\n\nVerse 2:\n" . fake()->paragraph(),
-                        'audio_file_original' => 'songs/original/' . Str::uuid() . '.mp3',
-                        'audio_file_320'      => 'songs/320kbps/' . Str::uuid() . '.mp3',
-                        'audio_file_128'      => 'songs/128kbps/' . Str::uuid() . '.mp3',
-                        'artwork'             => $album->artwork,
-                        'duration_seconds'    => fake()->numberBetween(150, 320),
-                        'file_size_bytes'     => fake()->numberBetween(3000000, 8000000),
-                        'file_format'         => 'mp3',
-                        'primary_genre_id'    => $genreId,
-                        'track_number'        => $t,
-                        'status'              => 'published',
-                        'visibility'          => 'public',
-                        'is_explicit'         => fake()->boolean(15),
-                        'is_featured'         => fake()->boolean(20),
-                        'is_downloadable'     => true,
-                        'is_streamable'       => true,
-                        'is_free'             => fake()->boolean(50),
-                        'price'               => fake()->boolean(50) ? null : fake()->numberBetween(1000, 5000),
-                        'currency'            => 'UGX',
-                        'play_count'          => fake()->numberBetween(100, 200000),
-                        'download_count'      => fake()->numberBetween(10, 20000),
-                        'like_count'          => fake()->numberBetween(10, 10000),
-                        'share_count'         => fake()->numberBetween(0, 3000),
-                        'release_date'        => $album->release_date,
-                        'published_at'        => $album->release_date,
+                        'uuid' => Str::uuid()->toString(),
+                        'user_id' => $artist->user_id,
+                        'artist_id' => $artist->id,
+                        'album_id' => $album->id,
+                        'title' => $title,
+                        'description' => "Track {$t} from \"{$album->title}\" by {$artist->stage_name}.",
+                        'lyrics' => "Verse 1:\n".fake()->paragraph()."\n\nChorus:\n".fake()->sentence(8)."\n\nVerse 2:\n".fake()->paragraph(),
+                        'audio_file_original' => 'songs/original/'.Str::uuid().'.mp3',
+                        'audio_file_320' => 'songs/320kbps/'.Str::uuid().'.mp3',
+                        'audio_file_128' => 'songs/128kbps/'.Str::uuid().'.mp3',
+                        'artwork' => $album->artwork,
+                        'duration_seconds' => fake()->numberBetween(150, 320),
+                        'file_size_bytes' => fake()->numberBetween(3000000, 8000000),
+                        'file_format' => 'mp3',
+                        'primary_genre_id' => $genreId,
+                        'track_number' => $t,
+                        'status' => 'published',
+                        'visibility' => 'public',
+                        'is_explicit' => fake()->boolean(15),
+                        'is_featured' => fake()->boolean(20),
+                        'is_downloadable' => true,
+                        'is_streamable' => true,
+                        'is_free' => fake()->boolean(50),
+                        'price' => fake()->boolean(50) ? null : fake()->numberBetween(1000, 5000),
+                        'currency' => 'UGX',
+                        'play_count' => fake()->numberBetween(100, 200000),
+                        'download_count' => fake()->numberBetween(10, 20000),
+                        'like_count' => fake()->numberBetween(10, 10000),
+                        'share_count' => fake()->numberBetween(0, 3000),
+                        'release_date' => $album->release_date,
+                        'published_at' => $album->release_date,
                     ]
                 );
 
                 // Attach genre pivot
                 if (Schema::hasTable('song_genres') && $song->wasRecentlyCreated) {
                     DB::table('song_genres')->insertOrIgnore([
-                        'song_id'  => $song->id,
+                        'song_id' => $song->id,
                         'genre_id' => $genreId,
                     ]);
                 }
@@ -361,7 +362,7 @@ class ComprehensiveTestDataSeeder extends Seeder
             }
         }
 
-        $this->command->info("  → {$titleIdx} songs seeded across " . count($albumData) . ' albums.');
+        $this->command->info("  → {$titleIdx} songs seeded across ".count($albumData).' albums.');
 
         return $songs;
     }
@@ -395,18 +396,18 @@ class ComprehensiveTestDataSeeder extends Seeder
             $playlist = Playlist::firstOrCreate(
                 ['slug' => $slug],
                 [
-                    'uuid'                   => Str::uuid()->toString(),
-                    'user_id'                => $owner->id,
-                    'name'                   => $pl['name'],
-                    'description'            => $pl['description'],
-                    'artwork'                => 'playlists/' . $slug . '.jpg',
-                    'visibility'             => 'public',
-                    'is_featured'            => $idx < 3,
-                    'is_collaborative'       => false,
-                    'total_tracks'           => 0,
+                    'uuid' => Str::uuid()->toString(),
+                    'user_id' => $owner->id,
+                    'name' => $pl['name'],
+                    'description' => $pl['description'],
+                    'artwork' => 'playlists/'.$slug.'.jpg',
+                    'visibility' => 'public',
+                    'is_featured' => $idx < 3,
+                    'is_collaborative' => false,
+                    'total_tracks' => 0,
                     'total_duration_seconds' => 0,
-                    'play_count'             => fake()->numberBetween(100, 10000),
-                    'follower_count'         => fake()->numberBetween(10, 2000),
+                    'play_count' => fake()->numberBetween(100, 10000),
+                    'follower_count' => fake()->numberBetween(10, 2000),
                 ]
             );
 
@@ -419,22 +420,22 @@ class ComprehensiveTestDataSeeder extends Seeder
                 foreach ($playlistSongs as $song) {
                     DB::table('playlist_songs')->insertOrIgnore([
                         'playlist_id' => $playlist->id,
-                        'song_id'     => $song->id,
-                        'position'    => $position++,
-                        'created_at'  => now(),
-                        'updated_at'  => now(),
+                        'song_id' => $song->id,
+                        'position' => $position++,
+                        'created_at' => now(),
+                        'updated_at' => now(),
                     ]);
                     $totalDuration += $song->duration_seconds ?? 0;
                 }
 
                 $playlist->update([
-                    'total_tracks'           => $playlistSongs->count(),
+                    'total_tracks' => $playlistSongs->count(),
                     'total_duration_seconds' => $totalDuration,
                 ]);
             }
         }
 
-        $this->command->info('  → ' . count($curatedPlaylists) . ' playlists seeded.');
+        $this->command->info('  → '.count($curatedPlaylists).' playlists seeded.');
     }
 
     // ─────────────────────────────────────────────────────────
@@ -453,7 +454,8 @@ class ComprehensiveTestDataSeeder extends Seeder
     }
 
     private function createEvents(array $artistUsers): void
-    {        $events = [
+    {
+        $events = [
             ['title' => 'Afrobeats Night Kampala',          'category' => 'music',         'future' => true],
             ['title' => 'Gospel Praise Festival',            'category' => 'music',         'future' => true],
             ['title' => 'Music Production Workshop',         'category' => 'educational',   'future' => true],
@@ -472,7 +474,7 @@ class ComprehensiveTestDataSeeder extends Seeder
             ['name' => 'Hotel Africana',           'city' => 'Kampala'],
             ['name' => 'Jinja Sailing Club',       'city' => 'Jinja'],
             ['name' => 'Mbarara Sports Club',      'city' => 'Mbarara'],
-            ['name' => 'Gulu Independence Grounds','city' => 'Gulu'],
+            ['name' => 'Gulu Independence Grounds', 'city' => 'Gulu'],
         ];
 
         foreach ($events as $idx => $ev) {
@@ -488,35 +490,35 @@ class ComprehensiveTestDataSeeder extends Seeder
             Event::firstOrCreate(
                 ['slug' => $slug],
                 [
-                    'uuid'           => Str::uuid()->toString(),
-                    'organizer_id'   => $organizer->id,
+                    'uuid' => Str::uuid()->toString(),
+                    'organizer_id' => $organizer->id,
                     'organizer_type' => 'user',
-                    'user_id'        => $organizer->id,
-                    'title'          => $ev['title'],
-                    'description'    => "Join us for {$ev['title']} — an unforgettable night of music, culture, and community at {$venue['name']}.",
-                    'artwork'        => 'events/covers/' . $slug . '.jpg',
-                    'category'       => $ev['category'],
-                    'venue_name'     => $venue['name'],
-                    'city'           => $venue['city'],
-                    'country'        => 'Uganda',
-                    'starts_at'      => $startsAt,
-                    'ends_at'        => $endsAt,
-                    'timezone'       => 'Africa/Kampala',
-                    'status'         => $ev['future'] ? 'published' : 'completed',
-                    'visibility'     => 'public',
-                    'is_published'   => true,
-                    'published_at'   => now()->subDays(30),
-                    'is_featured'    => $idx < 3,
-                    'is_free'        => fake()->boolean(40),
-                    'ticket_price'   => fake()->boolean(60) ? fake()->numberBetween(10000, 100000) : null,
-                    'currency'       => 'UGX',
-                    'capacity'       => fake()->numberBetween(100, 5000),
+                    'user_id' => $organizer->id,
+                    'title' => $ev['title'],
+                    'description' => "Join us for {$ev['title']} — an unforgettable night of music, culture, and community at {$venue['name']}.",
+                    'artwork' => 'events/covers/'.$slug.'.jpg',
+                    'category' => $ev['category'],
+                    'venue_name' => $venue['name'],
+                    'city' => $venue['city'],
+                    'country' => 'Uganda',
+                    'starts_at' => $startsAt,
+                    'ends_at' => $endsAt,
+                    'timezone' => 'Africa/Kampala',
+                    'status' => $ev['future'] ? 'published' : 'completed',
+                    'visibility' => 'public',
+                    'is_published' => true,
+                    'published_at' => now()->subDays(30),
+                    'is_featured' => $idx < 3,
+                    'is_free' => fake()->boolean(40),
+                    'ticket_price' => fake()->boolean(60) ? fake()->numberBetween(10000, 100000) : null,
+                    'currency' => 'UGX',
+                    'capacity' => fake()->numberBetween(100, 5000),
                     'attendee_count' => fake()->numberBetween(50, 2000),
                 ]
             );
         }
 
-        $this->command->info('  → ' . count($events) . ' events seeded.');
+        $this->command->info('  → '.count($events).' events seeded.');
     }
 
     // ─────────────────────────────────────────────────────────
@@ -554,21 +556,21 @@ class ComprehensiveTestDataSeeder extends Seeder
             Post::firstOrCreate(
                 ['user_id' => $user->id, 'content' => $content],
                 [
-                    'uuid'           => Str::uuid()->toString(),
-                    'song_id'        => $hasSong ? $songs[array_rand($songs)]->id : null,
-                    'type'           => 'text',
-                    'visibility'     => 'public',
-                    'is_featured'    => fake()->boolean(15),
-                    'likes_count'    => fake()->numberBetween(0, 200),
+                    'uuid' => Str::uuid()->toString(),
+                    'song_id' => $hasSong ? $songs[array_rand($songs)]->id : null,
+                    'type' => 'text',
+                    'visibility' => 'public',
+                    'is_featured' => fake()->boolean(15),
+                    'likes_count' => fake()->numberBetween(0, 200),
                     'comments_count' => fake()->numberBetween(0, 50),
-                    'shares_count'   => fake()->numberBetween(0, 30),
-                    'views_count'    => fake()->numberBetween(10, 500),
-                    'published_at'   => fake()->dateTimeBetween('-30 days', 'now'),
+                    'shares_count' => fake()->numberBetween(0, 30),
+                    'views_count' => fake()->numberBetween(10, 500),
+                    'published_at' => fake()->dateTimeBetween('-30 days', 'now'),
                 ]
             );
         }
 
-        $this->command->info('  → ' . count($postContents) . ' posts seeded.');
+        $this->command->info('  → '.count($postContents).' posts seeded.');
     }
 
     // ─────────────────────────────────────────────────────────
@@ -590,63 +592,63 @@ class ComprehensiveTestDataSeeder extends Seeder
             }
 
             $feedItems[] = [
-                'uuid'                 => Str::uuid()->toString(),
-                'type'                 => 'song_release',
-                'module'               => 'music',
-                'title'                => "{$artist->stage_name} released \"{$song->title}\"",
-                'body'                 => $song->description,
-                'actor_id'             => $artist->user_id,
-                'actor_type'           => 'artist',
-                'actor_name'           => $artist->stage_name,
-                'actor_verified'       => $artist->is_verified,
-                'subject_id'           => $song->id,
-                'subject_type'         => 'App\\Models\\Song',
-                'media_type'           => 'song',
-                'media_url'            => $song->audio_file_128,
-                'media_thumbnail_url'  => $song->artwork,
+                'uuid' => Str::uuid()->toString(),
+                'type' => 'song_release',
+                'module' => 'music',
+                'title' => "{$artist->stage_name} released \"{$song->title}\"",
+                'body' => $song->description,
+                'actor_id' => $artist->user_id,
+                'actor_type' => 'artist',
+                'actor_name' => $artist->stage_name,
+                'actor_verified' => $artist->is_verified,
+                'subject_id' => $song->id,
+                'subject_type' => 'App\\Models\\Song',
+                'media_type' => 'song',
+                'media_url' => $song->audio_file_128,
+                'media_thumbnail_url' => $song->artwork,
                 'media_duration_seconds' => $song->duration_seconds,
-                'likes_count'          => fake()->numberBetween(5, 500),
-                'comments_count'       => fake()->numberBetween(0, 100),
-                'shares_count'         => fake()->numberBetween(0, 50),
-                'views_count'          => fake()->numberBetween(50, 5000),
-                'visibility'           => 'public',
-                'region'               => 'UG',
-                'language'             => 'en',
-                'published_at'         => fake()->dateTimeBetween('-30 days', 'now'),
-                'created_at'           => now(),
-                'updated_at'           => now(),
+                'likes_count' => fake()->numberBetween(5, 500),
+                'comments_count' => fake()->numberBetween(0, 100),
+                'shares_count' => fake()->numberBetween(0, 50),
+                'views_count' => fake()->numberBetween(50, 5000),
+                'visibility' => 'public',
+                'region' => 'UG',
+                'language' => 'en',
+                'published_at' => fake()->dateTimeBetween('-30 days', 'now'),
+                'created_at' => now(),
+                'updated_at' => now(),
             ];
         }
 
         // Album release feed items
         foreach (array_slice($albumData, 0, 8) as $data) {
-            $album  = $data['album'];
+            $album = $data['album'];
             $artist = $data['artist'];
 
             $feedItems[] = [
-                'uuid'                => Str::uuid()->toString(),
-                'type'                => 'album_release',
-                'module'              => 'music',
-                'title'               => "{$artist->stage_name} dropped new album \"{$album->title}\"",
-                'body'                => $album->description,
-                'actor_id'            => $artist->user_id,
-                'actor_type'          => 'artist',
-                'actor_name'          => $artist->stage_name,
-                'actor_verified'      => $artist->is_verified,
-                'subject_id'          => $album->id,
-                'subject_type'        => 'App\\Models\\Album',
-                'media_type'          => 'image',
+                'uuid' => Str::uuid()->toString(),
+                'type' => 'album_release',
+                'module' => 'music',
+                'title' => "{$artist->stage_name} dropped new album \"{$album->title}\"",
+                'body' => $album->description,
+                'actor_id' => $artist->user_id,
+                'actor_type' => 'artist',
+                'actor_name' => $artist->stage_name,
+                'actor_verified' => $artist->is_verified,
+                'subject_id' => $album->id,
+                'subject_type' => 'App\\Models\\Album',
+                'media_type' => 'image',
                 'media_thumbnail_url' => $album->artwork,
-                'likes_count'         => fake()->numberBetween(10, 300),
-                'comments_count'      => fake()->numberBetween(0, 80),
-                'shares_count'        => fake()->numberBetween(0, 40),
-                'views_count'         => fake()->numberBetween(100, 3000),
-                'visibility'          => 'public',
-                'region'              => 'UG',
-                'language'            => 'en',
-                'published_at'        => fake()->dateTimeBetween('-60 days', 'now'),
-                'created_at'          => now(),
-                'updated_at'          => now(),
+                'likes_count' => fake()->numberBetween(10, 300),
+                'comments_count' => fake()->numberBetween(0, 80),
+                'shares_count' => fake()->numberBetween(0, 40),
+                'views_count' => fake()->numberBetween(100, 3000),
+                'visibility' => 'public',
+                'region' => 'UG',
+                'language' => 'en',
+                'published_at' => fake()->dateTimeBetween('-60 days', 'now'),
+                'created_at' => now(),
+                'updated_at' => now(),
             ];
         }
 
@@ -660,25 +662,25 @@ class ComprehensiveTestDataSeeder extends Seeder
         foreach ($eventFeedItems as $ef) {
             $artist = $artists[array_rand($artists)];
             $feedItems[] = [
-                'uuid'           => Str::uuid()->toString(),
-                'type'           => $ef['type'],
-                'module'         => $ef['module'],
-                'title'          => $ef['title'],
-                'body'           => 'Check out this upcoming event in Uganda!',
-                'actor_id'       => $artist->user_id,
-                'actor_type'     => 'user',
-                'actor_name'     => $artist->stage_name,
+                'uuid' => Str::uuid()->toString(),
+                'type' => $ef['type'],
+                'module' => $ef['module'],
+                'title' => $ef['title'],
+                'body' => 'Check out this upcoming event in Uganda!',
+                'actor_id' => $artist->user_id,
+                'actor_type' => 'user',
+                'actor_name' => $artist->stage_name,
                 'actor_verified' => true,
-                'visibility'     => 'public',
-                'region'         => 'UG',
-                'language'       => 'en',
-                'likes_count'    => fake()->numberBetween(5, 100),
+                'visibility' => 'public',
+                'region' => 'UG',
+                'language' => 'en',
+                'likes_count' => fake()->numberBetween(5, 100),
                 'comments_count' => fake()->numberBetween(0, 30),
-                'shares_count'   => fake()->numberBetween(0, 20),
-                'views_count'    => fake()->numberBetween(20, 1000),
-                'published_at'   => fake()->dateTimeBetween('-14 days', 'now'),
-                'created_at'     => now(),
-                'updated_at'     => now(),
+                'shares_count' => fake()->numberBetween(0, 20),
+                'views_count' => fake()->numberBetween(20, 1000),
+                'published_at' => fake()->dateTimeBetween('-14 days', 'now'),
+                'created_at' => now(),
+                'updated_at' => now(),
             ];
         }
 
@@ -691,7 +693,7 @@ class ComprehensiveTestDataSeeder extends Seeder
                     $item
                 );
             }
-            $this->command->info('  → ' . count($feedItems) . ' feed items seeded.');
+            $this->command->info('  → '.count($feedItems).' feed items seeded.');
         } else {
             $this->command->info("  → Skipped feed items (already {$existingCount} present).");
         }
@@ -720,6 +722,7 @@ class ComprehensiveTestDataSeeder extends Seeder
         $existingCount = Payment::count();
         if ($existingCount >= 8) {
             $this->command->info("  → Skipped payments (already {$existingCount} present).");
+
             return;
         }
 
@@ -730,32 +733,32 @@ class ComprehensiveTestDataSeeder extends Seeder
                 $song = $songs[array_rand($songs)];
                 $amount = fake()->numberBetween(2000, 50000);
 
-                $payment = new Payment();
+                $payment = new Payment;
                 $payment->forceFill([
-                'uuid'              => Str::uuid()->toString(),
-                'user_id'           => $user->id,
-                'payable_type'      => 'App\\Models\\Song',
-                'payable_id'        => $song->id,
-                'song_id'           => $song->id,
-                'transaction_id'    => 'TXN_' . strtoupper(Str::random(12)),
-                'amount'            => $amount,
-                'currency'          => 'UGX',
-                'payment_type'      => $scenario['type'],
-                'payment_method'    => $scenario['method'],
-                'provider'          => $scenario['provider'],
-                'payment_provider'  => $scenario['provider'],
-                'phone_number'      => '2567' . fake()->numberBetween(10000000, 99999999),
-                'status'            => $scenario['status'],
-                'description'       => ucfirst($scenario['type']) . " for \"{$song->title}\"",
-                'initiated_at'      => now()->subDays(fake()->numberBetween(1, 30)),
-                'completed_at'      => $scenario['status'] === 'completed' ? now()->subDays(fake()->numberBetween(0, 29)) : null,
-                'failed_at'         => $scenario['status'] === 'failed' ? now()->subDays(fake()->numberBetween(0, 10)) : null,
-                'failure_reason'    => $scenario['status'] === 'failed' ? 'Insufficient funds' : null,
-            ]);
-            $payment->save();
+                    'uuid' => Str::uuid()->toString(),
+                    'user_id' => $user->id,
+                    'payable_type' => 'App\\Models\\Song',
+                    'payable_id' => $song->id,
+                    'song_id' => $song->id,
+                    'transaction_id' => 'TXN_'.strtoupper(Str::random(12)),
+                    'amount' => $amount,
+                    'currency' => 'UGX',
+                    'payment_type' => $scenario['type'],
+                    'payment_method' => $scenario['method'],
+                    'provider' => $scenario['provider'],
+                    'payment_provider' => $scenario['provider'],
+                    'phone_number' => '2567'.fake()->numberBetween(10000000, 99999999),
+                    'status' => $scenario['status'],
+                    'description' => ucfirst($scenario['type'])." for \"{$song->title}\"",
+                    'initiated_at' => now()->subDays(fake()->numberBetween(1, 30)),
+                    'completed_at' => $scenario['status'] === 'completed' ? now()->subDays(fake()->numberBetween(0, 29)) : null,
+                    'failed_at' => $scenario['status'] === 'failed' ? now()->subDays(fake()->numberBetween(0, 10)) : null,
+                    'failure_reason' => $scenario['status'] === 'failed' ? 'Insufficient funds' : null,
+                ]);
+                $payment->save();
             }
         });
 
-        $this->command->info('  → ' . count($paymentScenarios) . ' payments seeded.');
+        $this->command->info('  → '.count($paymentScenarios).' payments seeded.');
     }
 }

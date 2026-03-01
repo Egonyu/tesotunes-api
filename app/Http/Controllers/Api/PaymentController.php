@@ -162,7 +162,7 @@ class PaymentController extends Controller
 
         // Idempotency: don't re-process finalized payments
         if (in_array($payment->status, ['completed', 'refunded', 'cancelled'])) {
-            Log::info("Payment webhook: already finalized", [
+            Log::info('Payment webhook: already finalized', [
                 'payment_id' => $payment->id,
                 'status' => $payment->status,
             ]);
@@ -267,11 +267,11 @@ class PaymentController extends Controller
         $amount = (float) $validated['amount'];
         $phone = $validated['phone'];
         $purpose = $validated['purpose'] ?? 'wallet_topup';
-        $reference = 'TT-' . strtoupper(Str::random(12));
+        $reference = 'TT-'.strtoupper(Str::random(12));
 
         try {
             // Create payment record
-            $payment = new Payment();
+            $payment = new Payment;
             $payment->forceFill([
                 'amount' => $amount,
                 'status' => Payment::STATUS_PENDING,
@@ -286,7 +286,7 @@ class PaymentController extends Controller
                 'currency' => 'UGX',
                 'payment_reference' => $reference,
                 'transaction_reference' => $reference,
-                'description' => "Wallet top-up of UGX " . number_format($amount),
+                'description' => 'Wallet top-up of UGX '.number_format($amount),
             ]);
             $payment->save();
 
@@ -295,7 +295,7 @@ class PaymentController extends Controller
             if (empty($zengaPayConfig['api_key']) || app()->environment('local', 'testing')) {
                 $payment->update([
                     'status' => Payment::STATUS_PROCESSING,
-                    'provider_transaction_id' => 'DEV-' . strtoupper(\Illuminate\Support\Str::random(16)),
+                    'provider_transaction_id' => 'DEV-'.strtoupper(\Illuminate\Support\Str::random(16)),
                 ]);
 
                 // In local dev, auto-complete the payment after a short delay
@@ -324,7 +324,7 @@ class PaymentController extends Controller
                 $amount,
                 $phone,
                 $reference,
-                "TesoTunes Wallet Top-Up - UGX " . number_format($amount)
+                'TesoTunes Wallet Top-Up - UGX '.number_format($amount)
             );
 
             if ($result['success']) {
@@ -510,10 +510,10 @@ class PaymentController extends Controller
             ], 422);
         }
 
-        $reference = 'TT-W-' . strtoupper(Str::random(10));
+        $reference = 'TT-W-'.strtoupper(Str::random(10));
 
         try {
-            $payment = new Payment();
+            $payment = new Payment;
             $payment->forceFill([
                 'amount' => $amount,
                 'status' => Payment::STATUS_PENDING,
@@ -527,7 +527,7 @@ class PaymentController extends Controller
                 'currency' => 'UGX',
                 'payment_reference' => $reference,
                 'transaction_reference' => $reference,
-                'description' => "Withdrawal of UGX " . number_format($amount),
+                'description' => 'Withdrawal of UGX '.number_format($amount),
             ]);
             $payment->save();
 
@@ -539,7 +539,7 @@ class PaymentController extends Controller
                 $amount,
                 $validated['phone'],
                 $reference,
-                "TesoTunes Withdrawal - UGX " . number_format($amount)
+                'TesoTunes Withdrawal - UGX '.number_format($amount)
             );
 
             if ($result['success']) {

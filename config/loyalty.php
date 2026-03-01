@@ -21,9 +21,9 @@ return [
     |
     */
     'tier_levels' => [
-        'bronze'   => 1,
-        'silver'   => 2,
-        'gold'     => 3,
+        'bronze' => 1,
+        'silver' => 2,
+        'gold' => 3,
         'platinum' => 4,
     ],
 
@@ -33,12 +33,12 @@ return [
     |--------------------------------------------------------------------------
     */
     'points_earning' => [
-        'stream'              => 1,
-        'download'            => 5,
+        'stream' => 1,
+        'download' => 5,
         'purchase_per_100_ugx' => 1,
-        'event_attendance'    => 10,
-        'referral'            => 50,
-        'daily_login'         => 1,
+        'event_attendance' => 10,
+        'referral' => 50,
+        'daily_login' => 1,
     ],
 
     /*
@@ -54,7 +54,7 @@ return [
     |--------------------------------------------------------------------------
     */
     'renewal_reminder_days' => 3,
-    'grace_period_days'     => 7,
+    'grace_period_days' => 7,
 
     /*
     |--------------------------------------------------------------------------
@@ -72,5 +72,5 @@ return [
     |--------------------------------------------------------------------------
     */
     'max_cards_per_artist' => 5,
-    'max_tiers_per_card'   => 4,
+    'max_tiers_per_card' => 4,
 ];

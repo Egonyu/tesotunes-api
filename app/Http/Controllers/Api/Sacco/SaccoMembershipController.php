@@ -20,7 +20,7 @@ class SaccoMembershipController extends Controller
             ->where('user_id', $request->user()->id)
             ->first();
 
-        if (!$member) {
+        if (! $member) {
             return response()->json(['data' => null]);
         }
 

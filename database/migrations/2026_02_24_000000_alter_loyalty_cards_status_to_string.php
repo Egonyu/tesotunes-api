@@ -1,7 +1,6 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -9,11 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (!Schema::hasTable('loyalty_cards')) {
+        if (! Schema::hasTable('loyalty_cards')) {
             return;
         }
 
-        if (!Schema::hasColumn('loyalty_cards', 'status')) {
+        if (! Schema::hasColumn('loyalty_cards', 'status')) {
             return; // Column doesn't exist yet, nothing to alter
         }
 
@@ -29,7 +28,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (!Schema::hasTable('loyalty_cards') || !Schema::hasColumn('loyalty_cards', 'status')) {
+        if (! Schema::hasTable('loyalty_cards') || ! Schema::hasColumn('loyalty_cards', 'status')) {
             return;
         }
 

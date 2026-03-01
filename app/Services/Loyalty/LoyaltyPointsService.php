@@ -30,17 +30,17 @@ class LoyaltyPointsService
             $userPoints->refresh();
 
             return LoyaltyTransaction::create([
-                'user_id'       => $user->id,
-                'type'          => 'earned',
-                'points'        => $pointsAwarded,
+                'user_id' => $user->id,
+                'type' => 'earned',
+                'points' => $pointsAwarded,
                 'balance_after' => $userPoints->balance,
-                'source'        => $source,
-                'source_id'     => $sourceId,
-                'source_type'   => $sourceType,
-                'description'   => $description ?? "Earned {$pointsAwarded} points from {$source}",
-                'base_points'   => $basePoints,
-                'multiplier'    => $multiplier,
-                'created_at'    => now(),
+                'source' => $source,
+                'source_id' => $sourceId,
+                'source_type' => $sourceType,
+                'description' => $description ?? "Earned {$pointsAwarded} points from {$source}",
+                'base_points' => $basePoints,
+                'multiplier' => $multiplier,
+                'created_at' => now(),
             ]);
         });
     }
@@ -68,17 +68,17 @@ class LoyaltyPointsService
             $userPoints->refresh();
 
             return LoyaltyTransaction::create([
-                'user_id'       => $user->id,
-                'type'          => 'spent',
-                'points'        => -$points,
+                'user_id' => $user->id,
+                'type' => 'spent',
+                'points' => -$points,
                 'balance_after' => $userPoints->balance,
-                'source'        => $source,
-                'source_id'     => $sourceId,
-                'source_type'   => $sourceType,
-                'description'   => $description ?? "Spent {$points} points on {$source}",
-                'base_points'   => $points,
-                'multiplier'    => 1,
-                'created_at'    => now(),
+                'source' => $source,
+                'source_id' => $sourceId,
+                'source_type' => $sourceType,
+                'description' => $description ?? "Spent {$points} points on {$source}",
+                'base_points' => $points,
+                'multiplier' => 1,
+                'created_at' => now(),
             ]);
         });
     }
@@ -115,9 +115,9 @@ class LoyaltyPointsService
         }
 
         return [
-            'points_spent'   => $points,
+            'points_spent' => $points,
             'credits_earned' => $credits,
-            'transaction'    => $transaction,
+            'transaction' => $transaction,
         ];
     }
 
@@ -141,9 +141,9 @@ class LoyaltyPointsService
         $userPoints = $this->getOrCreatePoints($user);
 
         return [
-            'balance'            => $userPoints->balance,
-            'lifetime_earned'    => $userPoints->lifetime_earned,
-            'lifetime_spent'     => $userPoints->lifetime_spent,
+            'balance' => $userPoints->balance,
+            'lifetime_earned' => $userPoints->lifetime_earned,
+            'lifetime_spent' => $userPoints->lifetime_spent,
             'current_multiplier' => (float) $userPoints->current_multiplier,
         ];
     }
@@ -172,7 +172,7 @@ class LoyaltyPointsService
 
         return $memberships->map(function ($membership) {
             $tierConfig = $membership->loyaltyCard->tierConfig($membership->tier);
-            if (!$tierConfig) {
+            if (! $tierConfig) {
                 return 1.0;
             }
 

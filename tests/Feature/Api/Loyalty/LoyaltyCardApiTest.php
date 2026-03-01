@@ -13,17 +13,20 @@ use Tests\TestCase;
 class LoyaltyCardApiTest extends TestCase
 {
     private User $user;
+
     private User $artistUser;
+
     private Artist $artist;
+
     private LoyaltyCard $card;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->user       = User::factory()->create();
+        $this->user = User::factory()->create();
         $this->artistUser = User::factory()->create();
-        $this->artist     = Artist::factory()->create(['user_id' => $this->artistUser->id]);
+        $this->artist = Artist::factory()->create(['user_id' => $this->artistUser->id]);
 
         $this->card = LoyaltyCard::factory()->create([
             'artist_id' => $this->artist->id,
@@ -63,20 +66,20 @@ class LoyaltyCardApiTest extends TestCase
     public function test_fan_can_join_loyalty_card(): void
     {
         $response = $this->actingAs($this->user)->postJson("/api/loyalty-cards/{$this->card->slug}/join", [
-            'tier'              => 'bronze',
+            'tier' => 'bronze',
             'subscription_type' => 'monthly',
-            'payment_method'    => 'mobile_money',
-            'mobile_number'     => '0771234567',
+            'payment_method' => 'mobile_money',
+            'mobile_number' => '0771234567',
         ]);
 
         $response->assertStatus(201);
         $response->assertJsonFragment(['tier' => 'bronze']);
 
         $this->assertDatabaseHas('loyalty_card_members', [
-            'user_id'         => $this->user->id,
+            'user_id' => $this->user->id,
             'loyalty_card_id' => $this->card->id,
-            'tier'            => 'bronze',
-            'status'          => 'active',
+            'tier' => 'bronze',
+            'status' => 'active',
         ]);
     }
 
@@ -84,13 +87,13 @@ class LoyaltyCardApiTest extends TestCase
     {
         LoyaltyCardMember::factory()->create([
             'loyalty_card_id' => $this->card->id,
-            'user_id'         => $this->user->id,
+            'user_id' => $this->user->id,
         ]);
 
         $response = $this->actingAs($this->user)->postJson("/api/loyalty-cards/{$this->card->slug}/join", [
-            'tier'              => 'silver',
+            'tier' => 'silver',
             'subscription_type' => 'monthly',
-            'payment_method'    => 'mobile_money',
+            'payment_method' => 'mobile_money',
         ]);
 
         $response->assertStatus(422);
@@ -100,18 +103,18 @@ class LoyaltyCardApiTest extends TestCase
     {
         LoyaltyCardMember::factory()->create([
             'loyalty_card_id' => $this->card->id,
-            'user_id'         => $this->user->id,
-            'tier'            => 'silver',
+            'user_id' => $this->user->id,
+            'tier' => 'silver',
         ]);
 
         LoyaltyReward::factory()->create([
             'loyalty_card_id' => $this->card->id,
-            'required_tier'   => 'bronze',
+            'required_tier' => 'bronze',
         ]);
 
         LoyaltyReward::factory()->create([
             'loyalty_card_id' => $this->card->id,
-            'required_tier'   => 'gold',
+            'required_tier' => 'gold',
         ]);
 
         $response = $this->actingAs($this->user)->getJson("/api/loyalty-cards/{$this->card->slug}/rewards");
@@ -123,25 +126,25 @@ class LoyaltyCardApiTest extends TestCase
     {
         $member = LoyaltyCardMember::factory()->create([
             'loyalty_card_id' => $this->card->id,
-            'user_id'         => $this->user->id,
-            'tier'            => 'silver',
+            'user_id' => $this->user->id,
+            'tier' => 'silver',
         ]);
 
         LoyaltyPoints::updateOrCreate(
             ['user_id' => $this->user->id],
             [
-                'balance'         => 500,
+                'balance' => 500,
                 'lifetime_earned' => 500,
-                'lifetime_spent'  => 0,
+                'lifetime_spent' => 0,
             ]
         );
 
         $reward = LoyaltyReward::factory()->create([
             'loyalty_card_id' => $this->card->id,
-            'required_tier'   => 'bronze',
-            'points_amount'   => 100,
-            'type'            => 'content',
-            'content_url'     => 'https://example.com/exclusive-track.mp3',
+            'required_tier' => 'bronze',
+            'points_amount' => 100,
+            'type' => 'content',
+            'content_url' => 'https://example.com/exclusive-track.mp3',
         ]);
 
         $response = $this->actingAs($this->user)->postJson(
@@ -154,9 +157,9 @@ class LoyaltyCardApiTest extends TestCase
     public function test_unauthenticated_cannot_join(): void
     {
         $response = $this->postJson("/api/loyalty-cards/{$this->card->slug}/join", [
-            'tier'              => 'bronze',
+            'tier' => 'bronze',
             'subscription_type' => 'monthly',
-            'payment_method'    => 'mobile_money',
+            'payment_method' => 'mobile_money',
         ]);
 
         $response->assertUnauthorized();
@@ -174,14 +177,14 @@ class LoyaltyCardApiTest extends TestCase
     public function test_artist_can_create_loyalty_card(): void
     {
         $response = $this->actingAs($this->artistUser)->postJson('/api/artist/loyalty-cards', [
-            'name'        => 'My Fan Club',
+            'name' => 'My Fan Club',
             'description' => 'The best fan club ever',
-            'tiers'       => [
+            'tiers' => [
                 [
-                    'name'          => 'bronze',
+                    'name' => 'bronze',
                     'price_monthly' => 5000,
-                    'price_yearly'  => 50000,
-                    'benefits'      => ['Early access'],
+                    'price_yearly' => 50000,
+                    'benefits' => ['Early access'],
                 ],
             ],
         ]);
@@ -198,7 +201,7 @@ class LoyaltyCardApiTest extends TestCase
 
         $response->assertOk();
         $this->assertDatabaseHas('loyalty_cards', [
-            'id'          => $this->card->id,
+            'id' => $this->card->id,
             'description' => 'Updated description',
         ]);
     }
@@ -213,7 +216,7 @@ class LoyaltyCardApiTest extends TestCase
 
         $response->assertOk();
         $this->assertDatabaseHas('loyalty_cards', [
-            'id'     => $draft->id,
+            'id' => $draft->id,
             'status' => 'active',
         ]);
     }
@@ -250,13 +253,13 @@ class LoyaltyCardApiTest extends TestCase
         $response = $this->actingAs($this->artistUser)->postJson(
             "/api/artist/loyalty-cards/{$this->card->slug}/rewards",
             [
-                'name'          => 'Exclusive Track',
-                'description'   => 'An unreleased track',
-                'type'          => 'content',
+                'name' => 'Exclusive Track',
+                'description' => 'An unreleased track',
+                'type' => 'content',
                 'required_tier' => 'bronze',
                 'points_amount' => 100,
-                'content_type'  => 'audio',
-                'content_url'   => 'https://cdn.example.com/track.mp3',
+                'content_type' => 'audio',
+                'content_url' => 'https://cdn.example.com/track.mp3',
             ]
         );
 

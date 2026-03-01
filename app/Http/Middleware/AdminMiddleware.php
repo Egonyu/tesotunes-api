@@ -24,6 +24,7 @@ class AdminMiddleware
                 ], 401);
             }
             $returnUrl = urlencode($request->fullUrl());
+
             return redirect("{$frontendUrl}/login?admin=true&return={$returnUrl}");
         }
 
@@ -34,6 +35,7 @@ class AdminMiddleware
                     'message' => 'Account is suspended',
                 ], 403);
             }
+
             return redirect("{$frontendUrl}/login?error=suspended");
         }
 

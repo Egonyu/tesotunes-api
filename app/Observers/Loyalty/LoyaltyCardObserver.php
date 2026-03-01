@@ -38,7 +38,7 @@ class LoyaltyCardObserver
                     metadata: [
                         'card_name' => $card->name,
                         'artist_name' => $card->artist->stage_name ?? $card->artist->name,
-                        'tiers'  => array_keys($card->tiers ?? []),
+                        'tiers' => array_keys($card->tiers ?? []),
                     ],
                     actorType: 'Artist'
                 );

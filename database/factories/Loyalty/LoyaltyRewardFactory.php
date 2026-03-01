@@ -13,24 +13,24 @@ class LoyaltyRewardFactory extends Factory
     public function definition(): array
     {
         return [
-            'loyalty_card_id'     => LoyaltyCard::factory(),
-            'name'                => $this->faker->sentence(3),
-            'description'         => $this->faker->paragraph(),
-            'type'                => $this->faker->randomElement(['content', 'merchandise', 'experience', 'discount', 'points']),
-            'required_tier'       => 'bronze',
-            'points_amount'       => $this->faker->randomElement([100, 250, 500, 1000]),
-            'is_active'           => true,
-            'max_redemptions'     => null,
+            'loyalty_card_id' => LoyaltyCard::factory(),
+            'name' => $this->faker->sentence(3),
+            'description' => $this->faker->paragraph(),
+            'type' => $this->faker->randomElement(['content', 'merchandise', 'experience', 'discount', 'points']),
+            'required_tier' => 'bronze',
+            'points_amount' => $this->faker->randomElement([100, 250, 500, 1000]),
+            'is_active' => true,
+            'max_redemptions' => null,
             'current_redemptions' => 0,
-            'available_from'      => null,
-            'available_until'     => null,
+            'available_from' => null,
+            'available_until' => null,
         ];
     }
 
     public function content(): static
     {
         return $this->state(fn () => [
-            'type'        => 'content',
+            'type' => 'content',
             'content_url' => $this->faker->url(),
         ]);
     }
@@ -38,7 +38,7 @@ class LoyaltyRewardFactory extends Factory
     public function discount(): static
     {
         return $this->state(fn () => [
-            'type'                => 'discount',
+            'type' => 'discount',
             'discount_percentage' => $this->faker->randomElement([10, 15, 20, 25]),
         ]);
     }
@@ -53,8 +53,8 @@ class LoyaltyRewardFactory extends Factory
     public function forGold(): static
     {
         return $this->state(fn () => [
-            'required_tier'  => 'gold',
-            'points_amount'  => 1000,
+            'required_tier' => 'gold',
+            'points_amount' => 1000,
         ]);
     }
 }

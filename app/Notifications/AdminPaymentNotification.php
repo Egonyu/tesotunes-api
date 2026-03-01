@@ -36,25 +36,25 @@ class AdminPaymentNotification extends Notification implements ShouldQueue
                 ->subject("[Admin] High-Value Payment: {$currency} {$amount}")
                 ->line("A high-value payment of **{$currency} {$amount}** has been processed.")
                 ->line('**Payment Details:**')
-                ->line("- User: ".($user->display_name ?? 'Unknown')." (".($user->email ?? 'N/A').")")
+                ->line('- User: '.($user->display_name ?? 'Unknown').' ('.($user->email ?? 'N/A').')')
                 ->line("- Amount: {$currency} {$amount}")
                 ->line("- Reference: {$this->payment->transaction_reference}")
-                ->line("- Status: ".ucfirst($this->payment->status))
-                ->line("- Method: ".ucfirst($this->payment->payment_method ?? 'N/A'))
+                ->line('- Status: '.ucfirst($this->payment->status))
+                ->line('- Method: '.ucfirst($this->payment->payment_method ?? 'N/A'))
                 ->action('Review Payment', url("/admin/payments/{$this->payment->id}")),
 
             'failed' => $mail
                 ->subject("[Admin] Payment Failed: {$currency} {$amount}")
                 ->line("A payment of **{$currency} {$amount}** has failed and may need investigation.")
-                ->line("- User: ".($user->display_name ?? 'Unknown'))
-                ->line("- Reason: ".($this->payment->failure_reason ?? 'Unknown'))
+                ->line('- User: '.($user->display_name ?? 'Unknown'))
+                ->line('- Reason: '.($this->payment->failure_reason ?? 'Unknown'))
                 ->line("- Reference: {$this->payment->transaction_reference}")
                 ->action('Investigate', url("/admin/payments/{$this->payment->id}")),
 
             'refunded' => $mail
                 ->subject("[Admin] Payment Refunded: {$currency} {$amount}")
                 ->line("A payment of **{$currency} {$amount}** has been refunded.")
-                ->line("- User: ".($user->display_name ?? 'Unknown'))
+                ->line('- User: '.($user->display_name ?? 'Unknown'))
                 ->line("- Reference: {$this->payment->transaction_reference}")
                 ->action('View Details', url("/admin/payments/{$this->payment->id}")),
 

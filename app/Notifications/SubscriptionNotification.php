@@ -68,7 +68,7 @@ class SubscriptionNotification extends Notification implements ShouldQueue
                 ->line('Your subscription will be paused if payment is not resolved within 3 days.'),
 
             default => (new MailMessage)
-                ->subject("Subscription Update — TesoTunes")
+                ->subject('Subscription Update — TesoTunes')
                 ->greeting("Hi {$notifiable->display_name},")
                 ->line($this->getEventMessage())
                 ->action('View Subscription', url('/settings/subscription')),
@@ -127,7 +127,7 @@ class SubscriptionNotification extends Notification implements ShouldQueue
             self::CANCELLED => "Your {$this->planName} subscription has been cancelled.",
             self::EXPIRED => "Your {$this->planName} subscription has expired. Resubscribe to continue.",
             self::PAYMENT_FAILED => "Payment failed for {$this->planName}. Please update your payment method.",
-            default => "Your subscription status has changed.",
+            default => 'Your subscription status has changed.',
         };
     }
 

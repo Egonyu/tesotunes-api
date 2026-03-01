@@ -1,12 +1,12 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\Admin\LoyaltyAdminController;
 use App\Http\Controllers\Api\Artist\LoyaltyCardController;
 use App\Http\Controllers\Api\Artist\LoyaltyRewardController;
 use App\Http\Controllers\Api\LoyaltyController;
 use App\Http\Controllers\Api\LoyaltyPointsController;
 use App\Http\Controllers\Api\MembershipController;
-use App\Http\Controllers\Api\Admin\LoyaltyAdminController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
