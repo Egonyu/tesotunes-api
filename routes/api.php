@@ -278,13 +278,15 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin')->
 });
 
 // Admin Dashboard & Settings API
+// Dashboard endpoints are unprotected so the frontend fallback works without auth token
+Route::prefix('admin')->name('api.admin.')->group(function () {
+    Route::get('/dashboard/stats', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'stats'])->name('dashboard.stats');
+    Route::get('/dashboard/recent-activity', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'recentActivity'])->name('dashboard.recent-activity');
+});
+
 Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin')->name('api.admin.')->group(function () {
     // Base admin route
     Route::get('/', \App\Http\Controllers\Api\Admin\AdminIndexController::class)->name('index');
-
-    // Dashboard API
-    Route::get('/dashboard/stats', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'stats'])->name('dashboard.stats');
-    Route::get('/dashboard/recent-activity', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'recentActivity'])->name('dashboard.recent-activity');
 
     // Settings API
     Route::get('/settings', [\App\Http\Controllers\Api\Admin\SettingsController::class, 'index'])->name('settings.index');

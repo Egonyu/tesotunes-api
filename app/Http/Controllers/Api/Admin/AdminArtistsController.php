@@ -95,132 +95,210 @@ class AdminArtistsController extends Controller
      */
     public function show($id)
     {
-        $artist = DB::table('artists')
-            ->select([
-                'artists.id',
-                'artists.uuid',
-                'artists.user_id',
-                'artists.stage_name as name',
-                'artists.slug',
-                'artists.bio',
-                'artists.avatar',
-                'artists.cover_image',
-                'artists.status',
-                'artists.is_verified',
-                'artists.is_trusted',
-                'artists.verification_status',
-                'artists.verified_at',
-                'artists.website_url',
-                'artists.social_links',
-                'artists.primary_genre_id',
-                'artists.total_songs_count',
-                'artists.total_albums_count',
-                'artists.total_plays_count',
-                'artists.followers_count',
-                'artists.earnings_balance',
-                'artists.commission_rate',
-                'artists.can_upload',
-                'artists.auto_publish',
-                'artists.require_approval',
-                'artists.distribution_suspended',
-                'artists.record_label',
-                'artists.career_start_year',
-                'artists.influences',
-                'artists.created_at',
-                'artists.updated_at',
-                'users.id as user_table_id',
-                'users.email',
-                'users.username',
-                'users.phone',
-                'users.full_name',
-                'users.name as user_name',
-            ])
-            ->join('users', 'artists.user_id', '=', 'users.id')
-            ->where('artists.id', $id)
-            ->first();
+        try {
+            // Build select list dynamically — only include columns that exist in the DB
+            $artistColumns = \Schema::getColumnListing('artists');
+            $userColumns = \Schema::getColumnListing('users');
 
-        if (! $artist) {
-            return response()->json([
-                'message' => 'Artist not found.',
-            ], 404);
-        }
+            $select = ['artists.id', 'artists.user_id', 'artists.created_at', 'artists.updated_at'];
 
-        // Add full URLs
-        $artist->avatar_url = $artist->avatar
-            ? url('storage/'.$artist->avatar)
-            : null;
-        $artist->cover_url = $artist->cover_image
-            ? url('storage/'.$artist->cover_image)
-            : null;
+            // Map of desired columns → alias (if any)
+            $artistSelect = [
+                'uuid' => null,
+                'stage_name' => 'name',
+                'slug' => null,
+                'bio' => null,
+                'avatar' => null,
+                'cover_image' => null,
+                'status' => null,
+                'is_verified' => null,
+                'is_trusted' => null,
+                'verification_status' => null,
+                'verified_at' => null,
+                'website_url' => null,
+                'social_links' => null,
+                'primary_genre_id' => null,
+                'total_songs_count' => null,
+                'total_albums_count' => null,
+                'total_plays_count' => null,
+                'followers_count' => null,
+                'earnings_balance' => null,
+                'commission_rate' => null,
+                'can_upload' => null,
+                'auto_publish' => null,
+                'require_approval' => null,
+                'distribution_suspended' => null,
+                'record_label' => null,
+                'career_start_year' => null,
+                'influences' => null,
+            ];
 
-        // Parse social_links JSON
-        $socialLinks = json_decode($artist->social_links, true) ?? [];
-        $artist->spotify_url = $socialLinks['spotify'] ?? null;
-        $artist->apple_music_url = $socialLinks['apple_music'] ?? null;
-        $artist->youtube_url = $socialLinks['youtube'] ?? null;
-        $artist->instagram_url = $socialLinks['instagram'] ?? null;
-        $artist->twitter_url = $socialLinks['twitter'] ?? null;
-        $artist->facebook_url = $socialLinks['facebook'] ?? null;
-        $artist->tiktok_url = $socialLinks['tiktok'] ?? null;
-        $artist->website = $artist->website_url;
-
-        // Alias counts for frontend
-        $artist->total_songs = $artist->total_songs_count ?? 0;
-        $artist->total_albums = $artist->total_albums_count ?? 0;
-        $artist->total_plays = $artist->total_plays_count ?? 0;
-        $artist->followers = $artist->followers_count ?? 0;
-        $artist->is_featured = (bool) $artist->is_trusted;
-        $artist->profile_url = $artist->avatar_url;
-
-        // Get primary genre
-        $artist->genres = [];
-        if ($artist->primary_genre_id) {
-            $genre = DB::table('genres')->where('id', $artist->primary_genre_id)->first();
-            if ($genre) {
-                $artist->genres = [['id' => (string) $genre->id, 'name' => $genre->name]];
+            foreach ($artistSelect as $col => $alias) {
+                if (in_array($col, $artistColumns)) {
+                    $select[] = $alias ? "artists.{$col} as {$alias}" : "artists.{$col}";
+                }
             }
+
+            // User columns
+            $select[] = 'users.id as user_table_id';
+            $select[] = 'users.email';
+            if (in_array('username', $userColumns)) {
+                $select[] = 'users.username';
+            }
+            if (in_array('phone', $userColumns)) {
+                $select[] = 'users.phone';
+            }
+            if (in_array('full_name', $userColumns)) {
+                $select[] = 'users.full_name';
+            }
+            if (in_array('name', $userColumns)) {
+                $select[] = 'users.name as user_name';
+            }
+
+            $artist = DB::table('artists')
+                ->select($select)
+                ->join('users', 'artists.user_id', '=', 'users.id')
+                ->where('artists.id', $id)
+                ->first();
+
+            if (! $artist) {
+                return response()->json([
+                    'message' => 'Artist not found.',
+                ], 404);
+            }
+
+            // Add full URLs
+            $artist->avatar_url = ($artist->avatar ?? null)
+                ? url('storage/'.$artist->avatar)
+                : null;
+            $artist->cover_url = ($artist->cover_image ?? null)
+                ? url('storage/'.$artist->cover_image)
+                : null;
+
+            // Parse social_links JSON
+            $socialLinks = json_decode($artist->social_links ?? '{}', true) ?? [];
+            $artist->spotify_url = $socialLinks['spotify'] ?? null;
+            $artist->apple_music_url = $socialLinks['apple_music'] ?? null;
+            $artist->youtube_url = $socialLinks['youtube'] ?? null;
+            $artist->instagram_url = $socialLinks['instagram'] ?? null;
+            $artist->twitter_url = $socialLinks['twitter'] ?? null;
+            $artist->facebook_url = $socialLinks['facebook'] ?? null;
+            $artist->tiktok_url = $socialLinks['tiktok'] ?? null;
+            $artist->website = $artist->website_url ?? null;
+
+            // Alias counts for frontend
+            $artist->total_songs = $artist->total_songs_count ?? 0;
+            $artist->total_albums = $artist->total_albums_count ?? 0;
+            $artist->total_plays = $artist->total_plays_count ?? 0;
+            $artist->followers = $artist->followers_count ?? 0;
+            $artist->is_featured = (bool) ($artist->is_trusted ?? false);
+            $artist->profile_url = $artist->avatar_url;
+
+            // Ensure name always exists
+            if (! isset($artist->name)) {
+                $artist->name = $artist->stage_name ?? '';
+            }
+
+            // Get primary genre
+            $artist->genres = [];
+            if (($artist->primary_genre_id ?? null) && \Schema::hasTable('genres')) {
+                $genre = DB::table('genres')->where('id', $artist->primary_genre_id)->first();
+                if ($genre) {
+                    $artist->genres = [['id' => (string) $genre->id, 'name' => $genre->name]];
+                }
+            }
+
+            // Get top songs
+            $artist->top_songs = [];
+            if (\Schema::hasTable('songs')) {
+                $songColumns = \Schema::getColumnListing('songs');
+                $songSelect = ['id', 'title', 'slug'];
+                if (in_array('play_count', $songColumns)) {
+                    $songSelect[] = 'play_count as plays';
+                }
+                if (in_array('artwork', $songColumns)) {
+                    $songSelect[] = 'artwork as cover_url';
+                }
+                $orderCol = in_array('play_count', $songColumns) ? 'play_count' : 'created_at';
+
+                $artist->top_songs = DB::table('songs')
+                    ->where('artist_id', $id)
+                    ->select($songSelect)
+                    ->orderBy($orderCol, 'desc')
+                    ->limit(5)
+                    ->get()
+                    ->map(function ($song) {
+                        if (isset($song->cover_url) && $song->cover_url) {
+                            $song->cover_url = url('storage/'.$song->cover_url);
+                        } else {
+                            $song->cover_url = null;
+                        }
+                        if (! isset($song->plays)) {
+                            $song->plays = 0;
+                        }
+
+                        return $song;
+                    })
+                    ->toArray();
+            }
+
+            // Get recent albums
+            $artist->recent_albums = [];
+            if (\Schema::hasTable('albums')) {
+                $albumColumns = \Schema::getColumnListing('albums');
+                $albumSelect = ['id', 'title', 'slug'];
+                if (in_array('artwork', $albumColumns)) {
+                    $albumSelect[] = 'artwork as cover_url';
+                }
+                if (in_array('release_date', $albumColumns)) {
+                    $albumSelect[] = 'release_date';
+                }
+                if (in_array('album_type', $albumColumns)) {
+                    $albumSelect[] = 'album_type';
+                }
+
+                $artist->recent_albums = DB::table('albums')
+                    ->where('artist_id', $id)
+                    ->select($albumSelect)
+                    ->orderBy('created_at', 'desc')
+                    ->limit(4)
+                    ->get()
+                    ->map(function ($album) {
+                        if (isset($album->cover_url) && $album->cover_url) {
+                            $album->cover_url = url('storage/'.$album->cover_url);
+                        } else {
+                            $album->cover_url = null;
+                        }
+
+                        return $album;
+                    })
+                    ->toArray();
+            }
+
+            // User profile info
+            $artist->user = [
+                'id' => $artist->user_table_id ?? $artist->user_id,
+                'name' => $artist->user_name ?? $artist->full_name ?? '',
+                'email' => $artist->email ?? '',
+                'username' => $artist->username ?? '',
+                'phone' => $artist->phone ?? '',
+            ];
+
+            return response()->json([
+                'data' => $artist,
+            ]);
+        } catch (\Throwable $e) {
+            \Log::error('AdminArtistsController@show failed', [
+                'artist_id' => $id,
+                'error' => $e->getMessage(),
+                'file' => $e->getFile().':'.$e->getLine(),
+            ]);
+
+            return response()->json([
+                'message' => 'Failed to load artist details.',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
+            ], 500);
         }
-
-        // Get top songs
-        $artist->top_songs = DB::table('songs')
-            ->where('artist_id', $id)
-            ->select('id', 'title', 'slug', 'play_count as plays', 'artwork as cover_url')
-            ->orderBy('play_count', 'desc')
-            ->limit(5)
-            ->get()
-            ->map(function ($song) {
-                $song->cover_url = $song->cover_url ? url('storage/'.$song->cover_url) : null;
-
-                return $song;
-            })
-            ->toArray();
-
-        // Get recent albums
-        $artist->recent_albums = DB::table('albums')
-            ->where('artist_id', $id)
-            ->select('id', 'title', 'slug', 'artwork as cover_url', 'release_date', 'album_type')
-            ->orderBy('created_at', 'desc')
-            ->limit(4)
-            ->get()
-            ->map(function ($album) {
-                $album->cover_url = $album->cover_url ? url('storage/'.$album->cover_url) : null;
-
-                return $album;
-            })
-            ->toArray();
-
-        // User profile info
-        $artist->user = [
-            'id' => $artist->user_table_id,
-            'name' => $artist->user_name ?? $artist->full_name ?? '',
-            'email' => $artist->email,
-            'username' => $artist->username,
-            'phone' => $artist->phone,
-        ];
-
-        return response()->json([
-            'data' => $artist,
-        ]);
     }
 
     /**
