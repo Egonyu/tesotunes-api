@@ -36,6 +36,7 @@ class SecurityAuditRoutes extends Command
         'api/announcements',
         'api/v1',
         'api/webhooks',
+        'api/store/webhooks',
         'api/content',
         'api/login',
         'api/register',
