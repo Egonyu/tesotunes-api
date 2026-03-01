@@ -10,12 +10,14 @@ use App\Models\Award;
 use App\Models\AwardCategory;
 use App\Models\AwardNomination;
 use App\Models\AwardVote;
+use App\Traits\HandlesApiErrors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class AdminAwardsApiController extends Controller
 {
+    use HandlesApiErrors;
     // ========================================================================
     // Dashboard — stats + listing
     // ========================================================================
@@ -25,17 +27,19 @@ class AdminAwardsApiController extends Controller
      */
     public function stats(): JsonResponse
     {
-        return response()->json([
-            'success' => true,
-            'data' => [
-                'total_awards' => Award::count(),
-                'total_categories' => AwardCategory::count(),
-                'total_nominations' => AwardNomination::count(),
-                'total_votes' => AwardVote::count(),
-                'active_awards' => Award::active()->count(),
-                'pending_nominations' => AwardNomination::pending()->count(),
-            ],
-        ]);
+        return $this->handleApiAction(function () {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total_awards' => Award::count(),
+                    'total_categories' => AwardCategory::count(),
+                    'total_nominations' => AwardNomination::count(),
+                    'total_votes' => AwardVote::count(),
+                    'active_awards' => Award::active()->count(),
+                    'pending_nominations' => AwardNomination::pending()->count(),
+                ],
+            ]);
+        }, 'Failed to load award statistics.');
     }
 
     /**
@@ -44,7 +48,8 @@ class AdminAwardsApiController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $perPage = min((int) $request->get('per_page', 15), 100);
+        return $this->handleApiAction(function () use ($request) {
+            $perPage = min((int) $request->get('per_page', 15), 100);
 
         $query = Award::withCount(['categories', 'nominations', 'votes'])
             ->when($request->filled('search'), fn ($q) => $q->where('title', 'like', '%'.$request->search.'%'))
@@ -54,22 +59,23 @@ class AdminAwardsApiController extends Controller
 
         $awards = $query->paginate($perPage);
 
-        return response()->json([
-            'success' => true,
-            'data' => AwardResource::collection($awards),
-            'stats' => [
-                'total_awards' => Award::count(),
-                'total_categories' => AwardCategory::count(),
-                'total_nominations' => AwardNomination::count(),
-                'total_votes' => AwardVote::count(),
-            ],
-            'meta' => [
-                'current_page' => $awards->currentPage(),
-                'last_page' => $awards->lastPage(),
-                'per_page' => $awards->perPage(),
-                'total' => $awards->total(),
-            ],
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => AwardResource::collection($awards),
+                'stats' => [
+                    'total_awards' => Award::count(),
+                    'total_categories' => AwardCategory::count(),
+                    'total_nominations' => AwardNomination::count(),
+                    'total_votes' => AwardVote::count(),
+                ],
+                'meta' => [
+                    'current_page' => $awards->currentPage(),
+                    'last_page' => $awards->lastPage(),
+                    'per_page' => $awards->perPage(),
+                    'total' => $awards->total(),
+                ],
+            ]);
+        }, 'Failed to load awards.');
     }
 
     // ========================================================================
@@ -81,7 +87,8 @@ class AdminAwardsApiController extends Controller
      */
     public function seasons(Request $request)
     {
-        $perPage = min((int) $request->get('per_page', 15), 100);
+        return $this->handleApiAction(function () use ($request) {
+            $perPage = min((int) $request->get('per_page', 15), 100);
 
         $awards = Award::withCount(['categories', 'nominations'])
             ->when($request->filled('search'), fn ($q) => $q->where('title', 'like', '%'.$request->search.'%'))
@@ -89,16 +96,17 @@ class AdminAwardsApiController extends Controller
             ->latest('year')
             ->paginate($perPage);
 
-        return response()->json([
-            'success' => true,
-            'data' => AwardResource::collection($awards),
-            'meta' => [
-                'current_page' => $awards->currentPage(),
-                'last_page' => $awards->lastPage(),
-                'per_page' => $awards->perPage(),
-                'total' => $awards->total(),
-            ],
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => AwardResource::collection($awards),
+                'meta' => [
+                    'current_page' => $awards->currentPage(),
+                    'last_page' => $awards->lastPage(),
+                    'per_page' => $awards->perPage(),
+                    'total' => $awards->total(),
+                ],
+            ]);
+        }, 'Failed to load award seasons.');
     }
 
     /**
@@ -106,7 +114,8 @@ class AdminAwardsApiController extends Controller
      */
     public function showSeason($id): JsonResponse
     {
-        $award = Award::where('id', $id)
+        return $this->handleApiAction(function () use ($id) {
+            $award = Award::where('id', $id)
             ->orWhere('uuid', $id)
             ->orWhere('slug', $id)
             ->withCount(['categories', 'nominations', 'votes'])
@@ -124,18 +133,19 @@ class AdminAwardsApiController extends Controller
             ->limit(50)
             ->get();
 
-        return response()->json([
-            'success' => true,
-            'data' => new AwardResource($award),
-            'categories' => AwardCategoryResource::collection($categories),
-            'nominations' => AwardNominationResource::collection($nominations),
-            'stats' => [
-                'total_categories' => $categories->count(),
-                'total_nominations' => $award->nominations_count,
-                'total_votes' => $award->votes_count,
-                'pending_nominations' => AwardNomination::where('award_id', $award->id)->pending()->count(),
-            ],
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => new AwardResource($award),
+                'categories' => AwardCategoryResource::collection($categories),
+                'nominations' => AwardNominationResource::collection($nominations),
+                'stats' => [
+                    'total_categories' => $categories->count(),
+                    'total_nominations' => $award->nominations_count,
+                    'total_votes' => $award->votes_count,
+                    'pending_nominations' => AwardNomination::where('award_id', $award->id)->pending()->count(),
+                ],
+            ]);
+        }, 'Failed to load award season details.');
     }
 
     /**
@@ -143,7 +153,8 @@ class AdminAwardsApiController extends Controller
      */
     public function storeSeason(Request $request): JsonResponse
     {
-        $validated = $request->validate([
+        return $this->handleApiAction(function () use ($request) {
+            $validated = $request->validate([
             'name' => 'required|string|max:255',
             'year' => 'required|integer|min:2020|max:2035',
             'description' => 'nullable|string',
@@ -179,11 +190,12 @@ class AdminAwardsApiController extends Controller
             'votes_per_category' => $validated['votes_per_category'] ?? 1,
         ]);
 
-        return response()->json([
-            'success' => true,
-            'data' => new AwardResource($award),
-            'message' => 'Award created successfully.',
-        ], 201);
+            return response()->json([
+                'success' => true,
+                'data' => new AwardResource($award),
+                'message' => 'Award created successfully.',
+            ], 201);
+        }, 'Failed to create award season.');
     }
 
     /**
@@ -191,7 +203,8 @@ class AdminAwardsApiController extends Controller
      */
     public function updateSeason(Request $request, $id): JsonResponse
     {
-        $award = Award::where('id', $id)->orWhere('uuid', $id)->firstOrFail();
+        return $this->handleApiAction(function () use ($request, $id) {
+            $award = Award::where('id', $id)->orWhere('uuid', $id)->firstOrFail();
 
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
@@ -238,11 +251,12 @@ class AdminAwardsApiController extends Controller
 
         $award->update($updateData);
 
-        return response()->json([
-            'success' => true,
-            'data' => new AwardResource($award->fresh()),
-            'message' => 'Award updated successfully.',
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => new AwardResource($award->fresh()),
+                'message' => 'Award updated successfully.',
+            ]);
+        }, 'Failed to update award season.');
     }
 
     /**
@@ -250,24 +264,24 @@ class AdminAwardsApiController extends Controller
      */
     public function destroySeason($id): JsonResponse
     {
-        $award = Award::where('id', $id)->orWhere('uuid', $id)->firstOrFail();
+        return $this->handleApiAction(function () use ($id) {
+            $award = Award::where('id', $id)->orWhere('uuid', $id)->firstOrFail();
 
-        // Prevent deletion if there are votes
-        if ($award->votes()->exists()) {
+            if ($award->votes()->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot delete award with existing votes.',
+                ], 422);
+            }
+
+            $award->nominations()->delete();
+            $award->delete();
+
             return response()->json([
-                'success' => false,
-                'message' => 'Cannot delete award with existing votes.',
-            ], 422);
-        }
-
-        // Cascade delete nominations
-        $award->nominations()->delete();
-        $award->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Award deleted successfully.',
-        ]);
+                'success' => true,
+                'message' => 'Award deleted successfully.',
+            ]);
+        }, 'Failed to delete award season.');
     }
 
     // ========================================================================
@@ -279,7 +293,8 @@ class AdminAwardsApiController extends Controller
      */
     public function categories(Request $request)
     {
-        $perPage = min((int) $request->get('per_page', 20), 100);
+        return $this->handleApiAction(function () use ($request) {
+            $perPage = min((int) $request->get('per_page', 20), 100);
 
         $categories = AwardCategory::withCount('nominations')
             ->when($request->filled('search'), fn ($q) => $q->where('name', 'like', '%'.$request->search.'%'))
@@ -290,16 +305,17 @@ class AdminAwardsApiController extends Controller
             ->ordered()
             ->paginate($perPage);
 
-        return response()->json([
-            'success' => true,
-            'data' => AwardCategoryResource::collection($categories),
-            'meta' => [
-                'current_page' => $categories->currentPage(),
-                'last_page' => $categories->lastPage(),
-                'per_page' => $categories->perPage(),
-                'total' => $categories->total(),
-            ],
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => AwardCategoryResource::collection($categories),
+                'meta' => [
+                    'current_page' => $categories->currentPage(),
+                    'last_page' => $categories->lastPage(),
+                    'per_page' => $categories->perPage(),
+                    'total' => $categories->total(),
+                ],
+            ]);
+        }, 'Failed to load award categories.');
     }
 
     /**
@@ -307,7 +323,8 @@ class AdminAwardsApiController extends Controller
      */
     public function showCategory($id): JsonResponse
     {
-        $category = AwardCategory::where('id', $id)
+        return $this->handleApiAction(function () use ($id) {
+            $category = AwardCategory::where('id', $id)
             ->orWhere('uuid', $id)
             ->withCount('nominations')
             ->firstOrFail();
@@ -318,22 +335,23 @@ class AdminAwardsApiController extends Controller
             ->latest()
             ->paginate(20);
 
-        return response()->json([
-            'success' => true,
-            'data' => new AwardCategoryResource($category),
-            'nominations' => AwardNominationResource::collection($nominations),
-            'stats' => [
-                'total_nominations' => $category->nominations_count,
-                'approved' => AwardNomination::where('category_id', $category->id)->approved()->count(),
-                'pending' => AwardNomination::where('category_id', $category->id)->pending()->count(),
-            ],
-            'meta' => [
-                'current_page' => $nominations->currentPage(),
-                'last_page' => $nominations->lastPage(),
-                'per_page' => $nominations->perPage(),
-                'total' => $nominations->total(),
-            ],
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => new AwardCategoryResource($category),
+                'nominations' => AwardNominationResource::collection($nominations),
+                'stats' => [
+                    'total_nominations' => $category->nominations_count,
+                    'approved' => AwardNomination::where('category_id', $category->id)->approved()->count(),
+                    'pending' => AwardNomination::where('category_id', $category->id)->pending()->count(),
+                ],
+                'meta' => [
+                    'current_page' => $nominations->currentPage(),
+                    'last_page' => $nominations->lastPage(),
+                    'per_page' => $nominations->perPage(),
+                    'total' => $nominations->total(),
+                ],
+            ]);
+        }, 'Failed to load award category details.');
     }
 
     /**
@@ -341,7 +359,8 @@ class AdminAwardsApiController extends Controller
      */
     public function storeCategory(Request $request): JsonResponse
     {
-        $validated = $request->validate([
+        return $this->handleApiAction(function () use ($request) {
+            $validated = $request->validate([
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
             'category_type' => 'nullable|string|max:50',
@@ -359,11 +378,12 @@ class AdminAwardsApiController extends Controller
             'sort_order' => $validated['sort_order'] ?? 0,
         ]);
 
-        return response()->json([
-            'success' => true,
-            'data' => new AwardCategoryResource($category),
-            'message' => 'Category created successfully.',
-        ], 201);
+            return response()->json([
+                'success' => true,
+                'data' => new AwardCategoryResource($category),
+                'message' => 'Category created successfully.',
+            ], 201);
+        }, 'Failed to create award category.');
     }
 
     /**
@@ -371,7 +391,8 @@ class AdminAwardsApiController extends Controller
      */
     public function updateCategory(Request $request, $id): JsonResponse
     {
-        $category = AwardCategory::where('id', $id)->orWhere('uuid', $id)->firstOrFail();
+        return $this->handleApiAction(function () use ($request, $id) {
+            $category = AwardCategory::where('id', $id)->orWhere('uuid', $id)->firstOrFail();
 
         $validated = $request->validate([
             'name' => 'sometimes|string|max:255',
@@ -387,11 +408,12 @@ class AdminAwardsApiController extends Controller
 
         $category->update($validated);
 
-        return response()->json([
-            'success' => true,
-            'data' => new AwardCategoryResource($category->fresh()),
-            'message' => 'Category updated successfully.',
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => new AwardCategoryResource($category->fresh()),
+                'message' => 'Category updated successfully.',
+            ]);
+        }, 'Failed to update award category.');
     }
 
     /**
@@ -399,21 +421,23 @@ class AdminAwardsApiController extends Controller
      */
     public function destroyCategory($id): JsonResponse
     {
-        $category = AwardCategory::where('id', $id)->orWhere('uuid', $id)->firstOrFail();
+        return $this->handleApiAction(function () use ($id) {
+            $category = AwardCategory::where('id', $id)->orWhere('uuid', $id)->firstOrFail();
 
-        if ($category->nominations()->exists()) {
+            if ($category->nominations()->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot delete category with existing nominations.',
+                ], 422);
+            }
+
+            $category->delete();
+
             return response()->json([
-                'success' => false,
-                'message' => 'Cannot delete category with existing nominations.',
-            ], 422);
-        }
-
-        $category->delete();
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Category deleted successfully.',
-        ]);
+                'success' => true,
+                'message' => 'Category deleted successfully.',
+            ]);
+        }, 'Failed to delete award category.');
     }
 
     // ========================================================================
@@ -425,7 +449,8 @@ class AdminAwardsApiController extends Controller
      */
     public function nominations(Request $request)
     {
-        $perPage = min((int) $request->get('per_page', 20), 100);
+        return $this->handleApiAction(function () use ($request) {
+            $perPage = min((int) $request->get('per_page', 20), 100);
 
         $nominations = AwardNomination::with(['award', 'category', 'nominatedBy:id,username'])
             ->withCount('votes')
@@ -440,18 +465,19 @@ class AdminAwardsApiController extends Controller
         $seasons = Award::select('id', 'title', 'year', 'status')->latest('year')->get();
         $categories = AwardCategory::select('id', 'name', 'category_type')->ordered()->get();
 
-        return response()->json([
-            'success' => true,
-            'data' => AwardNominationResource::collection($nominations),
-            'seasons' => $seasons,
-            'categories' => $categories,
-            'meta' => [
-                'current_page' => $nominations->currentPage(),
-                'last_page' => $nominations->lastPage(),
-                'per_page' => $nominations->perPage(),
-                'total' => $nominations->total(),
-            ],
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => AwardNominationResource::collection($nominations),
+                'seasons' => $seasons,
+                'categories' => $categories,
+                'meta' => [
+                    'current_page' => $nominations->currentPage(),
+                    'last_page' => $nominations->lastPage(),
+                    'per_page' => $nominations->perPage(),
+                    'total' => $nominations->total(),
+                ],
+            ]);
+        }, 'Failed to load nominations.');
     }
 
     /**
@@ -459,7 +485,8 @@ class AdminAwardsApiController extends Controller
      */
     public function storeNomination(Request $request): JsonResponse
     {
-        $validated = $request->validate([
+        return $this->handleApiAction(function () use ($request) {
+            $validated = $request->validate([
             'award_id' => 'required|integer|exists:awards,id',
             'category_id' => 'required|integer|exists:award_categories,id',
             'nominee_name' => 'required|string|max:255',
@@ -485,11 +512,12 @@ class AdminAwardsApiController extends Controller
             'approved_at' => ($validated['status'] ?? 'approved') === 'approved' ? now() : null,
         ]);
 
-        return response()->json([
-            'success' => true,
-            'data' => new AwardNominationResource($nomination->load(['category', 'award'])),
-            'message' => 'Nomination created successfully.',
-        ], 201);
+            return response()->json([
+                'success' => true,
+                'data' => new AwardNominationResource($nomination->load(['category', 'award'])),
+                'message' => 'Nomination created successfully.',
+            ], 201);
+        }, 'Failed to create nomination.');
     }
 
     /**
@@ -497,17 +525,19 @@ class AdminAwardsApiController extends Controller
      */
     public function approveNomination($id): JsonResponse
     {
-        $nomination = AwardNomination::findOrFail($id);
-        $nomination->update([
-            'status' => 'approved',
-            'approved_at' => now(),
-        ]);
+        return $this->handleApiAction(function () use ($id) {
+            $nomination = AwardNomination::findOrFail($id);
+            $nomination->update([
+                'status' => 'approved',
+                'approved_at' => now(),
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'data' => new AwardNominationResource($nomination->fresh()),
-            'message' => 'Nomination approved.',
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => new AwardNominationResource($nomination->fresh()),
+                'message' => 'Nomination approved.',
+            ]);
+        }, 'Failed to approve nomination.');
     }
 
     /**
@@ -515,14 +545,16 @@ class AdminAwardsApiController extends Controller
      */
     public function rejectNomination($id): JsonResponse
     {
-        $nomination = AwardNomination::findOrFail($id);
-        $nomination->update(['status' => 'rejected']);
+        return $this->handleApiAction(function () use ($id) {
+            $nomination = AwardNomination::findOrFail($id);
+            $nomination->update(['status' => 'rejected']);
 
-        return response()->json([
-            'success' => true,
-            'data' => new AwardNominationResource($nomination->fresh()),
-            'message' => 'Nomination rejected.',
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => new AwardNominationResource($nomination->fresh()),
+                'message' => 'Nomination rejected.',
+            ]);
+        }, 'Failed to reject nomination.');
     }
 
     /**
@@ -530,13 +562,15 @@ class AdminAwardsApiController extends Controller
      */
     public function setWinner($id): JsonResponse
     {
-        $nomination = AwardNomination::findOrFail($id);
-        $nomination->update(['status' => 'winner']);
+        return $this->handleApiAction(function () use ($id) {
+            $nomination = AwardNomination::findOrFail($id);
+            $nomination->update(['status' => 'winner']);
 
-        return response()->json([
-            'success' => true,
-            'data' => new AwardNominationResource($nomination->fresh()),
-            'message' => 'Winner declared!',
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => new AwardNominationResource($nomination->fresh()),
+                'message' => 'Winner declared!',
+            ]);
+        }, 'Failed to set winner.');
     }
 }

@@ -8,26 +8,31 @@ use App\Http\Resources\ForumThreadResource;
 use App\Models\Modules\Forum\ForumCategory;
 use App\Models\Modules\Forum\ForumReply;
 use App\Models\Modules\Forum\ForumTopic;
+use App\Traits\HandlesApiErrors;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class ForumsApiController extends Controller
 {
+    use HandlesApiErrors;
     /**
      * GET /api/admin/forums/stats
      */
     public function stats()
     {
-        return response()->json([
-            'data' => [
-                'total_topics' => ForumTopic::count(),
-                'total_replies' => ForumReply::count(),
-                'active_topics' => ForumTopic::where('status', 'published')->count(),
-                'total_categories' => ForumCategory::active()->count(),
-                'recent_topics_30d' => ForumTopic::where('created_at', '>=', now()->subDays(30))->count(),
-                'recent_replies_30d' => ForumReply::where('created_at', '>=', now()->subDays(30))->count(),
-            ],
-        ]);
+        return $this->handleApiAction(function () {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total_topics' => ForumTopic::count(),
+                    'total_replies' => ForumReply::count(),
+                    'active_topics' => ForumTopic::where('status', 'published')->count(),
+                    'total_categories' => ForumCategory::active()->count(),
+                    'recent_topics_30d' => ForumTopic::where('created_at', '>=', now()->subDays(30))->count(),
+                    'recent_replies_30d' => ForumReply::where('created_at', '>=', now()->subDays(30))->count(),
+                ],
+            ]);
+        }, 'Failed to fetch forum stats.');
     }
 
     /**
@@ -35,21 +40,32 @@ class ForumsApiController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = min((int) $request->get('per_page', 10), 100);
+        return $this->handleApiAction(function () use ($request) {
+            $perPage = min((int) $request->get('per_page', 10), 100);
 
-        $topics = ForumTopic::with(['user', 'category'])
-            ->when($request->filled('search'), function ($q) use ($request) {
-                $q->where(function ($sub) use ($request) {
-                    $sub->where('title', 'like', '%'.$request->search.'%')
-                        ->orWhere('content', 'like', '%'.$request->search.'%');
-                });
-            })
-            ->when($request->filled('category') && $request->category !== 'all', fn ($q) => $q->where('category_id', $request->category))
-            ->when($request->filled('status') && $request->status !== 'all', fn ($q) => $q->where('status', $request->status))
-            ->orderByDesc('last_activity_at')
-            ->paginate($perPage);
+            $topics = ForumTopic::with(['user', 'category'])
+                ->when($request->filled('search'), function ($q) use ($request) {
+                    $q->where(function ($sub) use ($request) {
+                        $sub->where('title', 'like', '%'.$request->search.'%')
+                            ->orWhere('content', 'like', '%'.$request->search.'%');
+                    });
+                })
+                ->when($request->filled('category') && $request->category !== 'all', fn ($q) => $q->where('category_id', $request->category))
+                ->when($request->filled('status') && $request->status !== 'all', fn ($q) => $q->where('status', $request->status))
+                ->orderByDesc('last_activity_at')
+                ->paginate($perPage);
 
-        return ForumThreadResource::collection($topics);
+            return response()->json([
+                'success' => true,
+                'data' => ForumThreadResource::collection($topics),
+                'meta' => [
+                    'current_page' => $topics->currentPage(),
+                    'last_page' => $topics->lastPage(),
+                    'per_page' => $topics->perPage(),
+                    'total' => $topics->total(),
+                ],
+            ]);
+        }, 'Failed to fetch forum topics.');
     }
 
     /**
@@ -57,9 +73,14 @@ class ForumsApiController extends Controller
      */
     public function show(int $id)
     {
-        $topic = ForumTopic::with(['user', 'category'])->findOrFail($id);
+        return $this->handleApiAction(function () use ($id) {
+            $topic = ForumTopic::with(['user', 'category'])->findOrFail($id);
 
-        return new ForumThreadResource($topic);
+            return response()->json([
+                'success' => true,
+                'data' => new ForumThreadResource($topic),
+            ]);
+        }, 'Failed to fetch forum topic.');
     }
 
     /**
@@ -67,31 +88,33 @@ class ForumsApiController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'content' => 'required|string',
-            'category_id' => 'required|exists:forum_categories,id',
-            'is_pinned' => 'boolean',
-            'is_featured' => 'boolean',
-            'status' => 'in:published,draft,hidden',
-        ]);
+        return $this->handleApiAction(function () use ($request) {
+            $validated = $request->validate([
+                'title' => 'required|string|max:255',
+                'content' => 'required|string',
+                'category_id' => 'required|exists:forum_categories,id',
+                'is_pinned' => 'boolean',
+                'is_featured' => 'boolean',
+                'status' => 'in:published,draft,hidden',
+            ]);
 
-        $topic = ForumTopic::create([
-            ...$validated,
-            'user_id' => $request->user()->id,
-            'slug' => Str::slug($validated['title']).'-'.Str::random(6),
-            'status' => $validated['status'] ?? 'published',
-            'last_activity_at' => now(),
-        ]);
+            $topic = ForumTopic::create([
+                ...$validated,
+                'user_id' => $request->user()->id,
+                'slug' => Str::slug($validated['title']).'-'.Str::random(6),
+                'status' => $validated['status'] ?? 'published',
+                'last_activity_at' => now(),
+            ]);
 
-        // Increment category topic count
-        $topic->category->increment('topics_count');
+            // Increment category topic count
+            $topic->category->increment('topics_count');
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Topic created successfully',
-            'data' => new ForumThreadResource($topic->load(['user', 'category'])),
-        ], 201);
+            return response()->json([
+                'success' => true,
+                'message' => 'Topic created successfully',
+                'data' => new ForumThreadResource($topic->load(['user', 'category'])),
+            ], 201);
+        }, 'Failed to create forum topic.');
     }
 
     /**
@@ -99,24 +122,26 @@ class ForumsApiController extends Controller
      */
     public function update(Request $request, int $id)
     {
-        $topic = ForumTopic::findOrFail($id);
+        return $this->handleApiAction(function () use ($request, $id) {
+            $topic = ForumTopic::findOrFail($id);
 
-        $validated = $request->validate([
-            'title' => 'sometimes|string|max:255',
-            'content' => 'sometimes|string',
-            'category_id' => 'sometimes|exists:forum_categories,id',
-            'is_pinned' => 'boolean',
-            'is_featured' => 'boolean',
-            'status' => 'in:published,draft,hidden',
-        ]);
+            $validated = $request->validate([
+                'title' => 'sometimes|string|max:255',
+                'content' => 'sometimes|string',
+                'category_id' => 'sometimes|exists:forum_categories,id',
+                'is_pinned' => 'boolean',
+                'is_featured' => 'boolean',
+                'status' => 'in:published,draft,hidden',
+            ]);
 
-        $topic->update($validated);
+            $topic->update($validated);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Topic updated successfully',
-            'data' => new ForumThreadResource($topic->fresh(['user', 'category'])),
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Topic updated successfully',
+                'data' => new ForumThreadResource($topic->fresh(['user', 'category'])),
+            ]);
+        }, 'Failed to update forum topic.');
     }
 
     /**
@@ -124,11 +149,13 @@ class ForumsApiController extends Controller
      */
     public function destroy(int $id)
     {
-        $topic = ForumTopic::findOrFail($id);
-        $topic->category->decrement('topics_count');
-        $topic->delete();
+        return $this->handleApiAction(function () use ($id) {
+            $topic = ForumTopic::findOrFail($id);
+            $topic->category->decrement('topics_count');
+            $topic->delete();
 
-        return response()->json(['success' => true, 'message' => 'Topic deleted successfully']);
+            return response()->json(['success' => true, 'message' => 'Topic deleted successfully']);
+        }, 'Failed to delete forum topic.');
     }
 
     /**
@@ -136,15 +163,17 @@ class ForumsApiController extends Controller
      */
     public function togglePin(int $id)
     {
-        $topic = ForumTopic::findOrFail($id);
-        $topic->is_pinned = ! $topic->is_pinned;
-        $topic->save();
+        return $this->handleApiAction(function () use ($id) {
+            $topic = ForumTopic::findOrFail($id);
+            $topic->is_pinned = ! $topic->is_pinned;
+            $topic->save();
 
-        return response()->json([
-            'success' => true,
-            'message' => $topic->is_pinned ? 'Topic pinned' : 'Topic unpinned',
-            'is_pinned' => $topic->is_pinned,
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => $topic->is_pinned ? 'Topic pinned' : 'Topic unpinned',
+                'is_pinned' => $topic->is_pinned,
+            ]);
+        }, 'Failed to toggle pin status.');
     }
 
     /**
@@ -152,15 +181,17 @@ class ForumsApiController extends Controller
      */
     public function toggleLock(int $id)
     {
-        $topic = ForumTopic::findOrFail($id);
-        $topic->is_locked = ! $topic->is_locked;
-        $topic->save();
+        return $this->handleApiAction(function () use ($id) {
+            $topic = ForumTopic::findOrFail($id);
+            $topic->is_locked = ! $topic->is_locked;
+            $topic->save();
 
-        return response()->json([
-            'success' => true,
-            'message' => $topic->is_locked ? 'Topic locked' : 'Topic unlocked',
-            'is_locked' => $topic->is_locked,
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => $topic->is_locked ? 'Topic locked' : 'Topic unlocked',
+                'is_locked' => $topic->is_locked,
+            ]);
+        }, 'Failed to toggle lock status.');
     }
 
     // ── Category CRUD ──────────────────────────────────────────
@@ -170,11 +201,13 @@ class ForumsApiController extends Controller
      */
     public function categories()
     {
-        $categories = ForumCategory::orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
+        return $this->handleApiAction(function () {
+            $categories = ForumCategory::orderBy('sort_order')
+                ->orderBy('name')
+                ->get();
 
-        return response()->json(['data' => $categories]);
+            return response()->json(['success' => true, 'data' => $categories]);
+        }, 'Failed to fetch forum categories.');
     }
 
     /**
@@ -182,27 +215,29 @@ class ForumsApiController extends Controller
      */
     public function storeCategory(Request $request)
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string|max:1000',
-            'icon' => 'nullable|string|max:50',
-            'color' => 'nullable|string|max:20',
-            'sort_order' => 'integer|min:0',
-            'is_active' => 'boolean',
-        ]);
+        return $this->handleApiAction(function () use ($request) {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'description' => 'nullable|string|max:1000',
+                'icon' => 'nullable|string|max:50',
+                'color' => 'nullable|string|max:20',
+                'sort_order' => 'integer|min:0',
+                'is_active' => 'boolean',
+            ]);
 
-        $category = ForumCategory::create([
-            ...$validated,
-            'slug' => Str::slug($validated['name']),
-            'is_active' => $validated['is_active'] ?? true,
-            'sort_order' => $validated['sort_order'] ?? 0,
-        ]);
+            $category = ForumCategory::create([
+                ...$validated,
+                'slug' => Str::slug($validated['name']),
+                'is_active' => $validated['is_active'] ?? true,
+                'sort_order' => $validated['sort_order'] ?? 0,
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Category created successfully',
-            'data' => $category,
-        ], 201);
+            return response()->json([
+                'success' => true,
+                'message' => 'Category created successfully',
+                'data' => $category,
+            ], 201);
+        }, 'Failed to create forum category.');
     }
 
     /**
@@ -210,9 +245,11 @@ class ForumsApiController extends Controller
      */
     public function showCategory(int $id)
     {
-        $category = ForumCategory::findOrFail($id);
+        return $this->handleApiAction(function () use ($id) {
+            $category = ForumCategory::findOrFail($id);
 
-        return response()->json(['data' => $category]);
+            return response()->json(['success' => true, 'data' => $category]);
+        }, 'Failed to fetch forum category.');
     }
 
     /**
@@ -220,28 +257,30 @@ class ForumsApiController extends Controller
      */
     public function updateCategory(Request $request, int $id)
     {
-        $category = ForumCategory::findOrFail($id);
+        return $this->handleApiAction(function () use ($request, $id) {
+            $category = ForumCategory::findOrFail($id);
 
-        $validated = $request->validate([
-            'name' => 'sometimes|string|max:255',
-            'description' => 'nullable|string|max:1000',
-            'icon' => 'nullable|string|max:50',
-            'color' => 'nullable|string|max:20',
-            'sort_order' => 'integer|min:0',
-            'is_active' => 'boolean',
-        ]);
+            $validated = $request->validate([
+                'name' => 'sometimes|string|max:255',
+                'description' => 'nullable|string|max:1000',
+                'icon' => 'nullable|string|max:50',
+                'color' => 'nullable|string|max:20',
+                'sort_order' => 'integer|min:0',
+                'is_active' => 'boolean',
+            ]);
 
-        if (isset($validated['name'])) {
-            $validated['slug'] = Str::slug($validated['name']);
-        }
+            if (isset($validated['name'])) {
+                $validated['slug'] = Str::slug($validated['name']);
+            }
 
-        $category->update($validated);
+            $category->update($validated);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Category updated successfully',
-            'data' => $category->fresh(),
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => 'Category updated successfully',
+                'data' => $category->fresh(),
+            ]);
+        }, 'Failed to update forum category.');
     }
 
     /**
@@ -249,18 +288,20 @@ class ForumsApiController extends Controller
      */
     public function destroyCategory(int $id)
     {
-        $category = ForumCategory::findOrFail($id);
+        return $this->handleApiAction(function () use ($id) {
+            $category = ForumCategory::findOrFail($id);
 
-        if ($category->topics()->count() > 0) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Cannot delete category with existing topics. Move or delete topics first.',
-            ], 422);
-        }
+            if ($category->topics()->count() > 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot delete category with existing topics. Move or delete topics first.',
+                ], 422);
+            }
 
-        $category->delete();
+            $category->delete();
 
-        return response()->json(['success' => true, 'message' => 'Category deleted successfully']);
+            return response()->json(['success' => true, 'message' => 'Category deleted successfully']);
+        }, 'Failed to delete forum category.');
     }
 
     /**
@@ -268,15 +309,26 @@ class ForumsApiController extends Controller
      */
     public function replies(int $id, Request $request)
     {
-        $perPage = min((int) $request->get('per_page', 20), 100);
+        return $this->handleApiAction(function () use ($id, $request) {
+            $perPage = min((int) $request->get('per_page', 20), 100);
 
-        $topic = ForumTopic::findOrFail($id);
+            $topic = ForumTopic::findOrFail($id);
 
-        $replies = $topic->replies()
-            ->with('user')
-            ->orderBy('created_at')
-            ->paginate($perPage);
+            $replies = $topic->replies()
+                ->with('user')
+                ->orderBy('created_at')
+                ->paginate($perPage);
 
-        return ForumReplyResource::collection($replies);
+            return response()->json([
+                'success' => true,
+                'data' => ForumReplyResource::collection($replies),
+                'meta' => [
+                    'current_page' => $replies->currentPage(),
+                    'last_page' => $replies->lastPage(),
+                    'per_page' => $replies->perPage(),
+                    'total' => $replies->total(),
+                ],
+            ]);
+        }, 'Failed to fetch forum replies.');
     }
 }

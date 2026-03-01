@@ -3,272 +3,297 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Sacco\SaccoLoan;
+use App\Models\Sacco\SaccoLoanRepayment;
+use App\Models\Sacco\SaccoMember;
+use App\Models\Sacco\SaccoSavingsAccount;
+use App\Models\Sacco\SaccoSavingsTransaction;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use App\Traits\HandlesApiErrors;
 
 class SaccoApiController extends Controller
 {
+    use HandlesApiErrors;
     /**
      * Get SACCO statistics.
      */
-    public function stats()
+    public function stats(): JsonResponse
     {
-        $totalMembers = DB::table('sacco_members')->where('status', 'active')->count();
-        $totalLoans = DB::table('sacco_loans')->count();
-        $activeLoans = DB::table('sacco_loans')
-            ->whereIn('status', ['active', 'disbursed'])
-            ->count();
-        $pendingLoans = DB::table('sacco_loans')->where('status', 'pending')->count();
+        return $this->handleApiAction(function () {
+            $totalMembers = SaccoMember::where('status', 'active')->count();
+            $totalLoans = SaccoLoan::count();
+            $activeLoans = SaccoLoan::whereIn('status', ['active', 'disbursed'])->count();
+            $pendingLoans = SaccoLoan::where('status', 'pending')->count();
 
-        $totalSavings = DB::table('sacco_savings_accounts')
-            ->sum('balance_ugx') ?? 0;
+            $totalSavings = SaccoSavingsAccount::sum('balance_ugx') ?? 0;
+            $totalLoansAmount = SaccoLoan::where('status', 'active')->sum('balance_remaining_ugx') ?? 0;
+            $totalDisbursed = SaccoLoan::whereIn('status', ['active', 'disbursed', 'completed'])
+                ->sum('principal_amount_ugx') ?? 0;
 
-        $totalLoansAmount = DB::table('sacco_loans')
-            ->where('status', 'active')
-            ->sum('balance_remaining_ugx') ?? 0;
-
-        $totalDisbursed = DB::table('sacco_loans')
-            ->whereIn('status', ['active', 'disbursed', 'completed'])
-            ->sum('principal_amount_ugx') ?? 0;
-
-        return response()->json([
-            'data' => [
-                'total_members' => $totalMembers,
-                'total_loans' => $totalLoans,
-                'active_loans' => $activeLoans,
-                'pending_loans' => $pendingLoans,
-                'total_savings' => $totalSavings,
-                'total_loans_amount' => $totalLoansAmount,
-                'total_disbursed' => $totalDisbursed,
-            ],
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total_members' => $totalMembers,
+                    'total_loans' => $totalLoans,
+                    'active_loans' => $activeLoans,
+                    'pending_loans' => $pendingLoans,
+                    'total_savings' => $totalSavings,
+                    'total_loans_amount' => $totalLoansAmount,
+                    'total_disbursed' => $totalDisbursed,
+                ],
+            ]);
+        }, 'Failed to fetch SACCO statistics.');
     }
 
     /**
      * Get members list.
      */
-    public function members(Request $request)
+    public function members(Request $request): JsonResponse
     {
-        $perPage = $request->get('per_page', 10);
-        $search = $request->get('search');
-        $status = $request->get('status');
+        return $this->handleApiAction(function () use ($request) {
+            $perPage = min((int) $request->get('per_page', 10), 100);
 
-        $query = DB::table('sacco_members')
-            ->leftJoin('users', 'sacco_members.user_id', '=', 'users.id')
-            ->select(
-                'sacco_members.*',
-                'users.username',
-                'users.email',
-                DB::raw('(SELECT SUM(balance_ugx) FROM sacco_savings_accounts WHERE member_id = sacco_members.id) as total_savings'),
-                DB::raw('(SELECT COUNT(*) FROM sacco_loans WHERE member_id = sacco_members.id) as loans_count')
-            );
+            $members = SaccoMember::with('user:id,username,email')
+                ->withCount('loans')
+                ->when($request->get('search'), function ($q) use ($request) {
+                    $search = addcslashes($request->get('search'), '%_');
+                    $q->where(function ($query) use ($search) {
+                        $query->where('member_number', 'LIKE', "%{$search}%")
+                            ->orWhereHas('user', function ($uq) use ($search) {
+                                $uq->where('username', 'LIKE', "%{$search}%")
+                                    ->orWhere('email', 'LIKE', "%{$search}%");
+                            });
+                    });
+                })
+                ->when($request->get('status') && $request->get('status') !== 'all', function ($q) use ($request) {
+                    $q->where('status', $request->get('status'));
+                })
+                ->latest('joined_at')
+                ->paginate($perPage);
 
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('users.username', 'LIKE', "%{$search}%")
-                    ->orWhere('users.email', 'LIKE', "%{$search}%")
-                    ->orWhere('sacco_members.member_number', 'LIKE', "%{$search}%");
+            $data = $members->through(function (SaccoMember $member) {
+                // Get total savings via subquery (savings accounts belong to member)
+                $totalSavings = SaccoSavingsAccount::where('member_id', $member->id)
+                    ->sum('balance_ugx');
+
+                return [
+                    ...$member->toArray(),
+                    'username' => $member->user?->username,
+                    'email' => $member->user?->email,
+                    'total_savings' => $totalSavings ?? 0,
+                ];
             });
-        }
 
-        if ($status && $status !== 'all') {
-            $query->where('sacco_members.status', $status);
-        }
-
-        $members = $query->orderBy('sacco_members.joined_at', 'desc')
-            ->paginate($perPage);
-
-        return response()->json([
-            'data' => $members->items(),
-            'meta' => [
-                'current_page' => $members->currentPage(),
-                'last_page' => $members->lastPage(),
-                'per_page' => $members->perPage(),
-                'total' => $members->total(),
-            ],
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => $data->items(),
+                'meta' => [
+                    'current_page' => $data->currentPage(),
+                    'last_page' => $data->lastPage(),
+                    'per_page' => $data->perPage(),
+                    'total' => $data->total(),
+                ],
+            ]);
+        }, 'Failed to fetch SACCO members.');
     }
 
     /**
      * Get loans list.
      */
-    public function loans(Request $request)
+    public function loans(Request $request): JsonResponse
     {
-        $perPage = $request->get('per_page', 10);
-        $search = $request->get('search');
-        $status = $request->get('status');
+        return $this->handleApiAction(function () use ($request) {
+            $perPage = min((int) $request->get('per_page', 10), 100);
 
-        $query = DB::table('sacco_loans')
-            ->leftJoin('sacco_members', 'sacco_loans.member_id', '=', 'sacco_members.id')
-            ->leftJoin('users', 'sacco_members.user_id', '=', 'users.id')
-            ->select(
-                'sacco_loans.*',
-                'users.username as member_name',
-                'users.email as member_email',
-                'sacco_members.member_number'
-            );
+            $loans = SaccoLoan::with(['member.user:id,username,email', 'member:id,member_number,user_id'])
+                ->when($request->get('search'), function ($q) use ($request) {
+                    $search = addcslashes($request->get('search'), '%_');
+                    $q->where(function ($query) use ($search) {
+                        $query->where('loan_number', 'LIKE', "%{$search}%")
+                            ->orWhereHas('member.user', function ($uq) use ($search) {
+                                $uq->where('username', 'LIKE', "%{$search}%");
+                            });
+                    });
+                })
+                ->when($request->get('status') && $request->get('status') !== 'all', function ($q) use ($request) {
+                    $q->where('status', $request->get('status'));
+                })
+                ->latest()
+                ->paginate($perPage);
 
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('users.username', 'LIKE', "%{$search}%")
-                    ->orWhere('sacco_loans.loan_number', 'LIKE', "%{$search}%");
+            $data = $loans->through(function (SaccoLoan $loan) {
+                return [
+                    ...$loan->toArray(),
+                    'member_name' => $loan->member?->user?->username,
+                    'member_email' => $loan->member?->user?->email,
+                    'member_number' => $loan->member?->member_number,
+                ];
             });
-        }
 
-        if ($status && $status !== 'all') {
-            $query->where('sacco_loans.status', $status);
-        }
-
-        $loans = $query->orderBy('sacco_loans.created_at', 'desc')
-            ->paginate($perPage);
-
-        return response()->json([
-            'data' => $loans->items(),
-            'meta' => [
-                'current_page' => $loans->currentPage(),
-                'last_page' => $loans->lastPage(),
-                'per_page' => $loans->perPage(),
-                'total' => $loans->total(),
-            ],
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => $data->items(),
+                'meta' => [
+                    'current_page' => $data->currentPage(),
+                    'last_page' => $data->lastPage(),
+                    'per_page' => $data->perPage(),
+                    'total' => $data->total(),
+                ],
+            ]);
+        }, 'Failed to fetch SACCO loans.');
     }
 
     /**
      * Get single loan.
      */
-    public function showLoan($id)
+    public function showLoan($id): JsonResponse
     {
-        $loan = DB::table('sacco_loans')
-            ->leftJoin('sacco_members', 'sacco_loans.member_id', '=', 'sacco_members.id')
-            ->leftJoin('users', 'sacco_members.user_id', '=', 'users.id')
-            ->select(
-                'sacco_loans.*',
-                'users.username as member_name',
-                'users.email as member_email',
-                'sacco_members.member_number'
-            )
-            ->where('sacco_loans.id', $id)
-            ->first();
+        return $this->handleApiAction(function () use ($id) {
+            $loan = SaccoLoan::with(['member.user:id,username,email', 'member:id,member_number,user_id'])
+                ->findOrFail($id);
 
-        if (! $loan) {
             return response()->json([
-                'message' => 'Loan not found.',
-            ], 404);
-        }
-
-        return response()->json([
-            'data' => $loan,
-        ]);
+                'success' => true,
+                'data' => [
+                    ...$loan->toArray(),
+                    'member_name' => $loan->member?->user?->username,
+                    'member_email' => $loan->member?->user?->email,
+                    'member_number' => $loan->member?->member_number,
+                ],
+            ]);
+        }, 'Failed to fetch loan details.');
     }
 
     /**
      * Approve loan.
      */
-    public function approveLoan(Request $request, $id)
+    public function approveLoan(Request $request, $id): JsonResponse
     {
-        DB::table('sacco_loans')->where('id', $id)->update([
-            'status' => 'approved',
-            'approved_at' => now(),
-            'approved_by' => auth()->id() ?? 1,
-            'approval_notes' => $request->input('notes'),
-        ]);
+        return $this->handleApiAction(function () use ($request, $id) {
+            $loan = SaccoLoan::findOrFail($id);
 
-        return response()->json([
-            'message' => 'Loan approved successfully.',
-        ]);
+            // Use forceFill since status/approved_by are guarded (financial protection)
+            $loan->forceFill([
+                'status' => 'approved',
+                'approved_date' => now(),
+                'approved_by' => auth()->id(),
+            ])->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Loan approved successfully.',
+            ]);
+        }, 'Failed to approve loan.');
     }
 
     /**
      * Reject loan.
      */
-    public function rejectLoan(Request $request, $id)
+    public function rejectLoan(Request $request, $id): JsonResponse
     {
-        $validated = $request->validate([
-            'reason' => 'required|string',
-        ]);
+        return $this->handleApiAction(function () use ($request, $id) {
+            $validated = $request->validate([
+                'reason' => 'required|string',
+            ]);
 
-        DB::table('sacco_loans')->where('id', $id)->update([
-            'status' => 'rejected',
-            'rejection_reason' => $validated['reason'],
-            'reviewed_at' => now(),
-            'reviewed_by' => auth()->id() ?? 1,
-        ]);
+            $loan = SaccoLoan::findOrFail($id);
 
-        return response()->json([
-            'message' => 'Loan rejected.',
-        ]);
+            $loan->forceFill([
+                'status' => 'rejected',
+            ])->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Loan rejected.',
+            ]);
+        }, 'Failed to reject loan.');
     }
 
     /**
      * Disburse loan.
      */
-    public function disburseLoan(Request $request, $id)
+    public function disburseLoan(Request $request, $id): JsonResponse
     {
-        $validated = $request->validate([
-            'disbursement_method' => 'required|string',
-            'disbursement_reference' => 'nullable|string',
-        ]);
+        return $this->handleApiAction(function () use ($request, $id) {
+            $validated = $request->validate([
+                'disbursement_method' => 'required|string',
+                'disbursement_reference' => 'nullable|string',
+            ]);
 
-        DB::table('sacco_loans')->where('id', $id)->update([
-            'status' => 'disbursed',
-            'disbursed_at' => now(),
-            'disbursement_method' => $validated['disbursement_method'],
-            'disbursement_reference' => $validated['disbursement_reference'] ?? null,
-        ]);
+            $loan = SaccoLoan::findOrFail($id);
 
-        return response()->json([
-            'message' => 'Loan disbursed successfully.',
-        ]);
+            $loan->forceFill([
+                'status' => 'disbursed',
+                'disbursed_date' => now(),
+                'disbursed_by' => auth()->id(),
+            ])->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Loan disbursed successfully.',
+            ]);
+        }, 'Failed to disburse loan.');
     }
 
     /**
      * Get loan repayments.
      */
-    public function loanRepayments($id)
+    public function loanRepayments($id): JsonResponse
     {
-        $repayments = DB::table('sacco_loan_repayments')
-            ->where('loan_id', $id)
-            ->orderBy('payment_date', 'desc')
-            ->get();
+        return $this->handleApiAction(function () use ($id) {
+            SaccoLoan::findOrFail($id); // Ensure loan exists
 
-        return response()->json([
-            'data' => $repayments,
-        ]);
+            $repayments = SaccoLoanRepayment::where('loan_id', $id)
+                ->orderByDesc('payment_date')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $repayments,
+            ]);
+        }, 'Failed to fetch loan repayments.');
     }
 
     /**
      * Get savings transactions.
      */
-    public function savingsTransactions(Request $request)
+    public function savingsTransactions(Request $request): JsonResponse
     {
-        $perPage = $request->get('per_page', 20);
-        $memberId = $request->get('member_id');
+        return $this->handleApiAction(function () use ($request) {
+            $perPage = min((int) $request->get('per_page', 20), 100);
+            $memberId = $request->get('member_id');
 
-        $query = DB::table('sacco_savings_transactions')
-            ->leftJoin('sacco_savings_accounts', 'sacco_savings_transactions.savings_account_id', '=', 'sacco_savings_accounts.id')
-            ->leftJoin('sacco_members', 'sacco_savings_accounts.member_id', '=', 'sacco_members.id')
-            ->leftJoin('users', 'sacco_members.user_id', '=', 'users.id')
-            ->select(
-                'sacco_savings_transactions.*',
-                'users.username as member_name',
-                'sacco_members.member_number'
-            );
+            $query = SaccoSavingsTransaction::with(['account.member.user:id,username'])
+                ->select('sacco_savings_transactions.*');
 
-        if ($memberId) {
-            $query->where('sacco_savings_accounts.member_id', $memberId);
-        }
+            if ($memberId) {
+                $query->whereHas('account', function ($q) use ($memberId) {
+                    $q->where('member_id', $memberId);
+                });
+            }
 
-        $transactions = $query->orderBy('sacco_savings_transactions.transaction_date', 'desc')
-            ->paginate($perPage);
+            $transactions = $query->orderByDesc('transaction_date')
+                ->paginate($perPage);
 
-        return response()->json([
-            'data' => $transactions->items(),
-            'meta' => [
-                'current_page' => $transactions->currentPage(),
-                'last_page' => $transactions->lastPage(),
-                'per_page' => $transactions->perPage(),
-                'total' => $transactions->total(),
-            ],
-        ]);
+            $data = $transactions->through(function ($txn) {
+                return [
+                    ...$txn->toArray(),
+                    'member_name' => $txn->account?->member?->user?->username,
+                    'member_number' => $txn->account?->member?->member_number,
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $data->items(),
+                'meta' => [
+                    'current_page' => $data->currentPage(),
+                    'last_page' => $data->lastPage(),
+                    'per_page' => $data->perPage(),
+                    'total' => $data->total(),
+                ],
+            ]);
+        }, 'Failed to fetch savings transactions.');
     }
 }

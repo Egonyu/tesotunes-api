@@ -3,390 +3,273 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Album;
+use App\Models\Artist;
+use App\Models\Song;
+use App\Traits\HandlesApiErrors;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class AdminArtistsController extends Controller
 {
+    use HandlesApiErrors;
+
     /**
-     * Get all artists for admin panel
+     * Get all artists for admin panel.
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
-        $perPage = $request->get('per_page', 12);
-        $status = $request->get('status');
-        $search = $request->get('search');
+        return $this->handleApiAction(function () use ($request) {
+            $perPage = min((int) $request->get('per_page', 12), 100);
 
-        $query = DB::table('artists')
-            ->select([
-                'artists.id',
-                'artists.uuid',
-                'artists.stage_name as name',
-                'artists.slug',
-                'artists.avatar',
-                'artists.status',
-                'artists.is_verified',
-                'artists.total_songs_count as songs_count',
-                'artists.total_albums_count as albums_count',
-                'artists.followers_count',
-                'artists.total_plays_count as total_plays',
-                'artists.created_at',
-                'users.email',
-                'users.username',
-            ])
-            ->join('users', 'artists.user_id', '=', 'users.id');
+            $artists = Artist::with('user:id,email,username')
+                ->when($request->get('status') && $request->get('status') !== 'all', function ($q) use ($request) {
+                    $q->where('status', $request->get('status'));
+                })
+                ->when($request->get('search'), function ($q) use ($request) {
+                    $search = $request->get('search');
+                    $q->where(function ($query) use ($search) {
+                        $query->where('stage_name', 'LIKE', '%'.addcslashes($search, '%_').'%')
+                            ->orWhereHas('user', function ($uq) use ($search) {
+                                $uq->where('email', 'LIKE', '%'.addcslashes($search, '%_').'%')
+                                    ->orWhere('username', 'LIKE', '%'.addcslashes($search, '%_').'%');
+                            });
+                    });
+                })
+                ->latest()
+                ->paginate($perPage);
 
-        if ($status && $status !== 'all') {
-            $query->where('artists.status', $status);
-        }
-
-        if ($search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('artists.stage_name', 'LIKE', "%{$search}%")
-                    ->orWhere('users.email', 'LIKE', "%{$search}%")
-                    ->orWhere('users.username', 'LIKE', "%{$search}%");
+            $data = $artists->through(function (Artist $artist) {
+                return [
+                    'id' => $artist->id,
+                    'uuid' => $artist->uuid,
+                    'name' => $artist->stage_name,
+                    'slug' => $artist->slug,
+                    'avatar' => $artist->avatar,
+                    'avatar_url' => $artist->avatar ? url('storage/'.$artist->avatar) : null,
+                    'status' => $artist->status,
+                    'is_verified' => $artist->is_verified,
+                    'songs_count' => $artist->total_songs_count,
+                    'albums_count' => $artist->total_albums_count,
+                    'followers_count' => $artist->followers_count,
+                    'total_plays' => $artist->total_plays_count,
+                    'created_at' => $artist->created_at,
+                    'email' => $artist->user?->email,
+                    'username' => $artist->user?->username,
+                ];
             });
-        }
-
-        $artists = $query->orderBy('artists.created_at', 'desc')->paginate($perPage);
-
-        // Transform data to include full URLs
-        $data = collect($artists->items())->map(function ($artist) {
-            $artist->avatar_url = $artist->avatar
-                ? url('storage/'.$artist->avatar)
-                : null;
-
-            return $artist;
-        })->toArray();
-
-        return response()->json([
-            'data' => $data,
-            'meta' => [
-                'current_page' => $artists->currentPage(),
-                'total' => $artists->total(),
-                'per_page' => $artists->perPage(),
-                'last_page' => $artists->lastPage(),
-            ],
-        ]);
-    }
-
-    /**
-     * Get artist statistics for admin
-     */
-    public function statistics()
-    {
-        $stats = [
-            'total' => DB::table('artists')->count(),
-            'verified' => DB::table('artists')->where('is_verified', 1)->count(),
-            'pending_verification' => DB::table('artists')->where('is_verified', 0)->where('status', 'active')->count(),
-            'new_this_month' => DB::table('artists')
-                ->whereMonth('created_at', date('m'))
-                ->whereYear('created_at', date('Y'))
-                ->count(),
-        ];
-
-        return response()->json([
-            'data' => $stats,
-        ]);
-    }
-
-    /**
-     * Get single artist details for admin
-     */
-    public function show($id)
-    {
-        try {
-            // Build select list dynamically — only include columns that exist in the DB
-            $artistColumns = \Schema::getColumnListing('artists');
-            $userColumns = \Schema::getColumnListing('users');
-
-            $select = ['artists.id', 'artists.user_id', 'artists.created_at', 'artists.updated_at'];
-
-            // Map of desired columns → alias (if any)
-            $artistSelect = [
-                'uuid' => null,
-                'stage_name' => 'name',
-                'slug' => null,
-                'bio' => null,
-                'avatar' => null,
-                'cover_image' => null,
-                'status' => null,
-                'is_verified' => null,
-                'is_trusted' => null,
-                'verification_status' => null,
-                'verified_at' => null,
-                'website_url' => null,
-                'social_links' => null,
-                'primary_genre_id' => null,
-                'total_songs_count' => null,
-                'total_albums_count' => null,
-                'total_plays_count' => null,
-                'followers_count' => null,
-                'earnings_balance' => null,
-                'commission_rate' => null,
-                'can_upload' => null,
-                'auto_publish' => null,
-                'require_approval' => null,
-                'distribution_suspended' => null,
-                'record_label' => null,
-                'career_start_year' => null,
-                'influences' => null,
-            ];
-
-            foreach ($artistSelect as $col => $alias) {
-                if (in_array($col, $artistColumns)) {
-                    $select[] = $alias ? "artists.{$col} as {$alias}" : "artists.{$col}";
-                }
-            }
-
-            // User columns
-            $select[] = 'users.id as user_table_id';
-            $select[] = 'users.email';
-            if (in_array('username', $userColumns)) {
-                $select[] = 'users.username';
-            }
-            if (in_array('phone', $userColumns)) {
-                $select[] = 'users.phone';
-            }
-            if (in_array('full_name', $userColumns)) {
-                $select[] = 'users.full_name';
-            }
-            if (in_array('name', $userColumns)) {
-                $select[] = 'users.name as user_name';
-            }
-
-            $artist = DB::table('artists')
-                ->select($select)
-                ->join('users', 'artists.user_id', '=', 'users.id')
-                ->where('artists.id', $id)
-                ->first();
-
-            if (! $artist) {
-                return response()->json([
-                    'message' => 'Artist not found.',
-                ], 404);
-            }
-
-            // Add full URLs
-            $artist->avatar_url = ($artist->avatar ?? null)
-                ? url('storage/'.$artist->avatar)
-                : null;
-            $artist->cover_url = ($artist->cover_image ?? null)
-                ? url('storage/'.$artist->cover_image)
-                : null;
-
-            // Parse social_links JSON
-            $socialLinks = json_decode($artist->social_links ?? '{}', true) ?? [];
-            $artist->spotify_url = $socialLinks['spotify'] ?? null;
-            $artist->apple_music_url = $socialLinks['apple_music'] ?? null;
-            $artist->youtube_url = $socialLinks['youtube'] ?? null;
-            $artist->instagram_url = $socialLinks['instagram'] ?? null;
-            $artist->twitter_url = $socialLinks['twitter'] ?? null;
-            $artist->facebook_url = $socialLinks['facebook'] ?? null;
-            $artist->tiktok_url = $socialLinks['tiktok'] ?? null;
-            $artist->website = $artist->website_url ?? null;
-
-            // Alias counts for frontend
-            $artist->total_songs = $artist->total_songs_count ?? 0;
-            $artist->total_albums = $artist->total_albums_count ?? 0;
-            $artist->total_plays = $artist->total_plays_count ?? 0;
-            $artist->followers = $artist->followers_count ?? 0;
-            $artist->is_featured = (bool) ($artist->is_trusted ?? false);
-            $artist->profile_url = $artist->avatar_url;
-
-            // Ensure name always exists
-            if (! isset($artist->name)) {
-                $artist->name = $artist->stage_name ?? '';
-            }
-
-            // Get primary genre
-            $artist->genres = [];
-            if (($artist->primary_genre_id ?? null) && \Schema::hasTable('genres')) {
-                $genre = DB::table('genres')->where('id', $artist->primary_genre_id)->first();
-                if ($genre) {
-                    $artist->genres = [['id' => (string) $genre->id, 'name' => $genre->name]];
-                }
-            }
-
-            // Get top songs
-            $artist->top_songs = [];
-            if (\Schema::hasTable('songs')) {
-                $songColumns = \Schema::getColumnListing('songs');
-                $songSelect = ['id', 'title', 'slug'];
-                if (in_array('play_count', $songColumns)) {
-                    $songSelect[] = 'play_count as plays';
-                }
-                if (in_array('artwork', $songColumns)) {
-                    $songSelect[] = 'artwork as cover_url';
-                }
-                $orderCol = in_array('play_count', $songColumns) ? 'play_count' : 'created_at';
-
-                $artist->top_songs = DB::table('songs')
-                    ->where('artist_id', $id)
-                    ->select($songSelect)
-                    ->orderBy($orderCol, 'desc')
-                    ->limit(5)
-                    ->get()
-                    ->map(function ($song) {
-                        if (isset($song->cover_url) && $song->cover_url) {
-                            $song->cover_url = url('storage/'.$song->cover_url);
-                        } else {
-                            $song->cover_url = null;
-                        }
-                        if (! isset($song->plays)) {
-                            $song->plays = 0;
-                        }
-
-                        return $song;
-                    })
-                    ->toArray();
-            }
-
-            // Get recent albums
-            $artist->recent_albums = [];
-            if (\Schema::hasTable('albums')) {
-                $albumColumns = \Schema::getColumnListing('albums');
-                $albumSelect = ['id', 'title', 'slug'];
-                if (in_array('artwork', $albumColumns)) {
-                    $albumSelect[] = 'artwork as cover_url';
-                }
-                if (in_array('release_date', $albumColumns)) {
-                    $albumSelect[] = 'release_date';
-                }
-                if (in_array('album_type', $albumColumns)) {
-                    $albumSelect[] = 'album_type';
-                }
-
-                $artist->recent_albums = DB::table('albums')
-                    ->where('artist_id', $id)
-                    ->select($albumSelect)
-                    ->orderBy('created_at', 'desc')
-                    ->limit(4)
-                    ->get()
-                    ->map(function ($album) {
-                        if (isset($album->cover_url) && $album->cover_url) {
-                            $album->cover_url = url('storage/'.$album->cover_url);
-                        } else {
-                            $album->cover_url = null;
-                        }
-
-                        return $album;
-                    })
-                    ->toArray();
-            }
-
-            // User profile info
-            $artist->user = [
-                'id' => $artist->user_table_id ?? $artist->user_id,
-                'name' => $artist->user_name ?? $artist->full_name ?? '',
-                'email' => $artist->email ?? '',
-                'username' => $artist->username ?? '',
-                'phone' => $artist->phone ?? '',
-            ];
 
             return response()->json([
-                'data' => $artist,
+                'success' => true,
+                'data' => $data->items(),
+                'meta' => [
+                    'current_page' => $data->currentPage(),
+                    'total' => $data->total(),
+                    'per_page' => $data->perPage(),
+                    'last_page' => $data->lastPage(),
+                ],
             ]);
-        } catch (\Throwable $e) {
-            \Log::error('AdminArtistsController@show failed', [
-                'artist_id' => $id,
-                'error' => $e->getMessage(),
-                'file' => $e->getFile().':'.$e->getLine(),
-            ]);
+        }, 'Failed to load artists.');
+    }
 
+    /**
+     * Get artist statistics for admin.
+     */
+    public function statistics(): JsonResponse
+    {
+        return $this->handleApiAction(function () {
             return response()->json([
-                'message' => 'Failed to load artist details.',
-                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
-            ], 500);
-        }
+                'success' => true,
+                'data' => [
+                    'total' => Artist::count(),
+                    'verified' => Artist::where('is_verified', true)->count(),
+                    'pending_verification' => Artist::where('is_verified', false)->where('status', 'active')->count(),
+                    'new_this_month' => Artist::whereMonth('created_at', date('m'))
+                        ->whereYear('created_at', date('Y'))
+                        ->count(),
+                ],
+            ]);
+        }, 'Failed to load artist statistics.');
     }
 
     /**
-     * Verify an artist
+     * Get single artist details for admin.
      */
-    public function verify($id)
+    public function show($id): JsonResponse
     {
-        $artist = DB::table('artists')->where('id', $id)->first();
-        if (! $artist) {
-            return response()->json(['message' => 'Artist not found.'], 404);
-        }
+        return $this->handleApiAction(function () use ($id) {
+            $artist = Artist::with(['user:id,email,username,phone,name', 'primaryGenre:id,name'])
+                ->findOrFail($id);
 
-        DB::table('artists')
-            ->where('id', $id)
-            ->update([
-                'is_verified' => 1,
-                'verification_status' => 'approved',
-                'verified_at' => now(),
-                'updated_at' => now(),
+        // Get top songs via relationship
+        $topSongs = $artist->songs()
+            ->select(['id', 'title', 'slug', 'play_count', 'artwork', 'artist_id'])
+            ->orderByDesc('play_count')
+            ->limit(5)
+            ->get()
+            ->map(fn (Song $song) => [
+                'id' => $song->id,
+                'title' => $song->title,
+                'slug' => $song->slug,
+                'plays' => $song->play_count ?? 0,
+                'cover_url' => $song->artwork ? url('storage/'.$song->artwork) : null,
             ]);
 
-        return response()->json([
-            'message' => 'Artist verified successfully.',
-        ]);
-    }
-
-    /**
-     * Update artist status
-     */
-    public function updateStatus(Request $request, $id)
-    {
-        $status = $request->input('status');
-
-        if (! in_array($status, ['active', 'pending', 'suspended', 'rejected'])) {
-            return response()->json([
-                'message' => 'Invalid status.',
-            ], 422);
-        }
-
-        DB::table('artists')
-            ->where('id', $id)
-            ->update([
-                'status' => $status,
-                'updated_at' => now(),
+        // Get recent albums via relationship
+        $recentAlbums = $artist->albums()
+            ->select(['id', 'title', 'slug', 'artwork', 'release_date', 'album_type', 'artist_id'])
+            ->latest()
+            ->limit(4)
+            ->get()
+            ->map(fn (Album $album) => [
+                'id' => $album->id,
+                'title' => $album->title,
+                'slug' => $album->slug,
+                'cover_url' => $album->artwork ? url('storage/'.$album->artwork) : null,
+                'release_date' => $album->release_date,
+                'album_type' => $album->album_type,
             ]);
 
-        return response()->json([
-            'message' => 'Artist status updated successfully.',
-        ]);
-    }
-
-    /**
-     * Delete an artist
-     */
-    public function destroy($id)
-    {
-        $artist = DB::table('artists')->where('id', $id)->first();
-        if (! $artist) {
-            return response()->json(['message' => 'Artist not found.'], 404);
-        }
-
-        // Soft-delete: mark as deleted rather than hard remove
-        DB::table('artists')
-            ->where('id', $id)
-            ->update([
-                'status' => 'suspended',
-                'deleted_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-        return response()->json(['message' => 'Artist deleted successfully.']);
-    }
-
-    /**
-     * Update artist
-     */
-    public function update(Request $request, $id)
-    {
-        $artist = DB::table('artists')->where('id', $id)->first();
-        if (! $artist) {
-            return response()->json(['message' => 'Artist not found.'], 404);
-        }
+        // Social links (model casts to array)
+        $socialLinks = $artist->social_links ?? [];
 
         $data = [
-            'updated_at' => now(),
+            'id' => $artist->id,
+            'uuid' => $artist->uuid,
+            'user_id' => $artist->user_id,
+            'name' => $artist->stage_name,
+            'slug' => $artist->slug,
+            'bio' => $artist->bio,
+            'avatar' => $artist->avatar,
+            'avatar_url' => $artist->avatar ? url('storage/'.$artist->avatar) : null,
+            'cover_image' => $artist->cover_image,
+            'cover_url' => $artist->cover_image ? url('storage/'.$artist->cover_image) : null,
+            'profile_url' => $artist->avatar ? url('storage/'.$artist->avatar) : null,
+            'status' => $artist->status,
+            'is_verified' => $artist->is_verified,
+            'is_featured' => $artist->is_trusted,
+            'is_trusted' => $artist->is_trusted,
+            'verification_status' => $artist->verification_status,
+            'verified_at' => $artist->verified_at,
+            'website' => $artist->website_url,
+            'website_url' => $artist->website_url,
+            'primary_genre_id' => $artist->primary_genre_id,
+            'total_songs' => $artist->total_songs_count ?? 0,
+            'total_albums' => $artist->total_albums_count ?? 0,
+            'total_plays' => $artist->total_plays_count ?? 0,
+            'followers' => $artist->followers_count ?? 0,
+            'total_songs_count' => $artist->total_songs_count,
+            'total_albums_count' => $artist->total_albums_count,
+            'total_plays_count' => $artist->total_plays_count,
+            'followers_count' => $artist->followers_count,
+            'earnings_balance' => $artist->earnings_balance,
+            'commission_rate' => $artist->commission_rate,
+            'can_upload' => $artist->can_upload,
+            'auto_publish' => $artist->auto_publish,
+            'require_approval' => $artist->require_approval,
+            'distribution_suspended' => $artist->distribution_suspended,
+            'record_label' => $artist->record_label,
+            'career_start_year' => $artist->career_start_year,
+            'influences' => $artist->influences,
+            'social_links' => $socialLinks,
+            'spotify_url' => $socialLinks['spotify'] ?? null,
+            'apple_music_url' => $socialLinks['apple_music'] ?? null,
+            'youtube_url' => $socialLinks['youtube'] ?? null,
+            'instagram_url' => $socialLinks['instagram'] ?? null,
+            'twitter_url' => $socialLinks['twitter'] ?? null,
+            'facebook_url' => $socialLinks['facebook'] ?? null,
+            'tiktok_url' => $socialLinks['tiktok'] ?? null,
+            'genres' => $artist->primaryGenre
+                ? [['id' => (string) $artist->primaryGenre->id, 'name' => $artist->primaryGenre->name]]
+                : [],
+            'top_songs' => $topSongs,
+            'recent_albums' => $recentAlbums,
+            'user' => [
+                'id' => $artist->user?->id,
+                'name' => $artist->user?->name ?? '',
+                'email' => $artist->user?->email ?? '',
+                'username' => $artist->user?->username ?? '',
+                'phone' => $artist->user?->phone ?? '',
+            ],
+            'created_at' => $artist->created_at,
+            'updated_at' => $artist->updated_at,
         ];
 
-        // Basic fields
+            return response()->json([
+                'success' => true,
+                'data' => (object) $data,
+            ]);
+        }, 'Failed to load artist details.');
+    }
+
+    /**
+     * Verify an artist.
+     */
+    public function verify($id): JsonResponse
+    {
+        return $this->handleApiAction(function () use ($id) {
+            $artist = Artist::findOrFail($id);
+
+            $artist->update([
+                'is_verified' => true,
+                'verification_status' => 'approved',
+                'verified_at' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Artist verified successfully.',
+            ]);
+        }, 'Failed to verify artist.');
+    }
+
+    /**
+     * Update artist status.
+     */
+    public function updateStatus(Request $request, $id): JsonResponse
+    {
+        return $this->handleApiAction(function () use ($request, $id) {
+            $request->validate([
+                'status' => 'required|in:active,pending,suspended,rejected',
+            ]);
+
+            $artist = Artist::findOrFail($id);
+            $artist->update(['status' => $request->input('status')]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Artist status updated successfully.',
+            ]);
+        }, 'Failed to update artist status.');
+    }
+
+    /**
+     * Delete an artist (soft-delete via SoftDeletes trait).
+     */
+    public function destroy($id): JsonResponse
+    {
+        return $this->handleApiAction(function () use ($id) {
+            $artist = Artist::findOrFail($id);
+            $artist->update(['status' => 'suspended']);
+            $artist->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Artist deleted successfully.',
+            ]);
+        }, 'Failed to delete artist.');
+    }
+
+    /**
+     * Update artist.
+     */
+    public function update(Request $request, $id): JsonResponse
+    {
+        return $this->handleApiAction(function () use ($request, $id) {
+            $artist = Artist::findOrFail($id);
+
+        $data = [];
+
         if ($request->has('name')) {
             $data['stage_name'] = $request->input('name');
         }
@@ -406,9 +289,7 @@ class AdminArtistsController extends Controller
             $data['is_verified'] = (bool) $request->input('is_verified');
         }
 
-        // Social links — merge into JSON
-        $socialKeys = ['spotify_url', 'apple_music_url', 'youtube_url', 'instagram_url', 'twitter_url', 'facebook_url', 'tiktok_url'];
-        $existingSocial = json_decode($artist->social_links, true) ?? [];
+        // Social links — merge into existing array (model casts to/from array)
         $keyMap = [
             'spotify_url' => 'spotify',
             'apple_music_url' => 'apple_music',
@@ -418,15 +299,16 @@ class AdminArtistsController extends Controller
             'facebook_url' => 'facebook',
             'tiktok_url' => 'tiktok',
         ];
+        $existingSocial = $artist->social_links ?? [];
         $socialChanged = false;
-        foreach ($socialKeys as $key) {
-            if ($request->has($key)) {
-                $existingSocial[$keyMap[$key]] = $request->input($key);
+        foreach ($keyMap as $inputKey => $socialKey) {
+            if ($request->has($inputKey)) {
+                $existingSocial[$socialKey] = $request->input($inputKey);
                 $socialChanged = true;
             }
         }
         if ($socialChanged) {
-            $data['social_links'] = json_encode($existingSocial);
+            $data['social_links'] = $existingSocial;
         }
 
         // Genre
@@ -435,127 +317,91 @@ class AdminArtistsController extends Controller
             $data['primary_genre_id'] = $genreIds[0];
         }
 
-        // SEO — stored in dedicated table or ignored for now
-        // meta_title and meta_description not in artists table
-
         // File uploads
         if ($request->hasFile('profile_image')) {
-            $path = $request->file('profile_image')->store('artists/avatars', 'public');
-            $data['avatar'] = $path;
+            $data['avatar'] = $request->file('profile_image')->store('artists/avatars', 'public');
         }
         if ($request->hasFile('cover_image')) {
-            $path = $request->file('cover_image')->store('artists/covers', 'public');
-            $data['cover_image'] = $path;
+            $data['cover_image'] = $request->file('cover_image')->store('artists/covers', 'public');
         }
 
-        DB::table('artists')
-            ->where('id', $id)
-            ->update($data);
+            $artist->update($data);
 
-        return response()->json([
-            'message' => 'Artist updated successfully.',
-        ]);
-    }
-
-    /**
-     * Toggle featured status
-     */
-    public function toggleFeatured($id)
-    {
-        $artist = DB::table('artists')->where('id', $id)->first();
-
-        if (! $artist) {
             return response()->json([
-                'message' => 'Artist not found.',
-            ], 404);
-        }
-
-        // Use is_trusted field as featured flag
-        $isFeatured = (bool) $artist->is_trusted;
-
-        DB::table('artists')
-            ->where('id', $id)
-            ->update([
-                'is_trusted' => $isFeatured ? 0 : 1,
-                'updated_at' => now(),
+                'success' => true,
+                'message' => 'Artist updated successfully.',
             ]);
-
-        return response()->json([
-            'message' => $isFeatured ? 'Artist unfeatured.' : 'Artist featured.',
-            'is_featured' => ! $isFeatured,
-        ]);
+        }, 'Failed to update artist.');
     }
 
     /**
-     * Toggle verify status
+     * Toggle featured status.
      */
-    public function toggleVerify($id)
+    public function toggleFeatured($id): JsonResponse
     {
-        $artist = DB::table('artists')->where('id', $id)->first();
+        return $this->handleApiAction(function () use ($id) {
+            $artist = Artist::findOrFail($id);
+            $artist->update(['is_trusted' => ! $artist->is_trusted]);
 
-        if (! $artist) {
             return response()->json([
-                'message' => 'Artist not found.',
-            ], 404);
-        }
-
-        $isVerified = $artist->is_verified == 1;
-
-        DB::table('artists')
-            ->where('id', $id)
-            ->update([
-                'is_verified' => $isVerified ? 0 : 1,
-                'verification_status' => $isVerified ? 'pending' : 'approved',
-                'verified_at' => $isVerified ? null : now(),
-                'updated_at' => now(),
+                'success' => true,
+                'message' => $artist->is_trusted ? 'Artist featured.' : 'Artist unfeatured.',
+                'is_featured' => $artist->is_trusted,
             ]);
-
-        return response()->json([
-            'message' => $isVerified ? 'Artist unverified.' : 'Artist verified.',
-        ]);
+        }, 'Failed to toggle artist featured status.');
     }
 
     /**
-     * Approve a pending artist
+     * Toggle verify status.
      */
-    public function approve($id)
+    public function toggleVerify($id): JsonResponse
     {
-        $artist = DB::table('artists')->where('id', $id)->first();
-        if (! $artist) {
-            return response()->json(['message' => 'Artist not found.'], 404);
-        }
+        return $this->handleApiAction(function () use ($id) {
+            $artist = Artist::findOrFail($id);
+            $wasVerified = $artist->is_verified;
 
-        DB::table('artists')
-            ->where('id', $id)
-            ->update([
-                'status' => 'active',
-                'updated_at' => now(),
+            $artist->update([
+                'is_verified' => ! $wasVerified,
+                'verification_status' => $wasVerified ? 'pending' : 'approved',
+                'verified_at' => $wasVerified ? null : now(),
             ]);
 
-        return response()->json([
-            'message' => 'Artist approved successfully.',
-        ]);
+            return response()->json([
+                'success' => true,
+                'message' => $wasVerified ? 'Artist unverified.' : 'Artist verified.',
+            ]);
+        }, 'Failed to toggle artist verification.');
     }
 
     /**
-     * Suspend an artist
+     * Approve a pending artist.
      */
-    public function suspend($id)
+    public function approve($id): JsonResponse
     {
-        $artist = DB::table('artists')->where('id', $id)->first();
-        if (! $artist) {
-            return response()->json(['message' => 'Artist not found.'], 404);
-        }
+        return $this->handleApiAction(function () use ($id) {
+            $artist = Artist::findOrFail($id);
+            $artist->update(['status' => 'active']);
 
-        DB::table('artists')
-            ->where('id', $id)
-            ->update([
-                'status' => 'suspended',
-                'updated_at' => now(),
+            return response()->json([
+                'success' => true,
+                'message' => 'Artist approved successfully.',
             ]);
+        }, 'Failed to approve artist.');
+    }
 
-        return response()->json([
-            'message' => 'Artist suspended successfully.',
-        ]);
+    /**
+     * Suspend an artist.
+     */
+    public function suspend($id): JsonResponse
+    {
+        return $this->handleApiAction(function () use ($id) {
+            $artist = Artist::findOrFail($id);
+            $artist->update(['status' => 'suspended']);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Artist suspended successfully.',
+            ]);
+        }, 'Failed to suspend artist.');
     }
 }

@@ -3,30 +3,36 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Traits\HandlesApiErrors;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Validator;
 
 class SettingsController extends Controller
 {
+    use HandlesApiErrors;
+
     /**
      * Get all platform settings
      */
     public function index()
     {
-        $settings = [
-            'general' => $this->getGeneralSettings(),
-            'appearance' => $this->getAppearanceSettings(),
-            'notifications' => $this->getNotificationSettings(),
-            'security' => $this->getSecuritySettings(),
-            'payments' => $this->getPaymentSettings(),
-            'email' => $this->getEmailSettings(),
-            'storage' => $this->getStorageSettings(),
-        ];
+        return $this->handleApiAction(function () {
+            $settings = [
+                'general' => $this->getGeneralSettings(),
+                'appearance' => $this->getAppearanceSettings(),
+                'notifications' => $this->getNotificationSettings(),
+                'security' => $this->getSecuritySettings(),
+                'payments' => $this->getPaymentSettings(),
+                'email' => $this->getEmailSettings(),
+                'storage' => $this->getStorageSettings(),
+            ];
 
-        return response()->json([
-            'data' => $settings,
-        ]);
+            return response()->json([
+                'success' => true,
+                'data' => $settings,
+            ]);
+        }, 'Failed to retrieve platform settings.');
     }
 
     /**
@@ -34,65 +40,69 @@ class SettingsController extends Controller
      */
     public function update(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'general' => 'sometimes|array',
-            'appearance' => 'sometimes|array',
-            'notifications' => 'sometimes|array',
-            'security' => 'sometimes|array',
-            'payments' => 'sometimes|array',
-            'email' => 'sometimes|array',
-            'storage' => 'sometimes|array',
-        ]);
+        return $this->handleApiAction(function () use ($request) {
+            $validator = Validator::make($request->all(), [
+                'general' => 'sometimes|array',
+                'appearance' => 'sometimes|array',
+                'notifications' => 'sometimes|array',
+                'security' => 'sometimes|array',
+                'payments' => 'sometimes|array',
+                'email' => 'sometimes|array',
+                'storage' => 'sometimes|array',
+            ]);
 
-        if ($validator->fails()) {
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed.',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
+
+            $updated = [];
+
+            // Update each section if provided
+            if ($request->has('general')) {
+                $this->updateGeneralSettings($request->input('general'));
+                $updated[] = 'general';
+            }
+
+            if ($request->has('appearance')) {
+                $this->updateAppearanceSettings($request->input('appearance'));
+                $updated[] = 'appearance';
+            }
+
+            if ($request->has('notifications')) {
+                $this->updateNotificationSettings($request->input('notifications'));
+                $updated[] = 'notifications';
+            }
+
+            if ($request->has('security')) {
+                $this->updateSecuritySettings($request->input('security'));
+                $updated[] = 'security';
+            }
+
+            if ($request->has('payments')) {
+                $this->updatePaymentSettings($request->input('payments'));
+                $updated[] = 'payments';
+            }
+
+            if ($request->has('email')) {
+                $this->updateEmailSettings($request->input('email'));
+                $updated[] = 'email';
+            }
+
+            if ($request->has('storage')) {
+                $this->updateStorageSettings($request->input('storage'));
+                $updated[] = 'storage';
+            }
+
             return response()->json([
-                'message' => 'Validation failed.',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        $updated = [];
-
-        // Update each section if provided
-        if ($request->has('general')) {
-            $this->updateGeneralSettings($request->input('general'));
-            $updated[] = 'general';
-        }
-
-        if ($request->has('appearance')) {
-            $this->updateAppearanceSettings($request->input('appearance'));
-            $updated[] = 'appearance';
-        }
-
-        if ($request->has('notifications')) {
-            $this->updateNotificationSettings($request->input('notifications'));
-            $updated[] = 'notifications';
-        }
-
-        if ($request->has('security')) {
-            $this->updateSecuritySettings($request->input('security'));
-            $updated[] = 'security';
-        }
-
-        if ($request->has('payments')) {
-            $this->updatePaymentSettings($request->input('payments'));
-            $updated[] = 'payments';
-        }
-
-        if ($request->has('email')) {
-            $this->updateEmailSettings($request->input('email'));
-            $updated[] = 'email';
-        }
-
-        if ($request->has('storage')) {
-            $this->updateStorageSettings($request->input('storage'));
-            $updated[] = 'storage';
-        }
-
-        return response()->json([
-            'message' => 'Settings updated successfully.',
-            'data' => ['updated' => $updated],
-        ]);
+                'success' => true,
+                'message' => 'Settings updated successfully.',
+                'data' => ['updated' => $updated],
+            ]);
+        }, 'Failed to update platform settings.');
     }
 
     // ====================================================================
