@@ -20,7 +20,7 @@ class Order extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $table = 'orders';
+    protected $table = 'store_orders';
 
     protected static function newFactory()
     {
