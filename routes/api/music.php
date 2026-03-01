@@ -34,8 +34,8 @@ Route::prefix('')->group(function () {
     Route::get('/playlists/{playlist}/tracks', [PlaylistController::class, 'tracks'])->name('api.music.playlist.tracks');
 });
 
-// Admin routes for artists management (temporarily without auth for testing)
-Route::prefix('admin')->group(function () {
+// Admin routes for artists management — SECURED with auth + role middleware
+Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin')->group(function () {
     Route::get('/artists', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'index']);
     Route::get('/artists/statistics', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'statistics']);
     Route::get('/artists/{id}', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'show']);
@@ -49,8 +49,8 @@ Route::prefix('admin')->group(function () {
     Route::post('/artists/{id}/suspend', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'suspend']);
 });
 
-// Admin users routes
-Route::prefix('admin')->group(function () {
+// Admin users routes — SECURED with auth + role middleware
+Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin')->group(function () {
     Route::get('/users', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'index']);
     Route::get('/users/statistics', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'statistics']);
     Route::get('/users/{id}', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'show']);

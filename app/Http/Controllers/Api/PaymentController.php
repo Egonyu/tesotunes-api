@@ -62,12 +62,22 @@ class PaymentController extends Controller
 
     /**
      * POST /api/payments/{payment}/refund — refund a payment
+     * HIGH-7 fix: Added ownership check — only payment owner or admin can refund
      */
     public function refund(Request $request, $payment): JsonResponse
     {
         $payment = Payment::where('id', $payment)
             ->orWhere('uuid', $payment)
             ->firstOrFail();
+
+        // Ownership check: only the payment owner or admin can issue a refund
+        $user = $request->user();
+        if ($payment->user_id !== $user->id && ! $user->hasAnyRole(['admin', 'super_admin'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are not authorized to refund this payment.',
+            ], 403);
+        }
 
         $validated = $request->validate([
             'amount' => 'nullable|numeric|min:0',

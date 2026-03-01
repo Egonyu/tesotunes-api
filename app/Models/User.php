@@ -39,7 +39,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'username',
         'email',
         'password',
-        'email_verified_at',
+        // 'email_verified_at', // REMOVED: HIGH-4 — use markEmailAsVerified() method, not mass assignment
 
         // Social Authentication (NEW)
         'provider',
@@ -79,16 +79,16 @@ class User extends Authenticatable implements MustVerifyEmail
         'date_of_birth',
         'language',
 
-        // User role & status
+        // User role & status (privilege fields NOT mass-assignable — use dedicated methods)
         'is_artist',
-        'is_active',
+        // 'is_active',     // REMOVED: HIGH-4 privilege escalation risk — use setActive()/suspend() methods
         'is_verified',
-        'is_premium',
+        // 'is_premium',    // REMOVED: HIGH-4 privilege escalation risk — use subscription system
         'status',
         'application_status',
 
         // Status & verification
-        'is_active',
+        // 'is_active',     // REMOVED: duplicate & privilege escalation risk
         'is_online',
         'last_seen_at',
         'verified_at',
@@ -109,7 +109,7 @@ class User extends Authenticatable implements MustVerifyEmail
         'email_notifications_enabled',
         'sms_notifications_enabled',
         'notification_preferences',
-        'permissions',
+        // 'permissions',   // REMOVED: HIGH-4 privilege escalation risk — use role/permission system
         'settings',
 
         // Payment info
@@ -117,9 +117,9 @@ class User extends Authenticatable implements MustVerifyEmail
         'mobile_money_number',
         'mobile_money_provider',
 
-        // Credits system
-        'credits',
-        'ugx_balance',
+        // Credits system (privilege fields — NOT mass-assignable, use CreditService methods)
+        // 'credits',       // REMOVED: HIGH-4 — use addCredits()/deductCredits() methods
+        // 'ugx_balance',   // REMOVED: HIGH-4 — use financial transaction methods
 
         // Referral system
         'referral_code',

@@ -44,7 +44,8 @@ class AuthController extends Controller
             'country' => $request->country ?? 'UG',
             'date_of_birth' => $request->date_of_birth,
             'role' => 'user',
-            'email_verified_at' => now(),
+            // HIGH-6 fix: Do NOT auto-verify email — require email verification flow
+            // 'email_verified_at' => now(), // REMOVED: security risk
         ]);
 
         UserSetting::createDefault($user);

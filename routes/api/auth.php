@@ -3,10 +3,9 @@
 use App\Http\Controllers\Api\Auth\AuthController;
 use Illuminate\Support\Facades\Route;
 
-// Public API authentication routes (no authentication required)
-// Returns JSON responses with Sanctum tokens
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+// Public API authentication routes (rate limited to prevent brute force)
+Route::middleware('throttle:login')->post('/login', [AuthController::class, 'login']);
+Route::middleware('throttle:register')->post('/register', [AuthController::class, 'register']);
 
 // Authenticated auth routes (require valid Sanctum token)
 Route::middleware('auth:sanctum')->group(function () {

@@ -18,6 +18,6 @@ use App\Http\Controllers\Api\Auth\AuthController as ApiAuthController;
 use Illuminate\Support\Facades\Route;
 
 // API Login/Register endpoints (no CSRF - for NextAuth and mobile apps)
-// Returns JSON responses with Sanctum tokens
-Route::post('/auth/login', [ApiAuthController::class, 'login'])->name('auth.login');
-Route::post('/auth/register', [ApiAuthController::class, 'register'])->name('auth.register');
+// Returns JSON responses with Sanctum tokens — rate limited
+Route::middleware('throttle:login')->post('/auth/login', [ApiAuthController::class, 'login'])->name('auth.login');
+Route::middleware('throttle:register')->post('/auth/register', [ApiAuthController::class, 'register'])->name('auth.register');
