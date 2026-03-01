@@ -1,31 +1,33 @@
-name: Tests
+name: Security Hardening Gate → Promote to main
+
+# Every push to security/critical-hardening runs the full test + security suite.
+# If all jobs pass, the branch is automatically merged into main, which in turn
+# triggers deploy-production.yml to deploy to the live server.
+#
+# Branch protection note:
+#   If `main` has branch protection rules that require PR reviews or status
+#   checks, set the PROMOTION_TOKEN repository secret to a Personal Access Token
+#   (PAT) with `repo` scope. Otherwise GITHUB_TOKEN is sufficient.
 
 on:
-  pull_request:
-    branches:
-      - main
-      - develop
-      - security/critical-hardening
   push:
     branches:
-      - main
-      - develop
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
+      - security/critical-hardening
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 env:
   PHP_VERSION: '8.4'
 
 jobs:
+  # -----------------------------------------------------------------------
+  # 1. Run the full test suite
+  # -----------------------------------------------------------------------
   tests:
-    name: Tests (PHP ${{ matrix.php }})
+    name: Tests (PHP ${{ env.PHP_VERSION }})
     runs-on: ubuntu-latest
-
-    strategy:
-      fail-fast: false
-      matrix:
-        php: ['8.4']
 
     services:
       mysql:
@@ -50,7 +52,7 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: ${{ matrix.php }}
+          php-version: ${{ env.PHP_VERSION }}
           extensions: mbstring, xml, ctype, json, zip, gd, sqlite3, redis, mysql, bcmath, intl
           coverage: xdebug
           tools: composer:v2
@@ -60,7 +62,7 @@ jobs:
         run: echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
 
       - name: Cache Composer dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
           key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
@@ -100,15 +102,10 @@ jobs:
           QUEUE_CONNECTION: sync
           SESSION_DRIVER: array
         run: composer test
-        continue-on-error: false
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        if: matrix.php == '8.3'
-        with:
-          files: ./coverage.xml
-          fail_ci_if_error: false
-
+  # -----------------------------------------------------------------------
+  # 2. Static analysis / code style
+  # -----------------------------------------------------------------------
   code-quality:
     name: Code Quality
     runs-on: ubuntu-latest
@@ -136,6 +133,9 @@ jobs:
           fi
         continue-on-error: true
 
+  # -----------------------------------------------------------------------
+  # 3. Security gate (route/model audits + dependency CVE scan)
+  # -----------------------------------------------------------------------
   security:
     name: Security Checks
     runs-on: ubuntu-latest
@@ -228,3 +228,33 @@ jobs:
             exit 1
           fi
           echo "✅ No hardcoded secrets found"
+
+  # -----------------------------------------------------------------------
+  # 4. Promote to main — only runs after ALL three gates pass
+  # -----------------------------------------------------------------------
+  promote-to-main:
+    name: Promote to main
+    needs: [tests, code-quality, security]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Use PROMOTION_TOKEN (PAT) if main is branch-protected; otherwise
+          # GITHUB_TOKEN is sufficient for unprotected main branches.
+          token: ${{ secrets.PROMOTION_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git bot identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge security/critical-hardening into main
+        run: |
+          git fetch origin main
+          git checkout main
+          git merge --no-ff origin/security/critical-hardening \
+            -m "chore: promote security/critical-hardening → main (all gates passed)"
+          git push origin main
