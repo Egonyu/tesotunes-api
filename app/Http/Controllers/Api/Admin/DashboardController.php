@@ -3,9 +3,15 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Album;
+use App\Models\Artist;
+use App\Models\Download;
+use App\Models\Payment;
+use App\Models\PlayHistory;
+use App\Models\Song;
+use App\Models\User;
+use App\Models\UserSubscription;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class DashboardController extends Controller
 {
@@ -18,21 +24,16 @@ class DashboardController extends Controller
             $today = Carbon::today();
             $thisWeek = Carbon::now()->startOfWeek();
             $thisMonth = Carbon::now()->startOfMonth();
-            $lastMonth = Carbon::now()->subMonth();
+            $lastMonthStart = Carbon::now()->subMonth()->startOfMonth();
 
             // Users stats
-            $totalUsers = DB::table('users')->count();
-            $newToday = DB::table('users')->whereDate('created_at', $today)->count();
-            $newThisWeek = DB::table('users')->where('created_at', '>=', $thisWeek)->count();
-            $activeUsers = Schema::hasColumn('users', 'is_active')
-                ? DB::table('users')->where('is_active', 1)->count()
-                : $totalUsers;
-            $premiumUsers = Schema::hasTable('subscriptions')
-                ? DB::table('subscriptions')->where('status', 'active')->distinct('user_id')->count()
-                : 0;
+            $totalUsers = User::count();
+            $newToday = User::whereDate('created_at', $today)->count();
+            $newThisWeek = User::where('created_at', '>=', $thisWeek)->count();
+            $activeUsers = User::where('is_active', true)->count();
+            $premiumUsers = UserSubscription::where('status', 'active')->distinct('user_id')->count('user_id');
 
-            $lastWeekUsers = DB::table('users')
-                ->where('created_at', '>=', Carbon::now()->subWeek()->startOfWeek())
+            $lastWeekUsers = User::where('created_at', '>=', Carbon::now()->subWeek()->startOfWeek())
                 ->where('created_at', '<', $thisWeek)
                 ->count();
             $usersChange = $lastWeekUsers > 0
@@ -40,60 +41,53 @@ class DashboardController extends Controller
                 : 0;
 
             // Songs stats
-            $totalSongs = Schema::hasTable('songs') ? DB::table('songs')->count() : 0;
-            $publishedSongs = Schema::hasTable('songs') ? DB::table('songs')->where('status', 'published')->count() : 0;
-            $pendingReview = Schema::hasTable('songs') ? DB::table('songs')->where('status', 'pending_review')->count() : 0;
-            $draftSongs = Schema::hasTable('songs') ? DB::table('songs')->where('status', 'draft')->count() : 0;
+            $totalSongs = Song::count();
+            $publishedSongs = Song::where('status', 'published')->count();
+            $pendingReview = Song::where('status', 'pending_review')->count();
+            $draftSongs = Song::where('status', 'draft')->count();
 
-            $totalPlays = Schema::hasTable('plays') ? DB::table('plays')->count() : 0;
-            $playsToday = Schema::hasTable('plays') ? DB::table('plays')->whereDate('created_at', $today)->count() : 0;
+            $totalPlays = PlayHistory::count();
+            $playsToday = PlayHistory::whereDate('created_at', $today)->count();
 
-            $lastWeekSongs = Schema::hasTable('songs')
-                ? DB::table('songs')
-                    ->where('created_at', '>=', Carbon::now()->subWeek()->startOfWeek())
-                    ->where('created_at', '<', $thisWeek)
-                    ->count()
-                : 0;
+            $newSongsThisWeek = Song::where('created_at', '>=', $thisWeek)->count();
+            $lastWeekSongs = Song::where('created_at', '>=', Carbon::now()->subWeek()->startOfWeek())
+                ->where('created_at', '<', $thisWeek)
+                ->count();
             $songsChange = $lastWeekSongs > 0
-                ? ((DB::table('songs')->where('created_at', '>=', $thisWeek)->count() - $lastWeekSongs) / $lastWeekSongs) * 100
+                ? (($newSongsThisWeek - $lastWeekSongs) / $lastWeekSongs) * 100
                 : 0;
 
             // Albums stats
-            $totalAlbums = Schema::hasTable('albums') ? DB::table('albums')->count() : 0;
-            $releasedAlbums = Schema::hasTable('albums') ? DB::table('albums')->where('status', 'released')->count() : 0;
-            $upcomingAlbums = Schema::hasTable('albums')
-                ? DB::table('albums')->where('release_date', '>', now())->count()
-                : 0;
+            $totalAlbums = Album::count();
+            $releasedAlbums = Album::where('status', 'released')->count();
+            $upcomingAlbums = Album::where('release_date', '>', now())->count();
 
             // Artists stats
-            $totalArtists = Schema::hasTable('artists') ? DB::table('artists')->count() : 0;
-            $verifiedArtists = Schema::hasTable('artists') ? DB::table('artists')->where('is_verified', 1)->count() : 0;
-            $pendingVerification = Schema::hasTable('artist_applications')
-                ? DB::table('artist_applications')->where('status', 'pending')->count()
-                : 0;
+            $totalArtists = Artist::count();
+            $verifiedArtists = Artist::where('is_verified', true)->count();
+            $pendingVerification = 0;
 
             // Revenue stats
-            $totalRevenue = Schema::hasTable('payments')
-                ? (DB::table('payments')->where('status', 'completed')->sum('amount') ?? 0)
-                : 0;
-            $thisMonthRevenue = Schema::hasTable('payments')
-                ? (DB::table('payments')->where('status', 'completed')->where('created_at', '>=', $thisMonth)->sum('amount') ?? 0)
-                : 0;
-            $lastMonthRevenue = Schema::hasTable('payments')
-                ? (DB::table('payments')->where('status', 'completed')->where('created_at', '>=', $lastMonth->startOfMonth())->where('created_at', '<', $thisMonth)->sum('amount') ?? 0)
-                : 0;
-
+            $totalRevenue = Payment::where('status', 'completed')->sum('amount') ?? 0;
+            $thisMonthRevenue = Payment::where('status', 'completed')
+                ->where('created_at', '>=', $thisMonth)
+                ->sum('amount') ?? 0;
+            $lastMonthRevenue = Payment::where('status', 'completed')
+                ->where('created_at', '>=', $lastMonthStart)
+                ->where('created_at', '<', $thisMonth)
+                ->sum('amount') ?? 0;
             $revenueChange = $lastMonthRevenue > 0
                 ? (($thisMonthRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100
                 : 0;
 
             // Activity stats
-            $playsThisWeek = Schema::hasTable('plays') ? DB::table('plays')->where('created_at', '>=', $thisWeek)->count() : 0;
-            $totalDownloads = Schema::hasTable('downloads') ? DB::table('downloads')->count() : 0;
-            $downloadsToday = Schema::hasTable('downloads') ? DB::table('downloads')->whereDate('created_at', $today)->count() : 0;
-            $downloadsThisWeek = Schema::hasTable('downloads') ? DB::table('downloads')->where('created_at', '>=', $thisWeek)->count() : 0;
+            $playsThisWeek = PlayHistory::where('created_at', '>=', $thisWeek)->count();
+            $totalDownloads = Download::count();
+            $downloadsToday = Download::whereDate('created_at', $today)->count();
+            $downloadsThisWeek = Download::where('created_at', '>=', $thisWeek)->count();
 
             return response()->json([
+                'success' => true,
                 'data' => [
                     'users' => [
                         'total' => $totalUsers,
@@ -146,6 +140,7 @@ class DashboardController extends Controller
             ]);
 
             return response()->json([
+                'success' => false,
                 'message' => 'Failed to load dashboard stats.',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);
@@ -158,54 +153,37 @@ class DashboardController extends Controller
     public function recentActivity()
     {
         try {
-            // Recent songs
-            $recentSongs = collect();
-            if (Schema::hasTable('songs') && Schema::hasTable('artists')) {
-                $artistNameCol = Schema::hasColumn('artists', 'stage_name') ? 'artists.stage_name' : 'artists.name';
-                $recentSongs = DB::table('songs')
-                    ->join('artists', 'songs.artist_id', '=', 'artists.id')
-                    ->select('songs.id', 'songs.title', DB::raw("{$artistNameCol} as artist_name"), 'songs.created_at')
-                    ->orderBy('songs.created_at', 'desc')
-                    ->limit(5)
-                    ->get()
-                    ->map(function ($song) {
-                        return [
-                            'id' => $song->id,
-                            'title' => $song->title,
-                            'artist' => ['name' => $song->artist_name],
-                            'created_at' => $song->created_at,
-                        ];
-                    });
-            }
+            $recentSongs = Song::with('artist:id,name,stage_name')
+                ->select('id', 'title', 'artist_id', 'created_at')
+                ->orderByDesc('created_at')
+                ->limit(5)
+                ->get()
+                ->map(fn ($song) => [
+                    'id' => $song->id,
+                    'title' => $song->title,
+                    'artist' => ['name' => $song->artist?->stage_name ?? $song->artist?->name],
+                    'created_at' => $song->created_at,
+                ]);
 
-            // Recent albums
-            $recentAlbums = collect();
-            if (Schema::hasTable('albums') && Schema::hasTable('artists')) {
-                $artistNameCol = Schema::hasColumn('artists', 'stage_name') ? 'artists.stage_name' : 'artists.name';
-                $recentAlbums = DB::table('albums')
-                    ->join('artists', 'albums.artist_id', '=', 'artists.id')
-                    ->select('albums.id', 'albums.title', DB::raw("{$artistNameCol} as artist_name"), 'albums.created_at')
-                    ->orderBy('albums.created_at', 'desc')
-                    ->limit(5)
-                    ->get()
-                    ->map(function ($album) {
-                        return [
-                            'id' => $album->id,
-                            'title' => $album->title,
-                            'artist' => ['name' => $album->artist_name],
-                            'created_at' => $album->created_at,
-                        ];
-                    });
-            }
+            $recentAlbums = Album::with('artist:id,name,stage_name')
+                ->select('id', 'title', 'artist_id', 'created_at')
+                ->orderByDesc('created_at')
+                ->limit(5)
+                ->get()
+                ->map(fn ($album) => [
+                    'id' => $album->id,
+                    'title' => $album->title,
+                    'artist' => ['name' => $album->artist?->stage_name ?? $album->artist?->name],
+                    'created_at' => $album->created_at,
+                ]);
 
-            // Recent users
-            $recentUsers = DB::table('users')
-                ->select('id', 'username as name', 'email', 'created_at')
-                ->orderBy('created_at', 'desc')
+            $recentUsers = User::select('id', 'username as name', 'email', 'created_at')
+                ->orderByDesc('created_at')
                 ->limit(5)
                 ->get();
 
             return response()->json([
+                'success' => true,
                 'data' => [
                     'songs' => $recentSongs,
                     'albums' => $recentAlbums,
@@ -219,6 +197,7 @@ class DashboardController extends Controller
             ]);
 
             return response()->json([
+                'success' => false,
                 'message' => 'Failed to load recent activity.',
                 'error' => config('app.debug') ? $e->getMessage() : 'Internal server error',
             ], 500);

@@ -13,6 +13,7 @@ class AdminIndexController extends Controller
     public function __invoke(): JsonResponse
     {
         return response()->json([
+            'success' => true,
             'message' => 'Admin API',
             'version' => '1.0',
             'endpoints' => [

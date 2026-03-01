@@ -7,27 +7,32 @@ use App\Http\Resources\CampaignResource;
 use App\Http\Resources\CampaignUpdateResource;
 use App\Http\Resources\PledgeResource;
 use App\Models\Campaign;
+use App\Traits\HandlesApiErrors;
 use Illuminate\Http\Request;
 
 class CampaignsApiController extends Controller
 {
+    use HandlesApiErrors;
     /**
      * GET /api/admin/campaigns/stats
      */
     public function stats()
     {
-        return response()->json([
-            'data' => [
-                'total_campaigns' => Campaign::count(),
-                'active_campaigns' => Campaign::active()->count(),
-                'pending_approval' => Campaign::pending()->count(),
-                'total_raised' => (float) Campaign::join('campaign_pledges', 'campaigns.id', '=', 'campaign_pledges.campaign_id')
-                    ->sum('campaign_pledges.amount'),
-                'total_pledges' => \App\Models\CampaignPledge::count(),
-                'recent_pledges_30d' => (float) \App\Models\CampaignPledge::where('created_at', '>=', now()->subDays(30))
-                    ->sum('amount'),
-            ],
-        ]);
+        return $this->handleApiAction(function () {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'total_campaigns' => Campaign::count(),
+                    'active_campaigns' => Campaign::active()->count(),
+                    'pending_approval' => Campaign::pending()->count(),
+                    'total_raised' => (float) Campaign::join('campaign_pledges', 'campaigns.id', '=', 'campaign_pledges.campaign_id')
+                        ->sum('campaign_pledges.amount'),
+                    'total_pledges' => \App\Models\CampaignPledge::count(),
+                    'recent_pledges_30d' => (float) \App\Models\CampaignPledge::where('created_at', '>=', now()->subDays(30))
+                        ->sum('amount'),
+                ],
+            ]);
+        }, 'Failed to retrieve campaign stats.');
     }
 
     /**
@@ -35,21 +40,32 @@ class CampaignsApiController extends Controller
      */
     public function index(Request $request)
     {
-        $campaigns = Campaign::query()
-            ->with('user')
-            ->withCount('pledges', 'updates')
-            ->withSum('pledges', 'amount')
-            ->search($request->get('search'))
-            ->when($request->get('status') && $request->get('status') !== 'all', function ($q) use ($request) {
-                $q->where('status', $request->get('status'));
-            })
-            ->when($request->get('category') && $request->get('category') !== 'all', function ($q) use ($request) {
-                $q->where('category', $request->get('category'));
-            })
-            ->latest()
-            ->paginate($this->getPerPage($request, 10));
+        return $this->handleApiAction(function () use ($request) {
+            $campaigns = Campaign::query()
+                ->with('user')
+                ->withCount('pledges', 'updates')
+                ->withSum('pledges', 'amount')
+                ->search($request->get('search'))
+                ->when($request->get('status') && $request->get('status') !== 'all', function ($q) use ($request) {
+                    $q->where('status', $request->get('status'));
+                })
+                ->when($request->get('category') && $request->get('category') !== 'all', function ($q) use ($request) {
+                    $q->where('category', $request->get('category'));
+                })
+                ->latest()
+                ->paginate($this->getPerPage($request, 10));
 
-        return CampaignResource::collection($campaigns);
+            return response()->json([
+                'success' => true,
+                'data' => CampaignResource::collection($campaigns),
+                'meta' => [
+                    'current_page' => $campaigns->currentPage(),
+                    'last_page' => $campaigns->lastPage(),
+                    'per_page' => $campaigns->perPage(),
+                    'total' => $campaigns->total(),
+                ],
+            ]);
+        }, 'Failed to retrieve campaigns.');
     }
 
     /**
@@ -57,12 +73,17 @@ class CampaignsApiController extends Controller
      */
     public function show($id)
     {
-        $campaign = Campaign::with('user')
-            ->withCount('pledges', 'updates')
-            ->withSum('pledges', 'amount')
-            ->findOrFail($id);
+        return $this->handleApiAction(function () use ($id) {
+            $campaign = Campaign::with('user')
+                ->withCount('pledges', 'updates')
+                ->withSum('pledges', 'amount')
+                ->findOrFail($id);
 
-        return new CampaignResource($campaign);
+            return response()->json([
+                'success' => true,
+                'data' => new CampaignResource($campaign),
+            ]);
+        }, 'Failed to retrieve campaign.');
     }
 
     /**
@@ -70,35 +91,39 @@ class CampaignsApiController extends Controller
      */
     public function store(Request $request)
     {
-        $validated = $request->validate([
-            'title' => 'required|string|max:255',
-            'description' => 'required|string',
-            'story' => 'nullable|string',
-            'category' => 'required|string|max:50',
-            'beneficiary_name' => 'required|string|max:255',
-            'beneficiary_type' => 'required|string|max:30',
-            'beneficiary_relationship' => 'nullable|string|max:100',
-            'urgency' => 'nullable|in:low,medium,high,critical',
-            'status' => 'nullable|in:draft,pending,active,completed,cancelled',
-            'target_amount' => 'nullable|numeric|min:0',
-            'end_date' => 'nullable|date|after:today',
-            'contact_name' => 'nullable|string|max:255',
-            'contact_phone' => 'nullable|string|max:20',
-            'contact_role' => 'nullable|string|max:100',
-        ]);
+        return $this->handleApiAction(function () use ($request) {
+            $validated = $request->validate([
+                'title' => 'required|string|max:255',
+                'description' => 'required|string',
+                'story' => 'nullable|string',
+                'category' => 'required|string|max:50',
+                'beneficiary_name' => 'required|string|max:255',
+                'beneficiary_type' => 'required|string|max:30',
+                'beneficiary_relationship' => 'nullable|string|max:100',
+                'urgency' => 'nullable|in:low,medium,high,critical',
+                'status' => 'nullable|in:draft,pending,active,completed,cancelled',
+                'target_amount' => 'nullable|numeric|min:0',
+                'end_date' => 'nullable|date|after:today',
+                'contact_name' => 'nullable|string|max:255',
+                'contact_phone' => 'nullable|string|max:20',
+                'contact_role' => 'nullable|string|max:100',
+            ]);
 
-        $validated['user_id'] = $request->user()->id;
-        $validated['status'] = $validated['status'] ?? 'draft';
-        $validated['urgency'] = $validated['urgency'] ?? 'medium';
+            $validated['user_id'] = $request->user()->id;
+            $validated['status'] = $validated['status'] ?? 'draft';
+            $validated['urgency'] = $validated['urgency'] ?? 'medium';
 
-        $campaign = Campaign::create($validated);
+            $campaign = Campaign::create($validated);
 
-        $campaign->load('user');
-        $campaign->loadCount('pledges', 'updates');
+            $campaign->load('user');
+            $campaign->loadCount('pledges', 'updates');
 
-        return (new CampaignResource($campaign))
-            ->response()
-            ->setStatusCode(201);
+            return response()->json([
+                'success' => true,
+                'message' => 'Campaign created successfully.',
+                'data' => new CampaignResource($campaign),
+            ], 201);
+        }, 'Failed to create campaign.');
     }
 
     /**
@@ -106,34 +131,40 @@ class CampaignsApiController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $campaign = Campaign::findOrFail($id);
+        return $this->handleApiAction(function () use ($request, $id) {
+            $campaign = Campaign::findOrFail($id);
 
-        $validated = $request->validate([
-            'title' => 'sometimes|string|max:255',
-            'description' => 'sometimes|string',
-            'story' => 'nullable|string',
-            'category' => 'sometimes|string|max:50',
-            'beneficiary_name' => 'sometimes|string|max:255',
-            'urgency' => 'nullable|in:low,medium,high,critical',
-            'status' => 'nullable|in:draft,pending,active,completed,cancelled',
-            'target_amount' => 'nullable|numeric|min:0',
-            'end_date' => 'nullable|date',
-            'contact_name' => 'nullable|string|max:255',
-            'contact_phone' => 'nullable|string|max:20',
-        ]);
+            $validated = $request->validate([
+                'title' => 'sometimes|string|max:255',
+                'description' => 'sometimes|string',
+                'story' => 'nullable|string',
+                'category' => 'sometimes|string|max:50',
+                'beneficiary_name' => 'sometimes|string|max:255',
+                'urgency' => 'nullable|in:low,medium,high,critical',
+                'status' => 'nullable|in:draft,pending,active,completed,cancelled',
+                'target_amount' => 'nullable|numeric|min:0',
+                'end_date' => 'nullable|date',
+                'contact_name' => 'nullable|string|max:255',
+                'contact_phone' => 'nullable|string|max:20',
+            ]);
 
-        // Re-slug if title changed
-        if (isset($validated['title'])) {
-            $validated['slug'] = \Illuminate\Support\Str::slug($validated['title']).'-'.\Illuminate\Support\Str::random(8);
-        }
+            // Re-slug if title changed
+            if (isset($validated['title'])) {
+                $validated['slug'] = \Illuminate\Support\Str::slug($validated['title']).'-'.\Illuminate\Support\Str::random(8);
+            }
 
-        $campaign->update($validated);
+            $campaign->update($validated);
 
-        $campaign->load('user');
-        $campaign->loadCount('pledges', 'updates');
-        $campaign->loadSum('pledges', 'amount');
+            $campaign->load('user');
+            $campaign->loadCount('pledges', 'updates');
+            $campaign->loadSum('pledges', 'amount');
 
-        return new CampaignResource($campaign);
+            return response()->json([
+                'success' => true,
+                'message' => 'Campaign updated successfully.',
+                'data' => new CampaignResource($campaign),
+            ]);
+        }, 'Failed to update campaign.');
     }
 
     /**
@@ -141,10 +172,12 @@ class CampaignsApiController extends Controller
      */
     public function destroy($id)
     {
-        $campaign = Campaign::findOrFail($id);
-        $campaign->delete();
+        return $this->handleApiAction(function () use ($id) {
+            $campaign = Campaign::findOrFail($id);
+            $campaign->delete();
 
-        return response()->json(['message' => 'Campaign deleted successfully.']);
+            return response()->json(['success' => true, 'message' => 'Campaign deleted successfully.']);
+        }, 'Failed to delete campaign.');
     }
 
     /**
@@ -152,20 +185,26 @@ class CampaignsApiController extends Controller
      */
     public function approve(Request $request, $id)
     {
-        $campaign = Campaign::findOrFail($id);
+        return $this->handleApiAction(function () use ($request, $id) {
+            $campaign = Campaign::findOrFail($id);
 
-        $campaign->update([
-            'status' => 'active',
-            'approved_at' => now(),
-            'approved_by' => $request->user()->id,
-            'activated_at' => now(),
-        ]);
+            $campaign->update([
+                'status' => 'active',
+                'approved_at' => now(),
+                'approved_by' => $request->user()->id,
+                'activated_at' => now(),
+            ]);
 
-        $campaign->load('user');
-        $campaign->loadCount('pledges', 'updates');
-        $campaign->loadSum('pledges', 'amount');
+            $campaign->load('user');
+            $campaign->loadCount('pledges', 'updates');
+            $campaign->loadSum('pledges', 'amount');
 
-        return new CampaignResource($campaign);
+            return response()->json([
+                'success' => true,
+                'message' => 'Campaign approved successfully.',
+                'data' => new CampaignResource($campaign),
+            ]);
+        }, 'Failed to approve campaign.');
     }
 
     /**
@@ -173,22 +212,28 @@ class CampaignsApiController extends Controller
      */
     public function reject(Request $request, $id)
     {
-        $campaign = Campaign::findOrFail($id);
+        return $this->handleApiAction(function () use ($request, $id) {
+            $campaign = Campaign::findOrFail($id);
 
-        $validated = $request->validate([
-            'reason' => 'required|string',
-        ]);
+            $validated = $request->validate([
+                'reason' => 'required|string',
+            ]);
 
-        $campaign->update([
-            'status' => 'rejected',
-            'rejected_at' => now(),
-            'rejected_by' => $request->user()->id,
-            'rejection_reason' => $validated['reason'],
-        ]);
+            $campaign->update([
+                'status' => 'rejected',
+                'rejected_at' => now(),
+                'rejected_by' => $request->user()->id,
+                'rejection_reason' => $validated['reason'],
+            ]);
 
-        $campaign->load('user');
+            $campaign->load('user');
 
-        return new CampaignResource($campaign);
+            return response()->json([
+                'success' => true,
+                'message' => 'Campaign rejected.',
+                'data' => new CampaignResource($campaign),
+            ]);
+        }, 'Failed to reject campaign.');
     }
 
     /**
@@ -196,14 +241,25 @@ class CampaignsApiController extends Controller
      */
     public function pledges(Request $request, $id)
     {
-        $campaign = Campaign::findOrFail($id);
+        return $this->handleApiAction(function () use ($request, $id) {
+            $campaign = Campaign::findOrFail($id);
 
-        $pledges = $campaign->pledges()
-            ->with('user')
-            ->latest()
-            ->paginate($this->getPerPage($request));
+            $pledges = $campaign->pledges()
+                ->with('user')
+                ->latest()
+                ->paginate($this->getPerPage($request));
 
-        return PledgeResource::collection($pledges);
+            return response()->json([
+                'success' => true,
+                'data' => PledgeResource::collection($pledges),
+                'meta' => [
+                    'current_page' => $pledges->currentPage(),
+                    'last_page' => $pledges->lastPage(),
+                    'per_page' => $pledges->perPage(),
+                    'total' => $pledges->total(),
+                ],
+            ]);
+        }, 'Failed to retrieve campaign pledges.');
     }
 
     /**
@@ -211,13 +267,24 @@ class CampaignsApiController extends Controller
      */
     public function updates(Request $request, $id)
     {
-        $campaign = Campaign::findOrFail($id);
+        return $this->handleApiAction(function () use ($request, $id) {
+            $campaign = Campaign::findOrFail($id);
 
-        $updates = $campaign->updates()
-            ->with('user')
-            ->latest()
-            ->paginate($this->getPerPage($request));
+            $updates = $campaign->updates()
+                ->with('user')
+                ->latest()
+                ->paginate($this->getPerPage($request));
 
-        return CampaignUpdateResource::collection($updates);
+            return response()->json([
+                'success' => true,
+                'data' => CampaignUpdateResource::collection($updates),
+                'meta' => [
+                    'current_page' => $updates->currentPage(),
+                    'last_page' => $updates->lastPage(),
+                    'per_page' => $updates->perPage(),
+                    'total' => $updates->total(),
+                ],
+            ]);
+        }, 'Failed to retrieve campaign updates.');
     }
 }
