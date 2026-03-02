@@ -37,9 +37,9 @@ test_endpoint() {
     local actual_code
 
     if [ "$method" = "GET" ]; then
-        actual_code=$(curl -s -o /dev/null -w "%{http_code}" -H "Accept: application/json" "$url" 2>/dev/null || echo "000")
+        actual_code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 30 -H "Accept: application/json" "$url" 2>/dev/null || echo "000")
     else
-        actual_code=$(curl -s -o /dev/null -w "%{http_code}" -X "$method" -H "Accept: application/json" -H "Content-Type: application/json" "$url" 2>/dev/null || echo "000")
+        actual_code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 10 --max-time 30 -X "$method" -H "Accept: application/json" -H "Content-Type: application/json" "$url" 2>/dev/null || echo "000")
     fi
 
     if [ "$actual_code" = "$expected_code" ]; then
@@ -109,7 +109,7 @@ test_endpoint "POST" "/artist/earnings/withdraw" "401" "Artist withdrawal requir
 echo ""
 echo "=== Debug/Test Endpoints (Must not exist) ==="
 # test-upload should return 404 now (removed)
-test_endpoint "POST" "/test-upload" "401" "Test upload endpoint removed or protected"
+test_endpoint "POST" "/test-upload" "404" "Test upload endpoint removed or protected"
 
 echo ""
 echo "=== Public Endpoints (Should work without auth) ==="

@@ -34,7 +34,6 @@ class SecurityAuditRoutes extends Command
         'api/ads',
         'api/theme',
         'api/announcements',
-        'api/v1',
         'api/webhooks',
         'api/store/webhooks',
         'api/content',
@@ -116,8 +115,9 @@ class SecurityAuditRoutes extends Command
             $middleware = $route->gatherMiddleware();
             $middlewareStr = implode(', ', $middleware);
 
-            // Skip OPTIONS routes
-            if ($methods === 'OPTIONS' || in_array('HEAD', $route->methods()) && count($route->methods()) === 2) {
+            // Skip pure OPTIONS or pure HEAD routes (but not normal GET+HEAD routes)
+            $routeMethods = $route->methods();
+            if (count($routeMethods) === 1 && in_array($routeMethods[0], ['OPTIONS', 'HEAD'], true)) {
                 continue;
             }
 
@@ -134,6 +134,22 @@ class SecurityAuditRoutes extends Command
                             'middleware' => $middlewareStr,
                         ];
                     }
+                }
+
+                continue;
+            }
+
+            // Check auth-only routes: must have auth:sanctum but no role check required
+            if ($this->matchesPrefix($uri, $this->allowedAuthOnlyPrefixes)) {
+                if (! $this->hasMiddleware($middleware, 'auth:sanctum')
+                    && ! $this->hasMiddleware($middleware, 'auth')) {
+                    $issues[] = [
+                        'severity' => 'HIGH',
+                        'uri' => $uri,
+                        'methods' => $methods,
+                        'issue' => 'Authenticated route MISSING auth:sanctum middleware',
+                        'middleware' => $middlewareStr,
+                    ];
                 }
 
                 continue;

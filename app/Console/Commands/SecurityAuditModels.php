@@ -62,6 +62,7 @@ class SecurityAuditModels extends Command
             $relativePath = str_replace(base_path().DIRECTORY_SEPARATOR, '', $file->getPathname());
             $modelName = $file->getFilenameWithoutExtension();
             $isUserModel = $modelName === 'User';
+            $fillableContent = null;
 
             // Extract $fillable array content
             if (preg_match('/protected\s+\$fillable\s*=\s*\[(.*?)\]/s', $content, $matches)) {
@@ -112,7 +113,7 @@ class SecurityAuditModels extends Command
             // Check for sensitive data in $hidden
             if ($isUserModel) {
                 $hasFillablePassword = false;
-                if (isset($fillableContent)) {
+                if ($fillableContent !== null) {
                     $activeFields = $this->extractActiveFields($fillableContent);
                     $hasFillablePassword = in_array('password', $activeFields);
                 }
