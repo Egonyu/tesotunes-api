@@ -46,6 +46,9 @@ Route::get('/announcements', [\App\Http\Controllers\Api\FeedController::class, '
 // Loyalty API Routes (fan clubs, memberships, rewards, points)
 require __DIR__.'/api/loyalty.php';
 
+// Ojokotau / Crowdfunding Campaign API Routes (public browsing + authenticated actions)
+require __DIR__.'/api/campaigns.php';
+
 // Public Events API Routes (no auth required)
 Route::prefix('events')->name('api.events.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Api\PublicEventsController::class, 'index'])->name('index');
@@ -407,6 +410,26 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::delete('/roles/{role}', [\App\Http\Controllers\Api\Admin\RoleController::class, 'destroy'])->name('roles.destroy');
     Route::post('/roles/assign', [\App\Http\Controllers\Api\Admin\RoleController::class, 'assignToUser'])->name('roles.assign');
     Route::post('/roles/remove', [\App\Http\Controllers\Api\Admin\RoleController::class, 'removeFromUser'])->name('roles.remove');
+
+    // Podcasts API — full CRUD + moderation
+    Route::get('/podcasts/stats', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'stats'])->name('podcasts.stats');
+    Route::get('/podcasts/categories', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'categories'])->name('podcasts.categories');
+    Route::get('/podcasts', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'index'])->name('podcasts.index');
+    Route::get('/podcasts/{id}', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'show'])->name('podcasts.show');
+    Route::post('/podcasts', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'store'])->name('podcasts.store');
+    Route::put('/podcasts/{id}', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'update'])->name('podcasts.update');
+    Route::delete('/podcasts/{id}', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'destroy'])->name('podcasts.destroy');
+    Route::post('/podcasts/{id}/approve', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'approve'])->name('podcasts.approve');
+    Route::post('/podcasts/{id}/suspend', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'suspend'])->name('podcasts.suspend');
+    Route::get('/podcasts/{$id}/episodes', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'episodes'])->name('podcasts.episodes');
+
+    // Genres API — full CRUD
+    Route::get('/genres', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'index'])->name('genres.index');
+    Route::post('/genres', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'store'])->name('genres.store');
+    Route::get('/genres/{id}', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'show'])->name('genres.show');
+    Route::put('/genres/{id}', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'update'])->name('genres.update');
+    Route::delete('/genres/{id}', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'destroy'])->name('genres.destroy');
+    Route::post('/genres/{id}/toggle-active', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'toggleActive'])->name('genres.toggle-active');
 });
 
 // Payment Webhooks (Public - no auth required, rate limited)
@@ -650,11 +673,31 @@ Route::prefix('auth')->group(function () {
     Route::middleware('throttle:login')->post('/login', [\App\Http\Controllers\Api\Auth\AuthController::class, 'login']);
     Route::middleware('throttle:register')->post('/register', [\App\Http\Controllers\Api\Auth\AuthController::class, 'register']);
 
+    // Password Reset (public — rate limited)
+    Route::middleware('throttle:login')->group(function () {
+        Route::post('/forgot-password', [\App\Http\Controllers\Api\Auth\PasswordResetController::class, 'forgotPassword']);
+        Route::post('/reset-password', [\App\Http\Controllers\Api\Auth\PasswordResetController::class, 'resetPassword']);
+    });
+
+    // Email Verification (public — verify endpoint uses signed URL params)
+    Route::post('/email/verify', [\App\Http\Controllers\Api\Auth\EmailVerificationController::class, 'verify']);
+
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [\App\Http\Controllers\Api\Auth\AuthController::class, 'logout']);
         Route::post('/refresh', [\App\Http\Controllers\Api\Auth\AuthController::class, 'refresh']);
         Route::get('/user', [\App\Http\Controllers\Api\Auth\AuthController::class, 'user']);
+
+        // Email verification (authenticated)
+        Route::post('/email/resend', [\App\Http\Controllers\Api\Auth\EmailVerificationController::class, 'resend']);
+        Route::get('/email/verify/status', [\App\Http\Controllers\Api\Auth\EmailVerificationController::class, 'status']);
     });
 });
 
 // REMOVED: test-upload debug endpoint — security hardening
+
+// File Upload API Routes (authenticated)
+Route::middleware('auth:sanctum')->prefix('uploads')->name('api.uploads.')->group(function () {
+    Route::post('/audio', [\App\Http\Controllers\Api\Upload\FileController::class, 'uploadAudio'])->name('audio');
+    Route::post('/image', [\App\Http\Controllers\Api\Upload\FileController::class, 'uploadImage'])->name('image');
+    Route::post('/avatar', [\App\Http\Controllers\Api\Upload\FileController::class, 'uploadAvatar'])->name('avatar');
+});
