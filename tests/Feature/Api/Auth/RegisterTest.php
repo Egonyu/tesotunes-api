@@ -3,7 +3,6 @@
 namespace Tests\Feature\Api\Auth;
 
 use App\Models\User;
-use App\Models\UserSetting;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;

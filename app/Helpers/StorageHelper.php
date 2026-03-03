@@ -2,10 +2,87 @@
 
 namespace App\Helpers;
 
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class StorageHelper
 {
+    /**
+     * Get the configured media disk name.
+     *
+     * In development: 'public' (local storage)
+     * In production:  'digitalocean' (DO Spaces CDN)
+     */
+    public static function mediaDisk(): string
+    {
+        return env('MEDIA_DISK', 'public');
+    }
+
+    /**
+     * Store an uploaded file on the configured media disk.
+     *
+     * @param  UploadedFile  $file  The uploaded file
+     * @param  string  $directory  Subdirectory (e.g. 'artists/avatars', 'events/covers')
+     * @param  string|null  $filename  Custom filename (auto-generated if null)
+     * @return string The relative path suitable for saving in DB and passing to url()
+     */
+    public static function store(UploadedFile $file, string $directory, ?string $filename = null): string
+    {
+        $disk = static::mediaDisk();
+        if ($filename === null) {
+            $original = preg_replace('/[^a-zA-Z0-9._-]/', '', $file->getClientOriginalName());
+            $ext = $file->getClientOriginalExtension();
+            $base = pathinfo($original, PATHINFO_FILENAME);
+            $base = $base !== '' ? $base : 'upload';
+            $suffix = Str::lower(Str::random(12));
+            $filename = $ext !== ''
+                ? $base.'_'.$suffix.'.'.$ext
+                : $base.'_'.$suffix;
+        }
+
+        if ($disk === 'public') {
+            // Local storage: use move() to avoid Windows getRealPath() bug
+            $targetDir = storage_path('app/public/'.$directory);
+            if (! is_dir($targetDir)) {
+                mkdir($targetDir, 0755, true);
+            }
+            $file->move($targetDir, $filename);
+
+            return $directory.'/'.$filename;
+        }
+
+        // Cloud storage: use Storage facade (works for DO Spaces, S3, etc.)
+        $path = Storage::disk($disk)->putFileAs($directory, $file, $filename, 'public');
+
+        return $path;
+    }
+
+    /**
+     * Delete a file from the configured media disk.
+     *
+     * @param  string|null  $path  Relative path of the file to delete
+     */
+    public static function delete(?string $path): void
+    {
+        if (empty($path)) {
+            return;
+        }
+
+        // Skip external URLs
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return;
+        }
+
+        $disk = static::mediaDisk();
+
+        try {
+            Storage::disk($disk)->delete($path);
+        } catch (\Exception $e) {
+            // Silently ignore delete failures
+        }
+    }
+
     /**
      * Generate a full URL for a stored file path.
      *
@@ -23,9 +100,18 @@ class StorageHelper
             return $path;
         }
 
-        // Try to generate URL from the default disk
+        // Try cloud disk first if configured
+        $disk = static::mediaDisk();
+        if ($disk !== 'public') {
+            try {
+                return Storage::disk($disk)->url($path);
+            } catch (\Exception $e) {
+                // Fall through to local resolution
+            }
+        }
+
+        // Local storage: generate URL from default public disk
         try {
-            // Storage::url() returns relative paths, so we need to prepend APP_URL
             $storageUrl = Storage::url($path);
             if (str_starts_with($storageUrl, '/')) {
                 return config('app.url').$storageUrl;

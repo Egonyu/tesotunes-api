@@ -4,29 +4,34 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Distribution;
+use App\Traits\HandlesApiErrors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class DistributionPerformanceController extends Controller
 {
+    use HandlesApiErrors;
+
     /**
      * Get admin overview of distribution performance across all artists
      */
     public function performance(Request $request): JsonResponse
     {
-        try {
+        return $this->handleApiAction(function () use ($request) {
             $days = min((int) $request->get('days', 30), 365);
-            $since = now()->subDays($days);
+            $cacheKey = "admin:distribution:performance:{$days}";
 
-            $distributions = Distribution::with(['song:id,title,artist_id', 'artist:id,name,stage_name'])
-                ->where('created_at', '>=', $since)
-                ->get();
+            $data = Cache::remember($cacheKey, now()->addMinutes(5), function () use ($days) {
+                $since = now()->subDays($days);
 
-            $allDistributions = Distribution::query();
+                $distributions = Distribution::with(['song:id,title,artist_id', 'artist:id,name,stage_name'])
+                    ->where('created_at', '>=', $since)
+                    ->get();
 
-            return response()->json([
-                'success' => true,
-                'data' => [
+                $allDistributions = Distribution::query();
+
+                return [
                     'summary' => [
                         'total_distributions' => $allDistributions->count(),
                         'live' => (clone $allDistributions)->where('status', 'live')->count(),
@@ -76,14 +81,13 @@ class DistributionPerformanceController extends Controller
                             'error' => $d->error_message ?? $d->rejection_reason,
                             'date' => $d->updated_at?->format('Y-m-d'),
                         ]),
-                ],
-            ]);
-        } catch (\Exception $e) {
+                ];
+            });
+
             return response()->json([
-                'success' => false,
-                'message' => 'Failed to load distribution performance data',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
+                'success' => true,
+                'data' => $data,
+            ]);
+        }, 'Failed to load distribution performance data.');
     }
 }

@@ -51,15 +51,19 @@ if (! function_exists('getSlidesByGenre')) {
 
         if ($cache) {
             return Cache::remember("slides.genre.{$genreId}", 3600, function () use ($genreId) {
+                $escaped = escape_like($genreId);
+
                 return Slide::where('visibility', 1)
-                    ->where('genre', 'LIKE', "%{$genreId}%")
+                    ->where('genre', 'LIKE', "%{$escaped}%")
                     ->with(['user'])
                     ->get();
             });
         }
 
+        $escaped = escape_like($genreId);
+
         return Slide::where('visibility', 1)
-            ->where('genre', 'LIKE', "%{$genreId}%")
+            ->where('genre', 'LIKE', "%{$escaped}%")
             ->with(['user'])
             ->get();
     }
@@ -87,15 +91,19 @@ if (! function_exists('getSlidesByMood')) {
 
         if ($cache) {
             return Cache::remember("slides.mood.{$moodId}", 3600, function () use ($moodId) {
+                $escaped = escape_like($moodId);
+
                 return Slide::where('visibility', 1)
-                    ->where('mood', 'LIKE', "%{$moodId}%")
+                    ->where('mood', 'LIKE', "%{$escaped}%")
                     ->with(['user'])
                     ->get();
             });
         }
 
+        $escaped = escape_like($moodId);
+
         return Slide::where('visibility', 1)
-            ->where('mood', 'LIKE', "%{$moodId}%")
+            ->where('mood', 'LIKE', "%{$escaped}%")
             ->with(['user'])
             ->get();
     }

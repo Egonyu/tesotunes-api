@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Jobs\IncrementCounter;
 use App\Models\Download;
 use App\Models\Like;
 use App\Models\PlayHistory;
@@ -133,13 +134,14 @@ class SongService
             ->where('status', 'published')
             ->where('is_active', true)
             ->where(function ($q) use ($query) {
-                $q->where('title', 'LIKE', "%{$query}%")
-                    ->orWhere('description', 'LIKE', "%{$query}%")
-                    ->orWhereHas('artist', function ($artistQuery) use ($query) {
-                        $artistQuery->where('stage_name', 'LIKE', "%{$query}%");
+                $escaped = escape_like($query);
+                $q->where('title', 'LIKE', "%{$escaped}%")
+                    ->orWhere('description', 'LIKE', "%{$escaped}%")
+                    ->orWhereHas('artist', function ($artistQuery) use ($escaped) {
+                        $artistQuery->where('stage_name', 'LIKE', "%{$escaped}%");
                     })
-                    ->orWhereHas('album', function ($albumQuery) use ($query) {
-                        $albumQuery->where('title', 'LIKE', "%{$query}%");
+                    ->orWhereHas('album', function ($albumQuery) use ($escaped) {
+                        $albumQuery->where('title', 'LIKE', "%{$escaped}%");
                     });
             })
             ->orderBy('play_count', 'desc')
@@ -172,7 +174,7 @@ class SongService
 
         // Update song play count if completed
         if ($playData['completed'] ?? false) {
-            $song->increment('play_count');
+            IncrementCounter::dispatch('songs', $song->id, 'play_count');
 
             // Create activity
             $this->createUserActivity($user, 'played_song', $song);
@@ -220,7 +222,7 @@ class SongService
         ]);
 
         // Increment download count
-        $song->increment('download_count');
+        IncrementCounter::dispatch('songs', $song->id, 'download_count');
 
         // Notify artist about the download
         if ($song->user && $song->user->id !== $user->id) {

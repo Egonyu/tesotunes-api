@@ -680,7 +680,7 @@ Route::prefix('auth')->group(function () {
     });
 
     // Email Verification (public — verify endpoint uses signed URL params)
-    Route::post('/email/verify', [\App\Http\Controllers\Api\Auth\EmailVerificationController::class, 'verify']);
+    Route::middleware('throttle:login')->post('/email/verify', [\App\Http\Controllers\Api\Auth\EmailVerificationController::class, 'verify']);
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [\App\Http\Controllers\Api\Auth\AuthController::class, 'logout']);

@@ -210,7 +210,7 @@ class AdminGenreController extends Controller
     {
         return $this->handleApiAction(function () use ($id) {
             $genre = Genre::findOrFail($id);
-            $genre->update(['is_active' => !$genre->is_active]);
+            $genre->update(['is_active' => ! $genre->is_active]);
 
             return response()->json([
                 'success' => true,

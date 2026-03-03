@@ -25,12 +25,12 @@ class StorageHelperTest extends TestCase
     protected function tearDown(): void
     {
         foreach ($this->createdFiles as $path) {
-            $fullPath = storage_path('app/public/' . $path);
+            $fullPath = storage_path('app/public/'.$path);
             if (file_exists($fullPath)) {
                 @unlink($fullPath);
             }
         }
-        foreach (array_unique(array_map(fn ($p) => dirname(storage_path('app/public/' . $p)), array_reverse($this->createdFiles))) as $dir) {
+        foreach (array_unique(array_map(fn ($p) => dirname(storage_path('app/public/'.$p)), array_reverse($this->createdFiles))) as $dir) {
             if (is_dir($dir) && count(scandir($dir)) === 2) {
                 @rmdir($dir);
             }
@@ -48,7 +48,7 @@ class StorageHelperTest extends TestCase
 
         $this->assertStringStartsWith('test_albums/artwork/', $path);
         $this->assertStringEndsWith('.jpg', $path);
-        $this->assertFileExists(storage_path('app/public/' . $path));
+        $this->assertFileExists(storage_path('app/public/'.$path));
     }
 
     public function test_store_generates_unique_filenames(): void
@@ -79,7 +79,7 @@ class StorageHelperTest extends TestCase
         $path = StorageHelper::store($file, 'test_deep/nested/dir');
         $this->createdFiles[] = $path;
 
-        $this->assertFileExists(storage_path('app/public/' . $path));
+        $this->assertFileExists(storage_path('app/public/'.$path));
     }
 
     public function test_store_sanitises_special_characters(): void

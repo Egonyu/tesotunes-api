@@ -162,6 +162,7 @@ return Application::configure(basePath: dirname(__DIR__))
                     // Sanitize trace to remove non-serializable values (resources, Closures, etc.)
                     $payload['trace'] = collect($e->getTrace())->take(5)->map(function ($frame) {
                         unset($frame['args']); // args can contain resources/Closures that break json_encode
+
                         return $frame;
                     })->toArray();
                 }
