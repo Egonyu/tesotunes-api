@@ -49,6 +49,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // Log API requests (method, URI, status, duration, user)
         $middleware->appendToGroup('api', \App\Http\Middleware\ApiLoggingMiddleware::class);
 
+        // Set CDN-friendly Cache-Control headers on API responses
+        $middleware->appendToGroup('api', \App\Http\Middleware\CacheHeadersMiddleware::class);
+
+        // Enforce max per_page/limit on all API list endpoints
+        $middleware->appendToGroup('api', \App\Http\Middleware\EnforcePaginationMiddleware::class);
+
         // For a pure API backend, unauthenticated requests should get JSON 401
         // instead of being redirected to a login page
         $middleware->redirectGuestsTo(fn () => null);
@@ -153,7 +159,11 @@ return Application::configure(basePath: dirname(__DIR__))
                 ];
                 if (! app()->isProduction()) {
                     $payload['exception'] = get_class($e);
-                    $payload['trace'] = collect($e->getTrace())->take(5)->toArray();
+                    // Sanitize trace to remove non-serializable values (resources, Closures, etc.)
+                    $payload['trace'] = collect($e->getTrace())->take(5)->map(function ($frame) {
+                        unset($frame['args']); // args can contain resources/Closures that break json_encode
+                        return $frame;
+                    })->toArray();
                 }
 
                 return response()->json($payload, $status);
