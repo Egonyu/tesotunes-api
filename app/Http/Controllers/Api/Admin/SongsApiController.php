@@ -7,13 +7,44 @@ use App\Http\Resources\SongResource;
 use App\Models\Song;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class SongsApiController extends Controller
 {
     use HandlesApiErrors;
+
+    private function assertValidUpload(?UploadedFile $file, string $field): void
+    {
+        if (! $file) {
+            return;
+        }
+
+        $realPath = $file->getRealPath();
+        $isValid = $file->isValid() && is_string($realPath) && $realPath !== '' && file_exists($realPath);
+
+        if ($isValid) {
+            return;
+        }
+
+        Log::warning('SongsApiController invalid upload payload', [
+            'field' => $field,
+            'original_name' => $file->getClientOriginalName(),
+            'mime' => $file->getMimeType(),
+            'size' => $file->getSize(),
+            'error' => method_exists($file, 'getError') ? $file->getError() : null,
+            'error_message' => method_exists($file, 'getErrorMessage') ? $file->getErrorMessage() : null,
+            'real_path' => $realPath,
+        ]);
+
+        throw ValidationException::withMessages([
+            $field => ['Uploaded file is invalid. Please reselect the file and try again.'],
+        ]);
+    }
 
     /**
      * List songs with filtering, searching, and pagination.
@@ -201,13 +232,16 @@ class SongsApiController extends Controller
             $audioPath = null;
             if ($request->hasFile('audio_file')) {
                 $audioFile = $request->file('audio_file');
+                $this->assertValidUpload($audioFile, 'audio_file');
                 $audioPath = $audioFile->store('songs/audio', 'public');
             }
 
             // Handle cover image upload
             $artworkPath = null;
             if ($request->hasFile('cover_image')) {
-                $artworkPath = $request->file('cover_image')->store('songs/artwork', 'public');
+                $coverImage = $request->file('cover_image');
+                $this->assertValidUpload($coverImage, 'cover_image');
+                $artworkPath = $coverImage->store('songs/artwork', 'public');
             }
 
             // Parse duration string to seconds
@@ -366,6 +400,9 @@ class SongsApiController extends Controller
 
             // Handle audio file replacement
             if ($request->hasFile('audio_file')) {
+                $audioFile = $request->file('audio_file');
+                $this->assertValidUpload($audioFile, 'audio_file');
+
                 // Delete old files
                 if ($song->audio_file_original) {
                     Storage::disk('public')->delete($song->audio_file_original);
@@ -374,19 +411,22 @@ class SongsApiController extends Controller
                     Storage::disk('public')->delete($song->audio_file_320);
                 }
 
-                $audioPath = $request->file('audio_file')->store('songs/audio', 'public');
+                $audioPath = $audioFile->store('songs/audio', 'public');
                 $updateData['audio_file_original'] = $audioPath;
                 $updateData['audio_file_320'] = $audioPath;
-                $updateData['file_format'] = $request->file('audio_file')->getClientOriginalExtension();
-                $updateData['file_size_bytes'] = $request->file('audio_file')->getSize();
+                $updateData['file_format'] = $audioFile->getClientOriginalExtension();
+                $updateData['file_size_bytes'] = $audioFile->getSize();
             }
 
             // Handle cover image replacement
             if ($request->hasFile('cover_image')) {
+                $coverImage = $request->file('cover_image');
+                $this->assertValidUpload($coverImage, 'cover_image');
+
                 if ($song->artwork) {
                     Storage::disk('public')->delete($song->artwork);
                 }
-                $updateData['artwork'] = $request->file('cover_image')->store('songs/artwork', 'public');
+                $updateData['artwork'] = $coverImage->store('songs/artwork', 'public');
             }
 
             // Update genre
