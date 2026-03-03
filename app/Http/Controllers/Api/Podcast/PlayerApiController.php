@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Podcast;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PodcastEpisodeResource;
+use App\Jobs\IncrementCounter;
 use App\Models\PodcastEpisode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,8 +20,8 @@ class PlayerApiController extends Controller
     {
         $episode = PodcastEpisode::where('uuid', $uuid)->firstOrFail();
 
-        // Increment listen count
-        $episode->increment('listen_count');
+        // Increment listen count (async)
+        IncrementCounter::dispatch('podcast_episodes', $episode->id, 'listen_count');
 
         // Record in listening history
         if ($user = $request->user()) {
@@ -90,8 +91,8 @@ class PlayerApiController extends Controller
                 'updated_at' => now(),
             ]);
 
-        // Increment completion count
-        $episode->increment('completion_count');
+        // Increment completion count (async)
+        IncrementCounter::dispatch('podcast_episodes', $episode->id, 'completion_count');
 
         return response()->json(['message' => 'Episode marked as complete.']);
     }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Helpers\StorageHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Album;
 use App\Models\Artist;
@@ -13,6 +14,17 @@ use Illuminate\Http\Request;
 class AdminArtistsController extends Controller
 {
     use HandlesApiErrors;
+
+    /**
+     * Build deterministic cache-busting token for an image field.
+     */
+    private function imageVersion(Artist $artist, string $field): string
+    {
+        $path = (string) ($artist->{$field} ?? '');
+        $stamp = (string) ($artist->updated_at?->format('Y-m-d H:i:s.u') ?? now()->format('Y-m-d H:i:s.u'));
+
+        return substr(sha1($field.'|'.$path.'|'.$stamp), 0, 16);
+    }
 
     /**
      * Get all artists for admin panel.
@@ -40,13 +52,15 @@ class AdminArtistsController extends Controller
                 ->paginate($perPage);
 
             $data = $artists->through(function (Artist $artist) {
+                $avatarVersion = $this->imageVersion($artist, 'avatar');
+
                 return [
                     'id' => $artist->id,
                     'uuid' => $artist->uuid,
                     'name' => $artist->stage_name,
                     'slug' => $artist->slug,
                     'avatar' => $artist->avatar,
-                    'avatar_url' => $artist->avatar ? url('storage/'.$artist->avatar) : null,
+                    'avatar_url' => $artist->avatar ? url('storage/'.$artist->avatar).'?v='.$avatarVersion : null,
                     'status' => $artist->status,
                     'is_verified' => $artist->is_verified,
                     'songs_count' => $artist->total_songs_count,
@@ -93,6 +107,110 @@ class AdminArtistsController extends Controller
     }
 
     /**
+     * Build the full artist data payload (reused by show & update).
+     */
+    private function buildArtistPayload(Artist $artist): array
+    {
+        $artist->loadMissing(['user:id,email,username,phone,name', 'primaryGenre:id,name']);
+        $avatarVersion = $this->imageVersion($artist, 'avatar');
+        $coverVersion = $this->imageVersion($artist, 'cover_image');
+
+        // Get top songs via relationship
+        $topSongs = $artist->songs()
+            ->select(['id', 'title', 'slug', 'play_count', 'artwork', 'artist_id'])
+            ->orderByDesc('play_count')
+            ->limit(5)
+            ->get()
+            ->map(fn (Song $song) => [
+                'id' => $song->id,
+                'title' => $song->title,
+                'slug' => $song->slug,
+                'plays' => $song->play_count ?? 0,
+                'cover_url' => $song->artwork ? url('storage/'.$song->artwork) : null,
+            ]);
+
+        // Get recent albums via relationship
+        $recentAlbums = $artist->albums()
+            ->select(['id', 'title', 'slug', 'artwork', 'release_date', 'album_type', 'artist_id'])
+            ->latest()
+            ->limit(4)
+            ->get()
+            ->map(fn (Album $album) => [
+                'id' => $album->id,
+                'title' => $album->title,
+                'slug' => $album->slug,
+                'cover_url' => $album->artwork ? url('storage/'.$album->artwork) : null,
+                'release_date' => $album->release_date,
+                'album_type' => $album->album_type,
+            ]);
+
+        // Social links (model casts to array)
+        $socialLinks = $artist->social_links ?? [];
+
+        return [
+            'id' => $artist->id,
+            'uuid' => $artist->uuid,
+            'user_id' => $artist->user_id,
+            'name' => $artist->stage_name,
+            'slug' => $artist->slug,
+            'bio' => $artist->bio,
+            'avatar' => $artist->avatar,
+            'avatar_url' => $artist->avatar ? url('storage/'.$artist->avatar).'?v='.$avatarVersion : null,
+            'cover_image' => $artist->cover_image,
+            'cover_url' => $artist->cover_image ? url('storage/'.$artist->cover_image).'?v='.$coverVersion : null,
+            'profile_url' => $artist->avatar ? url('storage/'.$artist->avatar).'?v='.$avatarVersion : null,
+            'status' => $artist->status,
+            'is_verified' => $artist->is_verified,
+            'is_featured' => $artist->is_trusted,
+            'is_trusted' => $artist->is_trusted,
+            'verification_status' => $artist->verification_status,
+            'verified_at' => $artist->verified_at,
+            'website' => $artist->website_url,
+            'website_url' => $artist->website_url,
+            'primary_genre_id' => $artist->primary_genre_id,
+            'total_songs' => $artist->total_songs_count ?? 0,
+            'total_albums' => $artist->total_albums_count ?? 0,
+            'total_plays' => $artist->total_plays_count ?? 0,
+            'followers' => $artist->followers_count ?? 0,
+            'total_songs_count' => $artist->total_songs_count,
+            'total_albums_count' => $artist->total_albums_count,
+            'total_plays_count' => $artist->total_plays_count,
+            'followers_count' => $artist->followers_count,
+            'earnings_balance' => $artist->earnings_balance,
+            'commission_rate' => $artist->commission_rate,
+            'can_upload' => $artist->can_upload,
+            'auto_publish' => $artist->auto_publish,
+            'require_approval' => $artist->require_approval,
+            'distribution_suspended' => $artist->distribution_suspended,
+            'record_label' => $artist->record_label,
+            'career_start_year' => $artist->career_start_year,
+            'influences' => $artist->influences,
+            'social_links' => $socialLinks,
+            'spotify_url' => $socialLinks['spotify'] ?? null,
+            'apple_music_url' => $socialLinks['apple_music'] ?? null,
+            'youtube_url' => $socialLinks['youtube'] ?? null,
+            'instagram_url' => $socialLinks['instagram'] ?? null,
+            'twitter_url' => $socialLinks['twitter'] ?? null,
+            'facebook_url' => $socialLinks['facebook'] ?? null,
+            'tiktok_url' => $socialLinks['tiktok'] ?? null,
+            'genres' => $artist->primaryGenre
+                ? [['id' => (string) $artist->primaryGenre->id, 'name' => $artist->primaryGenre->name]]
+                : [],
+            'top_songs' => $topSongs,
+            'recent_albums' => $recentAlbums,
+            'user' => [
+                'id' => $artist->user?->id,
+                'name' => $artist->user?->name ?? '',
+                'email' => $artist->user?->email ?? '',
+                'username' => $artist->user?->username ?? '',
+                'phone' => $artist->user?->phone ?? '',
+            ],
+            'created_at' => $artist->created_at,
+            'updated_at' => $artist->updated_at,
+        ];
+    }
+
+    /**
      * Get single artist details for admin.
      */
     public function show($id): JsonResponse
@@ -101,103 +219,9 @@ class AdminArtistsController extends Controller
             $artist = Artist::with(['user:id,email,username,phone,name', 'primaryGenre:id,name'])
                 ->findOrFail($id);
 
-            // Get top songs via relationship
-            $topSongs = $artist->songs()
-                ->select(['id', 'title', 'slug', 'play_count', 'artwork', 'artist_id'])
-                ->orderByDesc('play_count')
-                ->limit(5)
-                ->get()
-                ->map(fn (Song $song) => [
-                    'id' => $song->id,
-                    'title' => $song->title,
-                    'slug' => $song->slug,
-                    'plays' => $song->play_count ?? 0,
-                    'cover_url' => $song->artwork ? url('storage/'.$song->artwork) : null,
-                ]);
-
-            // Get recent albums via relationship
-            $recentAlbums = $artist->albums()
-                ->select(['id', 'title', 'slug', 'artwork', 'release_date', 'album_type', 'artist_id'])
-                ->latest()
-                ->limit(4)
-                ->get()
-                ->map(fn (Album $album) => [
-                    'id' => $album->id,
-                    'title' => $album->title,
-                    'slug' => $album->slug,
-                    'cover_url' => $album->artwork ? url('storage/'.$album->artwork) : null,
-                    'release_date' => $album->release_date,
-                    'album_type' => $album->album_type,
-                ]);
-
-            // Social links (model casts to array)
-            $socialLinks = $artist->social_links ?? [];
-
-            $data = [
-                'id' => $artist->id,
-                'uuid' => $artist->uuid,
-                'user_id' => $artist->user_id,
-                'name' => $artist->stage_name,
-                'slug' => $artist->slug,
-                'bio' => $artist->bio,
-                'avatar' => $artist->avatar,
-                'avatar_url' => $artist->avatar ? url('storage/'.$artist->avatar) : null,
-                'cover_image' => $artist->cover_image,
-                'cover_url' => $artist->cover_image ? url('storage/'.$artist->cover_image) : null,
-                'profile_url' => $artist->avatar ? url('storage/'.$artist->avatar) : null,
-                'status' => $artist->status,
-                'is_verified' => $artist->is_verified,
-                'is_featured' => $artist->is_trusted,
-                'is_trusted' => $artist->is_trusted,
-                'verification_status' => $artist->verification_status,
-                'verified_at' => $artist->verified_at,
-                'website' => $artist->website_url,
-                'website_url' => $artist->website_url,
-                'primary_genre_id' => $artist->primary_genre_id,
-                'total_songs' => $artist->total_songs_count ?? 0,
-                'total_albums' => $artist->total_albums_count ?? 0,
-                'total_plays' => $artist->total_plays_count ?? 0,
-                'followers' => $artist->followers_count ?? 0,
-                'total_songs_count' => $artist->total_songs_count,
-                'total_albums_count' => $artist->total_albums_count,
-                'total_plays_count' => $artist->total_plays_count,
-                'followers_count' => $artist->followers_count,
-                'earnings_balance' => $artist->earnings_balance,
-                'commission_rate' => $artist->commission_rate,
-                'can_upload' => $artist->can_upload,
-                'auto_publish' => $artist->auto_publish,
-                'require_approval' => $artist->require_approval,
-                'distribution_suspended' => $artist->distribution_suspended,
-                'record_label' => $artist->record_label,
-                'career_start_year' => $artist->career_start_year,
-                'influences' => $artist->influences,
-                'social_links' => $socialLinks,
-                'spotify_url' => $socialLinks['spotify'] ?? null,
-                'apple_music_url' => $socialLinks['apple_music'] ?? null,
-                'youtube_url' => $socialLinks['youtube'] ?? null,
-                'instagram_url' => $socialLinks['instagram'] ?? null,
-                'twitter_url' => $socialLinks['twitter'] ?? null,
-                'facebook_url' => $socialLinks['facebook'] ?? null,
-                'tiktok_url' => $socialLinks['tiktok'] ?? null,
-                'genres' => $artist->primaryGenre
-                    ? [['id' => (string) $artist->primaryGenre->id, 'name' => $artist->primaryGenre->name]]
-                    : [],
-                'top_songs' => $topSongs,
-                'recent_albums' => $recentAlbums,
-                'user' => [
-                    'id' => $artist->user?->id,
-                    'name' => $artist->user?->name ?? '',
-                    'email' => $artist->user?->email ?? '',
-                    'username' => $artist->user?->username ?? '',
-                    'phone' => $artist->user?->phone ?? '',
-                ],
-                'created_at' => $artist->created_at,
-                'updated_at' => $artist->updated_at,
-            ];
-
             return response()->json([
                 'success' => true,
-                'data' => (object) $data,
+                'data' => (object) $this->buildArtistPayload($artist),
             ]);
         }, 'Failed to load artist details.');
     }
@@ -268,6 +292,68 @@ class AdminArtistsController extends Controller
         return $this->handleApiAction(function () use ($request, $id) {
             $artist = Artist::findOrFail($id);
 
+            if (config('app.debug')) {
+                \Log::info('AdminArtistsController update request debug', [
+                    'artist_id' => $id,
+                    'content_type' => $request->header('content-type'),
+                    'method' => $request->method(),
+                    'keys' => array_keys($request->all()),
+                    'has_profile_image_key' => $request->has('profile_image'),
+                    'has_cover_image_key' => $request->has('cover_image'),
+                    'has_profile_image_file' => $request->hasFile('profile_image'),
+                    'has_cover_image_file' => $request->hasFile('cover_image'),
+                    'profile_image_original_name' => $request->hasFile('profile_image') ? $request->file('profile_image')->getClientOriginalName() : null,
+                    'profile_image_mime' => $request->hasFile('profile_image') ? $request->file('profile_image')->getClientMimeType() : null,
+                    'profile_image_size' => $request->hasFile('profile_image') ? $request->file('profile_image')->getSize() : null,
+                    'cover_image_original_name' => $request->hasFile('cover_image') ? $request->file('cover_image')->getClientOriginalName() : null,
+                    'cover_image_mime' => $request->hasFile('cover_image') ? $request->file('cover_image')->getClientMimeType() : null,
+                    'cover_image_size' => $request->hasFile('cover_image') ? $request->file('cover_image')->getSize() : null,
+                ]);
+            }
+
+            // ── Pre-process: strip empty-string URL fields so "nullable|url"
+            //    validation doesn't reject them. ConvertEmptyStringsToNull
+            //    normally handles this, but multipart/form-data edge cases
+            //    can leak through on some environments (Herd, etc.).
+            $urlFields = [
+                'website', 'spotify_url', 'apple_music_url', 'youtube_url',
+                'instagram_url', 'twitter_url', 'facebook_url', 'tiktok_url',
+            ];
+            foreach ($urlFields as $field) {
+                if ($request->has($field) && $request->input($field) === '') {
+                    $request->merge([$field => null]);
+                }
+            }
+
+            // Remove file fields if they're not actual file uploads (empty
+            // form submissions can send empty strings for file inputs)
+            foreach (['profile_image', 'cover_image'] as $fileField) {
+                if ($request->has($fileField) && ! $request->hasFile($fileField)) {
+                    $request->request->remove($fileField);
+                }
+            }
+
+            // Validate — ValidationException now correctly bubbles to 422
+            $validated = $request->validate([
+                'name' => 'sometimes|string|max:255',
+                'slug' => 'sometimes|string|max:255|unique:artists,slug,'.$artist->id,
+                'bio' => 'sometimes|nullable|string|max:5000',
+                'website' => 'sometimes|nullable|url|max:255',
+                'status' => 'sometimes|in:active,pending,suspended,rejected',
+                'is_verified' => 'sometimes',
+                'spotify_url' => 'sometimes|nullable|url|max:255',
+                'apple_music_url' => 'sometimes|nullable|url|max:255',
+                'youtube_url' => 'sometimes|nullable|url|max:255',
+                'instagram_url' => 'sometimes|nullable|url|max:255',
+                'twitter_url' => 'sometimes|nullable|url|max:255',
+                'facebook_url' => 'sometimes|nullable|url|max:255',
+                'tiktok_url' => 'sometimes|nullable|url|max:255',
+                'genre_ids' => 'sometimes|array',
+                'genre_ids.*' => 'integer|exists:genres,id',
+                'profile_image' => 'sometimes|nullable|image|mimes:jpeg,jpg,png,webp|max:5120',
+                'cover_image' => 'sometimes|nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
+            ]);
+
             $data = [];
 
             if ($request->has('name')) {
@@ -286,7 +372,7 @@ class AdminArtistsController extends Controller
                 $data['status'] = $request->input('status');
             }
             if ($request->has('is_verified')) {
-                $data['is_verified'] = (bool) $request->input('is_verified');
+                $data['is_verified'] = filter_var($request->input('is_verified'), FILTER_VALIDATE_BOOLEAN);
             }
 
             // Social links — merge into existing array (model casts to/from array)
@@ -314,22 +400,34 @@ class AdminArtistsController extends Controller
             // Genre
             $genreIds = $request->input('genre_ids');
             if (is_array($genreIds) && count($genreIds) > 0) {
-                $data['primary_genre_id'] = $genreIds[0];
+                $data['primary_genre_id'] = (int) $genreIds[0];
             }
 
-            // File uploads
-            if ($request->hasFile('profile_image')) {
-                $data['avatar'] = $request->file('profile_image')->store('artists/avatars', 'public');
+            // File uploads via StorageHelper (supports local + DO Spaces)
+            if ($request->hasFile('profile_image') && $request->file('profile_image')->isValid()) {
+                if ($artist->avatar) {
+                    StorageHelper::delete($artist->avatar);
+                }
+                $data['avatar'] = StorageHelper::store($request->file('profile_image'), 'artists/avatars');
             }
-            if ($request->hasFile('cover_image')) {
-                $data['cover_image'] = $request->file('cover_image')->store('artists/covers', 'public');
+            if ($request->hasFile('cover_image') && $request->file('cover_image')->isValid()) {
+                if ($artist->cover_image) {
+                    StorageHelper::delete($artist->cover_image);
+                }
+                $data['cover_image'] = StorageHelper::store($request->file('cover_image'), 'artists/covers');
             }
 
-            $artist->update($data);
+            if (! empty($data)) {
+                $artist->update($data);
+            }
+
+            // Refresh the model so data includes newly stored file paths
+            $artist->refresh();
 
             return response()->json([
                 'success' => true,
                 'message' => 'Artist updated successfully.',
+                'data' => (object) $this->buildArtistPayload($artist),
             ]);
         }, 'Failed to update artist.');
     }

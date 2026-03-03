@@ -26,7 +26,7 @@ class AlbumController extends Controller
             ->when($request->filled('artist'), fn ($q) => $q->where('artist_id', $request->artist))
             ->when($request->filled('year'), fn ($q) => $q->whereYear('release_date', $request->year))
             ->when($request->filled('search'), function ($q) use ($request) {
-                $q->where('title', 'like', '%'.$request->search.'%');
+                $q->where('title', 'like', '%'.escape_like($request->search).'%');
             })
             ->orderByDesc('release_date')
             ->paginate($perPage);

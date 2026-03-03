@@ -12,10 +12,9 @@ class PlayHistory extends Model
 
     protected $table = 'play_histories';
 
-    // Disable default timestamps since we use played_at
-    public $timestamps = false;
+    // Use played_at as the creation timestamp, no updated_at
+    public $timestamps = true;
 
-    // Use played_at as the primary timestamp column
     const CREATED_AT = 'played_at';
 
     const UPDATED_AT = null;
@@ -59,7 +58,7 @@ class PlayHistory extends Model
     // Scopes
     public function scopeCompleted($query)
     {
-        return $query->where('was_completed', true);
+        return $query->where('completed', true);
     }
 
     public function scopeToday($query)
@@ -105,7 +104,7 @@ class PlayHistory extends Model
     {
         return static::where('user_id', $user->id)
             ->where('played_at', '>=', now()->subDays($days))
-            ->where('was_completed', true)
+            ->where('completed', true)
             ->with([
                 'song:id,title,artist_id,artwork,duration_seconds',
                 'song.artist:id,stage_name,avatar,is_verified',
@@ -128,7 +127,7 @@ class PlayHistory extends Model
     {
         return static::where('user_id', $user->id)
             ->where('played_at', '>=', now()->subDays($days))
-            ->where('was_completed', true)
+            ->where('completed', true)
             ->with([
                 'song:id,title,artist_id',
                 'song.artist:id,stage_name,avatar,is_verified,bio',
@@ -157,7 +156,7 @@ class PlayHistory extends Model
 
         return [
             'total_plays' => (clone $baseQuery)->count(),
-            'completed_plays' => (clone $baseQuery)->where('was_completed', true)->count(),
+            'completed_plays' => (clone $baseQuery)->where('completed', true)->count(),
             'total_duration' => (clone $baseQuery)->sum('duration_played_seconds'),
             'unique_songs' => (clone $baseQuery)->distinct('song_id')->count(),
             'unique_artists' => (clone $baseQuery)

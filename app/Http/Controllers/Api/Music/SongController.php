@@ -34,7 +34,7 @@ class SongController extends Controller
             ->when($request->filled('album'), fn ($q) => $q->where('album_id', $request->album))
             ->when($request->filled('is_free'), fn ($q) => $q->where('is_free', $request->boolean('is_free')))
             ->when($request->filled('search'), function ($q) use ($request) {
-                $q->where('title', 'like', '%'.$request->search.'%');
+                $q->where('title', 'like', '%'.escape_like($request->search).'%');
             })
             ->orderByDesc('created_at')
             ->paginate($perPage);

@@ -22,9 +22,10 @@ class ProductController extends Controller
             ->where('status', Product::STATUS_ACTIVE);
 
         if ($search = $request->search) {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%");
+            $escaped = escape_like($search);
+            $query->where(function ($q) use ($escaped) {
+                $q->where('name', 'like', "%{$escaped}%")
+                    ->orWhere('description', 'like', "%{$escaped}%");
             });
         }
 

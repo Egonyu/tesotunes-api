@@ -11,6 +11,7 @@ use App\Models\Sacco\SaccoSavingsTransaction;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class SaccoApiController extends Controller
 {
@@ -22,19 +23,18 @@ class SaccoApiController extends Controller
     public function stats(): JsonResponse
     {
         return $this->handleApiAction(function () {
-            $totalMembers = SaccoMember::where('status', 'active')->count();
-            $totalLoans = SaccoLoan::count();
-            $activeLoans = SaccoLoan::whereIn('status', ['active', 'disbursed'])->count();
-            $pendingLoans = SaccoLoan::where('status', 'pending')->count();
+            $data = Cache::remember('admin:sacco:stats', now()->addMinutes(5), function () {
+                $totalMembers = SaccoMember::where('status', 'active')->count();
+                $totalLoans = SaccoLoan::count();
+                $activeLoans = SaccoLoan::whereIn('status', ['active', 'disbursed'])->count();
+                $pendingLoans = SaccoLoan::where('status', 'pending')->count();
 
-            $totalSavings = SaccoSavingsAccount::sum('balance_ugx') ?? 0;
-            $totalLoansAmount = SaccoLoan::where('status', 'active')->sum('balance_remaining_ugx') ?? 0;
-            $totalDisbursed = SaccoLoan::whereIn('status', ['active', 'disbursed', 'completed'])
-                ->sum('principal_amount_ugx') ?? 0;
+                $totalSavings = SaccoSavingsAccount::sum('balance_ugx') ?? 0;
+                $totalLoansAmount = SaccoLoan::where('status', 'active')->sum('balance_remaining_ugx') ?? 0;
+                $totalDisbursed = SaccoLoan::whereIn('status', ['active', 'disbursed', 'completed'])
+                    ->sum('principal_amount_ugx') ?? 0;
 
-            return response()->json([
-                'success' => true,
-                'data' => [
+                return [
                     'total_members' => $totalMembers,
                     'total_loans' => $totalLoans,
                     'active_loans' => $activeLoans,
@@ -42,7 +42,12 @@ class SaccoApiController extends Controller
                     'total_savings' => $totalSavings,
                     'total_loans_amount' => $totalLoansAmount,
                     'total_disbursed' => $totalDisbursed,
-                ],
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $data,
             ]);
         }, 'Failed to fetch SACCO statistics.');
     }

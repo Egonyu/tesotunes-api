@@ -45,6 +45,34 @@ return [
         'mysql' => [
             'driver' => 'mysql',
             'url' => env('DB_URL'),
+
+            /*
+            |------------------------------------------------------------------
+            | Read/Write Splitting (Read Replica Support)
+            |------------------------------------------------------------------
+            |
+            | When DB_READ_HOST is set, Laravel will automatically route
+            | SELECT queries to the read replica and INSERT/UPDATE/DELETE
+            | to the write host. In development both point to the same host.
+            |
+            | Set DB_READ_HOST in production to enable:
+            |   DB_READ_HOST=replica.db.internal
+            |   DB_READ_PORT=3306      (optional, defaults to DB_PORT)
+            |   DB_READ_USERNAME=...   (optional, defaults to DB_USERNAME)
+            |   DB_READ_PASSWORD=...   (optional, defaults to DB_PASSWORD)
+            |
+            */
+            'read' => env('DB_READ_HOST') ? [
+                'host' => [env('DB_READ_HOST')],
+                'port' => env('DB_READ_PORT', env('DB_PORT', '3306')),
+                'username' => env('DB_READ_USERNAME', env('DB_USERNAME', 'root')),
+                'password' => env('DB_READ_PASSWORD', env('DB_PASSWORD', '')),
+            ] : [],
+            'write' => env('DB_READ_HOST') ? [
+                'host' => [env('DB_HOST', '127.0.0.1')],
+            ] : [],
+            'sticky' => true, // After a write, reads use the write connection for the rest of the request
+
             'host' => env('DB_HOST', '127.0.0.1'),
             'port' => env('DB_PORT', '3306'),
             'database' => env('DB_DATABASE', 'laravel'),

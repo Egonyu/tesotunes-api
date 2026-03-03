@@ -9,6 +9,7 @@ use App\Modules\Store\Models\Store;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class StoreApiController extends Controller
@@ -21,30 +22,34 @@ class StoreApiController extends Controller
     public function stats(): JsonResponse
     {
         return $this->handleApiAction(function () {
-            $revenueThisMonth = Order::where('status', 'completed')
-                ->whereMonth('created_at', date('m'))
-                ->whereYear('created_at', date('Y'))
-                ->sum('total_amount') ?? 0;
+            $data = Cache::remember('admin:store:stats', now()->addMinutes(5), function () {
+                $revenueThisMonth = Order::where('status', 'completed')
+                    ->whereMonth('created_at', date('m'))
+                    ->whereYear('created_at', date('Y'))
+                    ->sum('total_amount') ?? 0;
 
-            $lastMonthRevenue = Order::where('status', 'completed')
-                ->whereMonth('created_at', date('m', strtotime('-1 month')))
-                ->whereYear('created_at', date('Y', strtotime('-1 month')))
-                ->sum('total_amount') ?? 0;
+                $lastMonthRevenue = Order::where('status', 'completed')
+                    ->whereMonth('created_at', date('m', strtotime('-1 month')))
+                    ->whereYear('created_at', date('Y', strtotime('-1 month')))
+                    ->sum('total_amount') ?? 0;
 
-            $growthPercentage = $lastMonthRevenue > 0
-                ? (($revenueThisMonth - $lastMonthRevenue) / $lastMonthRevenue) * 100
-                : 0;
+                $growthPercentage = $lastMonthRevenue > 0
+                    ? (($revenueThisMonth - $lastMonthRevenue) / $lastMonthRevenue) * 100
+                    : 0;
 
-            return response()->json([
-                'success' => true,
-                'data' => [
+                return [
                     'total_products' => Product::count(),
                     'orders_this_month' => Order::whereMonth('created_at', date('m'))
                         ->whereYear('created_at', date('Y'))
                         ->count(),
                     'revenue_this_month' => $revenueThisMonth,
                     'growth_percentage' => round($growthPercentage, 1),
-                ],
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $data,
             ]);
         }, 'Failed to fetch store statistics.');
     }

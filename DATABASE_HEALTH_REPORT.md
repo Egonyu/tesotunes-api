@@ -398,15 +398,15 @@ Models with `SoftDeletes` trait that ARE properly configured:
 
 7. ~~**Add missing indexes on `songs`**~~ ✅ DONE — Created `2026_03_01_000003_add_missing_indexes_and_soft_deletes.php`
 8. ~~**Add `deleted_at` column**~~ ✅ DONE — Added to notifications, feed_items, campaign_updates, sacco_members
-9. **Add FK constraints** for `event_location_id`, `podcast_category_id`, `song_moods.mood_id`, `publishing_rights.owner_id`
+9. ~~**Add FK constraints**~~ ✅ DONE — 3 of 4 already existed; added `publishing_rights.owner_id` → users FK via `2026_03_01_200000_add_foreign_key_constraints.php`
 10. ~~**Add indexes on `payments`**~~ ✅ DONE — Added provider_transaction_id, transaction_reference, created_at indexes
-11. **Add `played_at`/`was_completed` columns** to `play_histories` migration or fix model to use `created_at`/`completed`
-12. **Add `minimum_payout_amount`** column to `royalty_splits` migration
+11. ~~**Fix `play_histories` schema/model**~~ ✅ DONE — Added 8 missing columns (artist_id, album_id, played_at, duration_played_seconds, skipped, completion_percentage, quality, city). Fixed model timestamps conflict. Fixed scopes to use `completed` column.
+12. ~~**Add `minimum_payout_amount` + 35 other columns to `royalty_splits`**~~ ✅ DONE — Migration `2026_03_01_200001` adds all model $fillable columns
 
 ### 🟡 MEDIUM (Improve)
 
-13. **Remove 3 no-op migrations** — They add clutter
-14. **Remove duplicate `fix_award_nominations_columns`** migration
+13. **Remove 3 no-op migrations** — Already empty bodies with comments, cannot delete (in migrations table)
+14. ~~**Remove duplicate `fix_award_nominations_columns`** migration~~ ✅ DONE — Converted to documented no-op
 15. **Normalize `songs.featured_artists`** JSON to a pivot table
 16. **Create factories** for at least: Like, Comment, Post, Activity, CreditTransaction, UserCredit
 17. ~~**Add `users.created_at` index**~~ ✅ DONE — Added referrer_id and last_login_at indexes

@@ -8,6 +8,7 @@ use App\Models\Modules\Forum\PollOption;
 use App\Models\Modules\Forum\PollVote;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class PollsApiController extends Controller
@@ -20,15 +21,19 @@ class PollsApiController extends Controller
     public function stats()
     {
         return $this->handleApiAction(function () {
-            return response()->json([
-                'success' => true,
-                'data' => [
+            $data = Cache::remember('admin:polls:stats', now()->addMinutes(5), function () {
+                return [
                     'total_polls' => Poll::count(),
                     'active_polls' => Poll::where('status', 'active')->count(),
                     'closed_polls' => Poll::where('status', 'closed')->count(),
                     'total_votes' => PollVote::count(),
                     'recent_polls_30d' => Poll::where('created_at', '>=', now()->subDays(30))->count(),
-                ],
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $data,
             ]);
         }, 'Failed to retrieve poll stats.');
     }

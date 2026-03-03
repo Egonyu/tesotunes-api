@@ -80,6 +80,6 @@ class AwardCategory extends Model
 
     public function scopeSearch($query, string $term)
     {
-        return $query->where('name', 'like', "%{$term}%");
+        return $query->where('name', 'like', '%'.escape_like($term).'%');
     }
 }

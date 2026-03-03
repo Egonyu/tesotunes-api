@@ -146,15 +146,16 @@ class SongRepository implements SongRepositoryInterface
             ->with(['artist', 'album'])
             ->where('status', 'published')
             ->where(function ($q) use ($query) {
-                $q->where('title', 'LIKE', "%{$query}%")
-                    ->orWhere('description', 'LIKE', "%{$query}%")
-                    ->orWhere('lyrics', 'LIKE', "%{$query}%")
-                    ->orWhereHas('artist', function ($artistQuery) use ($query) {
-                        $artistQuery->where('name', 'LIKE', "%{$query}%")
-                            ->orWhere('stage_name', 'LIKE', "%{$query}%");
+                $escaped = escape_like($query);
+                $q->where('title', 'LIKE', "%{$escaped}%")
+                    ->orWhere('description', 'LIKE', "%{$escaped}%")
+                    ->orWhere('lyrics', 'LIKE', "%{$escaped}%")
+                    ->orWhereHas('artist', function ($artistQuery) use ($escaped) {
+                        $artistQuery->where('name', 'LIKE', "%{$escaped}%")
+                            ->orWhere('stage_name', 'LIKE', "%{$escaped}%");
                     })
-                    ->orWhereHas('album', function ($albumQuery) use ($query) {
-                        $albumQuery->where('title', 'LIKE', "%{$query}%");
+                    ->orWhereHas('album', function ($albumQuery) use ($escaped) {
+                        $albumQuery->where('title', 'LIKE', "%{$escaped}%");
                     });
             })
             ->orderBy('play_count', 'desc')

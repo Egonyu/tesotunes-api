@@ -239,10 +239,11 @@ class PodcastService
      */
     public function search(string $query, ?int $categoryId = null, int $perPage = 20)
     {
+        $escaped = escape_like($query);
         $builder = Podcast::published()
-            ->where(function ($q) use ($query) {
-                $q->where('title', 'LIKE', "%{$query}%")
-                    ->orWhere('description', 'LIKE', "%{$query}%");
+            ->where(function ($q) use ($escaped) {
+                $q->where('title', 'LIKE', "%{$escaped}%")
+                    ->orWhere('description', 'LIKE', "%{$escaped}%");
             });
 
         if ($categoryId) {

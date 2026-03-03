@@ -9,6 +9,7 @@ use App\Http\Resources\PledgeResource;
 use App\Models\Campaign;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class CampaignsApiController extends Controller
 {
@@ -20,9 +21,8 @@ class CampaignsApiController extends Controller
     public function stats()
     {
         return $this->handleApiAction(function () {
-            return response()->json([
-                'success' => true,
-                'data' => [
+            $data = Cache::remember('admin:campaigns:stats', now()->addMinutes(5), function () {
+                return [
                     'total_campaigns' => Campaign::count(),
                     'active_campaigns' => Campaign::active()->count(),
                     'pending_approval' => Campaign::pending()->count(),
@@ -31,7 +31,12 @@ class CampaignsApiController extends Controller
                     'total_pledges' => \App\Models\CampaignPledge::count(),
                     'recent_pledges_30d' => (float) \App\Models\CampaignPledge::where('created_at', '>=', now()->subDays(30))
                         ->sum('amount'),
-                ],
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $data,
             ]);
         }, 'Failed to retrieve campaign stats.');
     }

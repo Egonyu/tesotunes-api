@@ -41,7 +41,7 @@ class SlideshowController extends Controller
 
         $slides = Cache::remember("slides.api.genre.{$genreSlug}", 3600, function () use ($genre) {
             return Slide::where('visibility', 1)
-                ->where('genre', 'LIKE', '%'.$genre->id.'%')
+                ->where('genre', 'LIKE', '%'.escape_like($genre->id).'%')
                 ->with(['user:id,name,username'])
                 ->get()
                 ->map(function ($slide) {
@@ -64,7 +64,7 @@ class SlideshowController extends Controller
 
         $slides = Cache::remember("slides.api.mood.{$moodSlug}", 3600, function () use ($mood) {
             return Slide::where('visibility', 1)
-                ->where('mood', 'LIKE', '%'.$mood->id.'%')
+                ->where('mood', 'LIKE', '%'.escape_like($mood->id).'%')
                 ->with(['user:id,name,username'])
                 ->get()
                 ->map(function ($slide) {

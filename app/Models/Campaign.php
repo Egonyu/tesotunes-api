@@ -151,9 +151,10 @@ class Campaign extends Model
         }
 
         return $query->where(function ($q) use ($term) {
-            $q->where('title', 'LIKE', "%{$term}%")
-                ->orWhere('description', 'LIKE', "%{$term}%")
-                ->orWhere('beneficiary_name', 'LIKE', "%{$term}%");
+            $escaped = escape_like($term);
+            $q->where('title', 'LIKE', "%{$escaped}%")
+                ->orWhere('description', 'LIKE', "%{$escaped}%")
+                ->orWhere('beneficiary_name', 'LIKE', "%{$escaped}%");
         });
     }
 

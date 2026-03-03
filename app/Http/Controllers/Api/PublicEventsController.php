@@ -19,9 +19,10 @@ class PublicEventsController extends Controller
         $events = Event::with(['organizer', 'location'])
             ->where('status', 'published')
             ->when($request->filled('search'), function ($q) use ($request) {
-                $q->where(function ($sub) use ($request) {
-                    $sub->where('title', 'like', '%'.$request->search.'%')
-                        ->orWhere('description', 'like', '%'.$request->search.'%');
+                $search = escape_like($request->search);
+                $q->where(function ($sub) use ($search) {
+                    $sub->where('title', 'like', '%'.$search.'%')
+                        ->orWhere('description', 'like', '%'.$search.'%');
                 });
             })
             ->when($request->filled('category'), function ($q) use ($request) {

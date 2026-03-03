@@ -55,7 +55,7 @@ class RoleService
 
         // Apply search filter
         if (isset($filters['search'])) {
-            $search = $filters['search'];
+            $search = escape_like($filters['search']);
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
                     ->orWhere('display_name', 'LIKE', "%{$search}%")

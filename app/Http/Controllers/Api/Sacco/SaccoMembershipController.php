@@ -71,9 +71,10 @@ class SaccoMembershipController extends Controller
         $query = SaccoMember::with('user:id,username,email');
 
         if ($search = $request->get('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('member_number', 'like', "%{$search}%")
-                    ->orWhereHas('user', fn ($u) => $u->where('username', 'like', "%{$search}%")->orWhere('email', 'like', "%{$search}%"));
+            $escaped = escape_like($search);
+            $query->where(function ($q) use ($escaped) {
+                $q->where('member_number', 'like', "%{$escaped}%")
+                    ->orWhereHas('user', fn ($u) => $u->where('username', 'like', "%{$escaped}%")->orWhere('email', 'like', "%{$escaped}%"));
             });
         }
 

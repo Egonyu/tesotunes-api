@@ -13,6 +13,7 @@ use App\Models\AwardVote;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class AdminAwardsApiController extends Controller
@@ -28,16 +29,20 @@ class AdminAwardsApiController extends Controller
     public function stats(): JsonResponse
     {
         return $this->handleApiAction(function () {
-            return response()->json([
-                'success' => true,
-                'data' => [
+            $data = Cache::remember('admin:awards:stats', now()->addMinutes(5), function () {
+                return [
                     'total_awards' => Award::count(),
                     'total_categories' => AwardCategory::count(),
                     'total_nominations' => AwardNomination::count(),
                     'total_votes' => AwardVote::count(),
                     'active_awards' => Award::active()->count(),
                     'pending_nominations' => AwardNomination::pending()->count(),
-                ],
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $data,
             ]);
         }, 'Failed to load award statistics.');
     }

@@ -63,6 +63,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Set global Eloquent pagination defaults
+        \Illuminate\Database\Eloquent\Model::$snakeAttributes = true;
+
         // Register observers for financial models
         Payment::observe(PaymentObserver::class);
         // ArtistPayout::observe(ArtistPayoutObserver::class); // Not yet implemented

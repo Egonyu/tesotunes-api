@@ -10,6 +10,7 @@ use App\Models\Modules\Forum\ForumReply;
 use App\Models\Modules\Forum\ForumTopic;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class ForumsApiController extends Controller
@@ -22,16 +23,20 @@ class ForumsApiController extends Controller
     public function stats()
     {
         return $this->handleApiAction(function () {
-            return response()->json([
-                'success' => true,
-                'data' => [
+            $data = Cache::remember('admin:forums:stats', now()->addMinutes(5), function () {
+                return [
                     'total_topics' => ForumTopic::count(),
                     'total_replies' => ForumReply::count(),
                     'active_topics' => ForumTopic::where('status', 'published')->count(),
                     'total_categories' => ForumCategory::active()->count(),
                     'recent_topics_30d' => ForumTopic::where('created_at', '>=', now()->subDays(30))->count(),
                     'recent_replies_30d' => ForumReply::where('created_at', '>=', now()->subDays(30))->count(),
-                ],
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $data,
             ]);
         }, 'Failed to fetch forum stats.');
     }

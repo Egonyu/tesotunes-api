@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Helpers\StorageHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\EventResource;
 use App\Models\Event;
@@ -9,6 +10,7 @@ use App\Models\EventLocation;
 use App\Models\EventTicket;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class EventsApiController extends Controller
@@ -21,15 +23,19 @@ class EventsApiController extends Controller
     public function stats()
     {
         return $this->handleApiAction(function () {
-            return response()->json([
-                'success' => true,
-                'data' => [
+            $data = Cache::remember('admin:events:stats', now()->addMinutes(5), function () {
+                return [
                     'upcoming_count' => Event::upcoming()->count(),
                     'total_events' => Event::count(),
                     'tickets_sold_30d' => Event::where('created_at', '>=', now()->subDays(30))
                         ->sum('tickets_sold'),
                     'avg_attendance' => (int) Event::avg('attendee_count'),
-                ],
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $data,
             ]);
         }, 'Failed to retrieve event stats.');
     }
@@ -142,12 +148,12 @@ class EventsApiController extends Controller
                 $validated['ends_at'] = $validated['end_date'].' '.($validated['end_time'] ?? '23:59:59');
             }
 
-            // Handle image upload
+            // Handle image upload — store in 'artwork' column via StorageHelper (supports local + DO Spaces)
             if ($request->hasFile('cover_image')) {
-                $file = $request->file('cover_image');
-                $filename = time().'_'.$file->getClientOriginalName();
-                $file->move(public_path('uploads/events'), $filename);
-                $validated['cover_image'] = 'uploads/events/'.$filename;
+                $validated['artwork'] = StorageHelper::store($request->file('cover_image'), 'events/covers');
+                unset($validated['cover_image']);
+            } else {
+                unset($validated['cover_image']);
             }
 
             // Clean up non-model fields
@@ -234,6 +240,7 @@ class EventsApiController extends Controller
                 'title' => 'sometimes|string|max:200',
                 'slug' => 'nullable|string|max:220',
                 'description' => 'nullable|string',
+                'short_description' => 'nullable|string|max:500',
                 'starts_at' => 'nullable|date',
                 'ends_at' => 'nullable|date',
                 'start_date' => 'nullable|date',
@@ -252,9 +259,12 @@ class EventsApiController extends Controller
                 'venue_address' => 'nullable|string',
                 'city' => 'nullable|string',
                 'country' => 'nullable|string',
+                'latitude' => 'nullable|numeric',
+                'longitude' => 'nullable|numeric',
                 'is_free' => 'nullable|boolean',
                 'is_featured' => 'nullable|boolean',
                 'event_type' => 'nullable|string',
+                'currency' => 'nullable|string|max:10',
             ]);
 
             // Combine date+time
@@ -265,12 +275,16 @@ class EventsApiController extends Controller
                 $validated['ends_at'] = $validated['end_date'].' '.($validated['end_time'] ?? '23:59:59');
             }
 
-            // Handle image upload
+            // Handle image upload — store in 'artwork' column via StorageHelper (supports local + DO Spaces)
             if ($request->hasFile('cover_image')) {
-                $file = $request->file('cover_image');
-                $filename = time().'_'.$file->getClientOriginalName();
-                $file->move(public_path('uploads/events'), $filename);
-                $validated['cover_image'] = 'uploads/events/'.$filename;
+                // Delete old artwork if it exists
+                if ($event->artwork) {
+                    StorageHelper::delete($event->artwork);
+                }
+                $validated['artwork'] = StorageHelper::store($request->file('cover_image'), 'events/covers');
+                unset($validated['cover_image']);
+            } else {
+                unset($validated['cover_image']);
             }
 
             unset($validated['start_date'], $validated['start_time'], $validated['end_date'], $validated['end_time'], $validated['ticket_tiers']);

@@ -397,9 +397,10 @@ class SaccoApiController extends Controller
                 ->with('user');
 
             if ($search) {
-                $query->whereHas('user', function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%");
+                $escaped = escape_like($search);
+                $query->whereHas('user', function ($q) use ($escaped) {
+                    $q->where('name', 'like', "%{$escaped}%")
+                        ->orWhere('email', 'like', "%{$escaped}%");
                 });
             }
 

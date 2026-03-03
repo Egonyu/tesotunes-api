@@ -255,8 +255,9 @@ class Store extends Model
     public function scopeSearch($query, string $term)
     {
         return $query->where(function ($q) use ($term) {
-            $q->where('name', 'like', "%{$term}%")
-                ->orWhere('description', 'like', "%{$term}%");
+            $escaped = escape_like($term);
+            $q->where('name', 'like', "%{$escaped}%")
+                ->orWhere('description', 'like', "%{$escaped}%");
         });
     }
 

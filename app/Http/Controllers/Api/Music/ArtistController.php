@@ -27,7 +27,7 @@ class ArtistController extends Controller
             ->when($request->filled('country'), fn ($q) => $q->where('country', $request->country))
             ->when($request->filled('genre'), fn ($q) => $q->where('primary_genre_id', $request->genre))
             ->when($request->filled('search'), function ($q) use ($request) {
-                $q->where('stage_name', 'like', '%'.$request->search.'%');
+                $q->where('stage_name', 'like', '%'.escape_like($request->search).'%');
             })
             ->orderByDesc('followers_count')
             ->paginate($perPage);

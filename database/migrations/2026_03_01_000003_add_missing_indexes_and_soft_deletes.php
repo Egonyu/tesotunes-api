@@ -98,19 +98,17 @@ return new class extends Migration
     }
 
     /**
-     * Check if an index exists on a table.
+     * Check if an index exists on a table using raw MySQL query.
+     * Avoids Schema::getIndexes() which can fail in some environments.
      */
     private function hasIndex(string $table, string $indexName): bool
     {
-        $indexes = Schema::getIndexes($table);
+        $indexes = \Illuminate\Support\Facades\DB::select(
+            "SHOW INDEX FROM `{$table}` WHERE Key_name = ?",
+            [$indexName]
+        );
 
-        foreach ($indexes as $index) {
-            if ($index['name'] === $indexName) {
-                return true;
-            }
-        }
-
-        return false;
+        return count($indexes) > 0;
     }
 
     /**

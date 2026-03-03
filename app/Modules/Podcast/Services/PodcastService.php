@@ -118,12 +118,14 @@ class PodcastService
      */
     public function searchPodcasts(string $query, int $limit = 50): Collection
     {
+        $escaped = escape_like($query);
+
         return Podcast::published()
-            ->where(function ($q) use ($query) {
-                $q->where('title', 'LIKE', "%{$query}%")
-                    ->orWhere('description', 'LIKE', "%{$query}%")
-                    ->orWhereHas('creator', function ($q) use ($query) {
-                        $q->where('name', 'LIKE', "%{$query}%");
+            ->where(function ($q) use ($escaped) {
+                $q->where('title', 'LIKE', "%{$escaped}%")
+                    ->orWhere('description', 'LIKE', "%{$escaped}%")
+                    ->orWhereHas('creator', function ($q) use ($escaped) {
+                        $q->where('name', 'LIKE', "%{$escaped}%");
                     });
             })
             ->with(['creator', 'category'])
