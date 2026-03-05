@@ -3,8 +3,6 @@
 namespace App\Http\Controllers\Api\Upload;
 
 use App\Http\Controllers\Controller;
-use FFMpeg\FFMpeg;
-use FFMpeg\Format\Audio\Mp3;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -248,10 +246,10 @@ class FileController extends Controller
         };
 
         try {
-            $ffmpeg = FFMpeg::create();
+            $ffmpeg = \FFMpeg\FFMpeg::create();
             $audio = $ffmpeg->open($fullPath);
 
-            $format = new Mp3;
+            $format = new \FFMpeg\Format\Audio\Mp3;
             $format->setAudioKiloBitrate($bitrate);
 
             $audio->save($format, $compressedFullPath);
