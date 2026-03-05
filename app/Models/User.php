@@ -457,13 +457,20 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     /**
-     * Get the user's primary role name (backward compatibility accessor)
+     * Get the user's primary role name.
+     * Checks the user_roles pivot table first, then falls back to the direct
+     * 'role' column on the users table for backward compatibility.
      */
     public function getRoleAttribute(): ?string
     {
         $role = $this->roles()->first();
 
-        return $role ? $role->name : null;
+        if ($role) {
+            return $role->name;
+        }
+
+        // Fallback: read the direct 'role' column from the users table
+        return $this->attributes['role'] ?? null;
     }
 
     public function activeRoles(): BelongsToMany
@@ -907,31 +914,43 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     // Role and Permission Management Methods with Caching
-    public function hasRole(string $roleName): bool
+
+    /**
+     * Collect the user's normalized role names from the user_roles pivot.
+     * Falls back to the direct 'role' column on the users table when no
+     * pivot entries exist (production backward compatibility).
+     */
+    protected function resolveUserRoles(): array
     {
-        // Use cached roles for performance (normalized for comparison)
         $cacheKey = "user:{$this->id}:roles";
 
-        $userRoles = cache()->remember($cacheKey, 3600, function () {
-            return $this->activeRoles()->pluck('name')->map(fn ($name) => $this->normalizeRoleName($name))->toArray();
-        });
+        return cache()->remember($cacheKey, 3600, function () {
+            $pivotRoles = $this->activeRoles()
+                ->pluck('name')
+                ->map(fn ($name) => $this->normalizeRoleName($name))
+                ->toArray();
 
-        return in_array($this->normalizeRoleName($roleName), $userRoles);
+            if (! empty($pivotRoles)) {
+                return $pivotRoles;
+            }
+
+            // Fallback: use the direct 'role' column on the users table
+            $directRole = $this->attributes['role'] ?? null;
+
+            return $directRole ? [$this->normalizeRoleName($directRole)] : [];
+        });
+    }
+
+    public function hasRole(string $roleName): bool
+    {
+        return in_array($this->normalizeRoleName($roleName), $this->resolveUserRoles());
     }
 
     public function hasAnyRole(array $roles): bool
     {
-        // Use cached roles for performance
-        $cacheKey = "user:{$this->id}:roles";
-
-        $userRoles = cache()->remember($cacheKey, 3600, function () {
-            return $this->activeRoles()->pluck('name')->map(fn ($name) => $this->normalizeRoleName($name))->toArray();
-        });
-
-        // Normalize requested roles for comparison
         $rolesNormalized = array_map(fn ($role) => $this->normalizeRoleName($role), $roles);
 
-        return ! empty(array_intersect($rolesNormalized, $userRoles));
+        return ! empty(array_intersect($rolesNormalized, $this->resolveUserRoles()));
     }
 
     /**
