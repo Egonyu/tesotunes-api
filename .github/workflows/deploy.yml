@@ -1,8 +1,10 @@
-name: Deploy API to Production
+name: Deploy API to Production (Legacy - DISABLED)
 
+# DISABLED: This workflow conflicts with deploy-production.yml (release-based deployment).
+# Both triggered on push to main, causing race conditions and leaving the app in maintenance mode.
+# Use deploy-production.yml instead.
 on:
-  push:
-    branches: [main]
+  workflow_dispatch: # Manual trigger only — no longer auto-deploys
 
 jobs:
   security-gate:

@@ -81,6 +81,23 @@ jobs:
             TIMESTAMP=$(date +%Y%m%d_%H%M%S)
             NEW_RELEASE="$RELEASES_PATH/$TIMESTAMP"
 
+            # Safety: bring app up if stuck in maintenance mode from a previous failed deploy
+            if [ -L "$APP_PATH" ] || [ -d "$APP_PATH" ]; then
+              cd $APP_PATH
+              php artisan up 2>/dev/null || true
+            fi
+
+            # Trap: ensure app comes back up even if deployment fails
+            cleanup() {
+              echo "⚠️ Deployment failed — ensuring app is brought back up..."
+              if [ -L "$APP_PATH" ] || [ -d "$APP_PATH" ]; then
+                cd $APP_PATH
+                php artisan up 2>/dev/null || true
+                sudo systemctl reload php8.4-fpm 2>/dev/null || true
+              fi
+            }
+            trap cleanup ERR
+
             echo "🚀 Starting deployment..."
 
             mkdir -p $SHARED_PATH
@@ -158,6 +175,10 @@ jobs:
             php artisan event:cache
 
             php artisan up
+
+            # Set correct ownership for web server
+            sudo chown -R www-data:www-data $NEW_RELEASE 2>/dev/null || true
+            sudo chown -R www-data:www-data $SHARED_PATH/storage 2>/dev/null || true
 
             # Reload PHP-FPM to clear opcache and realpath cache
             sudo systemctl reload php8.4-fpm || sudo systemctl reload php-fpm || true

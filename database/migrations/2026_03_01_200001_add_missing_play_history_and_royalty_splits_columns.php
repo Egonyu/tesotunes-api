@@ -23,28 +23,28 @@ return new class extends Migration
         if (Schema::hasTable('play_histories')) {
             Schema::table('play_histories', function (Blueprint $table) {
                 if (! Schema::hasColumn('play_histories', 'artist_id')) {
-                    $table->unsignedBigInteger('artist_id')->nullable()->after('song_id');
+                    $table->unsignedBigInteger('artist_id')->nullable();
                 }
                 if (! Schema::hasColumn('play_histories', 'album_id')) {
-                    $table->unsignedBigInteger('album_id')->nullable()->after('artist_id');
+                    $table->unsignedBigInteger('album_id')->nullable();
                 }
                 if (! Schema::hasColumn('play_histories', 'played_at')) {
-                    $table->timestamp('played_at')->nullable()->after('album_id');
+                    $table->timestamp('played_at')->nullable();
                 }
                 if (! Schema::hasColumn('play_histories', 'duration_played_seconds')) {
-                    $table->integer('duration_played_seconds')->nullable()->after('played_at');
+                    $table->integer('duration_played_seconds')->nullable();
                 }
                 if (! Schema::hasColumn('play_histories', 'skipped')) {
-                    $table->boolean('skipped')->default(false)->after('completed');
+                    $table->boolean('skipped')->default(false);
                 }
                 if (! Schema::hasColumn('play_histories', 'completion_percentage')) {
-                    $table->decimal('completion_percentage', 5, 2)->nullable()->after('skipped');
+                    $table->decimal('completion_percentage', 5, 2)->nullable();
                 }
                 if (! Schema::hasColumn('play_histories', 'quality')) {
-                    $table->string('quality', 10)->nullable()->after('device_type');
+                    $table->string('quality', 10)->nullable();
                 }
                 if (! Schema::hasColumn('play_histories', 'city')) {
-                    $table->string('city', 100)->nullable()->after('country');
+                    $table->string('city', 100)->nullable();
                 }
             });
 
