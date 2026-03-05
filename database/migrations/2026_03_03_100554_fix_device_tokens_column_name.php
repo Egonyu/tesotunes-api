@@ -24,7 +24,7 @@ return new class extends Migration
 
             // Add 'device_info' JSON column to match model $fillable + $casts
             if (! Schema::hasColumn('device_tokens', 'device_info')) {
-                $table->json('device_info')->nullable()->after('platform');
+                $table->json('device_info')->nullable();
             }
         });
     }
