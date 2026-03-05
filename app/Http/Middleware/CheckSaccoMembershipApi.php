@@ -23,6 +23,11 @@ class CheckSaccoMembershipApi
             ], 401);
         }
 
+        // Allow super admins and admins to bypass SACCO membership requirement
+        if (auth()->user()->hasAnyRole(['super_admin', 'admin'])) {
+            return $next($request);
+        }
+
         // Check if SACCO module is enabled
         if (! config('sacco.enabled', false)) {
             return response()->json([
