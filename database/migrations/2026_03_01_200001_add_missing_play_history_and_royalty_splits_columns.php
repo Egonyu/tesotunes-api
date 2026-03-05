@@ -48,8 +48,10 @@ return new class extends Migration
                 }
             });
 
-            // Back-fill played_at from created_at where null
-            \DB::statement('UPDATE play_histories SET played_at = created_at WHERE played_at IS NULL AND created_at IS NOT NULL');
+            // Back-fill played_at from created_at where null (only if both columns exist)
+            if (Schema::hasColumn('play_histories', 'played_at') && Schema::hasColumn('play_histories', 'created_at')) {
+                \DB::statement('UPDATE play_histories SET played_at = created_at WHERE played_at IS NULL AND created_at IS NOT NULL');
+            }
         }
 
         // ── royalty_splits ──────────────────────────────────────────────
