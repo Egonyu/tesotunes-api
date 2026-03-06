@@ -464,9 +464,31 @@ class Song extends Model
         return \App\Helpers\StorageHelper::temporaryUrl($this->audio_file_preview, 30) ?? $this->audio_url;
     }
 
-    public function isAvailableForDownload(): bool
+    /**
+     * Whether this song can be downloaded.
+     *
+     * Rules:
+     * - Song must be published and have is_downloadable = true
+     * - Free songs: always downloadable when the above is met
+     * - Paid songs: downloadable only if the given user has purchased them,
+     *               OR if the user has an active premium subscription
+     */
+    public function isAvailableForDownload(?User $user = null): bool
     {
-        return $this->is_free && $this->status === 'published' && $this->is_downloadable;
+        if ($this->status !== 'published' || ! $this->is_downloadable) {
+            return false;
+        }
+
+        if ($this->is_free) {
+            return true;
+        }
+
+        // Paid song — check if user has purchased or has premium
+        if ($user === null) {
+            return false;
+        }
+
+        return $user->hasPurchasedSong($this) || $user->hasActiveSubscription();
     }
 
     public function getDownloadUrlAttribute(): string

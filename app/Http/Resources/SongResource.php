@@ -107,6 +107,55 @@ class SongResource extends JsonResource
                 'artist' => $this->artist_id ? url("/api/artists/{$this->artist_id}") : null,
                 'album' => $this->album_id ? url("/api/albums/{$this->album_id}") : null,
             ],
+
+            // Share payload — everything the frontend needs to build a social-share sheet:
+            //   • share_url:  the beautiful canonical browser URL (tesotunes.com/songs/slug)
+            //   • caption:    pre-filled text for social posts (title · artist · url)
+            //   • og_image:   artwork URL for the preview card
+            //   • platform_links: ready-to-open deep-link URLs for each platform
+            'share' => $this->buildSharePayload(),
+        ];
+    }
+
+    /**
+     * Build the static share payload for this song.
+     * Unlike Share::sharePayload() (which is per-share-record),
+     * this is included in every SongResource response so the frontend
+     * can render a share sheet instantly without a round-trip POST.
+     */
+    protected function buildSharePayload(): array
+    {
+        $frontendBase = rtrim(config('app.frontend_url', config('app.url')), '/');
+        $slug = $this->slug ?? $this->id;
+        $shareUrl = "{$frontendBase}/songs/{$slug}";
+
+        $artistName = null;
+        if ($this->relationLoaded('artist') && $this->artist) {
+            $artistName = $this->artist->stage_name ?? $this->artist->name;
+        }
+        $artistName = $artistName ?? $this->artist_name ?? 'TesoTunes';
+
+        $title = "{$this->title} — {$artistName}";
+        $description = "Listen to {$this->title} by {$artistName} on TesoTunes";
+        $ogImage = $this->artwork_url ?? StorageHelper::url($this->artwork);
+
+        $encoded = urlencode($shareUrl);
+        $encodedTitle = urlencode($title);
+
+        return [
+            'share_url' => $shareUrl,
+            'og_title' => $title,
+            'og_description' => $description,
+            'og_image' => $ogImage,
+            'caption' => "🎵 {$title}\n\n{$description}\n\n{$shareUrl}",
+            'platform_links' => [
+                'copy' => $shareUrl,
+                'whatsapp' => "https://wa.me/?text={$encodedTitle}%20{$encoded}",
+                'twitter' => "https://twitter.com/intent/tweet?text={$encodedTitle}&url={$encoded}&hashtags=TesoTunes",
+                'facebook' => "https://www.facebook.com/sharer/sharer.php?u={$encoded}",
+                'telegram' => "https://t.me/share/url?url={$encoded}&text={$encodedTitle}",
+                'instagram' => null,
+            ],
         ];
     }
 

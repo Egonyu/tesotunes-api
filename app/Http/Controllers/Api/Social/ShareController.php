@@ -41,7 +41,7 @@ class ShareController extends Controller
                 'shareable_type' => 'required|string',
                 'shareable_id' => 'required|integer',
                 'message' => 'nullable|string|max:500',
-                'platform' => 'nullable|string|in:internal,facebook,twitter,whatsapp,instagram',
+                'platform' => 'nullable|string|in:internal,facebook,twitter,whatsapp,instagram,telegram,copy',
             ]);
 
             if ($validator->fails()) {
@@ -71,10 +71,15 @@ class ShareController extends Controller
                 $request->get('platform', 'internal')
             );
 
+            $share->load(['shareable', 'user']);
+
             return response()->json([
                 'success' => true,
                 'message' => 'Content shared successfully',
-                'data' => $share->load(['shareable', 'user']),
+                'data' => [
+                    'share' => $share,
+                    'share_payload' => $share->sharePayload(),
+                ],
             ], 201);
 
         } catch (\Exception $e) {
@@ -113,29 +118,14 @@ class ShareController extends Controller
             $share->recordView();
             $share->recordClick();
 
-            // Redirect to the actual content
-            $redirectUrl = null;
-
-            switch (class_basename($share->shareable)) {
-                case 'Song':
-                    $redirectUrl = route('songs.show', $share->shareable->id);
-                    break;
-                case 'Album':
-                    $redirectUrl = route('albums.show', $share->shareable->id);
-                    break;
-                case 'Playlist':
-                    $redirectUrl = route('playlists.show', $share->shareable->id);
-                    break;
-                case 'Artist':
-                    $redirectUrl = route('artists.show', $share->shareable->id);
-                    break;
-            }
+            $payload = $share->sharePayload();
 
             return response()->json([
                 'success' => true,
                 'data' => [
                     'share' => $share,
-                    'redirect_url' => $redirectUrl,
+                    'redirect_url' => $payload['share_url'],
+                    'share_payload' => $payload,
                 ],
             ]);
 

@@ -857,6 +857,13 @@ class User extends Authenticatable implements MustVerifyEmail
         return true; // Premium users: unlimited
     }
 
+    public function hasPurchasedSong(Song $song): bool
+    {
+        return SongPurchase::where('user_id', $this->id)
+            ->where('song_id', $song->id)
+            ->exists();
+    }
+
     public function canPlayPremiumContent(): bool
     {
         // Check if user has active subscription or premium credits

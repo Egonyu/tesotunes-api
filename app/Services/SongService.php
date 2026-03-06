@@ -193,9 +193,13 @@ class SongService
             throw new Exception('Download limit reached. Upgrade to premium for unlimited downloads.');
         }
 
-        // Check if song is available for download
-        if (! $song->isAvailableForDownload()) {
-            throw new Exception('This song is not available for download');
+        // Check if song is available for download (free, purchased, or premium subscriber)
+        if (! $song->isAvailableForDownload($user)) {
+            if (! $song->is_free && ! $song->is_downloadable) {
+                throw new Exception('This song is not available for download.');
+            }
+
+            throw new Exception('Purchase this song or upgrade to premium to download it.');
         }
 
         // Check for existing download
