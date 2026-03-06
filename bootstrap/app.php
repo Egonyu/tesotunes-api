@@ -55,6 +55,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Enforce max per_page/limit on all API list endpoints
         $middleware->appendToGroup('api', \App\Http\Middleware\EnforcePaginationMiddleware::class);
 
+        // Track API usage analytics (async via queued job)
+        $middleware->appendToGroup('api', \App\Http\Middleware\TrackApiUsage::class);
+
         // For a pure API backend, unauthenticated requests should get JSON 401
         // instead of being redirected to a login page
         $middleware->redirectGuestsTo(fn () => null);

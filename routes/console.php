@@ -236,3 +236,20 @@ Schedule::command('subscriptions:send-expiry-reminders')
     ->withoutOverlapping()
     ->onOneServer()
     ->runInBackground();
+
+/*
+|--------------------------------------------------------------------------
+| API Usage Analytics Aggregation
+|--------------------------------------------------------------------------
+|
+| Aggregate raw API usage logs into hourly rollups for the admin dashboard.
+| Prunes raw logs older than 30 days to manage table size.
+|
+*/
+
+Schedule::command('api-usage:aggregate --prune-days=30')
+    ->hourly()
+    ->name('api-usage-aggregation')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();

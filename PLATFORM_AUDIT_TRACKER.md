@@ -327,11 +327,11 @@
 - [x] Provider: `TelescopeServiceProvider.php` exists
 
 ### L2. API Usage Analytics
-- **Status:** [ ] Not started
-- **Date Fixed:** ___
-- [ ] Track endpoint usage frequency
-- [ ] Monitor response times per endpoint
-- [ ] Set up dashboards
+- **Status:** [x] Completed
+- **Date Fixed:** Mar 6, 2026
+- [x] Track endpoint usage frequency — `TrackApiUsage` middleware → `RecordApiUsageJob` → `api_usage_logs`
+- [x] Monitor response times per endpoint — `api_usage_hourly` rollup with avg/max response time
+- [x] Set up dashboards — `GET /api/admin/analytics/api-usage` + `/top-users`, protected by auth+role
 
 ### L3. API Deprecation Strategy
 - **Status:** [ ] Not started
@@ -451,8 +451,8 @@
 | 🚨 Critical | 4 | 2 | 2 | 0 | ~85% |
 | ⚠️ High | 8 | 8 | 0 | 0 | 100% |
 | 🟡 Medium | 8 | 7 | 0 | 1 | 88% |
-| 🟢 Low | 6 | 2 | 0 | 4 | 33% |
-| **Total** | **26** | **19** | **2** | **5** | **~88%** |
+| 🟢 Low | 6 | 3 | 0 | 3 | 50% |
+| **Total** | **26** | **20** | **2** | **4** | **~90%** |
 
 ### By Category
 
@@ -464,7 +464,7 @@
 | Documentation | 2 | 1 | Changelog done, Swagger still missing |
 | Routes | 3 | 3 | Stubs resolved, controller refs verified, auth complete ✅ |
 | Performance | 3 | 3 | Pagination, caching headers, indexes all done ✅ |
-| Monitoring | 3 | 2 | Logging + Sentry done, API analytics still TODO |
+| Monitoring | 3 | 3 | Logging + Sentry + API analytics all done ✅ |
 | Code Quality | 2 | 2 | Telescope done, all 14 TODOs resolved ✅ |
 | Config | 1 | 1 | Sanctum published & configured ✅ |
 
