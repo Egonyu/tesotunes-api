@@ -6,6 +6,7 @@ use App\Models\Payment;
 use App\Models\User;
 use App\Modules\Store\Models\Order;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * PaymentService
@@ -113,12 +114,29 @@ class PaymentService
      */
     public function processMobileMoneyPayment(Payment $payment): bool
     {
-        // TODO: Integrate with MTN/Airtel Money API
-        // For now, mark as completed (you'll integrate actual API later)
+        $zengaPay = app(\App\Services\Payment\ZengaPayService::class);
 
-        $payment->markAsCompleted();
+        try {
+            $result = $zengaPay->processPayment($payment, [
+                'phone_number' => $payment->phone_number,
+            ]);
 
-        return true;
+            if (!($result['success'] ?? false)) {
+                Log::warning('Mobile money payment initiation failed', [
+                    'payment_id' => $payment->id,
+                    'message' => $result['message'] ?? 'Unknown error',
+                ]);
+                return false;
+            }
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error('Mobile money payment error', [
+                'payment_id' => $payment->id,
+                'error' => $e->getMessage(),
+            ]);
+            return false;
+        }
     }
 
     /**

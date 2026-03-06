@@ -100,44 +100,44 @@ class ProcessISRCRegistration implements ShouldQueue
 
     private function submitToUMRO(array $data): array
     {
-        // Simulate UMRO API call
-        // In production, this would be an actual API call to Uganda Music Rights Organization
-
         try {
-            // Simulate API endpoint
-            $umroApiUrl = config('services.umro.api_url', 'https://api.umro.ug/isrc/register');
-            $apiKey = config('services.umro.api_key', 'demo_key');
+            $umroApiUrl = config('services.umro.api_url');
+            $apiKey = config('services.umro.api_key');
 
-            // For now, simulate successful registration
-            // TODO: Replace with actual UMRO API integration
+            // Use real API when credentials are configured
+            if ($umroApiUrl && $apiKey && $apiKey !== 'demo_key') {
+                $response = Http::withHeaders([
+                    'Authorization' => "Bearer {$apiKey}",
+                    'Content-Type' => 'application/json',
+                ])->timeout(30)->post($umroApiUrl, $data);
+
+                if ($response->successful()) {
+                    $result = [
+                        'success' => true,
+                        'registration_reference' => $response->json('reference_number'),
+                        'registration_date' => $response->json('registration_date'),
+                        'certificate_url' => $response->json('certificate_url'),
+                    ];
+                } else {
+                    $result = [
+                        'success' => false,
+                        'error' => $response->json('error', 'Registration failed'),
+                        'error_code' => $response->status(),
+                    ];
+                }
+
+                Log::info('UMRO registration response', $result);
+
+                return $result;
+            }
+
+            // Fall back to simulation in development / when API not configured
+            Log::warning('UMRO API not configured — using simulated response');
             $simulatedResponse = $this->simulateUMROResponse($data);
 
-            Log::info('UMRO registration response', $simulatedResponse);
+            Log::info('UMRO registration response (simulated)', $simulatedResponse);
 
             return $simulatedResponse;
-
-            // Actual API call would look like:
-            /*
-            $response = Http::withHeaders([
-                'Authorization' => "Bearer {$apiKey}",
-                'Content-Type' => 'application/json',
-            ])->timeout(30)->post($umroApiUrl, $data);
-
-            if ($response->successful()) {
-                return [
-                    'success' => true,
-                    'registration_reference' => $response->json('reference_number'),
-                    'registration_date' => $response->json('registration_date'),
-                    'certificate_url' => $response->json('certificate_url'),
-                ];
-            } else {
-                return [
-                    'success' => false,
-                    'error' => $response->json('error', 'Registration failed'),
-                    'error_code' => $response->status(),
-                ];
-            }
-            */
 
         } catch (\Exception $e) {
             return [

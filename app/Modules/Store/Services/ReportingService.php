@@ -288,12 +288,18 @@ class ReportingService
     public function scheduleMonthlyReport(Store $store): void
     {
         // Generate reports at end of month
-        $this->generateSalesCSV($store, 'month');
-        $this->generateProductsCSV($store, 'month');
-        $this->generateCustomersCSV($store, 'month');
+        $salesPath = $this->generateSalesCSV($store, 'month');
+        $productsPath = $this->generateProductsCSV($store, 'month');
+        $customersPath = $this->generateCustomersCSV($store, 'month');
 
-        // TODO: Email reports to store owner
-        // Mail::to($store->owner->email)->send(new MonthlyReportMail($reports));
+        // Email reports to store owner
+        $owner = $store->user;
+        if ($owner?->email) {
+            $owner->notify(new \App\Notifications\Store\MonthlyReportNotification(
+                $store,
+                compact('salesPath', 'productsPath', 'customersPath')
+            ));
+        }
     }
 
     /**

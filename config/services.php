@@ -59,6 +59,12 @@ return [
         'enabled' => env('UMRO_ENABLED', false),
     ],
 
+    // International Federation of the Phonographic Industry
+    'ifpi' => [
+        'api_url' => env('IFPI_API_URL'),
+        'api_key' => env('IFPI_API_KEY'),
+    ],
+
     // Google Analytics
     'google_analytics' => [
         'tracking_id' => env('GOOGLE_ANALYTICS_ID'),

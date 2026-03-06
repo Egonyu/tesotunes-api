@@ -132,14 +132,43 @@ class ISRCService
     }
 
     /**
-     * Verify ISRC against IFPI database (placeholder)
-     * In production, this would call IFPI API
+     * Verify ISRC against IFPI database.
+     * Uses IFPI API when configured, falls back to format validation.
      */
     public function verifyWithIFPI(string $isrcCode): bool
     {
-        // TODO: Implement IFPI API integration
-        // For now, just validate format
-        return $this->validateFormat($isrcCode);
+        if (!$this->validateFormat($isrcCode)) {
+            return false;
+        }
+
+        $apiUrl = config('services.ifpi.api_url');
+        $apiKey = config('services.ifpi.api_key');
+
+        if ($apiUrl && $apiKey) {
+            try {
+                $response = \Illuminate\Support\Facades\Http::withHeaders([
+                    'Authorization' => "Bearer {$apiKey}",
+                    'Accept' => 'application/json',
+                ])->timeout(15)->get("{$apiUrl}/isrc/{$isrcCode}");
+
+                if ($response->successful()) {
+                    return $response->json('valid', true);
+                }
+
+                \Log::warning('IFPI verification request failed', [
+                    'isrc' => $isrcCode,
+                    'status' => $response->status(),
+                ]);
+            } catch (\Exception $e) {
+                \Log::warning('IFPI API unavailable, using format validation', [
+                    'isrc' => $isrcCode,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        // Fall back to format validation when API not available
+        return true;
     }
 
     /**

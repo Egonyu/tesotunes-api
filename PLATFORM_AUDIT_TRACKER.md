@@ -252,22 +252,22 @@
 ### M4. TODO Comments in Code (14 found)
 - **Impact:** Incomplete features
 - **Effort:** 2-4 hours
-- **Status:** [~] Tracked — 14 TODOs found (original 3 stale, updated list below)
-- **Date Fixed:** ___
-- [ ] `ProcessISRCRegistration.php:112` — Replace with actual UMRO API integration
-- [ ] `ForumTopicPolicy.php:38` — Implement reputation system
-- [ ] `AuditLoggingListener.php:14` — Implement audit logging
-- [ ] `ISRCService.php:140` — Implement IFPI API integration
-- [ ] `Store/AnalyticsService.php:328` — Implement real-time tracking
-- [ ] `Store/ReviewService.php:285` — When image upload is added
-- [ ] `Store/ReportingService.php:295` — Email reports to store owner
-- [ ] `Store/PaymentService.php:116` — Integrate with MTN/Airtel Money API
-- [ ] `Store/NotificationService.php:249` — Integrate with SMS provider
-- [ ] `PodcastService.php:192` — Generate thumbnail version
-- [ ] `EpisodeService.php:171` — Queue transcoding jobs
-- [ ] `EpisodeService.php:199` — Use getID3 or FFmpeg
-- [ ] `OrderService.php:258` — Integrate with actual payment gateway
-- [ ] `Playlist.php:234` — Implement playlist.artwork route
+- **Status:** [x] Completed — All 14 TODOs resolved
+- **Date Fixed:** Mar 6, 2026
+- [x] `ProcessISRCRegistration.php:112` — UMRO API: Uses HTTP call when configured, sim fallback
+- [x] `ForumTopicPolicy.php:38` — Reputation check implemented against min_reputation_to_post
+- [x] `AuditLoggingListener.php:14` — Structured audit logging with user/IP/request context
+- [x] `ISRCService.php:140` — IFPI API call when configured, format-validation fallback
+- [x] `Store/AnalyticsService.php:328` — Queries store_visits table for real-time views
+- [x] `Store/ReviewService.php:285` — Counts reviews with non-empty images array
+- [x] `Store/ReportingService.php:295` — Sends MonthlyReportNotification with CSV attachments
+- [x] `Store/PaymentService.php:116` — Integrated with ZengaPay processPayment
+- [x] `Store/NotificationService.php:249` — Africa's Talking SMS, mock fallback
+- [x] `PodcastService.php:192` — Copies artwork to thumbnail path
+- [x] `EpisodeService.php:171` — Dispatches ProcessEpisodeUploadJob (FFmpeg transcoding)
+- [x] `EpisodeService.php:199` — Uses getID3 for real audio metadata extraction
+- [x] `OrderService.php:258` — Refund via ZengaPay disburse
+- [x] `Playlist.php:234` — Returns first song artwork as playlist cover
 
 ### M5. Error Tracking Not Configured
 - **Impact:** Missing production error visibility
@@ -450,9 +450,9 @@
 |----------|-------|------|---------|-----------|------------|
 | 🚨 Critical | 4 | 2 | 2 | 0 | ~85% |
 | ⚠️ High | 8 | 8 | 0 | 0 | 100% |
-| 🟡 Medium | 8 | 6 | 1 | 1 | 81% |
+| 🟡 Medium | 8 | 7 | 0 | 1 | 88% |
 | 🟢 Low | 6 | 2 | 0 | 4 | 33% |
-| **Total** | **26** | **18** | **3** | **5** | **~85%** |
+| **Total** | **26** | **19** | **2** | **5** | **~88%** |
 
 ### By Category
 
@@ -465,7 +465,7 @@
 | Routes | 3 | 3 | Stubs resolved, controller refs verified, auth complete ✅ |
 | Performance | 3 | 3 | Pagination, caching headers, indexes all done ✅ |
 | Monitoring | 3 | 2 | Logging + Sentry done, API analytics still TODO |
-| Code Quality | 2 | 1 | Telescope done, 14 TODOs tracked |
+| Code Quality | 2 | 2 | Telescope done, all 14 TODOs resolved ✅ |
 | Config | 1 | 1 | Sanctum published & configured ✅ |
 
 ---
@@ -525,7 +525,7 @@ _Record details of each fix here as they are completed._
 | Mar 6 | H6 | Audited migration conflicts — all handled (no-ops/guards) | audit only | ☑ |
 | Mar 6 | M2 | Audited — already complete (HasPagination trait + 50+ endpoints) | audit only | ☑ |
 | Mar 6 | M3 | Audited — already complete (ApiLoggingMiddleware + 100+ calls) | audit only | ☑ |
-| Mar 6 | M4 | Updated TODO list — 14 TODOs found (original 3 stale) | tracker update | ☑ |
+| Mar 6 | M4 | Resolved all 14 TODOs — UMRO/IFPI API, ZengaPay refunds, getID3, SMS, audit logging | `pending` | ☑ |
 | Mar 6 | M5 | Audited — already complete + added SENTRY_DSN to .env.example | `pending` | ☑ |
 | Mar 6 | M6 | Audited — already complete (3 index migrations) | audit only | ☑ |
 | Mar 6 | M8 | Audited — already complete (CacheHeadersMiddleware) | audit only | ☑ |

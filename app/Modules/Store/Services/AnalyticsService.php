@@ -325,7 +325,11 @@ class AnalyticsService
     {
         return cache()->remember("store:{$store->id}:realtime", 300, function () use ($store) {
             return [
-                'online_views' => 0, // TODO: Implement real-time tracking
+                'online_views' => DB::table('store_visits')
+                    ->where('store_id', $store->id)
+                    ->where('visited_at', '>=', now()->subMinutes(30))
+                    ->distinct('session_id')
+                    ->count('session_id') ?? 0,
                 'active_carts' => DB::table('shopping_carts')
                     ->whereHas('items', fn ($q) => $q->whereHas('product', fn ($q2) => $q2->where('store_id', $store->id)))
                     ->where('updated_at', '>=', now()->subHours(1))

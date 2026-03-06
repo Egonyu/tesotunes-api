@@ -255,13 +255,36 @@ class OrderService
      */
     protected function processRefundWithGateway(Order $order, float $amount): void
     {
-        // TODO: Integrate with actual payment gateway (MTN, Airtel, etc.)
-        // For now, this is a placeholder
-        Log::info('Processing refund with payment gateway', [
-            'order_id' => $order->id,
-            'amount' => $amount,
-            'payment_method' => $order->payment_method,
-        ]);
+        $zengaPay = app(\App\Services\Payment\ZengaPayService::class);
+
+        try {
+            $phone = $order->payment?->phone_number ?? $order->user->phone;
+
+            if (!$phone) {
+                Log::warning('Refund skipped — no phone number for order', ['order_id' => $order->id]);
+                return;
+            }
+
+            $result = $zengaPay->disburse(
+                $amount,
+                $phone,
+                'REFUND-' . $order->order_number . '-' . time(),
+                "Refund for order #{$order->order_number}"
+            );
+
+            Log::info('Refund initiated via ZengaPay', [
+                'order_id' => $order->id,
+                'amount' => $amount,
+                'success' => $result['success'] ?? false,
+                'transaction_id' => $result['transaction_id'] ?? null,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Refund gateway error', [
+                'order_id' => $order->id,
+                'amount' => $amount,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

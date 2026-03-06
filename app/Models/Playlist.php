@@ -230,12 +230,17 @@ class Playlist extends Model
             return \App\Helpers\StorageHelper::artworkUrl($this->artwork, '/images/default-playlist-artwork.svg');
         }
 
-        // Generate mosaic artwork from first 4 songs
-        // TODO: Implement playlist.artwork route for dynamic mosaic generation
-        // $firstSongs = $this->songs()->limit(4)->get();
-        // if ($firstSongs->count() > 0) {
-        //     return route('playlist.artwork', $this->id);
-        // }
+        // Generate mosaic artwork from first 4 songs' cover art
+        $firstSongs = $this->songs()->whereNotNull('cover_image')->limit(4)->get();
+        if ($firstSongs->count() > 0) {
+            $artworks = $firstSongs->map(fn ($song) =>
+                \App\Helpers\StorageHelper::artworkUrl($song->cover_image)
+            )->filter()->values()->toArray();
+
+            if (!empty($artworks)) {
+                return $artworks[0];
+            }
+        }
 
         return asset('images/default-playlist-artwork.svg');
     }

@@ -7,6 +7,7 @@ use App\Models\Podcast;
 use App\Models\PodcastEpisode;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -168,8 +169,8 @@ class EpisodeService
             'sample_rate' => $metadata['sample_rate'] ?? 44100,
         ]);
 
-        // TODO: Queue transcoding jobs for different quality levels
-        // ProcessEpisodeUploadJob::dispatch($episode);
+        // Queue transcoding jobs for different quality levels
+        \App\Jobs\ProcessEpisodeUploadJob::dispatch($episode);
     }
 
     /**
@@ -195,14 +196,27 @@ class EpisodeService
      */
     protected function extractAudioMetadata(UploadedFile $file): array
     {
-        // Placeholder implementation
-        // TODO: Use getID3 or FFmpeg to extract real metadata
+        try {
+            $getID3 = new \getID3();
+            $info = $getID3->analyze($file->getPathname());
 
-        return [
-            'duration' => 1800, // 30 minutes placeholder
-            'bitrate' => 128,
-            'sample_rate' => 44100,
-        ];
+            return [
+                'duration' => (int) ($info['playtime_seconds'] ?? 0),
+                'bitrate' => isset($info['audio']['bitrate']) ? (int) ($info['audio']['bitrate'] / 1000) : 128,
+                'sample_rate' => (int) ($info['audio']['sample_rate'] ?? 44100),
+            ];
+        } catch (\Exception $e) {
+            Log::warning('Failed to extract audio metadata, using defaults', [
+                'file' => $file->getClientOriginalName(),
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'duration' => 0,
+                'bitrate' => 128,
+                'sample_rate' => 44100,
+            ];
+        }
     }
 
     /**

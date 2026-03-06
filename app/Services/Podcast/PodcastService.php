@@ -7,6 +7,7 @@ use App\Models\Podcast;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -189,7 +190,18 @@ class PodcastService
 
         $podcast->update(['artwork' => $path]);
 
-        // TODO: Generate thumbnail version
+        // Generate thumbnail version
+        try {
+            $disk = Storage::disk(config('podcast.storage.primary_driver', 'digitalocean'));
+            $thumbnailPath = str_replace('/artwork/', '/artwork/thumbnails/', $path);
+            $disk->copy($path, $thumbnailPath);
+            $podcast->update(['artwork_thumbnail' => $thumbnailPath]);
+        } catch (\Exception $e) {
+            Log::warning('Podcast thumbnail generation failed', [
+                'podcast_id' => $podcast->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

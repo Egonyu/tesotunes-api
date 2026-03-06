@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Modules\Store\Models\Order;
 use App\Modules\Store\Models\Product;
 use App\Modules\Store\Models\Store;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -246,11 +247,37 @@ class NotificationService
     protected function sendSMS(string $phoneNumber, string $message): bool
     {
         try {
-            // TODO: Integrate with SMS provider (Africa's Talking, Twilio)
-            // For now, just log
-            Log::info("SMS to {$phoneNumber}: {$message}");
+            $username = config('services.sms.africastalking.username');
+            $apiKey = config('services.sms.africastalking.api_key');
+            $senderId = config('services.sms.africastalking.sender_id', 'TESOTUNES');
 
-            return true;
+            if (!$username || !$apiKey || config('services.sms.provider') === 'mock') {
+                Log::info("SMS (mock) to {$phoneNumber}: {$message}");
+                return true;
+            }
+
+            $response = Http::withHeaders([
+                'apiKey' => $apiKey,
+                'Content-Type' => 'application/x-www-form-urlencoded',
+                'Accept' => 'application/json',
+            ])->asForm()->post('https://api.africastalking.com/version1/messaging', [
+                'username' => $username,
+                'to' => $phoneNumber,
+                'message' => $message,
+                'from' => $senderId,
+            ]);
+
+            if ($response->successful()) {
+                Log::info('SMS sent via Africa\'s Talking', ['to' => $phoneNumber]);
+                return true;
+            }
+
+            Log::warning('SMS send failed', [
+                'to' => $phoneNumber,
+                'status' => $response->status(),
+            ]);
+
+            return false;
         } catch (\Exception $e) {
             Log::error('Failed to send SMS: '.$e->getMessage());
 

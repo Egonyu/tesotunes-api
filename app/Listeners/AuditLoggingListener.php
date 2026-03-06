@@ -2,6 +2,7 @@
 
 namespace App\Listeners;
 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 class AuditLoggingListener
@@ -11,10 +12,18 @@ class AuditLoggingListener
      */
     public function handle(object $event): void
     {
-        // TODO: Implement audit logging
+        $user = Auth::user();
+
         Log::channel('audit')->info('Audit event', [
             'event' => get_class($event),
-            'data' => $event,
+            'user_id' => $user?->id,
+            'user_email' => $user?->email,
+            'ip_address' => request()?->ip(),
+            'user_agent' => request()?->userAgent(),
+            'url' => request()?->fullUrl(),
+            'method' => request()?->method(),
+            'timestamp' => now()->toIso8601String(),
+            'data' => method_exists($event, 'toArray') ? $event->toArray() : get_class($event),
         ]);
     }
 
