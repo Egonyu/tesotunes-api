@@ -406,12 +406,14 @@
 - [x] Download gating — `userCanDownloadTrack()` checks subscription + daily limit + purchases
 - [x] `getMonthlyUploadLimit()` method — plan limit overrides artist.monthly_upload_limit
 
-### Phase 5 — Frontend Integration (Planned)
+### Phase 5 — Frontend Integration (Complete ✅)
 
-- [ ] Pricing page with plan comparison
-- [ ] Subscribe flow: phone number → MoMo prompt → polling → confirmation
-- [ ] Subscription settings page (auto-renew toggle, cancel, change plan)
-- [ ] Plan badges in user profile
+- [x] Pricing page with plan comparison (`/pricing`)
+- [x] Subscribe flow: phone number → MoMo prompt → payment polling → confirmation
+- [x] Subscription settings page (auto-renew toggle, cancel, change plan)
+- [x] Plan badges in user profile
+- [x] Hooks rewritten to match backend API endpoints exactly
+- [x] Payment status polling via `GET /payments/status/{transactionId}`
 
 ---
 
