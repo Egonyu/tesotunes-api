@@ -281,7 +281,9 @@ Route::get('/subscription-plans', [\App\Http\Controllers\Api\SubscriptionControl
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user/subscription', [\App\Http\Controllers\Api\SubscriptionController::class, 'current'])->name('api.user.subscription');
+    Route::get('/user/subscription/history', [\App\Http\Controllers\Api\SubscriptionController::class, 'history'])->name('api.user.subscription.history');
     Route::post('/subscriptions/subscribe', [\App\Http\Controllers\Api\SubscriptionController::class, 'subscribe'])->name('api.subscriptions.subscribe');
+    Route::post('/subscriptions/change-plan', [\App\Http\Controllers\Api\SubscriptionController::class, 'changePlan'])->name('api.subscriptions.change-plan');
     Route::post('/subscriptions/toggle-auto-renew', [\App\Http\Controllers\Api\SubscriptionController::class, 'toggleAutoRenew'])->name('api.subscriptions.toggle-auto-renew');
 });
 
@@ -418,6 +420,15 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::delete('/roles/{role}', [\App\Http\Controllers\Api\Admin\RoleController::class, 'destroy'])->name('roles.destroy');
     Route::post('/roles/assign', [\App\Http\Controllers\Api\Admin\RoleController::class, 'assignToUser'])->name('roles.assign');
     Route::post('/roles/remove', [\App\Http\Controllers\Api\Admin\RoleController::class, 'removeFromUser'])->name('roles.remove');
+
+    // Subscription Management API
+    Route::get('/subscriptions/stats', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'stats'])->name('subscriptions.stats');
+    Route::get('/subscriptions', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'index'])->name('subscriptions.index');
+    Route::get('/subscriptions/{id}', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'show'])->name('subscriptions.show');
+    Route::post('/subscriptions/grant', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'grant'])->name('subscriptions.grant');
+    Route::post('/subscriptions/{id}/revoke', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'revoke'])->name('subscriptions.revoke');
+    Route::get('/subscription-plans', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'plansList'])->name('subscription-plans.index');
+    Route::put('/subscription-plans/{id}', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'updatePlan'])->name('subscription-plans.update');
 
     // Podcasts API — full CRUD + moderation
     Route::get('/podcasts/stats', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'stats'])->name('podcasts.stats');

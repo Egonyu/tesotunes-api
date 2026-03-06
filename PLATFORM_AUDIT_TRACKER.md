@@ -339,7 +339,7 @@
 ## � SUBSCRIPTION SYSTEM — Audit & Implementation Tracker
 
 **Audit Date:** March 6, 2026
-**Status:** Phase 1 In Progress
+**Status:** Phase 2 Complete
 
 ### Bugs Found in Audit
 
@@ -360,7 +360,7 @@
 | SUB-MED-5 | 🟡 MEDIUM | `SubscriptionController::cancel()` used `$subscription->plan->name` (wrong relation) | [x] Fixed | Mar 6, 2026 |
 | SUB-MED-6 | 🟡 MEDIUM | `SubscriptionController::cancel()` used `ends_at` instead of `expires_at` | [x] Fixed | Mar 6, 2026 |
 
-### Phase 1 — Schema Alignment & Core API (Current)
+### Phase 1 — Schema Alignment & Core API (Complete)
 
 - [x] Migration `2026_03_06_120000_align_subscription_schema.php` — adds missing columns to both tables
 - [x] `SubscriptionPlanSeeder.php` — 4 plans: Free (0 UGX), Premium (15K), Artist (25K), Label (100K)
@@ -375,12 +375,13 @@
 - [ ] Run migration on production
 - [ ] Seed plans on production
 
-### Phase 2 — Subscription Lifecycle (Planned)
+### Phase 2 — Subscription Lifecycle (Complete)
 
-- [ ] User profile API includes subscription status
-- [ ] Upgrade/downgrade between plans (pro-rata credit)
-- [ ] Admin subscription management endpoints
-- [ ] Subscription history endpoint
+- [x] User profile API includes subscription status — `UserResource` enhanced with plan, tier, limits, days_remaining
+- [x] Upgrade/downgrade between plans — `POST /subscriptions/change-plan` with pro-rata credit calculation
+- [x] Admin subscription management — `AdminSubscriptionsController` with stats, list, show, grant, revoke, plan CRUD
+- [x] Subscription history — `GET /user/subscription/history` with pagination
+- [x] Admin routes secured with `auth:sanctum` + `role:admin,super_admin` + `admin.exceptions`
 
 ### Phase 3 — Auto-Renewal & Expiry (Planned)
 

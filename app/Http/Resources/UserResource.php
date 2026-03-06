@@ -56,12 +56,34 @@ class UserResource extends JsonResource
 
             // Relationships (conditional)
             'settings' => $this->when($this->relationLoaded('settings'), $this->settings),
-            'subscription' => $this->when($this->relationLoaded('subscription') && $this->subscription, function () {
+            'subscription' => $this->when($this->relationLoaded('subscription'), function () {
+                $sub = $this->subscription;
+                if (! $sub || ! $sub->isActive()) {
+                    return [
+                        'has_subscription' => false,
+                        'plan' => 'free',
+                        'tier' => 'free',
+                    ];
+                }
+
+                $plan = $sub->subscriptionPlan;
+
                 return [
-                    'id' => $this->subscription->id,
-                    'plan' => $this->subscription->plan ?? $this->subscription->plan_name ?? null,
-                    'status' => $this->subscription->status,
-                    'expires_at' => $this->subscription->expires_at?->toIso8601String(),
+                    'has_subscription' => true,
+                    'id' => $sub->id,
+                    'plan' => $plan?->slug ?? 'unknown',
+                    'plan_name' => $plan?->name,
+                    'tier' => $plan?->tier,
+                    'status' => $sub->status,
+                    'started_at' => $sub->started_at?->toIso8601String(),
+                    'expires_at' => $sub->expires_at?->toIso8601String(),
+                    'days_remaining' => $sub->daysUntilExpiry(),
+                    'auto_renew' => (bool) $sub->auto_renew,
+                    'limits' => [
+                        'downloads_per_day' => $plan?->max_downloads_per_day ?? $plan?->downloads_per_day ?? 3,
+                        'audio_quality_kbps' => $plan?->max_audio_quality_kbps ?? 128,
+                        'uploads_per_month' => $plan?->max_uploads_per_month ?? 0,
+                    ],
                 ];
             }),
             'artist' => $this->when($this->relationLoaded('artist') && $this->artist, function () {

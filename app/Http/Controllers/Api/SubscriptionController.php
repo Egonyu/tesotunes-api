@@ -265,4 +265,164 @@ class SubscriptionController extends Controller
             'message' => 'Subscription extended successfully.',
         ]);
     }
+
+    /**
+     * POST /api/subscriptions/change-plan — upgrade or downgrade plan
+     */
+    public function changePlan(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'plan_id' => 'required|exists:subscription_plans,id',
+            'payment_method' => 'required|in:mobile_money,card',
+            'phone_number' => 'required|string|min:10|max:15',
+        ]);
+
+        $user = $request->user();
+        $newPlan = SubscriptionPlan::where('id', $validated['plan_id'])
+            ->where('is_active', true)
+            ->firstOrFail();
+
+        if ($newPlan->price <= 0 && $newPlan->price_local <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Cannot switch to the free tier. Cancel your subscription instead.',
+            ], 422);
+        }
+
+        $currentSub = UserSubscription::where('user_id', $user->id)
+            ->where('status', 'active')
+            ->where('expires_at', '>', now())
+            ->first();
+
+        if (! $currentSub) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No active subscription to change. Use the subscribe endpoint instead.',
+            ], 422);
+        }
+
+        if ($currentSub->subscription_plan_id === $newPlan->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You are already on this plan.',
+            ], 422);
+        }
+
+        $currentPlan = $currentSub->subscriptionPlan;
+        $direction = ($newPlan->price > ($currentPlan->price ?? 0)) ? 'upgrade' : 'downgrade';
+
+        // Calculate pro-rata credit for remaining days
+        $daysRemaining = max(0, now()->diffInDays($currentSub->expires_at, false));
+        $dailyRate = ($currentPlan->price_local ?: $currentPlan->price_monthly ?: $currentPlan->price) / 30;
+        $credit = round($dailyRate * $daysRemaining, 2);
+        $newAmount = $newPlan->price_local ?: $newPlan->price_monthly ?: $newPlan->price;
+        $chargeAmount = max(0, $newAmount - $credit);
+
+        try {
+            if ($chargeAmount > 0) {
+                $result = $this->paymentService->processSubscriptionPayment(
+                    $user,
+                    $newPlan,
+                    $validated['payment_method'],
+                    [
+                        'phone_number' => $validated['phone_number'],
+                        'billing_period' => 'monthly',
+                        'change_type' => $direction,
+                        'pro_rata_credit' => $credit,
+                    ]
+                );
+
+                if (! $result['success']) {
+                    return response()->json($result, 422);
+                }
+            } else {
+                // Downgrade or full credit covers it — cancel current, create new
+                $currentSub->update([
+                    'status' => 'cancelled',
+                    'cancelled_at' => now(),
+                    'cancellation_reason' => "Plan {$direction} to {$newPlan->name}",
+                ]);
+
+                UserSubscription::create([
+                    'user_id' => $user->id,
+                    'subscription_plan_id' => $newPlan->id,
+                    'started_at' => now(),
+                    'expires_at' => now()->addDays($newPlan->duration_days ?? 30),
+                    'status' => 'active',
+                    'payment_method' => $validated['payment_method'],
+                    'amount_paid' => 0,
+                    'currency' => $newPlan->currency ?? 'UGX',
+                    'auto_renew' => $currentSub->auto_renew,
+                    'metadata' => [
+                        'change_type' => $direction,
+                        'pro_rata_credit' => $credit,
+                        'previous_plan_id' => $currentPlan->id,
+                    ],
+                ]);
+            }
+
+            $user->notify(new SubscriptionNotification(
+                SubscriptionNotification::SUBSCRIBED,
+                $newPlan->name,
+                ['change_type' => $direction, 'credit' => $credit]
+            ));
+
+            return response()->json([
+                'success' => true,
+                'message' => ucfirst($direction)." to {$newPlan->name} successful.",
+                'data' => [
+                    'direction' => $direction,
+                    'new_plan' => $newPlan->slug,
+                    'pro_rata_credit' => $credit,
+                    'amount_charged' => $chargeAmount,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Plan change failed. Please try again.',
+            ], 500);
+        }
+    }
+
+    /**
+     * GET /api/user/subscription/history — subscription history
+     */
+    public function history(Request $request): JsonResponse
+    {
+        $subscriptions = UserSubscription::where('user_id', $request->user()->id)
+            ->with('subscriptionPlan:id,name,slug,tier,price,currency')
+            ->orderByDesc('created_at')
+            ->paginate(min((int) $request->get('per_page', 15), 50));
+
+        $items = $subscriptions->getCollection()->map(fn (UserSubscription $sub) => [
+            'id' => $sub->id,
+            'plan' => $sub->subscriptionPlan ? [
+                'name' => $sub->subscriptionPlan->name,
+                'slug' => $sub->subscriptionPlan->slug,
+                'tier' => $sub->subscriptionPlan->tier,
+            ] : null,
+            'status' => $sub->status,
+            'amount_paid' => $sub->amount_paid,
+            'currency' => $sub->currency,
+            'payment_method' => $sub->payment_method,
+            'started_at' => $sub->started_at?->toIso8601String(),
+            'expires_at' => $sub->expires_at?->toIso8601String(),
+            'cancelled_at' => $sub->cancelled_at?->toIso8601String(),
+            'cancellation_reason' => $sub->cancellation_reason,
+            'auto_renew' => (bool) $sub->auto_renew,
+            'created_at' => $sub->created_at?->toIso8601String(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => $items,
+            'meta' => [
+                'current_page' => $subscriptions->currentPage(),
+                'last_page' => $subscriptions->lastPage(),
+                'per_page' => $subscriptions->perPage(),
+                'total' => $subscriptions->total(),
+            ],
+        ]);
+    }
 }
