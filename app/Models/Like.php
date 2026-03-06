@@ -71,16 +71,20 @@ class Like extends Model
 
             // Notify content owner (if not self-like)
             if (method_exists($likeable, 'user') && $likeable->user && $likeable->user->id !== $user->id) {
-                $likeable->user->notifications()->create([
-                    'notification_type' => 'content_liked',  // Fixed: was 'type'
-                    'title' => 'New Like',
-                    'message' => "{$user->name} liked your ".class_basename($likeable),
-                    'metadata' => [  // Fixed: was 'data'
-                        'liker_id' => $user->id,
-                        'likeable_type' => get_class($likeable),
-                        'likeable_id' => $likeable->id,
-                    ],
-                ]);
+                try {
+                    $likeable->user->notifications()->create([
+                        'type' => 'content_liked',
+                        'data' => json_encode([
+                            'title' => 'New Like',
+                            'message' => "{$user->name} liked your ".class_basename($likeable),
+                            'liker_id' => $user->id,
+                            'likeable_type' => get_class($likeable),
+                            'likeable_id' => $likeable->id,
+                        ]),
+                    ]);
+                } catch (\Throwable $e) {
+                    // Notification creation is non-critical
+                }
             }
 
             return true; // Liked

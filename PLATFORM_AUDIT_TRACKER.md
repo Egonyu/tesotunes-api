@@ -32,26 +32,26 @@
 ### C2. Missing Database Migrations (47 Models)
 - **Impact:** Database schema incomplete, features won't work
 - **Effort:** 8-16 hours
-- **Status:** [~] Mostly complete (30/35 tables exist)
-- **Date Fixed:** Mar 6, 2026 (audit + remaining fix)
+- **Status:** [✓] Complete (all 15 SACCO tables exist with models)
+- **Date Fixed:** Mar 6-7, 2026 (audit + remaining SACCO tables + models)
 - **Notes:** Bulk created in `2026_02_16_000001_comprehensive_schema_sync.php` and `2026_02_23_100000_create_missing_sacco_tables_and_fixes.php`
 
-#### Priority 1 — SACCO Module (15 models) — 10/15 done
+#### Priority 1 — SACCO Module (15 models) — 15/15 done ✅
 - [x] `sacco_members` migration — `comprehensive_schema_sync`
 - [x] `sacco_loans` migration — `comprehensive_schema_sync`
 - [x] `sacco_savings_accounts` migration — `create_missing_sacco_tables`
-- [ ] `sacco_contributions` migration — no model exists yet
+- [x] `sacco_contributions` migration — `create_remaining_sacco_tables` + model created
 - [x] `sacco_loan_repayments` migration — `create_missing_sacco_tables`
-- [ ] `sacco_groups` migration — no model exists yet
-- [ ] `sacco_meetings` migration — no model (but `sacco_board_meetings` exists)
-- [ ] `sacco_fines` migration — no model exists yet
+- [x] `sacco_groups` migration — `create_remaining_sacco_tables` + model created
+- [x] `sacco_meetings` migration — `create_remaining_sacco_tables` + model created
+- [x] `sacco_fines` migration — `create_remaining_sacco_tables` + model created
 - [x] `sacco_dividends` migration — `create_missing_sacco_tables`
 - [x] `sacco_guarantors` migration — `2026_03_06_150000_create_sacco_guarantors_table`
 - [x] `sacco_shares` migration — `create_missing_sacco_tables`
-- [ ] `sacco_withdrawal_requests` migration — no model exists yet
+- [x] `sacco_withdrawal_requests` migration — `create_remaining_sacco_tables` + model created
 - [x] `sacco_settings` migration — `create_missing_sacco_tables`
 - [x] `sacco_transactions` migration — `comprehensive_schema_sync`
-- [ ] `sacco_notifications` migration — no model exists yet
+- [x] `sacco_notifications` migration — `create_remaining_sacco_tables` + model created
 - Also created (not originally tracked): `sacco_accounts`, `sacco_audit_logs`, `sacco_board_members`, `sacco_board_meetings`, `sacco_board_meeting_attendance`, `sacco_loan_products`, `sacco_savings_transactions`, `sacco_share_transactions`, `sacco_member_dividends`
 
 #### Priority 2 — Feed System (4 models) — ✅ All done
@@ -85,15 +85,15 @@
 ### C3. No API Tests
 - **Impact:** No safety net for code changes
 - **Effort:** 5-10 dev days
-- **Status:** [~] Substantially complete — 34 test files exist
-- **Date Fixed:** Mar 6, 2026 (audit)
+- **Status:** [✓] Substantially complete — 42 test files, 76 new tests across 8 files
+- **Date Fixed:** Mar 6-7, 2026 (audit + 8 missing test files created)
 - **Notes:** Tests exist across `tests/Feature/Api/` covering auth, images, loyalty, and 18 response standardization tests
 
 #### Authentication Tests
 - [x] `tests/Feature/Api/Auth/LoginTest.php`
 - [x] `tests/Feature/Api/Auth/RegisterTest.php`
-- [ ] `tests/Feature/Api/Auth/LogoutTest.php`
-- [ ] `tests/Feature/Api/Auth/PasswordResetTest.php`
+- [x] `tests/Feature/Api/Auth/LogoutTest.php` — 6 tests (logout, token invalidation, multi-token, unauth, invalid token, GET rejection)
+- [x] `tests/Feature/Api/Auth/PasswordResetTest.php` — 11 tests (forgot password, reset, validation, token verification)
 
 #### Music API Tests
 - [x] `tests/Feature/Api/ResponseStandardization/SongApiTest.php`
@@ -102,14 +102,14 @@
 - [x] `tests/Feature/Api/ResponseStandardization/GenreApiTest.php`
 
 #### Payment Tests
-- [ ] `tests/Feature/Api/Payment/PaymentProcessingTest.php`
-- [ ] `tests/Feature/Api/Payment/WebhookTest.php`
-- [ ] `tests/Feature/Api/Payment/CreditsTest.php`
+- [x] `tests/Feature/Api/Payment/PaymentProcessingTest.php` — 9 tests (subscription, refund, auth, validation)
+- [x] `tests/Feature/Api/Payment/WebhookTest.php` — 7 tests (public access, validation, idempotency, providers)
+- [x] `tests/Feature/Api/Payment/CreditsTest.php` — 11 tests (dashboard, transactions, daily bonus, transfers)
 
 #### Social Feature Tests
-- [ ] `tests/Feature/Api/Social/FollowTest.php`
-- [ ] `tests/Feature/Api/Social/LikeTest.php`
-- [ ] `tests/Feature/Api/Social/CommentTest.php`
+- [x] `tests/Feature/Api/Social/FollowTest.php` — 10 tests (follow/unfollow, auth, idempotent, counts, status)
+- [x] `tests/Feature/Api/Social/LikeTest.php` — 7 tests (like/unlike toggle, auth, entity types, counts)
+- [x] `tests/Feature/Api/Social/CommentTest.php` — 15 tests (CRUD, like, reply, auth, ownership)
 
 #### SACCO Tests
 - [x] `tests/Feature/Api/ResponseStandardization/SaccoApiTest.php`

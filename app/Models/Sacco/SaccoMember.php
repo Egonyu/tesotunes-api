@@ -6,6 +6,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -77,6 +78,32 @@ class SaccoMember extends Model
     public function transactions(): HasMany
     {
         return $this->hasMany(SaccoSavingsTransaction::class, 'member_id');
+    }
+
+    public function contributions(): HasMany
+    {
+        return $this->hasMany(SaccoContribution::class, 'member_id');
+    }
+
+    public function groups(): BelongsToMany
+    {
+        return $this->belongsToMany(SaccoGroup::class, 'sacco_group_members', 'member_id', 'group_id')
+            ->withPivot('role', 'joined_at');
+    }
+
+    public function fines(): HasMany
+    {
+        return $this->hasMany(SaccoFine::class, 'member_id');
+    }
+
+    public function withdrawalRequests(): HasMany
+    {
+        return $this->hasMany(SaccoWithdrawalRequest::class, 'member_id');
+    }
+
+    public function saccoNotifications(): HasMany
+    {
+        return $this->hasMany(SaccoNotification::class, 'member_id');
     }
 
     // Scopes

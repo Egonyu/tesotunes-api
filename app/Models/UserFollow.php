@@ -13,12 +13,9 @@ class UserFollow extends Model
     protected $fillable = [
         'follower_id',
         'following_id',
-        'following_type',
-        'followed_at',
-    ];
-
-    protected $casts = [
-        'followed_at' => 'datetime',
+        'followable_id',
+        'followable_type',
+        'artist_id',
     ];
 
     /**
@@ -34,6 +31,6 @@ class UserFollow extends Model
      */
     public function following(): MorphTo
     {
-        return $this->morphTo('following');
+        return $this->morphTo('followable');
     }
 }

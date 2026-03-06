@@ -30,8 +30,8 @@ class ArtistFollowController extends Controller
 
             // Check if already following
             $exists = UserFollow::where('follower_id', $user->id)
-                ->where('following_id', $artist->id)
-                ->where('following_type', Artist::class)
+                ->where('followable_id', $artist->id)
+                ->where('followable_type', Artist::class)
                 ->exists();
 
             if ($exists) {
@@ -44,9 +44,10 @@ class ArtistFollowController extends Controller
 
             UserFollow::create([
                 'follower_id' => $user->id,
-                'following_id' => $artist->id,
-                'following_type' => Artist::class,
-                'followed_at' => now(),
+                'following_id' => $artist->user_id,
+                'followable_id' => $artist->id,
+                'followable_type' => Artist::class,
+                'artist_id' => $artist->id,
             ]);
 
             // Increment cached counter
@@ -79,8 +80,8 @@ class ArtistFollowController extends Controller
             $user = $request->user();
 
             $deleted = UserFollow::where('follower_id', $user->id)
-                ->where('following_id', $artist->id)
-                ->where('following_type', Artist::class)
+                ->where('followable_id', $artist->id)
+                ->where('followable_type', Artist::class)
                 ->delete();
 
             if ($deleted) {
@@ -114,8 +115,8 @@ class ArtistFollowController extends Controller
             $user = $request->user();
 
             $isFollowing = UserFollow::where('follower_id', $user->id)
-                ->where('following_id', $artist->id)
-                ->where('following_type', Artist::class)
+                ->where('followable_id', $artist->id)
+                ->where('followable_type', Artist::class)
                 ->exists();
 
             return response()->json([

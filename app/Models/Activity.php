@@ -14,18 +14,15 @@ class Activity extends Model
     protected $fillable = [
         'user_id',
         'type',
-        'activity_type',
         'subject_type',
         'subject_id',
-        'data',
-        'metadata',
-        'visibility',
+        'properties',
+        'description',
         'created_at',
     ];
 
     protected $casts = [
-        'data' => 'array',
-        'metadata' => 'array',
+        'properties' => 'array',
         'created_at' => 'datetime',
     ];
 
@@ -129,6 +126,20 @@ class Activity extends Model
     public function scopePublic($query)
     {
         return $query; // All activities are public by default
+    }
+
+    /**
+     * Create an activity record for a user action.
+     */
+    public static function createForUser(User $user, string $type, $subject = null): self
+    {
+        return static::create([
+            'user_id' => $user->id,
+            'type' => $type,
+            'subject_type' => $subject ? get_class($subject) : null,
+            'subject_id' => $subject ? $subject->id : null,
+            'created_at' => now(),
+        ]);
     }
 
     /**

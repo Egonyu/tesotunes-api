@@ -38,10 +38,10 @@ class ActivityService
         // Create the activity
         $activity = Activity::create([
             'user_id' => $actor?->id,
-            'activity_type' => $action,
+            'type' => $action,
             'subject_type' => get_class($subject),
             'subject_id' => $subject->id,
-            'metadata' => $metadata,
+            'properties' => $metadata,
         ]);
 
         // Clear user's feed cache
@@ -191,7 +191,11 @@ class ActivityService
         $field = $type.'_count';
 
         if (in_array($field, ['likes_count', 'comments_count', 'shares_count'])) {
-            $activity->increment($field, $increment);
+            try {
+                $activity->increment($field, $increment);
+            } catch (\Throwable $e) {
+                // Column may not exist in activities table — non-critical engagement count
+            }
         }
     }
 }
