@@ -413,16 +413,12 @@ class Song extends Model
 
     public function getAudioUrlAttribute(): string
     {
-        // Return highest quality available
-        if ($this->audio_file_320) {
-            return \App\Helpers\StorageHelper::url($this->audio_file_320) ?? '';
-        } elseif ($this->audio_file_128) {
-            return \App\Helpers\StorageHelper::url($this->audio_file_128) ?? '';
-        } elseif ($this->audio_file_original) {
-            return \App\Helpers\StorageHelper::url($this->audio_file_original) ?? '';
-        }
-
-        return '';
+        // Pre-signed CDN URL (Spotify-style: short-lived, direct-to-CDN)
+        return \App\Helpers\StorageHelper::streamingUrl(
+            $this->audio_file_320,
+            $this->audio_file_128,
+            $this->audio_file_original
+        ) ?? '';
     }
 
     /**
@@ -458,22 +454,14 @@ class Song extends Model
     // Helper methods for African market
     public function getCompressedAudioUrlAttribute(): string
     {
-        // Return 128kbps version for data-conscious users
-        if ($this->audio_file_128) {
-            return \App\Helpers\StorageHelper::url($this->audio_file_128) ?? $this->audio_url;
-        }
-
-        return $this->audio_url;
+        // 128kbps pre-signed URL — data-efficient for African market
+        return \App\Helpers\StorageHelper::temporaryUrl($this->audio_file_128) ?? $this->audio_url;
     }
 
     public function getPreviewAudioUrlAttribute(): string
     {
-        // Return 30-second preview
-        if ($this->audio_file_preview) {
-            return \App\Helpers\StorageHelper::url($this->audio_file_preview) ?? $this->audio_url;
-        }
-
-        return $this->audio_url;
+        // 30-second preview clip — pre-signed, slightly longer expiry
+        return \App\Helpers\StorageHelper::temporaryUrl($this->audio_file_preview, 30) ?? $this->audio_url;
     }
 
     public function isAvailableForDownload(): bool

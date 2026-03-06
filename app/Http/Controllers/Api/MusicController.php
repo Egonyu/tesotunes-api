@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Helpers\StorageHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Song;
 use Illuminate\Http\Request;
@@ -90,6 +91,25 @@ class MusicController extends Controller
 
             // Use the streaming endpoint with song ID for proper file serving
             $streamUrl = url('/api/v1/stream/'.$song->id);
+
+            // Prefer a direct pre-signed CDN URL (Spotify-style: client streams
+            // straight from DO Spaces — no Laravel proxy overhead).
+            // Fall back to the internal /stream/{id} proxy for local/dev storage.
+            $found = $this->findAudioFile($audioFile);
+            if ($found) {
+                [$diskName] = $found;
+                $diskDriver = config("filesystems.disks.{$diskName}.driver", 'local');
+                if ($diskDriver !== 'local') {
+                    $cdnUrl = StorageHelper::streamingUrl(
+                        $song->audio_file_320,
+                        $song->audio_file_128,
+                        $song->audio_file_original
+                    );
+                    if ($cdnUrl) {
+                        $streamUrl = $cdnUrl;
+                    }
+                }
+            }
 
             return response()->json([
                 'url' => $streamUrl,

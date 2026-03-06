@@ -84,6 +84,32 @@ class StorageHelper
     }
 
     /**
+     * Generate a pre-signed streaming URL for an audio file.
+     * Picks the best available audio path (320 → 128 → original), generates a
+     * short-lived signed URL for cloud storage, or a regular URL for local disks.
+     *
+     * This is the Spotify-style flow:
+     *   1. Client requests stream_url from the API (authenticated)
+     *   2. API generates a 15-min pre-signed CDN URL and returns it
+     *   3. Client streams directly from CDN — no Laravel proxy overhead
+     *
+     * @param  string|null  $path320  Path to 320kbps file
+     * @param  string|null  $path128  Path to 128kbps file
+     * @param  string|null  $pathOriginal  Path to original file
+     * @param  int  $minutes  URL validity in minutes
+     */
+    public static function streamingUrl(
+        ?string $path320,
+        ?string $path128,
+        ?string $pathOriginal,
+        int $minutes = 15
+    ): ?string {
+        $path = $path320 ?? $path128 ?? $pathOriginal;
+
+        return static::temporaryUrl($path, $minutes);
+    }
+
+    /**
      * Generate a temporary signed URL for a stored file (cloud disks only).
      * Falls back to regular URL for local disks.
      *

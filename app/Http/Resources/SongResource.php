@@ -21,9 +21,33 @@ class SongResource extends JsonResource
 
             // Media
             'artwork_url' => $this->artwork_url ?? StorageHelper::url($this->artwork),
+
+            // stream_url: pre-signed CDN URL valid for 15 minutes (Spotify-style).
+            // Only included when the user has streaming access.  The client hits
+            // this URL directly — no Laravel proxy, no extra round-trip.
+            'stream_url' => $this->when(
+                $this->canStreamFor($request->user()),
+                fn () => StorageHelper::streamingUrl(
+                    $this->audio_file_320,
+                    $this->audio_file_128,
+                    $this->audio_file_original
+                )
+            ),
+
+            // audio_url kept for backward compatibility — same value as stream_url.
             'audio_url' => $this->when(
                 $this->canStreamFor($request->user()),
-                fn () => StorageHelper::url($this->audio_file_320 ?? $this->audio_file_128 ?? $this->audio_file_original)
+                fn () => StorageHelper::streamingUrl(
+                    $this->audio_file_320,
+                    $this->audio_file_128,
+                    $this->audio_file_original
+                )
+            ),
+
+            // preview_url: 30-second preview clip, no auth required for free tracks.
+            'preview_url' => $this->when(
+                ! empty($this->audio_file_preview),
+                fn () => StorageHelper::temporaryUrl($this->audio_file_preview, 30)
             ),
 
             // Metadata
