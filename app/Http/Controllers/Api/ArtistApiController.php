@@ -216,14 +216,26 @@ class ArtistApiController extends Controller
         $artist = $result;
 
         // Check upload permissions
-        if (! $artist->can_upload) {
+        if (! $artist->can_upload && ! $request->user()->canUpload()) {
             return response()->json([
                 'message' => 'You are not allowed to upload songs at this time.',
             ], 403);
         }
 
-        // Check monthly upload limit
-        if (! $artist->canUploadThisMonth()) {
+        // Check monthly upload limit — plan-based limit takes priority over artist-level
+        $planLimit = $request->user()->getMonthlyUploadLimit();
+        if ($planLimit !== null) {
+            // Use plan-based limit
+            $currentMonthUploads = $artist->songs()
+                ->whereMonth('created_at', now()->month)
+                ->whereYear('created_at', now()->year)
+                ->count();
+            if ($currentMonthUploads >= $planLimit) {
+                return response()->json([
+                    'message' => "You have reached your monthly upload limit ({$planLimit} songs).",
+                ], 429);
+            }
+        } elseif (! $artist->canUploadThisMonth()) {
             return response()->json([
                 'message' => 'You have reached your monthly upload limit ('.$artist->monthly_upload_limit.' songs).',
             ], 429);

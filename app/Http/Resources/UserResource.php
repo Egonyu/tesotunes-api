@@ -63,6 +63,8 @@ class UserResource extends JsonResource
                         'has_subscription' => false,
                         'plan' => 'free',
                         'tier' => 'free',
+                        'ad_free' => false,
+                        'offline_access' => false,
                     ];
                 }
 
@@ -79,6 +81,8 @@ class UserResource extends JsonResource
                     'expires_at' => $sub->expires_at?->toIso8601String(),
                     'days_remaining' => $sub->daysUntilExpiry(),
                     'auto_renew' => (bool) $sub->auto_renew,
+                    'ad_free' => (bool) ($plan?->ad_free ?? false),
+                    'offline_access' => (bool) ($plan?->allows_offline ?? false),
                     'limits' => [
                         'downloads_per_day' => $plan?->max_downloads_per_day ?? $plan?->downloads_per_day ?? 3,
                         'audio_quality_kbps' => $plan?->max_audio_quality_kbps ?? 128,

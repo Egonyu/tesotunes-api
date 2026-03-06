@@ -153,7 +153,8 @@ class MusicController extends Controller
                 abort(403, 'Access denied');
             }
 
-            $filePath = $song->audio_file_320 ?? $song->audio_file_128 ?? $song->audio_file_original;
+            // Select audio file quality based on user's plan
+            $filePath = $this->selectAudioFileByPlan($song, $request->user());
 
             if (! $filePath) {
                 abort(404, 'No audio file configured');
@@ -315,12 +316,34 @@ class MusicController extends Controller
             return true;
         }
 
-        // Allow download of free tracks
+        // Allow download of free tracks (still subject to daily limit)
         if ($song->is_free) {
+            return $user->canDownload();
+        }
+
+        // Paid tracks require active subscription or purchase
+        if ($user->hasPurchasedSong($song)) {
             return true;
         }
 
-        // Add additional download logic (purchases, subscriptions, etc.)
-        return false;
+        // Active subscription with remaining downloads
+        return $user->hasActiveSubscription() && $user->canDownload();
+    }
+
+    /**
+     * Select the appropriate audio file based on user's plan quality limit.
+     * Free users get 128kbps, paid users get 320kbps.
+     */
+    private function selectAudioFileByPlan($song, $user): ?string
+    {
+        $maxQuality = $user ? $user->getMaxAudioQuality() : 128;
+
+        if ($maxQuality >= 320) {
+            // Premium/Artist/Label: prefer 320, fall back to original, then 128
+            return $song->audio_file_320 ?? $song->audio_file_original ?? $song->audio_file_128;
+        }
+
+        // Free tier: prefer 128, fall back to 320/original if 128 doesn't exist
+        return $song->audio_file_128 ?? $song->audio_file_320 ?? $song->audio_file_original;
     }
 }

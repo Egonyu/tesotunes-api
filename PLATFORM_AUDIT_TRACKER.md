@@ -396,13 +396,15 @@
 - [x] Scheduled in `routes/console.php` — expiry check at 6 AM EAT, reminders at 9 AM EAT
 - [x] Both commands support `--dry-run` flag for safe testing
 
-### Phase 4 — Feature Gating Refactor (Planned)
+### Phase 4 — Feature Gating Refactor (Complete)
 
-- [ ] `canStream()`, `canUpload()` methods read from active plan
-- [ ] Audio quality gating based on `max_audio_quality_kbps`
-- [ ] Upload limit enforcement per `max_uploads_per_month`
-- [ ] Offline access gating
-- [ ] Ad-free flag passed through API responses
+- [x] `canStream()`, `canUpload()`, `getMaxAudioQuality()` methods on User model
+- [x] Audio quality gating — `MusicController::streamFile()` selects 128/320kbps file based on plan
+- [x] Upload limit enforcement — `ArtistApiController::storeSong()` uses plan `max_uploads_per_month` with artist-level fallback
+- [x] `isAdFree()`, `canAccessOffline()` methods on User model
+- [x] `ad_free` and `offline_access` flags in UserResource subscription block (both tiers)
+- [x] Download gating — `userCanDownloadTrack()` checks subscription + daily limit + purchases
+- [x] `getMonthlyUploadLimit()` method — plan limit overrides artist.monthly_upload_limit
 
 ### Phase 5 — Frontend Integration (Planned)
 

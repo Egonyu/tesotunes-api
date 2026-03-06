@@ -902,6 +902,82 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasActiveSubscription();
     }
 
+    /**
+     * Check if user can stream music.
+     * All users can stream; quality is gated by plan.
+     */
+    public function canStream(): bool
+    {
+        return true;
+    }
+
+    /**
+     * Get max audio quality (kbps) allowed by the user's plan.
+     * Free = 128, Premium/Artist/Label = 320.
+     */
+    public function getMaxAudioQuality(): int
+    {
+        return (int) $this->getPlanLimit('max_audio_quality_kbps', 128);
+    }
+
+    /**
+     * Check if user can upload songs (requires artist/label plan or artist role).
+     */
+    public function canUpload(): bool
+    {
+        $plan = $this->getActivePlan();
+        $uploadLimit = $this->getPlanLimit('max_uploads_per_month', 0);
+
+        // Plan explicitly allows uploads
+        if ($uploadLimit !== 0) {
+            return true;
+        }
+
+        // Artists without a paid plan can still upload if their artist record allows it
+        if ($this->artist && $this->artist->can_upload) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Get monthly upload limit from active plan.
+     * Returns the plan limit, or falls back to artist.monthly_upload_limit.
+     */
+    public function getMonthlyUploadLimit(): ?int
+    {
+        $planLimit = $this->getPlanLimit('max_uploads_per_month', null);
+
+        // Plan-based limit takes priority
+        if ($planLimit !== null && $planLimit !== 0) {
+            return $planLimit === -1 ? null : $planLimit; // null = unlimited
+        }
+
+        // Fallback to artist-level limit
+        return $this->artist?->monthly_upload_limit;
+    }
+
+    /**
+     * Check if user has ad-free experience.
+     */
+    public function isAdFree(): bool
+    {
+        $plan = $this->getActivePlan();
+
+        return $plan && (bool) ($plan->ad_free ?? false);
+    }
+
+    /**
+     * Check if user can access offline listening.
+     */
+    public function canAccessOffline(): bool
+    {
+        $plan = $this->getActivePlan();
+
+        return $plan && (bool) ($plan->allows_offline ?? false);
+    }
+
     public function getRemainingDownloadsAttribute(): int
     {
         $limit = $this->getPlanLimit('max_downloads_per_day', 3);
