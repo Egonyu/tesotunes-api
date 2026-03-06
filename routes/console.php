@@ -208,3 +208,31 @@ Artisan::command('payment:scan-historical {--days=7 : Days to look back}', funct
 
     $this->info("✅ Created {$created} payment issues for review");
 })->purpose('Create payment issues for historical failed/stuck payments');
+
+/*
+|--------------------------------------------------------------------------
+| Subscription Auto-Renewal & Expiry
+|--------------------------------------------------------------------------
+|
+| Daily checks for expired subscriptions:
+| - Auto-renew via ZengaPay for auto_renew=true subscriptions
+| - Expire subscriptions where auto_renew=false and expires_at is past
+| - Send reminder notifications at 7, 3, and 1 day(s) before expiry
+|
+*/
+
+// Check expired subscriptions and auto-renew or expire — daily at 6 AM EAT
+Schedule::command('subscriptions:check-expired')
+    ->dailyAt('06:00')
+    ->name('subscription-expiry-check')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
+// Send expiry reminders (7d, 3d, 1d) — daily at 9 AM EAT
+Schedule::command('subscriptions:send-expiry-reminders')
+    ->dailyAt('09:00')
+    ->name('subscription-expiry-reminders')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();

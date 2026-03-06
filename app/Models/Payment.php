@@ -304,6 +304,9 @@ class Payment extends Model
         if ($this->payable_type === EventAttendee::class && $this->payable) {
             $this->payable->confirm($this->provider_reference ?? $this->provider_transaction_id);
         }
+
+        // Complete auto-renewal if this is a subscription renewal payment
+        $this->completeAutoRenewalIfApplicable();
     }
 
     public function markAsFailed(?string $reason = null, array $data = []): void
@@ -319,6 +322,9 @@ class Payment extends Model
         }
 
         $this->forceFill($updateData)->save();
+
+        // Expire subscription if auto-renewal payment failed
+        $this->failAutoRenewalIfApplicable($reason);
     }
 
     public function markAsCancelled(): void
@@ -335,6 +341,107 @@ class Payment extends Model
             'status' => self::STATUS_REFUNDED,
             'refunded_at' => now(),
         ])->save();
+    }
+
+    /**
+     * Complete subscription auto-renewal after successful payment webhook.
+     */
+    protected function completeAutoRenewalIfApplicable(): void
+    {
+        $metadata = $this->metadata ?? [];
+
+        if (empty($metadata['auto_renewal']) || empty($metadata['subscription_id'])) {
+            return;
+        }
+
+        $subscription = UserSubscription::find($metadata['subscription_id']);
+
+        if (! $subscription) {
+            \Illuminate\Support\Facades\Log::warning('Auto-renewal: subscription not found', [
+                'payment_id' => $this->id,
+                'subscription_id' => $metadata['subscription_id'],
+            ]);
+
+            return;
+        }
+
+        $plan = $subscription->subscriptionPlan;
+        $durationDays = $plan ? $plan->duration_days : 30;
+
+        // Extend from now (not from old expires_at, since it's already past)
+        $subscription->update([
+            'status' => 'active',
+            'expires_at' => now()->addDays($durationDays),
+            'extended_at' => now(),
+            'extension_reason' => 'auto_renewal',
+            'amount_paid' => $this->amount,
+            'transaction_reference' => $this->payment_reference,
+            'metadata' => array_merge($subscription->metadata ?? [], [
+                'last_renewal_at' => now()->toIso8601String(),
+                'last_renewal_payment_id' => $this->id,
+            ]),
+        ]);
+
+        // Notify user
+        if ($subscription->user && $plan) {
+            $subscription->user->notify(
+                new \App\Notifications\SubscriptionNotification(
+                    \App\Notifications\SubscriptionNotification::RENEWED,
+                    $plan->name
+                )
+            );
+        }
+
+        \Illuminate\Support\Facades\Log::info('Auto-renewal completed', [
+            'payment_id' => $this->id,
+            'subscription_id' => $subscription->id,
+            'new_expires_at' => $subscription->fresh()->expires_at,
+        ]);
+    }
+
+    /**
+     * Expire subscription when auto-renewal payment fails.
+     */
+    protected function failAutoRenewalIfApplicable(?string $reason = null): void
+    {
+        $metadata = $this->metadata ?? [];
+
+        if (empty($metadata['auto_renewal']) || empty($metadata['subscription_id'])) {
+            return;
+        }
+
+        $subscription = UserSubscription::find($metadata['subscription_id']);
+
+        if (! $subscription || $subscription->status === 'expired') {
+            return;
+        }
+
+        $plan = $subscription->subscriptionPlan;
+
+        $subscription->update([
+            'status' => 'expired',
+            'auto_renew' => false,
+            'metadata' => array_merge($subscription->metadata ?? [], [
+                'renewal_failed_at' => now()->toIso8601String(),
+                'renewal_failure_reason' => $reason ?? 'Payment failed',
+            ]),
+        ]);
+
+        if ($subscription->user && $plan) {
+            $subscription->user->notify(
+                new \App\Notifications\SubscriptionNotification(
+                    \App\Notifications\SubscriptionNotification::PAYMENT_FAILED,
+                    $plan->name,
+                    ['reason' => $reason ?? 'Payment failed']
+                )
+            );
+        }
+
+        \Illuminate\Support\Facades\Log::info('Auto-renewal failed — subscription expired', [
+            'payment_id' => $this->id,
+            'subscription_id' => $subscription->id,
+            'reason' => $reason,
+        ]);
     }
 
     // Generate transaction ID

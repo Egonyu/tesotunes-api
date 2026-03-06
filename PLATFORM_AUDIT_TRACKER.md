@@ -383,13 +383,18 @@
 - [x] Subscription history — `GET /user/subscription/history` with pagination
 - [x] Admin routes secured with `auth:sanctum` + `role:admin,super_admin` + `admin.exceptions`
 
-### Phase 3 — Auto-Renewal & Expiry (Planned)
+### Phase 3 — Auto-Renewal & Expiry (Complete)
 
-- [ ] `subscriptions:check-expired` Artisan command (daily cron)
-- [ ] Auto-renew via ZengaPay charge for auto_renew=true subscriptions
-- [ ] Expire subscriptions where auto_renew=false and expires_at past
-- [ ] Expiry reminder notifications: 7d, 3d, 1d before expiration
-- [ ] Schedule command in `routes/console.php`
+- [x] `subscriptions:check-expired` Artisan command — `app/Console/Commands/CheckExpiredSubscriptions.php`
+- [x] Auto-renew via ZengaPay `charge()` for `auto_renew=true` subscriptions (async: MoMo prompt → webhook confirms)
+- [x] Expire subscriptions where `auto_renew=false` and `expires_at` is past
+- [x] `pending_renewal` status for async payment window; stale renewals expired after 1 hour
+- [x] Webhook integration — `Payment::markAsCompleted()` / `markAsFailed()` now complete/fail auto-renewals
+- [x] `subscriptions:send-expiry-reminders` Artisan command — sends at 7d, 3d, 1d before expiry
+- [x] `EXPIRING_SOON` notification type added to `SubscriptionNotification` (mail + push + DB)
+- [x] Duplicate reminder prevention via metadata tracking (`expiry_reminder_7d`, `_3d`, `_1d`)
+- [x] Scheduled in `routes/console.php` — expiry check at 6 AM EAT, reminders at 9 AM EAT
+- [x] Both commands support `--dry-run` flag for safe testing
 
 ### Phase 4 — Feature Gating Refactor (Planned)
 

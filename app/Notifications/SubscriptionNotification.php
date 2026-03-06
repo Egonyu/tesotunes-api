@@ -22,6 +22,8 @@ class SubscriptionNotification extends Notification implements ShouldQueue
 
     public const PAYMENT_FAILED = 'payment_failed';
 
+    public const EXPIRING_SOON = 'expiring_soon';
+
     public function __construct(
         protected string $event,
         protected string $planName = '',
@@ -32,7 +34,7 @@ class SubscriptionNotification extends Notification implements ShouldQueue
     {
         $channels = ['database', ExpoPushChannel::class];
 
-        if (in_array($this->event, [self::SUBSCRIBED, self::CANCELLED, self::PAYMENT_FAILED])) {
+        if (in_array($this->event, [self::SUBSCRIBED, self::CANCELLED, self::PAYMENT_FAILED, self::EXPIRED, self::EXPIRING_SOON])) {
             $channels[] = 'mail';
         }
 
@@ -66,6 +68,16 @@ class SubscriptionNotification extends Notification implements ShouldQueue
                 ->line('Please update your payment method to keep your subscription active.')
                 ->action('Update Payment', url('/settings/billing'))
                 ->line('Your subscription will be paused if payment is not resolved within 3 days.'),
+
+            self::EXPIRING_SOON => (new MailMessage)
+                ->subject('Your TesoTunes Subscription Expires Soon')
+                ->greeting("Hi {$notifiable->display_name},")
+                ->line("Your **{$this->planName}** subscription expires in **{$this->metadata['days_remaining']} day(s)**.")
+                ->line($this->metadata['auto_renew'] ?? false
+                    ? 'Don\'t worry — your subscription will auto-renew.'
+                    : 'Enable auto-renew or resubscribe to keep your premium features.')
+                ->action('Manage Subscription', url('/settings/subscription'))
+                ->line('Thank you for supporting African music!'),
 
             default => (new MailMessage)
                 ->subject('Subscription Update — TesoTunes')
@@ -115,6 +127,7 @@ class SubscriptionNotification extends Notification implements ShouldQueue
             self::CANCELLED => 'Subscription Cancelled',
             self::EXPIRED => 'Subscription Expired',
             self::PAYMENT_FAILED => 'Payment Failed',
+            self::EXPIRING_SOON => 'Subscription Expiring Soon',
             default => 'Subscription Update',
         };
     }
@@ -127,6 +140,7 @@ class SubscriptionNotification extends Notification implements ShouldQueue
             self::CANCELLED => "Your {$this->planName} subscription has been cancelled.",
             self::EXPIRED => "Your {$this->planName} subscription has expired. Resubscribe to continue.",
             self::PAYMENT_FAILED => "Payment failed for {$this->planName}. Please update your payment method.",
+            self::EXPIRING_SOON => "Your {$this->planName} subscription expires in {$this->metadata['days_remaining']} day(s).",
             default => 'Your subscription status has changed.',
         };
     }
@@ -137,6 +151,7 @@ class SubscriptionNotification extends Notification implements ShouldQueue
             self::SUBSCRIBED, self::RENEWED => 'check-circle',
             self::CANCELLED => 'x-circle',
             self::EXPIRED => 'clock',
+            self::EXPIRING_SOON => 'clock',
             self::PAYMENT_FAILED => 'exclamation-triangle',
             default => 'credit-card',
         };
@@ -147,6 +162,7 @@ class SubscriptionNotification extends Notification implements ShouldQueue
         return match ($this->event) {
             self::SUBSCRIBED, self::RENEWED => 'green',
             self::CANCELLED => 'yellow',
+            self::EXPIRING_SOON => 'yellow',
             self::EXPIRED, self::PAYMENT_FAILED => 'red',
             default => 'blue',
         };
