@@ -840,21 +840,53 @@ class User extends Authenticatable implements MustVerifyEmail
     // African market specific methods
     public function hasActiveSubscription(): bool
     {
-        return $this->subscription && $this->subscription->status === 'active';
+        $sub = $this->subscription;
+
+        return $sub
+            && $sub->status === 'active'
+            && $sub->expires_at
+            && $sub->expires_at->isFuture();
+    }
+
+    public function getActivePlan(): ?SubscriptionPlan
+    {
+        if (! $this->hasActiveSubscription()) {
+            return null;
+        }
+
+        return $this->subscription->subscriptionPlan;
+    }
+
+    public function getPlanLimit(string $key, mixed $default = null): mixed
+    {
+        $plan = $this->getActivePlan();
+
+        if (! $plan) {
+            return $default;
+        }
+
+        // Check direct column first, then limits JSON
+        if (isset($plan->{$key}) && $plan->{$key} !== null) {
+            return $plan->{$key};
+        }
+
+        return $plan->limits[$key] ?? $default;
     }
 
     public function canDownload(): bool
     {
-        // Free tier users can download but with limits
-        if (! $this->hasActiveSubscription()) {
-            $todayDownloads = Download::where('user_id', $this->id)
-                ->whereDate('downloaded_at', today())
-                ->count();
+        $limit = $this->getPlanLimit('max_downloads_per_day', 3);
 
-            return $todayDownloads < 3; // Free users: 3 downloads per day
+        // -1 or null means unlimited for paid plans
+        if ($limit === null || $limit === -1) {
+            return true;
         }
 
-        return true; // Premium users: unlimited
+        $todayDownloads = Download::where('user_id', $this->id)
+            ->whereDate('downloaded_at', today())
+            ->count();
+
+        return $todayDownloads < $limit;
     }
 
     public function hasPurchasedSong(Song $song): bool
@@ -872,16 +904,17 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function getRemainingDownloadsAttribute(): int
     {
-        if ($this->hasActiveSubscription()) {
+        $limit = $this->getPlanLimit('max_downloads_per_day', 3);
+
+        if ($limit === null || $limit === -1) {
             return -1; // Unlimited
         }
 
-        $todayDownloads = $this->playHistory()
-            ->whereDate('played_at', today())
-            ->where('was_completed', true)
+        $todayDownloads = Download::where('user_id', $this->id)
+            ->whereDate('downloaded_at', today())
             ->count();
 
-        return max(0, 10 - $todayDownloads);
+        return max(0, $limit - $todayDownloads);
     }
 
     public function getOfflinePlaylistsAttribute()

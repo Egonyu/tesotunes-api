@@ -277,6 +277,14 @@ Route::middleware('auth:sanctum')->prefix('payouts')->name('api.payouts.')->grou
 });
 
 // Subscription API Routes
+Route::get('/subscription-plans', [\App\Http\Controllers\Api\SubscriptionController::class, 'plans'])->name('api.subscription-plans');
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/user/subscription', [\App\Http\Controllers\Api\SubscriptionController::class, 'current'])->name('api.user.subscription');
+    Route::post('/subscriptions/subscribe', [\App\Http\Controllers\Api\SubscriptionController::class, 'subscribe'])->name('api.subscriptions.subscribe');
+    Route::post('/subscriptions/toggle-auto-renew', [\App\Http\Controllers\Api\SubscriptionController::class, 'toggleAutoRenew'])->name('api.subscriptions.toggle-auto-renew');
+});
+
 Route::middleware('auth:sanctum')->prefix('subscriptions')->name('api.subscriptions.')->group(function () {
     Route::post('/{subscription}/cancel', [\App\Http\Controllers\Api\SubscriptionController::class, 'cancel'])->name('cancel');
     Route::post('/{subscription}/extend', [\App\Http\Controllers\Api\SubscriptionController::class, 'extend'])->name('extend')->middleware('role:admin,super_admin');

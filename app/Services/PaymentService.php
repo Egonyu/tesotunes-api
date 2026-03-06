@@ -82,12 +82,15 @@ class PaymentService
             // Validate payment method and data
             $this->validatePaymentData($paymentMethod, $paymentData);
 
+            // Resolve amount: prefer price_local for the region, fall back to price_monthly, then price
+            $amount = $plan->price_local ?: ($plan->price_monthly ?: $plan->price);
+
             // Create payment record
             $payment = $this->createPayment([
                 'user_id' => $user->id,
                 'subscription_plan_id' => $plan->id,
-                'amount' => $plan->price_local,
-                'currency' => $plan->currency,
+                'amount' => $amount,
+                'currency' => $plan->currency ?? 'UGX',
                 'payment_method' => $paymentMethod,
                 'description' => "Subscription: {$plan->name}",
                 'metadata' => $paymentData,
@@ -464,12 +467,16 @@ class PaymentService
      * Validate payment data for specific payment method
      */
     /**
-     * Validate payment data — ZengaPay requires a phone number
+     * Validate payment data — ZengaPay requires a phone number.
+     * Accepts 'mobile_money', 'card', or 'zengapay' as method names
+     * since ZengaPay is the sole gateway behind all of them.
      */
     protected function validatePaymentData(string $method, array $data): void
     {
-        if ($method !== self::METHOD_ZENGAPAY) {
-            throw new Exception("Unsupported payment method: {$method}. Only ZengaPay is supported.");
+        $accepted = ['zengapay', 'mobile_money', 'card'];
+
+        if (! in_array($method, $accepted, true)) {
+            throw new Exception("Unsupported payment method: {$method}. Accepted: ".implode(', ', $accepted));
         }
 
         if (empty($data['phone_number'])) {

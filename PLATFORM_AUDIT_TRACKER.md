@@ -336,17 +336,88 @@
 
 ---
 
+## � SUBSCRIPTION SYSTEM — Audit & Implementation Tracker
+
+**Audit Date:** March 6, 2026
+**Status:** Phase 1 In Progress
+
+### Bugs Found in Audit
+
+| ID | Severity | Issue | Status | Date Fixed |
+|----|----------|-------|--------|------------|
+| SUB-CRIT-1 | 🚨 CRITICAL | `User::hasActiveSubscription()` does NOT check `expires_at` — expired subscriptions treated as active | [x] Fixed | Mar 6, 2026 |
+| SUB-CRIT-2 | 🚨 CRITICAL | `SubscriptionPlan` model has 43 `$fillable` fields but DB schema only has ~12 columns — massive mismatch | [x] Fixed | Mar 6, 2026 |
+| SUB-CRIT-3 | 🚨 CRITICAL | `UserSubscription` FK mismatch: model uses `subscription_plan_id`, migration has `plan_id` | [x] Fixed | Mar 6, 2026 |
+| SUB-HIGH-1 | ⚠️ HIGH | `PaymentService::validatePaymentData()` rejects `mobile_money` — only accepts `zengapay` literal | [x] Fixed | Mar 6, 2026 |
+| SUB-HIGH-2 | ⚠️ HIGH | `PaymentService::processSubscriptionPayment()` reads `$plan->price_local` which is NULL in DB | [x] Fixed | Mar 6, 2026 |
+| SUB-HIGH-3 | ⚠️ HIGH | Zero rows in `subscription_plans` table — no seeder existed | [x] Fixed | Mar 6, 2026 |
+| SUB-HIGH-4 | ⚠️ HIGH | `User::canDownload()` hardcodes 3/day — should read from plan limits | [x] Fixed | Mar 6, 2026 |
+| SUB-HIGH-5 | ⚠️ HIGH | `getRemainingDownloadsAttribute()` uses hardcoded 10 and wrong query | [x] Fixed | Mar 6, 2026 |
+| SUB-MED-1 | 🟡 MEDIUM | No public API to list subscription plans | [x] Fixed | Mar 6, 2026 |
+| SUB-MED-2 | 🟡 MEDIUM | No API for user's current subscription status | [x] Fixed | Mar 6, 2026 |
+| SUB-MED-3 | 🟡 MEDIUM | No subscribe endpoint — only cancel/extend existed | [x] Fixed | Mar 6, 2026 |
+| SUB-MED-4 | 🟡 MEDIUM | No auto-renewal toggle endpoint | [x] Fixed | Mar 6, 2026 |
+| SUB-MED-5 | 🟡 MEDIUM | `SubscriptionController::cancel()` used `$subscription->plan->name` (wrong relation) | [x] Fixed | Mar 6, 2026 |
+| SUB-MED-6 | 🟡 MEDIUM | `SubscriptionController::cancel()` used `ends_at` instead of `expires_at` | [x] Fixed | Mar 6, 2026 |
+
+### Phase 1 — Schema Alignment & Core API (Current)
+
+- [x] Migration `2026_03_06_120000_align_subscription_schema.php` — adds missing columns to both tables
+- [x] `SubscriptionPlanSeeder.php` — 4 plans: Free (0 UGX), Premium (15K), Artist (25K), Label (100K)
+- [x] Fix `User::hasActiveSubscription()` — now checks `expires_at->isFuture()`
+- [x] Add `User::getActivePlan()` and `User::getPlanLimit()`
+- [x] Fix `User::canDownload()` — reads limit from plan
+- [x] Fix `User::getRemainingDownloadsAttribute()` — uses plan limits
+- [x] Fix `PaymentService::validatePaymentData()` — accepts mobile_money/card/zengapay
+- [x] Fix `PaymentService::processSubscriptionPayment()` — resolves amount from price_local or price_monthly or price
+- [x] Rewrite `SubscriptionController` — plans(), current(), subscribe(), toggleAutoRenew(), cancel(), extend()
+- [x] Add routes: GET /subscription-plans, GET /user/subscription, POST /subscriptions/subscribe, POST /subscriptions/toggle-auto-renew
+- [ ] Run migration on production
+- [ ] Seed plans on production
+
+### Phase 2 — Subscription Lifecycle (Planned)
+
+- [ ] User profile API includes subscription status
+- [ ] Upgrade/downgrade between plans (pro-rata credit)
+- [ ] Admin subscription management endpoints
+- [ ] Subscription history endpoint
+
+### Phase 3 — Auto-Renewal & Expiry (Planned)
+
+- [ ] `subscriptions:check-expired` Artisan command (daily cron)
+- [ ] Auto-renew via ZengaPay charge for auto_renew=true subscriptions
+- [ ] Expire subscriptions where auto_renew=false and expires_at past
+- [ ] Expiry reminder notifications: 7d, 3d, 1d before expiration
+- [ ] Schedule command in `routes/console.php`
+
+### Phase 4 — Feature Gating Refactor (Planned)
+
+- [ ] `canStream()`, `canUpload()` methods read from active plan
+- [ ] Audio quality gating based on `max_audio_quality_kbps`
+- [ ] Upload limit enforcement per `max_uploads_per_month`
+- [ ] Offline access gating
+- [ ] Ad-free flag passed through API responses
+
+### Phase 5 — Frontend Integration (Planned)
+
+- [ ] Pricing page with plan comparison
+- [ ] Subscribe flow: phone number → MoMo prompt → polling → confirmation
+- [ ] Subscription settings page (auto-renew toggle, cancel, change plan)
+- [ ] Plan badges in user profile
+
+---
+
 ## 📊 Progress Dashboard
 
 ### By Priority
 
 | Priority | Total | Done | Remaining | % Complete |
 |----------|-------|------|-----------|------------|
-| 🚨 Critical | 4 | 2 | 2 | 50% |
-| ⚠️ High | 8 | 7 | 1 | 88% |
-| 🟡 Medium | 8 | 1 | 7 | 13% |
+| 🚨 Critical | 7 | 5 | 2 | 71% |
+| ⚠️ High | 13 | 12 | 1 | 92% |
+| 🟡 Medium | 14 | 7 | 7 | 50% |
 | 🟢 Low | 6 | 0 | 6 | 0% |
-| **Total** | **26** | **10** | **16** | **38%** |
+| **Total** | **40** | **24** | **16** | **60%** |
 
 ### By Category
 
