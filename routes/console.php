@@ -253,3 +253,19 @@ Schedule::command('api-usage:aggregate --prune-days=30')
     ->withoutOverlapping()
     ->onOneServer()
     ->runInBackground();
+
+/*
+|--------------------------------------------------------------------------
+| Weekly Music Digest Notifications
+|--------------------------------------------------------------------------
+|
+| Send weekly recap emails to active users every Monday at 9 AM EAT.
+|
+*/
+
+Schedule::command('notifications:weekly-digest')
+    ->weeklyOn(1, '09:00')
+    ->name('weekly-digest')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();

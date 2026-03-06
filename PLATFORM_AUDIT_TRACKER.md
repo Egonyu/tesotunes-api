@@ -347,9 +347,25 @@
 - [x] Document all API changes going forward
 
 ### L5. Expand Notification System
-- **Status:** [ ] Not started
-- **Date Fixed:** ___
-- [ ] Currently 5 notification classes — expand for user engagement
+- **Status:** [x] Complete
+- **Date Fixed:** Mar 6, 2026
+- [x] Audited all 19 existing notification classes and identified 12 gaps
+- [x] Created `ChecksNotificationPreferences` trait — respects user notification_preferences JSON field
+- [x] Created 10 new notification classes (total now 29):
+  - `NewEpisodePublishedNotification` — notify podcast subscribers
+  - `NewPodcastPublishedNotification` — notify artist followers
+  - `SongModerationNotification` — artist content approval/rejection (mail+db+push)
+  - `WeeklyDigestNotification` — weekly music recap (mail+db)
+  - `EventTicketConfirmationNotification` — ticket purchase confirmation (mail+db+push)
+  - `EventReminderNotification` — upcoming event reminder (db+push+mail)
+  - `PlaylistUpdatedNotification` — new songs added to followed playlist (db+push)
+  - `TrendingAlertNotification` — trending songs by genre (db+push)
+  - `ArtistApplicationNotification` — approved/rejected/submitted (mail+db+push)
+  - `ReferralRewardNotification` — credits earned from referral (db+push)
+- [x] Created `SendEventNotifications` listener — wires NewEpisodePublished, NewPodcastPublished, TicketPurchased events
+- [x] Created `SendWeeklyDigest` command — scheduled every Monday 9 AM EAT
+- [x] All notifications implement ShouldQueue for async delivery
+- [x] All multi-channel notifications use ChecksNotificationPreferences trait
 
 ### L6. Webhook Retry Documentation
 - **Status:** [ ] Not started
@@ -451,8 +467,8 @@
 | 🚨 Critical | 4 | 2 | 2 | 0 | ~85% |
 | ⚠️ High | 8 | 8 | 0 | 0 | 100% |
 | 🟡 Medium | 8 | 7 | 0 | 1 | 88% |
-| 🟢 Low | 6 | 3 | 0 | 3 | 50% |
-| **Total** | **26** | **20** | **2** | **4** | **~90%** |
+| 🟢 Low | 6 | 4 | 0 | 2 | 67% |
+| **Total** | **26** | **21** | **2** | **3** | **~92%** |
 
 ### By Category
 
@@ -467,6 +483,7 @@
 | Monitoring | 3 | 3 | Logging + Sentry + API analytics all done ✅ |
 | Code Quality | 2 | 2 | Telescope done, all 14 TODOs resolved ✅ |
 | Config | 1 | 1 | Sanctum published & configured ✅ |
+| Notifications | 1 | 1 | 29 notification classes, preferences trait, weekly digest ✅ |
 
 ---
 

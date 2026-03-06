@@ -128,6 +128,20 @@ class AppServiceProvider extends ServiceProvider
             [\App\Listeners\AwardStoreLoyaltyPoints::class, 'handleOrderPaid']
         );
 
+        // Register event listeners for notifications (content events)
+        EventFacade::listen(
+            \App\Events\Podcast\NewEpisodePublished::class,
+            [\App\Listeners\SendEventNotifications::class, 'handleNewEpisodePublished']
+        );
+        EventFacade::listen(
+            \App\Events\Podcast\NewPodcastPublished::class,
+            [\App\Listeners\SendEventNotifications::class, 'handleNewPodcastPublished']
+        );
+        EventFacade::listen(
+            \App\Events\TicketPurchased::class,
+            [\App\Listeners\SendEventNotifications::class, 'handleTicketPurchased']
+        );
+
         // Register event listeners for audit logging (Auth events)
         EventFacade::listen(
             \Illuminate\Auth\Events\Login::class,
