@@ -483,9 +483,10 @@ class Song extends Model
 
     public function getDownloadUrlAttribute(): string
     {
-        // Return storage URL or signed URL if available
         if ($this->audio_file_original) {
-            return Storage::url($this->audio_file_original);
+            // Use a temporary signed URL for cloud storage (DO Spaces / S3).
+            // Falls back to a regular URL for local disks.
+            return \App\Helpers\StorageHelper::temporaryUrl($this->audio_file_original, 15) ?? '#';
         }
 
         return '#';

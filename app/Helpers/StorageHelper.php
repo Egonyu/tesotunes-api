@@ -84,6 +84,36 @@ class StorageHelper
     }
 
     /**
+     * Generate a temporary signed URL for a stored file (cloud disks only).
+     * Falls back to regular URL for local disks.
+     *
+     * @param  string|null  $path  The relative storage path
+     * @param  int  $minutes  Expiry in minutes (default 15)
+     */
+    public static function temporaryUrl(?string $path, int $minutes = 15): ?string
+    {
+        if (empty($path)) {
+            return null;
+        }
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
+
+        $disk = static::mediaDisk();
+
+        if ($disk !== 'public') {
+            try {
+                return Storage::disk($disk)->temporaryUrl($path, now()->addMinutes($minutes));
+            } catch (\Exception $e) {
+                // Disk doesn't support temporary URLs — fall back to regular URL
+            }
+        }
+
+        return static::url($path);
+    }
+
+    /**
      * Generate a full URL for a stored file path.
      *
      * @param  string|null  $path  The relative storage path
