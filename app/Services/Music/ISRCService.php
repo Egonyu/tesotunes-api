@@ -137,7 +137,7 @@ class ISRCService
      */
     public function verifyWithIFPI(string $isrcCode): bool
     {
-        if (!$this->validateFormat($isrcCode)) {
+        if (! $this->validateFormat($isrcCode)) {
             return false;
         }
 

@@ -121,11 +121,12 @@ class PaymentService
                 'phone_number' => $payment->phone_number,
             ]);
 
-            if (!($result['success'] ?? false)) {
+            if (! ($result['success'] ?? false)) {
                 Log::warning('Mobile money payment initiation failed', [
                     'payment_id' => $payment->id,
                     'message' => $result['message'] ?? 'Unknown error',
                 ]);
+
                 return false;
             }
 
@@ -135,6 +136,7 @@ class PaymentService
                 'payment_id' => $payment->id,
                 'error' => $e->getMessage(),
             ]);
+
             return false;
         }
     }

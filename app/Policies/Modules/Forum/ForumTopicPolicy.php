@@ -36,6 +36,7 @@ class ForumTopicPolicy
 
         if ($minReputation > 0) {
             $userReputation = $user->forum_posts_count ?? 0;
+
             return $userReputation >= $minReputation;
         }
 

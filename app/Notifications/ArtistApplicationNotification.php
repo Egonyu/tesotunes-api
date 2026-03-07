@@ -48,7 +48,7 @@ class ArtistApplicationNotification extends Notification implements ShouldQueue
                 ->subject('Artist Application Update — TesoTunes')
                 ->greeting("Hi {$notifiable->display_name},")
                 ->line('Unfortunately, your artist application has been **declined**.')
-                ->line('**Reason:** ' . ($this->reason ?? 'Your application did not meet our current requirements.'))
+                ->line('**Reason:** '.($this->reason ?? 'Your application did not meet our current requirements.'))
                 ->line('You may re-apply after addressing the feedback above.')
                 ->action('Re-apply', url('/become-artist'))
                 ->line('Thank you for your interest in sharing your music!'),
@@ -108,7 +108,7 @@ class ArtistApplicationNotification extends Notification implements ShouldQueue
     {
         return match ($this->status) {
             self::APPROVED => 'Your artist application has been approved! Start uploading your music.',
-            self::REJECTED => 'Your artist application was declined. ' . ($this->reason ?? 'Please review and re-apply.'),
+            self::REJECTED => 'Your artist application was declined. '.($this->reason ?? 'Please review and re-apply.'),
             self::SUBMITTED => 'Your artist application has been received. We will review it shortly.',
             default => 'Your artist application status has been updated.',
         };

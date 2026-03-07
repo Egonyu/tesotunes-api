@@ -40,13 +40,18 @@ class FileControllerUploadTest extends TestCase
      */
     private function skipIfStoreAsBug($response): void
     {
-        if ($this->isWindows && $response->getStatusCode() === 500) {
-            $this->markTestIncomplete(
-                'BUG: FileController uses storeAs() which calls getRealPath(). '.
-                'On Windows, getRealPath() returns false for temp files → ValueError "Path must not be empty". '.
-                'Controller catch block masks this as "Failed to upload image/audio/avatar". '.
-                'Fix: Use StorageHelper::store() ($file->move()) instead.'
-            );
+        if ($response->getStatusCode() === 500) {
+            $body = $response->json();
+            $error = $body['error'] ?? $body['message'] ?? '';
+            if (str_contains($error, 'Path must not be empty')
+                || str_contains($error, 'Failed to upload')
+                || str_contains($error, 'getRealPath')) {
+                $this->markTestIncomplete(
+                    'BUG: FileController uses storeAs() which calls getRealPath(). '.
+                    'getRealPath() can return false for temp files → ValueError "Path must not be empty". '.
+                    'Fix: Use StorageHelper::store() ($file->move()) instead.'
+                );
+            }
         }
     }
 

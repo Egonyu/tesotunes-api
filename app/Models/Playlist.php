@@ -69,10 +69,10 @@ class Playlist extends Model
             if (! $playlist->slug && $playlist->name) {
                 $playlist->slug = Str::slug($playlist->name);
 
-                // Ensure uniqueness
+                // Ensure uniqueness (global unique index on slug)
                 $originalSlug = $playlist->slug;
                 $count = 1;
-                while (static::where('slug', $playlist->slug)->where('user_id', $playlist->user_id)->exists()) {
+                while (static::where('slug', $playlist->slug)->exists()) {
                     $playlist->slug = $originalSlug.'-'.$count++;
                 }
             }
@@ -231,13 +231,12 @@ class Playlist extends Model
         }
 
         // Generate mosaic artwork from first 4 songs' cover art
-        $firstSongs = $this->songs()->whereNotNull('cover_image')->limit(4)->get();
+        $firstSongs = $this->songs()->whereNotNull('artwork')->limit(4)->get();
         if ($firstSongs->count() > 0) {
-            $artworks = $firstSongs->map(fn ($song) =>
-                \App\Helpers\StorageHelper::artworkUrl($song->cover_image)
+            $artworks = $firstSongs->map(fn ($song) => \App\Helpers\StorageHelper::artworkUrl($song->artwork)
             )->filter()->values()->toArray();
 
-            if (!empty($artworks)) {
+            if (! empty($artworks)) {
                 return $artworks[0];
             }
         }

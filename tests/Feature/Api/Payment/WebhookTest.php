@@ -3,7 +3,6 @@
 namespace Tests\Feature\Api\Payment;
 
 use App\Models\Payment;
-use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
@@ -61,7 +60,7 @@ class WebhookTest extends TestCase
     {
         // Disable signature check for this test by sending from localhost
         $response = $this->postJson($this->webhookUrl, [
-            'transactionId' => 'TXN-does-not-exist-' . time(),
+            'transactionId' => 'TXN-does-not-exist-'.time(),
             'status' => 'COMPLETED',
         ]);
 

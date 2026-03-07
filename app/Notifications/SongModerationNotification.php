@@ -50,7 +50,7 @@ class SongModerationNotification extends Notification implements ShouldQueue
             self::REJECTED => $mail
                 ->subject('Song Submission Rejected')
                 ->line("Unfortunately, your song **{$this->song->title}** has been rejected.")
-                ->line('**Reason:** ' . ($this->reason ?? 'No specific reason provided.'))
+                ->line('**Reason:** '.($this->reason ?? 'No specific reason provided.'))
                 ->line('Please review the feedback and re-upload after making necessary changes.')
                 ->action('Upload New Song', url('/artist/upload'))
                 ->line('We look forward to hearing your music!'),
@@ -108,7 +108,7 @@ class SongModerationNotification extends Notification implements ShouldQueue
     {
         return match ($this->status) {
             self::APPROVED => "Your song \"{$this->song->title}\" is now live!",
-            self::REJECTED => "Your song \"{$this->song->title}\" was rejected. " . ($this->reason ?? ''),
+            self::REJECTED => "Your song \"{$this->song->title}\" was rejected. ".($this->reason ?? ''),
             self::PENDING_REVIEW => "Your song \"{$this->song->title}\" is being reviewed.",
             default => "Your song \"{$this->song->title}\" status has been updated.",
         };

@@ -123,7 +123,7 @@ class CheckExpiredSubscriptions extends Command
                 ]);
 
                 $this->renewed++;
-                $this->info("    ✓ Renewal charge initiated — awaiting user approval");
+                $this->info('    ✓ Renewal charge initiated — awaiting user approval');
             } else {
                 // Charge initiation failed — expire the subscription
                 $this->failRenewal($subscription, $result['message'] ?? 'Charge initiation failed');
@@ -309,7 +309,7 @@ class CheckExpiredSubscriptions extends Command
         );
 
         $this->expired++;
-        $this->info("    ✓ Expired");
+        $this->info('    ✓ Expired');
     }
 
     protected function expireStalePendingRenewals(bool $dryRun): void

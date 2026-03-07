@@ -48,7 +48,7 @@ class SaccoGroup extends Model
                 $group->uuid = (string) Str::uuid();
             }
             if (empty($group->group_number)) {
-                $group->group_number = 'GRP' . now()->format('Ymd') . rand(10000, 99999);
+                $group->group_number = 'GRP'.now()->format('Ymd').rand(10000, 99999);
             }
         });
     }

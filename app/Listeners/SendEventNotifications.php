@@ -2,7 +2,6 @@
 
 namespace App\Listeners;
 
-use App\Events\OrderPaid;
 use App\Events\Podcast\NewEpisodePublished;
 use App\Events\Podcast\NewPodcastPublished;
 use App\Events\TicketPurchased;

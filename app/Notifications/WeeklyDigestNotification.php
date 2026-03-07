@@ -2,7 +2,6 @@
 
 namespace App\Notifications;
 
-use App\Channels\ExpoPushChannel;
 use App\Traits\ChecksNotificationPreferences;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;

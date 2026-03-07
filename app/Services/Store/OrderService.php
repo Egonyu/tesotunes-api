@@ -260,15 +260,16 @@ class OrderService
         try {
             $phone = $order->payment?->phone_number ?? $order->user->phone;
 
-            if (!$phone) {
+            if (! $phone) {
                 Log::warning('Refund skipped — no phone number for order', ['order_id' => $order->id]);
+
                 return;
             }
 
             $result = $zengaPay->disburse(
                 $amount,
                 $phone,
-                'REFUND-' . $order->order_number . '-' . time(),
+                'REFUND-'.$order->order_number.'-'.time(),
                 "Refund for order #{$order->order_number}"
             );
 

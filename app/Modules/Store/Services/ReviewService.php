@@ -282,7 +282,7 @@ class ReviewService
                 1 => $ratingBreakdown[1] ?? 0,
             ],
             'verified_purchases' => $reviews->where('is_verified_purchase', true)->count(),
-            'with_photos' => $reviews->filter(fn ($r) => !empty($r->images))->count(),
+            'with_photos' => $reviews->filter(fn ($r) => ! empty($r->images))->count(),
             'with_seller_response' => $reviews->whereNotNull('seller_response')->count(),
         ];
     }

@@ -53,7 +53,7 @@ class SaccoWithdrawalRequest extends Model
                 $request->uuid = (string) Str::uuid();
             }
             if (empty($request->request_number)) {
-                $request->request_number = 'WDR' . now()->format('Ymd') . rand(10000, 99999);
+                $request->request_number = 'WDR'.now()->format('Ymd').rand(10000, 99999);
             }
             // Calculate net amount
             if ($request->net_amount_ugx <= 0) {

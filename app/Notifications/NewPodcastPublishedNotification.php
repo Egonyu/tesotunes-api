@@ -38,7 +38,7 @@ class NewPodcastPublishedNotification extends Notification implements ShouldQueu
             'creator_id' => $creator?->id,
             'creator_name' => $creator?->display_name ?? $creator?->name,
             'title' => 'New Podcast',
-            'message' => ($creator?->display_name ?? 'An artist') . " launched a new podcast: \"{$this->podcast->title}\"",
+            'message' => ($creator?->display_name ?? 'An artist')." launched a new podcast: \"{$this->podcast->title}\"",
             'icon' => 'podcast',
             'color' => 'purple',
         ];
@@ -50,7 +50,7 @@ class NewPodcastPublishedNotification extends Notification implements ShouldQueu
 
         return [
             'title' => 'New Podcast',
-            'body' => ($creator?->display_name ?? 'An artist') . " launched \"{$this->podcast->title}\"",
+            'body' => ($creator?->display_name ?? 'An artist')." launched \"{$this->podcast->title}\"",
             'data' => [
                 'type' => 'new_podcast',
                 'podcastId' => $this->podcast->id,

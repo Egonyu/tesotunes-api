@@ -251,8 +251,9 @@ class NotificationService
             $apiKey = config('services.sms.africastalking.api_key');
             $senderId = config('services.sms.africastalking.sender_id', 'TESOTUNES');
 
-            if (!$username || !$apiKey || config('services.sms.provider') === 'mock') {
+            if (! $username || ! $apiKey || config('services.sms.provider') === 'mock') {
                 Log::info("SMS (mock) to {$phoneNumber}: {$message}");
+
                 return true;
             }
 
@@ -269,6 +270,7 @@ class NotificationService
 
             if ($response->successful()) {
                 Log::info('SMS sent via Africa\'s Talking', ['to' => $phoneNumber]);
+
                 return true;
             }
 

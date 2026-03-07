@@ -34,11 +34,12 @@ class ProcessEpisodeUploadJob implements ShouldQueue
         $disk = Storage::disk(config('podcast.storage.primary_driver', 'local'));
         $originalPath = $this->episode->audio_file_path;
 
-        if (!$originalPath || !$disk->exists($originalPath)) {
+        if (! $originalPath || ! $disk->exists($originalPath)) {
             Log::warning('ProcessEpisodeUploadJob: audio file not found', [
                 'episode_id' => $this->episode->id,
                 'path' => $originalPath,
             ]);
+
             return;
         }
 
@@ -63,6 +64,7 @@ class ProcessEpisodeUploadJob implements ShouldQueue
             Log::info('ProcessEpisodeUploadJob: FFmpeg not available, skipping transcoding', [
                 'episode_id' => $this->episode->id,
             ]);
+
             return;
         }
 
@@ -75,7 +77,7 @@ class ProcessEpisodeUploadJob implements ShouldQueue
 
                 // Download original to temp for FFmpeg processing
                 $tempInput = tempnam(sys_get_temp_dir(), 'ep_in_');
-                $tempOutput = tempnam(sys_get_temp_dir(), 'ep_out_') . ".{$extension}";
+                $tempOutput = tempnam(sys_get_temp_dir(), 'ep_out_').".{$extension}";
                 file_put_contents($tempInput, $disk->get($originalPath));
 
                 $command = sprintf(
@@ -108,7 +110,7 @@ class ProcessEpisodeUploadJob implements ShouldQueue
             }
         }
 
-        if (!empty($transcodedPaths)) {
+        if (! empty($transcodedPaths)) {
             $this->episode->update([
                 'transcoded_paths' => $transcodedPaths,
             ]);

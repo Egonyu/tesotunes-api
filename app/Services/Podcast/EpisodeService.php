@@ -197,7 +197,7 @@ class EpisodeService
     protected function extractAudioMetadata(UploadedFile $file): array
     {
         try {
-            $getID3 = new \getID3();
+            $getID3 = new \getID3;
             $info = $getID3->analyze($file->getPathname());
 
             return [

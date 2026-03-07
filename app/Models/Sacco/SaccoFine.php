@@ -48,7 +48,7 @@ class SaccoFine extends Model
                 $fine->uuid = (string) Str::uuid();
             }
             if (empty($fine->fine_number)) {
-                $fine->fine_number = 'FIN' . now()->format('Ymd') . rand(10000, 99999);
+                $fine->fine_number = 'FIN'.now()->format('Ymd').rand(10000, 99999);
             }
         });
     }

@@ -44,7 +44,7 @@ class SaccoContribution extends Model
                 $contribution->uuid = (string) Str::uuid();
             }
             if (empty($contribution->contribution_number)) {
-                $contribution->contribution_number = 'CTB' . now()->format('Ymd') . rand(10000, 99999);
+                $contribution->contribution_number = 'CTB'.now()->format('Ymd').rand(10000, 99999);
             }
         });
     }

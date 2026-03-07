@@ -105,7 +105,7 @@ class FileController extends Controller
                 'data' => $fileData,
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload audio',
@@ -167,7 +167,7 @@ class FileController extends Controller
                 'data' => $fileData,
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload image',
@@ -220,7 +220,7 @@ class FileController extends Controller
                 ],
             ]);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload avatar',

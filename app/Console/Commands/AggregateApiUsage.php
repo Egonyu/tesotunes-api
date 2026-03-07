@@ -51,10 +51,10 @@ class AggregateApiUsage extends Command
             DB::raw('MAX(response_time_ms) as max_response_ms'),
             DB::raw('COUNT(DISTINCT user_id) as unique_users'),
         ])
-        ->where('requested_at', '>=', $start)
-        ->where('requested_at', '<', $end)
-        ->groupBy('endpoint', 'method')
-        ->get();
+            ->where('requested_at', '>=', $start)
+            ->where('requested_at', '<', $end)
+            ->groupBy('endpoint', 'method')
+            ->get();
 
         $count = 0;
         foreach ($aggregated as $row) {
