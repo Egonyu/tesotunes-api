@@ -75,6 +75,9 @@ class SaccoApiController extends Controller
                 ->when($request->get('status') && $request->get('status') !== 'all', function ($q) use ($request) {
                     $q->where('status', $request->get('status'));
                 })
+                ->when($request->get('user_id'), function ($q) use ($request) {
+                    $q->where('user_id', (int) $request->get('user_id'));
+                })
                 ->latest('joined_at')
                 ->paginate($perPage);
 

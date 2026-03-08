@@ -34,6 +34,15 @@ Route::prefix('')->group(function () {
     Route::get('/playlists/{playlist}/tracks', [PlaylistController::class, 'tracks'])->name('api.music.playlist.tracks');
 });
 
+// Playlist CRUD — authenticated users
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/playlists', [PlaylistController::class, 'store'])->name('api.music.playlists.store');
+    Route::put('/playlists/{playlist}', [PlaylistController::class, 'update'])->name('api.music.playlists.update');
+    Route::delete('/playlists/{playlist}', [PlaylistController::class, 'destroy'])->name('api.music.playlists.destroy');
+    Route::post('/playlists/{playlist}/songs/{song}', [PlaylistController::class, 'addSong'])->name('api.music.playlists.add-song');
+    Route::delete('/playlists/{playlist}/songs/{song}', [PlaylistController::class, 'removeSong'])->name('api.music.playlists.remove-song');
+});
+
 // Admin routes for artists management — SECURED with auth + role middleware
 Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin')->group(function () {
     Route::get('/artists', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'index']);

@@ -72,6 +72,12 @@ class EventsApiController extends Controller
                         $q->whereYear('starts_at', $parts[0])->whereMonth('starts_at', $parts[1]);
                     }
                 })
+                ->when($request->filled('artist_id'), function ($q) use ($request) {
+                    $q->where('artist_id', (int) $request->artist_id);
+                })
+                ->when($request->filled('user_id'), function ($q) use ($request) {
+                    $q->where('user_id', (int) $request->user_id);
+                })
                 ->orderByDesc('starts_at')
                 ->paginate($perPage);
 

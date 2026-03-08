@@ -387,6 +387,14 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::get('/sacco/loans/{id}/repayments', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'loanRepayments'])->name('sacco.loans.repayments');
     Route::get('/sacco/transactions', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'savingsTransactions'])->name('sacco.transactions');
 
+    // SACCO Board Meetings & Members (Admin CRUD)
+    Route::get('/sacco/board-members', [\App\Http\Controllers\Api\Admin\SaccoBoardMeetingsController::class, 'boardMembers'])->name('sacco.board-members');
+    Route::get('/sacco/board-meetings', [\App\Http\Controllers\Api\Admin\SaccoBoardMeetingsController::class, 'index'])->name('sacco.board-meetings.index');
+    Route::post('/sacco/board-meetings', [\App\Http\Controllers\Api\Admin\SaccoBoardMeetingsController::class, 'store'])->name('sacco.board-meetings.store');
+    Route::get('/sacco/board-meetings/{id}', [\App\Http\Controllers\Api\Admin\SaccoBoardMeetingsController::class, 'show'])->name('sacco.board-meetings.show');
+    Route::put('/sacco/board-meetings/{id}', [\App\Http\Controllers\Api\Admin\SaccoBoardMeetingsController::class, 'update'])->name('sacco.board-meetings.update');
+    Route::delete('/sacco/board-meetings/{id}', [\App\Http\Controllers\Api\Admin\SaccoBoardMeetingsController::class, 'destroy'])->name('sacco.board-meetings.destroy');
+
     // Songs API
     Route::get('/songs/statistics', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'statistics'])->name('songs.statistics');
     Route::post('/songs/bulk-approve', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'bulkApprove'])->name('songs.bulk-approve');
@@ -612,6 +620,20 @@ Route::prefix('sacco')
             Route::post('transfer', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'transfer'])->name('transfer');
             Route::get('member/{member}', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'memberShares'])->name('member');
             Route::get('value', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'currentValue'])->name('value');
+        });
+
+        // Goals (savings goals)
+        Route::prefix('goals')->name('goals.')->group(function () {
+            Route::get('', [\App\Http\Controllers\Api\Sacco\SaccoGoalsController::class, 'index'])->name('index');
+            Route::post('', [\App\Http\Controllers\Api\Sacco\SaccoGoalsController::class, 'store'])->name('store');
+            Route::get('{goal}', [\App\Http\Controllers\Api\Sacco\SaccoGoalsController::class, 'show'])->name('show');
+            Route::put('{goal}', [\App\Http\Controllers\Api\Sacco\SaccoGoalsController::class, 'update'])->name('update');
+            Route::delete('{goal}', [\App\Http\Controllers\Api\Sacco\SaccoGoalsController::class, 'destroy'])->name('destroy');
+            Route::post('{goal}/deposit', [\App\Http\Controllers\Api\Sacco\SaccoGoalsController::class, 'deposit'])->name('deposit');
+            Route::post('{goal}/convert-credits', [\App\Http\Controllers\Api\Sacco\SaccoGoalsController::class, 'convertCredits'])->name('convert-credits');
+            Route::post('{goal}/auto-save', [\App\Http\Controllers\Api\Sacco\SaccoGoalsController::class, 'autoSave'])->name('auto-save');
+            Route::get('{goal}/transactions', [\App\Http\Controllers\Api\Sacco\SaccoGoalsController::class, 'transactions'])->name('transactions');
+            Route::get('{goal}/funding-options', [\App\Http\Controllers\Api\Sacco\SaccoGoalsController::class, 'fundingOptions'])->name('funding-options');
         });
 
         // Reports
