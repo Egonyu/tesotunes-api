@@ -174,6 +174,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/like/{type}/{id}', [\App\Http\Controllers\Api\ActivityInteractionController::class, 'toggleLike'])
         ->name('api.like.toggle');
 
+    // Like status for any entity
+    Route::get('/like/{type}/{id}/status', [\App\Http\Controllers\Api\ActivityInteractionController::class, 'likeStatus'])
+        ->name('api.like.status');
+
     // Bookmark/Unbookmark any entity
     Route::post('/bookmark/{type}/{id}', [\App\Http\Controllers\Api\ActivityInteractionController::class, 'toggleBookmark'])
         ->name('api.bookmark.toggle');

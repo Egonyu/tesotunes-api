@@ -13,9 +13,9 @@ use Illuminate\Support\Facades\Route;
 
 // Artist Follow API Routes (auth required)
 Route::middleware('auth:sanctum')->prefix('artists')->name('api.artists.')->group(function () {
-    Route::post('/{artist}/follow', [\App\Http\Controllers\Api\Social\ArtistFollowController::class, 'follow'])->name('follow');
-    Route::delete('/{artist}/follow', [\App\Http\Controllers\Api\Social\ArtistFollowController::class, 'unfollow'])->name('unfollow');
-    Route::get('/{artist}/follow/status', [\App\Http\Controllers\Api\Social\ArtistFollowController::class, 'status'])->name('follow.status');
+    Route::post('/{artist:id}/follow', [\App\Http\Controllers\Api\Social\ArtistFollowController::class, 'follow'])->name('follow');
+    Route::delete('/{artist:id}/follow', [\App\Http\Controllers\Api\Social\ArtistFollowController::class, 'unfollow'])->name('unfollow');
+    Route::get('/{artist:id}/follow/status', [\App\Http\Controllers\Api\Social\ArtistFollowController::class, 'status'])->name('follow.status');
 });
 
 // Comments API Routes (polymorphic comments on any entity)

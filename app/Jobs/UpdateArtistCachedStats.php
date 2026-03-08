@@ -48,8 +48,7 @@ class UpdateArtistCachedStats implements ShouldQueue
                 // Use optimized single query for song statistics
                 $songStats = $artist->songs()
                     ->selectRaw('
-                        COALESCE(SUM(play_count), 0) as total_plays,
-                        COALESCE(SUM(revenue), 0) as total_revenue
+                        COALESCE(SUM(play_count), 0) as total_plays
                     ')
                     ->first();
 
@@ -59,7 +58,7 @@ class UpdateArtistCachedStats implements ShouldQueue
                 // Update cached values
                 $artist->update([
                     'total_plays_cached' => $songStats->total_plays ?? 0,
-                    'total_revenue_cached' => $songStats->total_revenue ?? 0,
+                    'total_revenue_cached' => 0,
                     'followers_count_cached' => $followersCount,
                     'stats_last_updated_at' => now(),
                 ]);

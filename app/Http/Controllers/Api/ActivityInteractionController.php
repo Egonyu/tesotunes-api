@@ -63,6 +63,39 @@ class ActivityInteractionController extends Controller
     }
 
     /**
+     * GET /api/like/{type}/{id}/status
+     * Check if the authenticated user has liked an entity.
+     */
+    public function likeStatus(Request $request, string $type, int $id): JsonResponse
+    {
+        $modelClass = $this->resolveModel($type);
+
+        if (! $modelClass) {
+            return response()->json(['message' => "Unsupported entity type: {$type}"], 422);
+        }
+
+        $entity = $modelClass::find($id);
+
+        if (! $entity) {
+            return response()->json(['message' => ucfirst($type).' not found'], 404);
+        }
+
+        $isLiked = Like::where('user_id', $request->user()->id)
+            ->where('likeable_type', get_class($entity))
+            ->where('likeable_id', $entity->id)
+            ->where('type', 'like')
+            ->exists();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'is_liked' => $isLiked,
+                'likes_count' => $entity->like_count ?? 0,
+            ],
+        ]);
+    }
+
+    /**
      * POST /api/bookmark/{type}/{id}
      * Toggle bookmark on any supported entity.
      */

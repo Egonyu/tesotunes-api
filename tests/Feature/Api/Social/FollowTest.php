@@ -19,7 +19,7 @@ class FollowTest extends TestCase
         $user = User::factory()->create(['is_active' => true]);
         $artist = Artist::factory()->create(['status' => 'active']);
 
-        $response = $this->actingAs($user)->postJson("/api/artists/{$artist->slug}/follow");
+        $response = $this->actingAs($user)->postJson("/api/artists/{$artist->id}/follow");
 
         $response->assertOk()
             ->assertJson([
@@ -39,7 +39,7 @@ class FollowTest extends TestCase
     {
         $artist = Artist::factory()->create(['status' => 'active']);
 
-        $response = $this->postJson("/api/artists/{$artist->slug}/follow");
+        $response = $this->postJson("/api/artists/{$artist->id}/follow");
 
         $response->assertUnauthorized();
     }
@@ -49,7 +49,7 @@ class FollowTest extends TestCase
         $user = User::factory()->create(['is_active' => true]);
         $artist = Artist::factory()->create(['user_id' => $user->id, 'status' => 'active']);
 
-        $response = $this->actingAs($user)->postJson("/api/artists/{$artist->slug}/follow");
+        $response = $this->actingAs($user)->postJson("/api/artists/{$artist->id}/follow");
 
         $response->assertStatus(422)
             ->assertJson([
@@ -64,10 +64,10 @@ class FollowTest extends TestCase
         $artist = Artist::factory()->create(['status' => 'active']);
 
         // Follow once
-        $this->actingAs($user)->postJson("/api/artists/{$artist->slug}/follow")->assertOk();
+        $this->actingAs($user)->postJson("/api/artists/{$artist->id}/follow")->assertOk();
 
         // Follow again — should not fail
-        $response = $this->actingAs($user)->postJson("/api/artists/{$artist->slug}/follow");
+        $response = $this->actingAs($user)->postJson("/api/artists/{$artist->id}/follow");
 
         $response->assertOk()
             ->assertJson([
@@ -87,7 +87,7 @@ class FollowTest extends TestCase
         $user = User::factory()->create(['is_active' => true]);
         $artist = Artist::factory()->create(['followers_count' => 100, 'status' => 'active']);
 
-        $this->actingAs($user)->postJson("/api/artists/{$artist->slug}/follow")->assertOk();
+        $this->actingAs($user)->postJson("/api/artists/{$artist->id}/follow")->assertOk();
 
         $this->assertEquals(101, $artist->fresh()->followers_count);
     }
@@ -107,7 +107,7 @@ class FollowTest extends TestCase
             'followable_type' => Artist::class,
         ]);
 
-        $response = $this->actingAs($user)->deleteJson("/api/artists/{$artist->slug}/follow");
+        $response = $this->actingAs($user)->deleteJson("/api/artists/{$artist->id}/follow");
 
         $response->assertOk()
             ->assertJson([
@@ -126,7 +126,7 @@ class FollowTest extends TestCase
     {
         $artist = Artist::factory()->create(['status' => 'active']);
 
-        $response = $this->deleteJson("/api/artists/{$artist->slug}/follow");
+        $response = $this->deleteJson("/api/artists/{$artist->id}/follow");
 
         $response->assertUnauthorized();
     }
@@ -143,7 +143,7 @@ class FollowTest extends TestCase
             'followable_type' => Artist::class,
         ]);
 
-        $this->actingAs($user)->deleteJson("/api/artists/{$artist->slug}/follow")->assertOk();
+        $this->actingAs($user)->deleteJson("/api/artists/{$artist->id}/follow")->assertOk();
 
         $this->assertEquals(49, $artist->fresh()->followers_count);
     }
@@ -156,7 +156,7 @@ class FollowTest extends TestCase
         $artist = Artist::factory()->create(['status' => 'active']);
 
         // Not following yet
-        $response = $this->actingAs($user)->getJson("/api/artists/{$artist->slug}/follow/status");
+        $response = $this->actingAs($user)->getJson("/api/artists/{$artist->id}/follow/status");
 
         $response->assertOk()
             ->assertJson([
@@ -173,7 +173,7 @@ class FollowTest extends TestCase
         ]);
 
         // Now following
-        $response = $this->actingAs($user)->getJson("/api/artists/{$artist->slug}/follow/status");
+        $response = $this->actingAs($user)->getJson("/api/artists/{$artist->id}/follow/status");
 
         $response->assertOk()
             ->assertJson([
@@ -186,7 +186,7 @@ class FollowTest extends TestCase
     {
         $artist = Artist::factory()->create(['status' => 'active']);
 
-        $response = $this->getJson("/api/artists/{$artist->slug}/follow/status");
+        $response = $this->getJson("/api/artists/{$artist->id}/follow/status");
 
         $response->assertUnauthorized();
     }

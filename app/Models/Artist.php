@@ -176,7 +176,7 @@ class Artist extends Model implements HasMedia
     // Polymorphic relationships
     public function followers()
     {
-        return $this->morphMany(UserFollow::class, 'following');  // Simplified - Laravel will handle column names
+        return $this->morphMany(UserFollow::class, 'followable');
     }
 
     public function claimRequests()
@@ -339,7 +339,7 @@ class Artist extends Model implements HasMedia
         }
 
         // Only fallback to live calculation if no cached value exists
-        return $this->songs()->sum('revenue_generated') ?? 0;
+        return 0;
     }
 
     /**

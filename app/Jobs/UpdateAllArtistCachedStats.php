@@ -94,12 +94,7 @@ class UpdateAllArtistCachedStats implements ShouldQueue
                     WHERE songs.artist_id = artists.id
                     AND songs.deleted_at IS NULL
                 ), 0),
-                total_revenue_cached = COALESCE((
-                    SELECT SUM(revenue)
-                    FROM songs
-                    WHERE songs.artist_id = artists.id
-                    AND songs.deleted_at IS NULL
-                ), 0),
+                total_revenue_cached = 0,
                 stats_last_updated_at = NOW()
             WHERE artists.id IN ('.implode(',', array_map('intval', $artistIds)).')
         ');
