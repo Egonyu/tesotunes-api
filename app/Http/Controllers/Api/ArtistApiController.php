@@ -9,6 +9,8 @@ use App\Models\Song;
 use App\Services\PayoutService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ArtistApiController extends Controller
@@ -16,6 +18,28 @@ class ArtistApiController extends Controller
     // ========================================================================
     // Helpers
     // ========================================================================
+
+    /**
+     * Get the configured storage disk for uploads.
+     * Falls back to 'public' if default is 'local' (private).
+     */
+    private function uploadDisk()
+    {
+        $disk = config('filesystems.default', 'local');
+        $diskName = $disk === 'local' ? 'public' : $disk;
+
+        return Storage::disk($diskName);
+    }
+
+    /**
+     * Get the upload disk name.
+     */
+    private function uploadDiskName(): string
+    {
+        $disk = config('filesystems.default', 'local');
+
+        return $disk === 'local' ? 'public' : $disk;
+    }
 
     /**
      * Get the authenticated user's artist record.
@@ -282,18 +306,26 @@ class ArtistApiController extends Controller
             ], 422);
         }
 
-        // Capture file info BEFORE moving (move() invalidates the file object)
+        // Capture file info BEFORE storing (store invalidates the file object)
         $audioExt = $audioFile->getClientOriginalExtension();
         $audioSize = $audioFile->getSize();
         $audioFileName = Str::uuid().'.'.$audioExt;
         $audioPath = 'songs/audio/'.$audioFileName;
 
-        // Use move() instead of store() to work around Windows temp file issues
-        $destinationPath = storage_path('app/public/songs/audio');
-        if (! is_dir($destinationPath)) {
-            mkdir($destinationPath, 0755, true);
+        // Store audio on the configured disk (works with local, S3, DigitalOcean Spaces)
+        try {
+            $this->uploadDisk()->put($audioPath, fopen($audioFile->getPathname(), 'r'));
+        } catch (\Throwable $e) {
+            Log::error('Song audio upload failed', [
+                'error' => $e->getMessage(),
+                'disk' => $this->uploadDiskName(),
+                'path' => $audioPath,
+            ]);
+
+            return response()->json([
+                'message' => 'Failed to upload audio file. Please try again.',
+            ], 500);
         }
-        $audioFile->move($destinationPath, $audioFileName);
 
         // Handle cover image (accept either field name)
         $artworkPath = null;
@@ -303,11 +335,15 @@ class ArtistApiController extends Controller
             $coverFileName = Str::uuid().'.'.$coverExt;
             $artworkPath = 'songs/artwork/'.$coverFileName;
 
-            $coverDestination = storage_path('app/public/songs/artwork');
-            if (! is_dir($coverDestination)) {
-                mkdir($coverDestination, 0755, true);
+            try {
+                $this->uploadDisk()->put($artworkPath, fopen($coverFile->getPathname(), 'r'));
+            } catch (\Throwable $e) {
+                Log::warning('Song artwork upload failed', [
+                    'error' => $e->getMessage(),
+                    'path' => $artworkPath,
+                ]);
+                $artworkPath = null;
             }
-            $coverFile->move($coverDestination, $coverFileName);
         }
 
         // Generate slug
@@ -390,7 +426,7 @@ class ArtistApiController extends Controller
                 'id' => $song->id,
                 'title' => $song->title,
                 'status' => $song->status,
-                'artwork_url' => $artworkPath ? url('storage/'.$artworkPath) : null,
+                'artwork_url' => $artworkPath ? Storage::disk($this->uploadDiskName())->url($artworkPath) : null,
             ],
         ], 201);
     }
@@ -557,7 +593,10 @@ class ArtistApiController extends Controller
 
         $artworkPath = null;
         if ($request->hasFile('cover_image')) {
-            $artworkPath = $request->file('cover_image')->store('albums/artwork', 'public');
+            $coverFile = $request->file('cover_image');
+            $coverFileName = Str::uuid().'.'.$coverFile->getClientOriginalExtension();
+            $artworkPath = 'albums/artwork/'.$coverFileName;
+            $this->uploadDisk()->put($artworkPath, fopen($coverFile->getPathname(), 'r'));
         }
 
         $slug = Str::slug($validated['title']);
