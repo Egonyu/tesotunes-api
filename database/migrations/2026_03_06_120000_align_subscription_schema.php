@@ -132,7 +132,9 @@ return new class extends Migration
         });
 
         // Backfill subscription_plan_id from plan_id where null
-        DB::statement('UPDATE user_subscriptions SET subscription_plan_id = plan_id WHERE subscription_plan_id IS NULL AND plan_id IS NOT NULL');
+        if (Schema::hasColumn('user_subscriptions', 'plan_id')) {
+            DB::statement('UPDATE user_subscriptions SET subscription_plan_id = plan_id WHERE subscription_plan_id IS NULL AND plan_id IS NOT NULL');
+        }
 
         // Backfill expires_at from ends_at where null
         if (Schema::hasColumn('user_subscriptions', 'ends_at')) {
