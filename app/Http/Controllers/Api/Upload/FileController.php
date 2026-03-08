@@ -69,7 +69,9 @@ class FileController extends Controller
             $directory = 'audio/'.$user->id;
 
             // Store original file on configured disk
-            $storedPath = $file->storeAs($directory, $filename, $uploadDisk);
+            // Use put() with stream to avoid getRealPath() returning false on temp files
+            $storedPath = $directory.'/'.$filename;
+            $this->disk()->put($storedPath, fopen($file->getPathname(), 'r'));
 
             $fileData = [
                 'original_name' => $file->getClientOriginalName(),
@@ -142,8 +144,8 @@ class FileController extends Controller
             $directory = "images/{$type}/".$user->id;
 
             // Store original image on configured disk
-            $uploadDisk = $this->getUploadDisk();
-            $storedPath = $file->storeAs($directory, $filename, $uploadDisk);
+            $storedPath = $directory.'/'.$filename;
+            $this->disk()->put($storedPath, fopen($file->getPathname(), 'r'));
 
             $fileData = [
                 'original_name' => $file->getClientOriginalName(),
@@ -200,9 +202,9 @@ class FileController extends Controller
             }
 
             // Generate unique filename
-            $uploadDisk = $this->getUploadDisk();
             $filename = 'avatar_'.time().'_'.Str::random(10).'.'.$file->getClientOriginalExtension();
-            $storedPath = $file->storeAs('avatars', $filename, $uploadDisk);
+            $storedPath = 'avatars/'.$filename;
+            $this->disk()->put($storedPath, fopen($file->getPathname(), 'r'));
 
             // Create thumbnail versions (only for local storage)
             $thumbnails = $this->isLocalDisk() ? $this->createAvatarThumbnails($storedPath) : [];
@@ -273,7 +275,7 @@ class FileController extends Controller
                 'duration_seconds' => (int) $duration,
                 'duration_formatted' => $this->formatDuration((int) $duration),
             ];
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             \Log::warning('Could not extract audio metadata: '.$e->getMessage());
 
             return [
