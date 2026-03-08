@@ -16,6 +16,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Allow health check even during maintenance mode
+        $middleware->preventRequestsDuringMaintenance(except: [
+            'api/health',
+            'api/health/*',
+            'up',
+        ]);
+
         // Enable API rate limiting (defined in AppServiceProvider)
         $middleware->throttleApi('api');
 

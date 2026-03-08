@@ -82,6 +82,7 @@ jobs:
             NEW_RELEASE="$RELEASES_PATH/$TIMESTAMP"
 
             # Safety: bring app up if stuck in maintenance mode from a previous failed deploy
+            sudo rm -f $SHARED_PATH/storage/framework/down 2>/dev/null || true
             if [ -L "$APP_PATH" ] || [ -d "$APP_PATH" ]; then
               cd $APP_PATH
               php artisan up 2>/dev/null || true
@@ -90,10 +91,11 @@ jobs:
             # Trap: ensure app comes back up even if deployment fails
             cleanup() {
               echo "⚠️ Deployment failed — ensuring app is brought back up..."
+              sudo rm -f $SHARED_PATH/storage/framework/down 2>/dev/null || true
               if [ -L "$APP_PATH" ] || [ -d "$APP_PATH" ]; then
                 cd $APP_PATH
                 php artisan up 2>/dev/null || true
-                rm -f storage/framework/down 2>/dev/null || true
+                sudo rm -f storage/framework/down 2>/dev/null || true
                 php artisan config:clear 2>/dev/null || true
                 php artisan route:clear 2>/dev/null || true
                 sudo systemctl reload php8.4-fpm 2>/dev/null || true
@@ -184,8 +186,9 @@ jobs:
             php artisan event:cache
 
             # Ensure app is out of maintenance mode
-            php artisan up
-            rm -f storage/framework/down 2>/dev/null || true
+            php artisan up || true
+            sudo rm -f $SHARED_PATH/storage/framework/down 2>/dev/null || true
+            sudo rm -f storage/framework/down 2>/dev/null || true
 
             # Set correct ownership for web server
             sudo chown -R www-data:www-data $NEW_RELEASE 2>/dev/null || true
