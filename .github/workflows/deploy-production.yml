@@ -93,6 +93,9 @@ jobs:
               if [ -L "$APP_PATH" ] || [ -d "$APP_PATH" ]; then
                 cd $APP_PATH
                 php artisan up 2>/dev/null || true
+                rm -f storage/framework/down 2>/dev/null || true
+                php artisan config:clear 2>/dev/null || true
+                php artisan route:clear 2>/dev/null || true
                 sudo systemctl reload php8.4-fpm 2>/dev/null || true
               fi
             }
@@ -168,13 +171,21 @@ jobs:
             ln -sfn $NEW_RELEASE $APP_PATH
 
             # ------------------------------------------------
-            # Optimize
+            # Optimize (clear stale caches first)
             # ------------------------------------------------
+            cd $APP_PATH
+            php artisan config:clear
+            php artisan route:clear
+            php artisan event:clear
+            php artisan view:clear
+
             php artisan config:cache
             php artisan route:cache
             php artisan event:cache
 
+            # Ensure app is out of maintenance mode
             php artisan up
+            rm -f storage/framework/down 2>/dev/null || true
 
             # Set correct ownership for web server
             sudo chown -R www-data:www-data $NEW_RELEASE 2>/dev/null || true
@@ -199,10 +210,16 @@ jobs:
       # ---------------------------------------------------
       - name: Health check
         run: |
+          echo "Waiting for deployment to stabilize..."
           sleep 10
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.tesotunes.com/api/health)
-          if [ "$STATUS" -ne 200 ]; then
-            echo "Health check failed"
-            exit 1
-          fi
-          echo "API healthy"
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://api.tesotunes.com/api/health)
+            echo "Attempt $i: HTTP $STATUS"
+            if [ "$STATUS" -eq 200 ]; then
+              echo "✅ API healthy"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "❌ Health check failed after 5 attempts"
+          exit 1
