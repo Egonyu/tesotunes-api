@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\Song;
 use App\Services\ActivityService;
+use App\Services\FeedItemService;
 
 class SongObserver
 {
@@ -25,6 +26,35 @@ class SongObserver
                 ],
                 actorType: 'Artist'
             );
+
+            // Create feed item for discovery feed
+            FeedItemService::create([
+                'type'               => 'song_release',
+                'module'             => 'music',
+                'title'              => $song->artist->stage_name . ' released a new track: ' . $song->title,
+                'body'               => $song->description,
+                'actor_id'           => $song->artist->user->id,
+                'actor_type'         => 'artist',
+                'actor_name'         => $song->artist->stage_name,
+                'actor_avatar_url'   => $song->artist->avatar_url,
+                'actor_verified'     => (bool) $song->artist->is_verified,
+                'subject_type'       => Song::class,
+                'subject_id'         => $song->id,
+                'media_type'         => 'song',
+                'media_url'          => $song->artwork_url,
+                'media_thumbnail_url'=> $song->artwork_url,
+                'media_duration_seconds' => $song->duration_seconds,
+                'tags'               => array_filter([$song->primaryGenre?->name]),
+                'actions'            => [
+                    ['type' => 'play', 'label' => 'Play', 'url' => "/songs/{$song->slug}"],
+                    ['type' => 'view', 'label' => 'View', 'url' => "/songs/{$song->slug}"],
+                ],
+                'extras'             => [
+                    'song_id'     => $song->id,
+                    'artist_name' => $song->artist->stage_name,
+                    'is_explicit' => $song->is_explicit,
+                ],
+            ]);
         }
     }
 
@@ -63,6 +93,22 @@ class SongObserver
                     ],
                     actorType: 'Artist'
                 );
+
+                FeedItemService::create([
+                    'type'          => 'song_release',
+                    'module'        => 'music',
+                    'title'         => $song->artist->stage_name . ' distributed "' . $song->title . '" to streaming platforms',
+                    'actor_id'      => $song->artist->user->id,
+                    'actor_type'    => 'artist',
+                    'actor_name'    => $song->artist->stage_name,
+                    'actor_avatar_url' => $song->artist->avatar_url,
+                    'actor_verified'=> (bool) $song->artist->is_verified,
+                    'subject_type'  => Song::class,
+                    'subject_id'    => $song->id,
+                    'media_type'    => 'song',
+                    'media_url'     => $song->artwork_url,
+                    'extras'        => ['platforms' => $song->distribution_platforms ?? []],
+                ]);
             }
         }
 
@@ -79,6 +125,24 @@ class SongObserver
                     ],
                     actorType: 'Artist'
                 );
+
+                FeedItemService::create([
+                    'type'           => 'song_release',
+                    'module'         => 'music',
+                    'title'          => $song->artist->stage_name . '\'s "' . $song->title . '" is now featured!',
+                    'actor_id'       => $song->artist->user->id,
+                    'actor_type'     => 'artist',
+                    'actor_name'     => $song->artist->stage_name,
+                    'actor_avatar_url'=> $song->artist->avatar_url,
+                    'actor_verified' => (bool) $song->artist->is_verified,
+                    'subject_type'   => Song::class,
+                    'subject_id'     => $song->id,
+                    'media_type'     => 'song',
+                    'media_url'      => $song->artwork_url,
+                    'is_prestige'    => true,
+                    'has_celebration'=> true,
+                    'extras'         => ['featured' => true],
+                ]);
             }
         }
     }

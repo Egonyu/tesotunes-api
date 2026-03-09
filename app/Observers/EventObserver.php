@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\Event;
 use App\Services\ActivityService;
+use App\Services\FeedItemService;
 
 class EventObserver
 {
@@ -25,6 +26,32 @@ class EventObserver
                     'category' => $event->category,
                 ]
             );
+
+            FeedItemService::create([
+                'type'            => 'event_created',
+                'module'          => 'events',
+                'title'           => 'New event: ' . $event->title,
+                'body'            => $event->description ? substr($event->description, 0, 200) : null,
+                'actor_id'        => $event->user->id,
+                'actor_type'      => 'user',
+                'actor_name'      => $event->user->name,
+                'actor_avatar_url'=> $event->user->avatar_url,
+                'subject_type'    => Event::class,
+                'subject_id'      => $event->id,
+                'media_type'      => 'image',
+                'media_url'       => $event->banner_url ?? $event->image_url,
+                'actions'         => [
+                    ['type' => 'view', 'label' => 'View Event', 'url' => "/events/{$event->slug}"],
+                    ['type' => 'register', 'label' => 'Interested', 'url' => "/events/{$event->slug}"],
+                ],
+                'extras'          => [
+                    'event_id'     => $event->id,
+                    'venue'        => $event->venue,
+                    'starts_at'    => $event->starts_at?->toIso8601String(),
+                    'ticket_price' => $event->ticket_price,
+                    'category'     => $event->category,
+                ],
+            ]);
         }
     }
 

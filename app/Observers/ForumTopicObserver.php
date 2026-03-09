@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\Activity;
 use App\Models\Modules\Forum\ForumTopic;
+use App\Services\FeedItemService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -26,6 +27,27 @@ class ForumTopicObserver
                     'category_name' => $topic->category->name ?? null,
                     'is_pinned' => $topic->is_pinned,
                     'is_featured' => $topic->is_featured,
+                ],
+            ]);
+
+            $user = $topic->user;
+            FeedItemService::create([
+                'type'          => 'thread_created',
+                'module'        => 'forum',
+                'title'         => ($user->name ?? 'Someone') . ' started a discussion: ' . $topic->title,
+                'body'          => $topic->body ? substr(strip_tags($topic->body), 0, 200) : null,
+                'actor_id'      => $topic->user_id,
+                'actor_type'    => 'user',
+                'actor_name'    => $user->name ?? null,
+                'actor_avatar_url' => $user->avatar_url ?? null,
+                'subject_type'  => ForumTopic::class,
+                'subject_id'    => $topic->id,
+                'actions'       => [
+                    ['type' => 'view', 'label' => 'Join Discussion', 'url' => "/forum/topics/{$topic->slug}"],
+                ],
+                'extras'        => [
+                    'category_name' => $topic->category->name ?? null,
+                    'is_pinned'     => $topic->is_pinned,
                 ],
             ]);
 

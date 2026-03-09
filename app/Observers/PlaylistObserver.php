@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\Playlist;
 use App\Services\ActivityService;
+use App\Services\FeedItemService;
 
 class PlaylistObserver
 {
@@ -24,6 +25,27 @@ class PlaylistObserver
                     'song_count' => $playlist->songs()->count(),
                 ]
             );
+
+            FeedItemService::create([
+                'type'          => 'playlist_created',
+                'module'        => 'music',
+                'title'         => ($playlist->user->name ?? 'Someone') . ' created a playlist: ' . $playlist->name,
+                'body'          => $playlist->description ? substr($playlist->description, 0, 200) : null,
+                'actor_id'      => $playlist->user_id,
+                'actor_type'    => 'user',
+                'actor_name'    => $playlist->user->name,
+                'actor_avatar_url' => $playlist->user->avatar_url,
+                'subject_type'  => Playlist::class,
+                'subject_id'    => $playlist->id,
+                'media_type'    => 'image',
+                'media_url'     => $playlist->cover_url ?? null,
+                'actions'       => [
+                    ['type' => 'view', 'label' => 'View Playlist', 'url' => "/playlists/{$playlist->slug}"],
+                ],
+                'extras'        => [
+                    'song_count' => $playlist->songs()->count(),
+                ],
+            ]);
         }
     }
 
@@ -43,6 +65,21 @@ class PlaylistObserver
                     'song_count' => $playlist->songs()->count(),
                 ]
             );
+
+            FeedItemService::create([
+                'type'          => 'playlist_created',
+                'module'        => 'music',
+                'title'         => ($playlist->user->name ?? 'Someone') . ' made a playlist public: ' . $playlist->name,
+                'actor_id'      => $playlist->user_id,
+                'actor_type'    => 'user',
+                'actor_name'    => $playlist->user->name,
+                'actor_avatar_url' => $playlist->user->avatar_url,
+                'subject_type'  => Playlist::class,
+                'subject_id'    => $playlist->id,
+                'actions'       => [
+                    ['type' => 'view', 'label' => 'View Playlist', 'url' => "/playlists/{$playlist->slug}"],
+                ],
+            ]);
         }
     }
 }

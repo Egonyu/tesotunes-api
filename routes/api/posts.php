@@ -21,6 +21,9 @@ Route::prefix('posts')->name('api.posts.')->group(function () {
 
     // Post comments (public read)
     Route::get('/{post}/comments', [\App\Http\Controllers\Api\PostController::class, 'comments'])->name('comments');
+
+    // Likers (public read)
+    Route::get('/{post}/likers', [\App\Http\Controllers\Api\PostController::class, 'likers'])->name('likers');
 });
 
 // Authenticated post endpoints

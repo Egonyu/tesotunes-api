@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\Activity;
 use App\Models\Modules\Forum\Poll;
+use App\Services\FeedItemService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -27,6 +28,27 @@ class PollObserver
                     'is_multiple_choice' => $poll->allow_multiple_choices,
                     'is_anonymous' => $poll->anonymous_voting,
                     'ends_at' => $poll->ends_at?->toIso8601String(),
+                ],
+            ]);
+
+            $user = $poll->user;
+            FeedItemService::create([
+                'type'          => 'poll_created',
+                'module'        => 'forum',
+                'title'         => ($user->name ?? 'Someone') . ' created a poll: ' . $poll->title,
+                'actor_id'      => $poll->user_id,
+                'actor_type'    => 'user',
+                'actor_name'    => $user->name ?? null,
+                'actor_avatar_url' => $user->avatar_url ?? null,
+                'subject_type'  => Poll::class,
+                'subject_id'    => $poll->id,
+                'actions'       => [
+                    ['type' => 'vote', 'label' => 'Vote Now', 'url' => "/forum/polls/{$poll->id}"],
+                ],
+                'extras'        => [
+                    'ends_at'           => $poll->ends_at?->toIso8601String(),
+                    'allow_multiple'    => $poll->allow_multiple_choices,
+                    'option_count'      => $poll->options?->count() ?? 0,
                 ],
             ]);
 
@@ -56,6 +78,25 @@ class PollObserver
                     'subject_id' => $poll->id,
                     'metadata' => [
                         'total_votes' => $poll->votes()->count(),
+                        'total_voters' => $poll->votes()->distinct('user_id')->count('user_id'),
+                    ],
+                ]);
+
+                FeedItemService::create([
+                    'type'          => 'poll_ended',
+                    'module'        => 'forum',
+                    'title'         => 'Poll ended: ' . $poll->title,
+                    'actor_id'      => $poll->user_id,
+                    'actor_type'    => 'user',
+                    'actor_name'    => $poll->user->name ?? null,
+                    'actor_avatar_url' => $poll->user->avatar_url ?? null,
+                    'subject_type'  => Poll::class,
+                    'subject_id'    => $poll->id,
+                    'actions'       => [
+                        ['type' => 'view', 'label' => 'View Results', 'url' => "/forum/polls/{$poll->id}"],
+                    ],
+                    'extras'        => [
+                        'total_votes'  => $poll->votes()->count(),
                         'total_voters' => $poll->votes()->distinct('user_id')->count('user_id'),
                     ],
                 ]);

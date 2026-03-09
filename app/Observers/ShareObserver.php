@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\Share;
 use App\Services\ActivityService;
+use App\Services\FeedItemService;
 
 class ShareObserver
 {
@@ -26,6 +27,20 @@ class ShareObserver
                     'platform' => $share->platform ?? 'internal',
                 ]
             );
+
+            // Create feed item for shares
+            FeedItemService::create([
+                'type'          => 'shared_content',
+                'module'        => 'social',
+                'title'         => ($share->user->name ?? 'Someone') . ' shared "' . ($share->shareable->title ?? $share->shareable->name ?? 'content') . '"',
+                'actor_id'      => $share->user->id,
+                'actor_type'    => 'user',
+                'actor_name'    => $share->user->name,
+                'actor_avatar_url' => $share->user->avatar_url,
+                'subject_type'  => get_class($share->shareable),
+                'subject_id'    => $share->shareable->id,
+                'extras'        => ['platform' => $share->platform ?? 'internal'],
+            ]);
 
             // Increment share count on the activity if it exists
             $activity = \App\Models\Activity::where('subject_type', get_class($share->shareable))

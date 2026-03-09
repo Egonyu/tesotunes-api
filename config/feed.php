@@ -197,6 +197,106 @@ return [
         'burst_limit' => env('FEED_BURST_LIMIT', 10),
     ],
 
+    // Feed Type Base Weights (Uganda-tuned)
+    // Used by FeedItemService to set base_rank_boost on creation
+    'feed_types' => [
+        'base_weights' => [
+            // Music (highest — core of the platform)
+            'song_release'         => 120,
+            'album_release'        => 130,
+            'playlist_created'     => 50,
+            'song_milestone'       => 90,
+            'artist_update'        => 60,
+            'artist_joined'        => 40,
+
+            // Events
+            'event_created'        => 100,
+            'event_reminder'       => 80,
+            'ticket_purchased'     => 30,
+            'event_attended'       => 40,
+
+            // Awards
+            'nomination_submitted' => 80,
+            'award_won'            => 140,
+            'award_season_started' => 100,
+            'award_voted'          => 30,
+
+            // Store (lower — commerce should not dominate)
+            'product_purchased'    => 30,
+            'product_reviewed'     => 25,
+            'store_created'        => 50,
+
+            // SACCO
+            'sacco_joined'         => 40,
+            'loan_taken'           => 20,
+            'loan_repaid'          => 20,
+            'dividend_received'    => 60,
+            'sacco_milestone'      => 70,
+
+            // Loyalty
+            'fan_club_joined'      => 40,
+            'reward_redeemed'      => 35,
+            'points_milestone'     => 50,
+
+            // Forum / Polls
+            'thread_created'       => 45,
+            'reply_posted'         => 20,
+            'poll_created'         => 60,
+            'poll_ended'           => 50,
+
+            // Podcasts
+            'episode_published'    => 90,
+            'podcast_milestone'    => 70,
+
+            // Ojokotau (Campaigns)
+            'campaign_created'     => 80,
+            'campaign_funded'      => 70,
+            'campaign_milestone'   => 90,
+
+            // Promotions
+            'promotion_started'    => 55,
+            'promotion_featured'   => 65,
+
+            // Social (low — aggregated by default)
+            'user_post'            => 40,
+            'user_activity'        => 15,
+            'user_followed'        => 15,
+            'comment_posted'       => 10,
+            'shared_content'       => 15,
+
+            // Platform
+            'announcement'         => 90,
+        ],
+
+        // Uganda context modifiers (applied at ranking time)
+        'uganda_modifiers' => [
+            'artist_is_ugandan'      => 20,
+            'same_region'            => 15,
+            'same_genre'             => 25,
+            'trending_locally'       => 30,
+            'user_follows_artist'    => 40,
+            'user_interacted_before' => 20,
+            'older_than_7_days'      => -50,
+        ],
+
+        // Anti-spam
+        'max_per_actor_per_day' => 5,
+
+        // Privacy defaults per module
+        'visibility_defaults' => [
+            'music'    => 'public',
+            'events'   => 'public',
+            'awards'   => 'public',
+            'forum'    => 'public',
+            'podcasts' => 'public',
+            'loyalty'  => 'public',
+            'store'    => 'members',
+            'sacco'    => 'members',
+            'ojokotau' => 'public',
+            'platform' => 'public',
+        ],
+    ],
+
     // Analytics
     'analytics' => [
         'enabled' => env('FEED_ANALYTICS_ENABLED', true),

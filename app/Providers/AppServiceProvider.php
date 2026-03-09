@@ -4,45 +4,49 @@ namespace App\Providers;
 
 use App\Models\Album;
 use App\Models\ArtistRevenue;
+use App\Models\Award;
+use App\Models\AwardNomination;
 use App\Models\AwardVote;
+use App\Models\Campaign;
+use App\Models\CampaignPledge;
+use App\Models\Comment;
 use App\Models\Event as EventModel;
 use App\Models\Like;
 use App\Models\Payment;
 use App\Models\Playlist;
 use App\Models\Setting;
 // use App\Models\ArtistPayout; // Not yet implemented
+use App\Models\Modules\Forum\ForumReply;
+use App\Models\Modules\Forum\ForumTopic;
+use App\Models\Modules\Forum\Poll;
+use App\Models\Share;
 use App\Models\Song;
+use App\Models\UserFollow;
 use App\Observers\AlbumObserver;
 use App\Observers\ArtistPayoutObserver;
 use App\Observers\ArtistRevenueObserver;
+use App\Observers\AwardNominationObserver;
+use App\Observers\AwardObserver;
 use App\Observers\AwardVoteObserver;
+use App\Observers\CommentObserver;
 use App\Observers\EventObserver;
+use App\Observers\ForumReplyObserver;
+use App\Observers\ForumTopicObserver;
 use App\Observers\LikeObserver;
-// use App\Models\UserFollow; // Not yet implemented
-// use App\Models\Comment; // Not yet implemented
-// use App\Models\Share; // Not yet implemented
-// use App\Models\User; // Not yet implemented
-// use App\Models\Artist; // Not yet implemented
-// use App\Models\Modules\Forum\ForumTopic; // Not yet implemented
-// use App\Models\Modules\Forum\ForumReply; // Not yet implemented
-// use App\Models\Modules\Forum\Poll; // Not yet implemented
 use App\Observers\PaymentObserver;
 use App\Observers\PlaylistObserver;
+use App\Observers\PodcastEpisodeObserver;
+use App\Observers\PollObserver;
+use App\Observers\ReviewObserver;
+use App\Observers\ShareObserver;
 use App\Observers\SongObserver;
+use App\Observers\UserFollowObserver;
 use App\Services\Payment\ZengaPayService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event as EventFacade;
 use Illuminate\Support\Facades\RateLimiter;
-// use App\Observers\UserFollowObserver; // Not yet implemented
-// use App\Observers\CommentObserver; // Not yet implemented
-// use App\Observers\ShareObserver; // Not yet implemented
-// use App\Observers\UserObserver; // Not yet implemented
-// use App\Observers\ArtistObserver; // Not yet implemented
-// use App\Observers\ForumTopicObserver; // Not yet implemented
-// use App\Observers\ForumReplyObserver; // Not yet implemented
-// use App\Observers\PollObserver; // Not yet implemented
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -72,7 +76,7 @@ class AppServiceProvider extends ServiceProvider
         ArtistRevenue::observe(ArtistRevenueObserver::class);
 
         // Register observer for store reviews
-        // \App\Modules\Store\Models\Review::observe(\App\Observers\ReviewObserver::class); // Not yet implemented
+        \App\Modules\Store\Models\Review::observe(ReviewObserver::class);
 
         // Register observers for timeline activities (Timeline Phase 2)
         // User::observe(UserObserver::class); // Not yet implemented
@@ -84,30 +88,29 @@ class AppServiceProvider extends ServiceProvider
         EventModel::observe(EventObserver::class);
         Playlist::observe(PlaylistObserver::class);
         Like::observe(LikeObserver::class);
-        // UserFollow::observe(UserFollowObserver::class); // Not yet implemented
-        // Comment::observe(CommentObserver::class); // Not yet implemented
-        // Share::observe(ShareObserver::class); // Not yet implemented
+        UserFollow::observe(UserFollowObserver::class);
+        Comment::observe(CommentObserver::class);
+        Share::observe(ShareObserver::class);
         AwardVote::observe(AwardVoteObserver::class);
 
-        // Register observers for Awards module (Phase 3: Feed Infrastructure)
-        // \App\Models\Award::observe(\App\Observers\AwardObserver::class); // Not yet implemented
-        // \App\Models\AwardNomination::observe(\App\Observers\AwardNominationObserver::class); // Not yet implemented
-        // \App\Models\AwardWinner::observe(\App\Observers\AwardWinnerObserver::class); // Not yet implemented
+        // Register observers for Awards module (Edula Phase 2)
+        Award::observe(AwardObserver::class);
+        AwardNomination::observe(AwardNominationObserver::class);
+        // AwardWinner model does not exist yet
 
-        // Register observers for Store module (Phase 3: Feed Infrastructure)
-        // \App\Modules\Store\Models\Product::observe(\App\Observers\Store\ProductObserver::class); // Not yet implemented
-        // \App\Modules\Store\Models\Store::observe(\App\Observers\Store\StoreObserver::class); // Not yet implemented
-        // \App\Models\Order::observe(\App\Observers\Store\OrderObserver::class); // Not yet implemented
+        // Register observers for Store module (Edula Phase 2)
+        \App\Modules\Store\Models\Product::observe(\App\Observers\Store\ProductObserver::class);
+        \App\Modules\Store\Models\Store::observe(\App\Observers\Store\StoreObserver::class);
+        \App\Modules\Store\Models\Order::observe(\App\Observers\Store\OrderObserver::class);
 
-        // Register observers for SACCO module (Phase 3: Feed Infrastructure)
-        // \App\Models\Sacco\SaccoDividend::observe(\App\Observers\Sacco\SaccoDividendObserver::class); // Not yet implemented
-        // \App\Models\Sacco\SaccoMember::observe(\App\Observers\Sacco\SaccoMemberObserver::class); // Not yet implemented
-        // \App\Models\Sacco\SaccoMemberDividend::observe(\App\Observers\Sacco\SaccoMemberDividendObserver::class); // Not yet implemented
+        // Register observers for SACCO module (Edula Phase 2)
+        \App\Models\Sacco\SaccoDividend::observe(\App\Observers\Sacco\SaccoDividendObserver::class);
+        \App\Models\Sacco\SaccoMember::observe(\App\Observers\Sacco\SaccoMemberObserver::class);
+        \App\Models\Sacco\SaccoMemberDividend::observe(\App\Observers\Sacco\SaccoMemberDividendObserver::class);
 
-        // Register observers for Ojokotau module (Phase 3: Feed Infrastructure)
-        // \App\Modules\Ojokotau\Models\Campaign::observe(\App\Observers\Ojokotau\CampaignObserver::class); // Not yet implemented
-        // \App\Modules\Ojokotau\Models\CampaignEndorsement::observe(\App\Observers\Ojokotau\CampaignEndorsementObserver::class); // Not yet implemented
-        // \App\Modules\Ojokotau\Models\CampaignPledge::observe(\App\Observers\Ojokotau\CampaignPledgeObserver::class); // Not yet implemented
+        // Register observers for Ojokotau/Campaigns module (Edula Phase 2)
+        Campaign::observe(\App\Observers\Ojokotau\CampaignObserver::class);
+        CampaignPledge::observe(\App\Observers\Ojokotau\CampaignPledgeObserver::class);
 
         // Register observers for Loyalty module
         \App\Models\Loyalty\LoyaltyCard::observe(\App\Observers\Loyalty\LoyaltyCardObserver::class);
@@ -168,10 +171,13 @@ class AppServiceProvider extends ServiceProvider
             [\App\Listeners\AuditLoggingListener::class, 'handlePasswordReset']
         );
 
-        // Register observers for Forum & Polls module (Phase 4: Dashboard Integration)
-        // ForumTopic::observe(ForumTopicObserver::class); // Not yet implemented
-        // ForumReply::observe(ForumReplyObserver::class); // Not yet implemented
-        // Poll::observe(PollObserver::class); // Not yet implemented
+        // Register observers for Forum & Polls module (Edula Phase 2)
+        ForumTopic::observe(ForumTopicObserver::class);
+        ForumReply::observe(ForumReplyObserver::class);
+        Poll::observe(PollObserver::class);
+
+        // Register observer for Podcast module (Edula Phase 2)
+        \App\Modules\Podcast\Models\PodcastEpisode::observe(PodcastEpisodeObserver::class);
 
         // Configure password validation based on settings
         $this->configurePasswordValidation();

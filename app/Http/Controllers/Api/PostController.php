@@ -506,6 +506,37 @@ class PostController extends Controller
         return ! empty($metadata) ? $metadata : null;
     }
 
+    /**
+     * GET /api/posts/{post}/likers — users who liked this post
+     */
+    public function likers(Request $request, Post $post): JsonResponse
+    {
+        $likers = PostLike::where('post_id', $post->id)
+            ->with('user:id,name,username,avatar,email')
+            ->latest()
+            ->paginate($request->integer('per_page', 20));
+
+        $data = $likers->through(fn (PostLike $like) => [
+            'id' => $like->user->id,
+            'name' => $like->user->name,
+            'username' => $like->user->username,
+            'avatar_url' => $like->user->avatar
+                ? config('app.url') . \Illuminate\Support\Facades\Storage::url($like->user->avatar)
+                : 'https://ui-avatars.com/api/?name=' . urlencode($like->user->name),
+            'is_verified' => (bool) ($like->user->is_verified ?? false),
+        ]);
+
+        return response()->json([
+            'data' => $data->items(),
+            'meta' => [
+                'current_page' => $likers->currentPage(),
+                'last_page' => $likers->lastPage(),
+                'per_page' => $likers->perPage(),
+                'total' => $likers->total(),
+            ],
+        ]);
+    }
+
     protected function isBookmarkedBy(Post $post, \App\Models\User $user): bool
     {
         return \App\Models\Like::where('user_id', $user->id)

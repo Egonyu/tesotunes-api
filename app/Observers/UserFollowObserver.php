@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\UserFollow;
 use App\Services\ActivityService;
+use App\Services\FeedItemService;
 
 class UserFollowObserver
 {
@@ -25,6 +26,21 @@ class UserFollowObserver
                     'followable_name' => $follow->followable->name ?? $follow->followable->stage_name ?? null,
                 ]
             );
+
+            FeedItemService::create([
+                'type'          => 'user_followed',
+                'module'        => 'social',
+                'title'         => ($follow->follower->name ?? 'Someone') . ' started following ' . ($follow->followable->name ?? $follow->followable->stage_name ?? 'someone'),
+                'actor_id'      => $follow->follower->id,
+                'actor_type'    => 'user',
+                'actor_name'    => $follow->follower->name,
+                'actor_avatar_url' => $follow->follower->avatar_url,
+                'subject_type'  => $follow->followable_type,
+                'subject_id'    => $follow->followable_id,
+                'extras'        => [
+                    'followable_name' => $follow->followable->name ?? $follow->followable->stage_name,
+                ],
+            ]);
         }
     }
 

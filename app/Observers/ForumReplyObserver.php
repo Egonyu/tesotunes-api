@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\Activity;
 use App\Models\Modules\Forum\ForumReply;
+use App\Services\FeedItemService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
@@ -27,6 +28,27 @@ class ForumReplyObserver
                     'topic_title' => $reply->topic->title ?? null,
                     'parent_id' => $reply->parent_id,
                     'is_nested' => $reply->parent_id !== null,
+                ],
+            ]);
+
+            $user = $reply->user;
+            FeedItemService::create([
+                'type'          => 'reply_posted',
+                'module'        => 'forum',
+                'title'         => ($user->name ?? 'Someone') . ' replied to "' . ($reply->topic->title ?? 'a discussion') . '"',
+                'body'          => $reply->content ? substr(strip_tags($reply->content), 0, 200) : null,
+                'actor_id'      => $reply->user_id,
+                'actor_type'    => 'user',
+                'actor_name'    => $user->name ?? null,
+                'actor_avatar_url' => $user->avatar_url ?? null,
+                'subject_type'  => ForumReply::class,
+                'subject_id'    => $reply->id,
+                'actions'       => [
+                    ['type' => 'view', 'label' => 'View Discussion', 'url' => "/forum/topics/{$reply->topic->slug}"],
+                ],
+                'extras'        => [
+                    'topic_id'    => $reply->topic_id,
+                    'topic_title' => $reply->topic->title ?? null,
                 ],
             ]);
 

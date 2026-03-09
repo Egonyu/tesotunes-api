@@ -42,6 +42,25 @@ class LoyaltyCardObserver
                     ],
                     actorType: 'Artist'
                 );
+
+                \App\Services\FeedItemService::create([
+                    'type'          => 'fan_club_joined',
+                    'module'        => 'loyalty',
+                    'title'         => ($card->artist->stage_name ?? $card->artist->name) . ' launched a fan club: ' . $card->name,
+                    'actor_id'      => $card->artist->user->id,
+                    'actor_type'    => 'artist',
+                    'actor_name'    => $card->artist->stage_name ?? $card->artist->name,
+                    'actor_avatar_url' => $card->artist->avatar_url,
+                    'actor_verified'=> (bool) $card->artist->is_verified,
+                    'subject_type'  => LoyaltyCard::class,
+                    'subject_id'    => $card->id,
+                    'actions'       => [
+                        ['type' => 'view', 'label' => 'Join Fan Club', 'url' => "/loyalty/{$card->slug}"],
+                    ],
+                    'extras'        => [
+                        'tiers' => array_keys($card->tiers ?? []),
+                    ],
+                ]);
             }
         } catch (\Exception $e) {
             \Illuminate\Support\Facades\Log::warning("Failed to log loyalty card activity: {$e->getMessage()}");
