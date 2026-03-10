@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SongResource;
 use App\Models\Song;
+use App\Notifications\SongModerationNotification;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -524,6 +525,9 @@ class SongsApiController extends Controller
                 'song_ids.*' => 'exists:songs,id',
             ]);
 
+            // Load songs with their artist/user before updating so we can notify
+            $songs = Song::with('artist.user')->whereIn('id', $request->song_ids)->get();
+
             $count = Song::whereIn('id', $request->song_ids)
                 ->update([
                     'status' => 'published',
@@ -531,6 +535,14 @@ class SongsApiController extends Controller
                     'approved_by' => auth()->id(),
                     'published_at' => now(),
                 ]);
+
+            // Notify each artist that their song was approved
+            foreach ($songs as $song) {
+                $user = $song->artist?->user;
+                if ($user) {
+                    $user->notify(new SongModerationNotification($song, SongModerationNotification::APPROVED));
+                }
+            }
 
             return response()->json([
                 'success' => true,
@@ -552,11 +564,24 @@ class SongsApiController extends Controller
                 'reason' => 'nullable|string|max:500',
             ]);
 
+            $reason = $request->input('reason', 'Rejected by admin');
+
+            // Load songs with their artist/user before updating so we can notify
+            $songs = Song::with('artist.user')->whereIn('id', $request->song_ids)->get();
+
             $count = Song::whereIn('id', $request->song_ids)
                 ->update([
                     'status' => 'rejected',
-                    'rejection_reason' => $request->input('reason', 'Rejected by admin'),
+                    'rejection_reason' => $reason,
                 ]);
+
+            // Notify each artist that their song was rejected
+            foreach ($songs as $song) {
+                $user = $song->artist?->user;
+                if ($user) {
+                    $user->notify(new SongModerationNotification($song, SongModerationNotification::REJECTED, $reason));
+                }
+            }
 
             return response()->json([
                 'success' => true,

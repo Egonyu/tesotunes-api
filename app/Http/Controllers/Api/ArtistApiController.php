@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\Album;
 use App\Models\Artist;
 use App\Models\Song;
+use App\Models\User;
+use App\Notifications\AdminSongPendingNotification;
+use App\Notifications\SongModerationNotification;
 use App\Services\PayoutService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -419,6 +422,17 @@ class ArtistApiController extends Controller
         cache()->forget("artist_uploads_{$artist->id}_".now()->format('Y_m'));
 
         $song->load(['artist', 'album', 'primaryGenre']);
+
+        // Notify the artist that their song is pending review
+        if ($status === 'pending') {
+            $request->user()->notify(new SongModerationNotification($song, SongModerationNotification::PENDING_REVIEW));
+
+            // Notify admin/super_admin users about the pending song
+            $admins = User::whereIn('role', ['admin', 'super_admin'])->get();
+            foreach ($admins as $admin) {
+                $admin->notify(new AdminSongPendingNotification($song, $request->user()));
+            }
+        }
 
         return response()->json([
             'message' => 'Song uploaded successfully!',
