@@ -20,19 +20,19 @@ class SaccoMemberDividendObserver
                 }
 
                 FeedItemService::create([
-                    'type'          => 'dividend_received',
-                    'module'        => 'sacco',
-                    'title'         => ($user->name ?? 'A member') . ' received SACCO dividend of UGX ' . number_format($memberDividend->dividend_amount),
-                    'actor_id'      => $user->id,
-                    'actor_type'    => 'user',
-                    'actor_name'    => $user->name,
+                    'type' => 'dividend_received',
+                    'module' => 'sacco',
+                    'title' => ($user->name ?? 'A member').' received SACCO dividend of UGX '.number_format($memberDividend->dividend_amount),
+                    'actor_id' => $user->id,
+                    'actor_type' => 'user',
+                    'actor_name' => $user->name,
                     'actor_avatar_url' => $user->avatar_url ?? null,
-                    'subject_type'  => SaccoMemberDividend::class,
-                    'subject_id'    => $memberDividend->id,
-                    'visibility'    => 'members',
-                    'extras'        => [
+                    'subject_type' => SaccoMemberDividend::class,
+                    'subject_id' => $memberDividend->id,
+                    'visibility' => 'members',
+                    'extras' => [
                         'dividend_amount' => $memberDividend->dividend_amount,
-                        'shares_amount'   => $memberDividend->shares_amount,
+                        'shares_amount' => $memberDividend->shares_amount,
                     ],
                 ]);
             } catch (\Exception $e) {

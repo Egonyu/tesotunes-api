@@ -33,22 +33,22 @@ class PollObserver
 
             $user = $poll->user;
             FeedItemService::create([
-                'type'          => 'poll_created',
-                'module'        => 'forum',
-                'title'         => ($user->name ?? 'Someone') . ' created a poll: ' . $poll->title,
-                'actor_id'      => $poll->user_id,
-                'actor_type'    => 'user',
-                'actor_name'    => $user->name ?? null,
+                'type' => 'poll_created',
+                'module' => 'forum',
+                'title' => ($user->name ?? 'Someone').' created a poll: '.$poll->title,
+                'actor_id' => $poll->user_id,
+                'actor_type' => 'user',
+                'actor_name' => $user->name ?? null,
                 'actor_avatar_url' => $user->avatar_url ?? null,
-                'subject_type'  => Poll::class,
-                'subject_id'    => $poll->id,
-                'actions'       => [
+                'subject_type' => Poll::class,
+                'subject_id' => $poll->id,
+                'actions' => [
                     ['type' => 'vote', 'label' => 'Vote Now', 'url' => "/forum/polls/{$poll->id}"],
                 ],
-                'extras'        => [
-                    'ends_at'           => $poll->ends_at?->toIso8601String(),
-                    'allow_multiple'    => $poll->allow_multiple_choices,
-                    'option_count'      => $poll->options?->count() ?? 0,
+                'extras' => [
+                    'ends_at' => $poll->ends_at?->toIso8601String(),
+                    'allow_multiple' => $poll->allow_multiple_choices,
+                    'option_count' => $poll->options?->count() ?? 0,
                 ],
             ]);
 
@@ -83,20 +83,20 @@ class PollObserver
                 ]);
 
                 FeedItemService::create([
-                    'type'          => 'poll_ended',
-                    'module'        => 'forum',
-                    'title'         => 'Poll ended: ' . $poll->title,
-                    'actor_id'      => $poll->user_id,
-                    'actor_type'    => 'user',
-                    'actor_name'    => $poll->user->name ?? null,
+                    'type' => 'poll_ended',
+                    'module' => 'forum',
+                    'title' => 'Poll ended: '.$poll->title,
+                    'actor_id' => $poll->user_id,
+                    'actor_type' => 'user',
+                    'actor_name' => $poll->user->name ?? null,
                     'actor_avatar_url' => $poll->user->avatar_url ?? null,
-                    'subject_type'  => Poll::class,
-                    'subject_id'    => $poll->id,
-                    'actions'       => [
+                    'subject_type' => Poll::class,
+                    'subject_id' => $poll->id,
+                    'actions' => [
                         ['type' => 'view', 'label' => 'View Results', 'url' => "/forum/polls/{$poll->id}"],
                     ],
-                    'extras'        => [
-                        'total_votes'  => $poll->votes()->count(),
+                    'extras' => [
+                        'total_votes' => $poll->votes()->count(),
                         'total_voters' => $poll->votes()->distinct('user_id')->count('user_id'),
                     ],
                 ]);

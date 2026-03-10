@@ -12,13 +12,13 @@ use App\Models\CampaignPledge;
 use App\Models\Comment;
 use App\Models\Event as EventModel;
 use App\Models\Like;
-use App\Models\Payment;
-use App\Models\Playlist;
-use App\Models\Setting;
-// use App\Models\ArtistPayout; // Not yet implemented
 use App\Models\Modules\Forum\ForumReply;
 use App\Models\Modules\Forum\ForumTopic;
 use App\Models\Modules\Forum\Poll;
+// use App\Models\ArtistPayout; // Not yet implemented
+use App\Models\Payment;
+use App\Models\Playlist;
+use App\Models\Setting;
 use App\Models\Share;
 use App\Models\Song;
 use App\Models\UserFollow;

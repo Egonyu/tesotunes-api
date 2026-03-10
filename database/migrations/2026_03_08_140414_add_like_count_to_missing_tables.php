@@ -14,7 +14,7 @@ return new class extends Migration
         $tables = ['artists', 'playlists', 'events', 'activities'];
 
         foreach ($tables as $table) {
-            if (Schema::hasTable($table) && !Schema::hasColumn($table, 'like_count')) {
+            if (Schema::hasTable($table) && ! Schema::hasColumn($table, 'like_count')) {
                 Schema::table($table, function (Blueprint $blueprint) {
                     $blueprint->unsignedInteger('like_count')->default(0)->after('id');
                 });

@@ -42,12 +42,12 @@ class BackfillFeedItems extends Command
         $dryRun = $this->option('dry-run');
         $module = $this->option('module');
 
-        $this->info("Edula Feed Backfill");
-        $this->info("===================");
+        $this->info('Edula Feed Backfill');
+        $this->info('===================');
         $this->info("Since: {$since->toDateTimeString()}");
         $this->info("Limit: {$limit}");
-        $this->info("Module: " . ($module ?: 'all'));
-        $this->info("Dry run: " . ($dryRun ? 'yes' : 'no'));
+        $this->info('Module: '.($module ?: 'all'));
+        $this->info('Dry run: '.($dryRun ? 'yes' : 'no'));
         $this->newLine();
 
         // Build query
@@ -60,7 +60,8 @@ class BackfillFeedItems extends Command
         // Filter by module types if specified
         if ($module) {
             if (! isset($this->moduleTypeMap[$module])) {
-                $this->error("Unknown module: {$module}. Valid: " . implode(', ', array_keys($this->moduleTypeMap)));
+                $this->error("Unknown module: {$module}. Valid: ".implode(', ', array_keys($this->moduleTypeMap)));
+
                 return self::FAILURE;
             }
             $query->whereIn('type', $this->moduleTypeMap[$module]);
@@ -71,6 +72,7 @@ class BackfillFeedItems extends Command
 
         if ($totalCount === 0) {
             $this->info('Nothing to backfill.');
+
             return self::SUCCESS;
         }
 
@@ -79,11 +81,13 @@ class BackfillFeedItems extends Command
                 ['Module', 'Activity Types', 'Count'],
                 $this->getDryRunStats($query)
             );
+
             return self::SUCCESS;
         }
 
         if (! $this->option('force') && ! $this->confirm("Proceed with backfilling {$totalCount} activities?")) {
             $this->info('Cancelled.');
+
             return self::SUCCESS;
         }
 
@@ -105,6 +109,7 @@ class BackfillFeedItems extends Command
                 if ($exists) {
                     $skipped++;
                     $bar->advance();
+
                     continue;
                 }
 
@@ -131,7 +136,7 @@ class BackfillFeedItems extends Command
 
         $duration = round(microtime(true) - $startTime, 2);
 
-        $this->info("Backfill complete!");
+        $this->info('Backfill complete!');
         $this->table(
             ['Metric', 'Value'],
             [

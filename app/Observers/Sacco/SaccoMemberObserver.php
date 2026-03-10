@@ -23,21 +23,21 @@ class SaccoMemberObserver
                 subject: $member,
                 metadata: [
                     'member_number' => $member->member_number,
-                    'member_type'   => $member->member_type,
+                    'member_type' => $member->member_type,
                 ]
             );
 
             FeedItemService::create([
-                'type'          => 'sacco_joined',
-                'module'        => 'sacco',
-                'title'         => ($user->name ?? 'Someone') . ' joined the SACCO',
-                'actor_id'      => $user->id,
-                'actor_type'    => 'user',
-                'actor_name'    => $user->name,
+                'type' => 'sacco_joined',
+                'module' => 'sacco',
+                'title' => ($user->name ?? 'Someone').' joined the SACCO',
+                'actor_id' => $user->id,
+                'actor_type' => 'user',
+                'actor_name' => $user->name,
                 'actor_avatar_url' => $user->avatar_url ?? null,
-                'subject_type'  => SaccoMember::class,
-                'subject_id'    => $member->id,
-                'visibility'    => 'members',
+                'subject_type' => SaccoMember::class,
+                'subject_id' => $member->id,
+                'visibility' => 'members',
             ]);
         } catch (\Exception $e) {
             Log::error('SaccoMemberObserver: Failed to create feed item', ['member_id' => $member->id, 'error' => $e->getMessage()]);

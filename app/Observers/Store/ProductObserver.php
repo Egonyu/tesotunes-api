@@ -22,29 +22,29 @@ class ProductObserver
                     subject: $product,
                     metadata: [
                         'product_name' => $product->name,
-                        'store_name'   => $store->name ?? null,
-                        'price_ugx'    => $product->price_ugx ?? null,
+                        'store_name' => $store->name ?? null,
+                        'price_ugx' => $product->price_ugx ?? null,
                     ]
                 );
 
                 FeedItemService::create([
-                    'type'            => 'store_created',
-                    'module'          => 'store',
-                    'title'           => ($store->name ?? 'A store') . ' listed a new product: ' . $product->name,
-                    'body'            => $product->description ? substr($product->description, 0, 200) : null,
-                    'actor_id'        => $user->id,
-                    'actor_type'      => 'user',
-                    'actor_name'      => $store->name ?? $user->name,
+                    'type' => 'store_created',
+                    'module' => 'store',
+                    'title' => ($store->name ?? 'A store').' listed a new product: '.$product->name,
+                    'body' => $product->description ? substr($product->description, 0, 200) : null,
+                    'actor_id' => $user->id,
+                    'actor_type' => 'user',
+                    'actor_name' => $store->name ?? $user->name,
                     'actor_avatar_url' => $store->logo_url ?? $user->avatar_url ?? null,
-                    'subject_type'    => Product::class,
-                    'subject_id'      => $product->id,
-                    'media_type'      => 'image',
-                    'media_url'       => $product->image_url ?? null,
-                    'actions'         => [
+                    'subject_type' => Product::class,
+                    'subject_id' => $product->id,
+                    'media_type' => 'image',
+                    'media_url' => $product->image_url ?? null,
+                    'actions' => [
                         ['type' => 'view', 'label' => 'View Product', 'url' => "/store/{$store->slug}/products/{$product->slug}"],
                     ],
-                    'extras'          => [
-                        'price_ugx'    => $product->price_ugx ?? null,
+                    'extras' => [
+                        'price_ugx' => $product->price_ugx ?? null,
                         'price_credits' => $product->price_credits ?? null,
                     ],
                 ]);

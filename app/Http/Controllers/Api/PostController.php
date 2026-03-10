@@ -521,8 +521,8 @@ class PostController extends Controller
             'name' => $like->user->name,
             'username' => $like->user->username,
             'avatar_url' => $like->user->avatar
-                ? config('app.url') . \Illuminate\Support\Facades\Storage::url($like->user->avatar)
-                : 'https://ui-avatars.com/api/?name=' . urlencode($like->user->name),
+                ? config('app.url').\Illuminate\Support\Facades\Storage::url($like->user->avatar)
+                : 'https://ui-avatars.com/api/?name='.urlencode($like->user->name),
             'is_verified' => (bool) ($like->user->is_verified ?? false),
         ]);
 

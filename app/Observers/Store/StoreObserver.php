@@ -23,19 +23,19 @@ class StoreObserver
                 );
 
                 FeedItemService::create([
-                    'type'          => 'store_created',
-                    'module'        => 'store',
-                    'title'         => ($store->user->name ?? 'Someone') . ' opened a new store: ' . $store->name,
-                    'body'          => $store->description ? substr($store->description, 0, 200) : null,
-                    'actor_id'      => $store->user_id,
-                    'actor_type'    => 'user',
-                    'actor_name'    => $store->user->name ?? null,
+                    'type' => 'store_created',
+                    'module' => 'store',
+                    'title' => ($store->user->name ?? 'Someone').' opened a new store: '.$store->name,
+                    'body' => $store->description ? substr($store->description, 0, 200) : null,
+                    'actor_id' => $store->user_id,
+                    'actor_type' => 'user',
+                    'actor_name' => $store->user->name ?? null,
                     'actor_avatar_url' => $store->user->avatar_url ?? null,
-                    'subject_type'  => Store::class,
-                    'subject_id'    => $store->id,
-                    'media_type'    => 'image',
-                    'media_url'     => $store->logo_url ?? null,
-                    'actions'       => [
+                    'subject_type' => Store::class,
+                    'subject_id' => $store->id,
+                    'media_type' => 'image',
+                    'media_url' => $store->logo_url ?? null,
+                    'actions' => [
                         ['type' => 'view', 'label' => 'Visit Store', 'url' => "/store/{$store->slug}"],
                     ],
                 ]);

@@ -22,18 +22,18 @@ class LoyaltyCardMemberObserver
             $user = $member->user;
             if ($card && $user) {
                 FeedItemService::create([
-                    'type'          => 'fan_club_joined',
-                    'module'        => 'loyalty',
-                    'title'         => ($user->name ?? 'Someone') . ' joined ' . ($card->name ?? 'a fan club'),
-                    'actor_id'      => $member->user_id,
-                    'actor_type'    => 'user',
-                    'actor_name'    => $user->name,
+                    'type' => 'fan_club_joined',
+                    'module' => 'loyalty',
+                    'title' => ($user->name ?? 'Someone').' joined '.($card->name ?? 'a fan club'),
+                    'actor_id' => $member->user_id,
+                    'actor_type' => 'user',
+                    'actor_name' => $user->name,
                     'actor_avatar_url' => $user->avatar_url,
-                    'subject_type'  => LoyaltyCardMember::class,
-                    'subject_id'    => $member->id,
-                    'extras'        => [
+                    'subject_type' => LoyaltyCardMember::class,
+                    'subject_id' => $member->id,
+                    'extras' => [
                         'card_name' => $card->name,
-                        'tier'      => $member->tier,
+                        'tier' => $member->tier,
                     ],
                 ]);
             }

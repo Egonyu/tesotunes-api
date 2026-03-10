@@ -30,16 +30,16 @@ class CommentObserver
 
             // Create feed item for comments
             FeedItemService::create([
-                'type'          => 'comment_posted',
-                'module'        => 'social',
-                'title'         => ($comment->user->name ?? 'Someone') . ' commented on "' . ($comment->commentable->title ?? $comment->commentable->name ?? 'content') . '"',
-                'body'          => substr($comment->comment, 0, 200),
-                'actor_id'      => $comment->user->id,
-                'actor_type'    => 'user',
-                'actor_name'    => $comment->user->name,
+                'type' => 'comment_posted',
+                'module' => 'social',
+                'title' => ($comment->user->name ?? 'Someone').' commented on "'.($comment->commentable->title ?? $comment->commentable->name ?? 'content').'"',
+                'body' => substr($comment->comment, 0, 200),
+                'actor_id' => $comment->user->id,
+                'actor_type' => 'user',
+                'actor_name' => $comment->user->name,
                 'actor_avatar_url' => $comment->user->avatar_url,
-                'subject_type'  => get_class($comment->commentable),
-                'subject_id'    => $comment->commentable->id,
+                'subject_type' => get_class($comment->commentable),
+                'subject_id' => $comment->commentable->id,
             ]);
 
             // Increment comment count on the activity if it exists

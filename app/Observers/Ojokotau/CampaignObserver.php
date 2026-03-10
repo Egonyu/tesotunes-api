@@ -29,18 +29,18 @@ class CampaignObserver
             if ($campaign->isDirty('is_featured') && $campaign->is_featured) {
                 $user = $campaign->user;
                 FeedItemService::create([
-                    'type'            => 'campaign_milestone',
-                    'module'          => 'ojokotau',
-                    'title'           => 'Featured campaign: ' . $campaign->title,
-                    'body'            => $campaign->description ? substr($campaign->description, 0, 200) : null,
-                    'actor_id'        => 0,
-                    'actor_type'      => 'system',
-                    'actor_name'      => 'Ojokotau',
-                    'subject_type'    => Campaign::class,
-                    'subject_id'      => $campaign->id,
-                    'is_prestige'     => true,
+                    'type' => 'campaign_milestone',
+                    'module' => 'ojokotau',
+                    'title' => 'Featured campaign: '.$campaign->title,
+                    'body' => $campaign->description ? substr($campaign->description, 0, 200) : null,
+                    'actor_id' => 0,
+                    'actor_type' => 'system',
+                    'actor_name' => 'Ojokotau',
+                    'subject_type' => Campaign::class,
+                    'subject_id' => $campaign->id,
+                    'is_prestige' => true,
                     'has_celebration' => true,
-                    'actions'         => [
+                    'actions' => [
                         ['type' => 'view', 'label' => 'Support Campaign', 'url' => "/ojokotau/{$campaign->slug}"],
                     ],
                 ]);
@@ -49,16 +49,16 @@ class CampaignObserver
             // Campaign verified
             if ($campaign->isDirty('is_verified') && $campaign->is_verified) {
                 FeedItemService::create([
-                    'type'          => 'campaign_milestone',
-                    'module'        => 'ojokotau',
-                    'title'         => 'Campaign verified: ' . $campaign->title,
-                    'actor_id'      => 0,
-                    'actor_type'    => 'system',
-                    'actor_name'    => 'Ojokotau',
-                    'subject_type'  => Campaign::class,
-                    'subject_id'    => $campaign->id,
-                    'is_prestige'   => true,
-                    'actions'       => [
+                    'type' => 'campaign_milestone',
+                    'module' => 'ojokotau',
+                    'title' => 'Campaign verified: '.$campaign->title,
+                    'actor_id' => 0,
+                    'actor_type' => 'system',
+                    'actor_name' => 'Ojokotau',
+                    'subject_type' => Campaign::class,
+                    'subject_id' => $campaign->id,
+                    'is_prestige' => true,
+                    'actions' => [
                         ['type' => 'view', 'label' => 'Support Campaign', 'url' => "/ojokotau/{$campaign->slug}"],
                     ],
                 ]);
@@ -81,31 +81,31 @@ class CampaignObserver
                 action: 'created_campaign',
                 subject: $campaign,
                 metadata: [
-                    'title'         => $campaign->title,
-                    'category'      => $campaign->category,
+                    'title' => $campaign->title,
+                    'category' => $campaign->category,
                     'target_amount' => $campaign->target_amount,
                 ]
             );
 
             FeedItemService::create([
-                'type'          => 'campaign_created',
-                'module'        => 'ojokotau',
-                'title'         => ($user->name ?? 'Someone') . ' started a campaign: ' . $campaign->title,
-                'body'          => $campaign->description ? substr($campaign->description, 0, 200) : null,
-                'actor_id'      => $user->id,
-                'actor_type'    => 'user',
-                'actor_name'    => $user->name,
+                'type' => 'campaign_created',
+                'module' => 'ojokotau',
+                'title' => ($user->name ?? 'Someone').' started a campaign: '.$campaign->title,
+                'body' => $campaign->description ? substr($campaign->description, 0, 200) : null,
+                'actor_id' => $user->id,
+                'actor_type' => 'user',
+                'actor_name' => $user->name,
                 'actor_avatar_url' => $user->avatar_url ?? null,
-                'subject_type'  => Campaign::class,
-                'subject_id'    => $campaign->id,
-                'actions'       => [
+                'subject_type' => Campaign::class,
+                'subject_id' => $campaign->id,
+                'actions' => [
                     ['type' => 'view', 'label' => 'Support Campaign', 'url' => "/ojokotau/{$campaign->slug}"],
                 ],
-                'extras'        => [
-                    'category'      => $campaign->category,
+                'extras' => [
+                    'category' => $campaign->category,
                     'target_amount' => $campaign->target_amount,
-                    'urgency'       => $campaign->urgency,
-                    'end_date'      => $campaign->end_date?->toDateString(),
+                    'urgency' => $campaign->urgency,
+                    'end_date' => $campaign->end_date?->toDateString(),
                 ],
             ]);
         } catch (\Exception $e) {

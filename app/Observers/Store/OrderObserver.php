@@ -25,24 +25,24 @@ class OrderObserver
                     subject: $order,
                     metadata: [
                         'store_name' => $order->store->name ?? null,
-                        'total_ugx'  => $order->total_ugx,
+                        'total_ugx' => $order->total_ugx,
                         'item_count' => $order->items()->count(),
                     ]
                 );
 
                 // Feed item for purchases — visibility is 'members' (private by default)
                 FeedItemService::create([
-                    'type'          => 'product_purchased',
-                    'module'        => 'store',
-                    'title'         => ($buyer->name ?? 'Someone') . ' made a purchase from ' . ($order->store->name ?? 'a store'),
-                    'actor_id'      => $buyer->id,
-                    'actor_type'    => 'user',
-                    'actor_name'    => $buyer->name,
+                    'type' => 'product_purchased',
+                    'module' => 'store',
+                    'title' => ($buyer->name ?? 'Someone').' made a purchase from '.($order->store->name ?? 'a store'),
+                    'actor_id' => $buyer->id,
+                    'actor_type' => 'user',
+                    'actor_name' => $buyer->name,
                     'actor_avatar_url' => $buyer->avatar_url ?? null,
-                    'subject_type'  => Order::class,
-                    'subject_id'    => $order->id,
-                    'visibility'    => 'members',
-                    'extras'        => [
+                    'subject_type' => Order::class,
+                    'subject_id' => $order->id,
+                    'visibility' => 'members',
+                    'extras' => [
                         'store_name' => $order->store->name ?? null,
                         'item_count' => $order->items()->count(),
                     ],

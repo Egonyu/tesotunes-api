@@ -28,19 +28,19 @@ class AwardVoteObserver
                 );
 
                 FeedItemService::create([
-                    'type'          => 'award_voted',
-                    'module'        => 'awards',
-                    'title'         => ($vote->user->name ?? 'Someone') . ' voted for ' . ($vote->nomination->nominee_name ?? 'a nominee') . ' in ' . ($vote->award->title ?? 'an award'),
-                    'actor_id'      => $vote->user_id,
-                    'actor_type'    => 'user',
-                    'actor_name'    => $vote->user->name,
+                    'type' => 'award_voted',
+                    'module' => 'awards',
+                    'title' => ($vote->user->name ?? 'Someone').' voted for '.($vote->nomination->nominee_name ?? 'a nominee').' in '.($vote->award->title ?? 'an award'),
+                    'actor_id' => $vote->user_id,
+                    'actor_type' => 'user',
+                    'actor_name' => $vote->user->name,
                     'actor_avatar_url' => $vote->user->avatar_url,
-                    'subject_type'  => get_class($vote->nomination),
-                    'subject_id'    => $vote->nomination->id,
-                    'extras'        => [
-                        'award_title'   => $vote->award->title ?? null,
+                    'subject_type' => get_class($vote->nomination),
+                    'subject_id' => $vote->nomination->id,
+                    'extras' => [
+                        'award_title' => $vote->award->title ?? null,
                         'category_name' => $vote->category->name ?? null,
-                        'nominee_name'  => $vote->nomination->nominee_name ?? null,
+                        'nominee_name' => $vote->nomination->nominee_name ?? null,
                     ],
                 ]);
             } catch (\Exception $e) {

@@ -30,16 +30,16 @@ class ShareObserver
 
             // Create feed item for shares
             FeedItemService::create([
-                'type'          => 'shared_content',
-                'module'        => 'social',
-                'title'         => ($share->user->name ?? 'Someone') . ' shared "' . ($share->shareable->title ?? $share->shareable->name ?? 'content') . '"',
-                'actor_id'      => $share->user->id,
-                'actor_type'    => 'user',
-                'actor_name'    => $share->user->name,
+                'type' => 'shared_content',
+                'module' => 'social',
+                'title' => ($share->user->name ?? 'Someone').' shared "'.($share->shareable->title ?? $share->shareable->name ?? 'content').'"',
+                'actor_id' => $share->user->id,
+                'actor_type' => 'user',
+                'actor_name' => $share->user->name,
                 'actor_avatar_url' => $share->user->avatar_url,
-                'subject_type'  => get_class($share->shareable),
-                'subject_id'    => $share->shareable->id,
-                'extras'        => ['platform' => $share->platform ?? 'internal'],
+                'subject_type' => get_class($share->shareable),
+                'subject_id' => $share->shareable->id,
+                'extras' => ['platform' => $share->platform ?? 'internal'],
             ]);
 
             // Increment share count on the activity if it exists

@@ -22,26 +22,26 @@ class AwardNominationObserver
                 action: 'submitted_nomination',
                 subject: $nomination,
                 metadata: [
-                    'award'        => $nomination->award->title ?? null,
-                    'category'     => $nomination->category->name ?? null,
+                    'award' => $nomination->award->title ?? null,
+                    'category' => $nomination->category->name ?? null,
                     'nominee_name' => $nomination->nominee_name,
                 ]
             );
 
             FeedItemService::create([
-                'type'          => 'nomination_submitted',
-                'module'        => 'awards',
-                'title'         => ($nominator->name ?? 'Someone') . ' nominated ' . ($nomination->nominee_name ?? 'an artist') . ' for ' . ($nomination->category->name ?? 'an award'),
-                'actor_id'      => $nominator->id,
-                'actor_type'    => 'user',
-                'actor_name'    => $nominator->name,
+                'type' => 'nomination_submitted',
+                'module' => 'awards',
+                'title' => ($nominator->name ?? 'Someone').' nominated '.($nomination->nominee_name ?? 'an artist').' for '.($nomination->category->name ?? 'an award'),
+                'actor_id' => $nominator->id,
+                'actor_type' => 'user',
+                'actor_name' => $nominator->name,
                 'actor_avatar_url' => $nominator->avatar_url ?? null,
-                'subject_type'  => AwardNomination::class,
-                'subject_id'    => $nomination->id,
-                'extras'        => [
-                    'award_title'   => $nomination->award->title ?? null,
+                'subject_type' => AwardNomination::class,
+                'subject_id' => $nomination->id,
+                'extras' => [
+                    'award_title' => $nomination->award->title ?? null,
                     'category_name' => $nomination->category->name ?? null,
-                    'nominee_name'  => $nomination->nominee_name,
+                    'nominee_name' => $nomination->nominee_name,
                 ],
             ]);
         } catch (\Exception $e) {
@@ -55,18 +55,18 @@ class AwardNominationObserver
         if ($nomination->isDirty('status') && $nomination->status === 'approved') {
             try {
                 FeedItemService::create([
-                    'type'          => 'nomination_submitted',
-                    'module'        => 'awards',
-                    'title'         => ($nomination->nominee_name ?? 'An artist') . ' has been officially nominated for ' . ($nomination->category->name ?? 'an award') . '!',
-                    'actor_id'      => 0,
-                    'actor_type'    => 'system',
-                    'actor_name'    => 'TesoTunes Awards',
-                    'subject_type'  => AwardNomination::class,
-                    'subject_id'    => $nomination->id,
-                    'media_type'    => 'image',
-                    'media_url'     => $nomination->nominee_artwork ?? null,
-                    'is_prestige'   => true,
-                    'actions'       => [
+                    'type' => 'nomination_submitted',
+                    'module' => 'awards',
+                    'title' => ($nomination->nominee_name ?? 'An artist').' has been officially nominated for '.($nomination->category->name ?? 'an award').'!',
+                    'actor_id' => 0,
+                    'actor_type' => 'system',
+                    'actor_name' => 'TesoTunes Awards',
+                    'subject_type' => AwardNomination::class,
+                    'subject_id' => $nomination->id,
+                    'media_type' => 'image',
+                    'media_url' => $nomination->nominee_artwork ?? null,
+                    'is_prestige' => true,
+                    'actions' => [
                         ['type' => 'vote', 'label' => 'Vote', 'url' => "/awards/{$nomination->award->slug}/vote"],
                     ],
                 ]);

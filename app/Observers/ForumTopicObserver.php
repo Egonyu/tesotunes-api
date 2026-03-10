@@ -32,22 +32,22 @@ class ForumTopicObserver
 
             $user = $topic->user;
             FeedItemService::create([
-                'type'          => 'thread_created',
-                'module'        => 'forum',
-                'title'         => ($user->name ?? 'Someone') . ' started a discussion: ' . $topic->title,
-                'body'          => $topic->body ? substr(strip_tags($topic->body), 0, 200) : null,
-                'actor_id'      => $topic->user_id,
-                'actor_type'    => 'user',
-                'actor_name'    => $user->name ?? null,
+                'type' => 'thread_created',
+                'module' => 'forum',
+                'title' => ($user->name ?? 'Someone').' started a discussion: '.$topic->title,
+                'body' => $topic->body ? substr(strip_tags($topic->body), 0, 200) : null,
+                'actor_id' => $topic->user_id,
+                'actor_type' => 'user',
+                'actor_name' => $user->name ?? null,
                 'actor_avatar_url' => $user->avatar_url ?? null,
-                'subject_type'  => ForumTopic::class,
-                'subject_id'    => $topic->id,
-                'actions'       => [
+                'subject_type' => ForumTopic::class,
+                'subject_id' => $topic->id,
+                'actions' => [
                     ['type' => 'view', 'label' => 'Join Discussion', 'url' => "/forum/topics/{$topic->slug}"],
                 ],
-                'extras'        => [
+                'extras' => [
                     'category_name' => $topic->category->name ?? null,
-                    'is_pinned'     => $topic->is_pinned,
+                    'is_pinned' => $topic->is_pinned,
                 ],
             ]);
 

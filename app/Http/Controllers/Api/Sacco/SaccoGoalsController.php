@@ -174,7 +174,7 @@ class SaccoGoalsController extends Controller
             $goal->increment('current_amount', $validated['amount']);
             $balanceAfter = $goal->fresh()->current_amount;
 
-            $reference = 'GD-' . strtoupper(substr(md5(uniqid((string) mt_rand(), true)), 0, 10));
+            $reference = 'GD-'.strtoupper(substr(md5(uniqid((string) mt_rand(), true)), 0, 10));
 
             SaccoGoalTransaction::create([
                 'goal_id' => $goal->id,

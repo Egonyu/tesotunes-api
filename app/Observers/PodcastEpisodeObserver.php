@@ -52,30 +52,30 @@ class PodcastEpisodeObserver
             }
 
             FeedItemService::create([
-                'type'               => 'episode_published',
-                'module'             => 'podcasts',
-                'title'              => $actorName . ' dropped a new episode: ' . $episode->title,
-                'body'               => $episode->description ? substr(strip_tags($episode->description), 0, 200) : null,
-                'actor_id'           => $actorId,
-                'actor_type'         => $artist ? 'artist' : 'user',
-                'actor_name'         => $actorName,
-                'actor_avatar_url'   => $artist?->avatar_url ?? $user?->avatar_url ?? null,
-                'actor_verified'     => (bool) ($artist?->is_verified ?? false),
-                'subject_type'       => PodcastEpisode::class,
-                'subject_id'         => $episode->id,
-                'media_type'         => 'song',
-                'media_url'          => $episode->artwork ?? $podcast->artwork ?? null,
+                'type' => 'episode_published',
+                'module' => 'podcasts',
+                'title' => $actorName.' dropped a new episode: '.$episode->title,
+                'body' => $episode->description ? substr(strip_tags($episode->description), 0, 200) : null,
+                'actor_id' => $actorId,
+                'actor_type' => $artist ? 'artist' : 'user',
+                'actor_name' => $actorName,
+                'actor_avatar_url' => $artist?->avatar_url ?? $user?->avatar_url ?? null,
+                'actor_verified' => (bool) ($artist?->is_verified ?? false),
+                'subject_type' => PodcastEpisode::class,
+                'subject_id' => $episode->id,
+                'media_type' => 'song',
+                'media_url' => $episode->artwork ?? $podcast->artwork ?? null,
                 'media_duration_seconds' => $episode->duration_seconds,
-                'tags'               => array_filter([$podcast->tags ?? null]),
-                'actions'            => [
+                'tags' => array_filter([$podcast->tags ?? null]),
+                'actions' => [
                     ['type' => 'play', 'label' => 'Listen Now', 'url' => "/podcasts/{$podcast->slug}/episodes/{$episode->slug}"],
                 ],
-                'extras'             => [
-                    'podcast_title'  => $podcast->title,
+                'extras' => [
+                    'podcast_title' => $podcast->title,
                     'episode_number' => $episode->episode_number,
-                    'season_number'  => $episode->season_number,
-                    'is_explicit'    => $episode->is_explicit,
-                    'is_premium'     => $episode->is_premium,
+                    'season_number' => $episode->season_number,
+                    'is_explicit' => $episode->is_explicit,
+                    'is_premium' => $episode->is_premium,
                 ],
             ]);
         } catch (\Exception $e) {

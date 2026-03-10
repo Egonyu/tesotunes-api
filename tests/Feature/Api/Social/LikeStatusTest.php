@@ -64,7 +64,7 @@ class LikeStatusTest extends TestCase
     {
         $user = User::factory()->create(['is_active' => true]);
 
-        $response = $this->actingAs($user)->getJson("/api/like/invalid_type/999/status");
+        $response = $this->actingAs($user)->getJson('/api/like/invalid_type/999/status');
 
         $response->assertStatus(422);
     }
@@ -73,7 +73,7 @@ class LikeStatusTest extends TestCase
     {
         $user = User::factory()->create(['is_active' => true]);
 
-        $response = $this->actingAs($user)->getJson("/api/like/song/999999/status");
+        $response = $this->actingAs($user)->getJson('/api/like/song/999999/status');
 
         $response->assertStatus(404);
     }

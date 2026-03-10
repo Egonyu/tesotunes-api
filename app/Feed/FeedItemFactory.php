@@ -28,6 +28,7 @@ class FeedItemFactory
 
         if (! isset($mapping[$type])) {
             Log::debug("FeedItemFactory: unmapped activity type '{$type}'");
+
             return null;
         }
 
@@ -50,17 +51,17 @@ class FeedItemFactory
             if ($mediaUrl) {
                 $media = [
                     'type' => static::resolveMediaType($subject),
-                    'url'  => $mediaUrl,
+                    'url' => $mediaUrl,
                     'thumbnail_url' => $mediaUrl,
                 ];
             }
         }
 
         $engagement = [
-            'likes'    => $activity->properties['likes'] ?? 0,
+            'likes' => $activity->properties['likes'] ?? 0,
             'comments' => $activity->properties['comments'] ?? 0,
-            'shares'   => $activity->properties['shares'] ?? 0,
-            'views'    => $activity->properties['views'] ?? 0,
+            'shares' => $activity->properties['shares'] ?? 0,
+            'views' => $activity->properties['views'] ?? 0,
         ];
 
         $actions = static::resolveActions($subject);
@@ -74,11 +75,11 @@ class FeedItemFactory
             title: $headline,
             body: $activity->description,
             actor: [
-                'id'         => $actor?->id,
-                'name'       => $actorName,
+                'id' => $actor?->id,
+                'name' => $actorName,
                 'avatar_url' => $actor?->avatar_url ?? $actor?->profile_photo_url,
-                'verified'   => (bool) ($actor?->is_verified ?? false),
-                'type'       => $map['actor_type'] ?? 'user',
+                'verified' => (bool) ($actor?->is_verified ?? false),
+                'type' => $map['actor_type'] ?? 'user',
             ],
             media: $media,
             engagement: $engagement,
@@ -100,62 +101,64 @@ class FeedItemFactory
     {
         return [
             // Music
-            'uploaded_song'     => ['feed_type' => 'song_release',      'module' => 'music',  'headline' => ':actor released a new track: :subject', 'actor_type' => 'artist'],
-            'distributed_song'  => ['feed_type' => 'song_release',      'module' => 'music',  'headline' => ':actor distributed ":subject"', 'actor_type' => 'artist'],
-            'featured_song'     => ['feed_type' => 'song_release',      'module' => 'music',  'headline' => ':actor\'s ":subject" is now featured!', 'actor_type' => 'artist', 'is_prestige' => true],
-            'released_album'    => ['feed_type' => 'album_release',     'module' => 'music',  'headline' => ':actor dropped a new album: :subject', 'actor_type' => 'artist'],
-            'created_playlist'  => ['feed_type' => 'playlist_created',  'module' => 'music',  'headline' => ':actor created a playlist: :subject'],
+            'uploaded_song' => ['feed_type' => 'song_release',      'module' => 'music',  'headline' => ':actor released a new track: :subject', 'actor_type' => 'artist'],
+            'distributed_song' => ['feed_type' => 'song_release',      'module' => 'music',  'headline' => ':actor distributed ":subject"', 'actor_type' => 'artist'],
+            'featured_song' => ['feed_type' => 'song_release',      'module' => 'music',  'headline' => ':actor\'s ":subject" is now featured!', 'actor_type' => 'artist', 'is_prestige' => true],
+            'released_album' => ['feed_type' => 'album_release',     'module' => 'music',  'headline' => ':actor dropped a new album: :subject', 'actor_type' => 'artist'],
+            'created_playlist' => ['feed_type' => 'playlist_created',  'module' => 'music',  'headline' => ':actor created a playlist: :subject'],
 
             // Events
-            'created_event'     => ['feed_type' => 'event_created',     'module' => 'events', 'headline' => 'New event: :subject'],
-            'event_announced'   => ['feed_type' => 'event_created',     'module' => 'events', 'headline' => 'Event announced: :subject'],
+            'created_event' => ['feed_type' => 'event_created',     'module' => 'events', 'headline' => 'New event: :subject'],
+            'event_announced' => ['feed_type' => 'event_created',     'module' => 'events', 'headline' => 'Event announced: :subject'],
 
             // Social
-            'liked_song'        => ['feed_type' => 'user_activity',     'module' => 'social', 'headline' => ':actor liked ":subject"'],
-            'liked_post'        => ['feed_type' => 'user_activity',     'module' => 'social', 'headline' => ':actor liked a post'],
-            'commented_song'    => ['feed_type' => 'user_activity',     'module' => 'social', 'headline' => ':actor commented on ":subject"'],
-            'followed_artist'   => ['feed_type' => 'user_followed',     'module' => 'social', 'headline' => ':actor followed :subject'],
-            'followed_user'     => ['feed_type' => 'user_followed',     'module' => 'social', 'headline' => ':actor followed :subject'],
-            'shared_song'       => ['feed_type' => 'shared_content',    'module' => 'social', 'headline' => ':actor shared ":subject"'],
+            'liked_song' => ['feed_type' => 'user_activity',     'module' => 'social', 'headline' => ':actor liked ":subject"'],
+            'liked_post' => ['feed_type' => 'user_activity',     'module' => 'social', 'headline' => ':actor liked a post'],
+            'commented_song' => ['feed_type' => 'user_activity',     'module' => 'social', 'headline' => ':actor commented on ":subject"'],
+            'followed_artist' => ['feed_type' => 'user_followed',     'module' => 'social', 'headline' => ':actor followed :subject'],
+            'followed_user' => ['feed_type' => 'user_followed',     'module' => 'social', 'headline' => ':actor followed :subject'],
+            'shared_song' => ['feed_type' => 'shared_content',    'module' => 'social', 'headline' => ':actor shared ":subject"'],
 
             // Awards
-            'voted_award'       => ['feed_type' => 'award_voted',       'module' => 'awards', 'headline' => ':actor voted in the awards'],
-            'award_voting_opened'    => ['feed_type' => 'award_season_started', 'module' => 'awards', 'headline' => 'Award voting is now open!', 'is_prestige' => true],
-            'nomination_announced'   => ['feed_type' => 'nomination_submitted', 'module' => 'awards', 'headline' => ':subject has been nominated!'],
+            'voted_award' => ['feed_type' => 'award_voted',       'module' => 'awards', 'headline' => ':actor voted in the awards'],
+            'award_voting_opened' => ['feed_type' => 'award_season_started', 'module' => 'awards', 'headline' => 'Award voting is now open!', 'is_prestige' => true],
+            'nomination_announced' => ['feed_type' => 'nomination_submitted', 'module' => 'awards', 'headline' => ':subject has been nominated!'],
             'award_winner_announced' => ['feed_type' => 'award_won',    'module' => 'awards', 'headline' => ':subject won the award!', 'is_prestige' => true],
 
             // Store
-            'product_listed'    => ['feed_type' => 'product_reviewed',  'module' => 'store',  'headline' => 'New product: :subject'],
-            'store_created'     => ['feed_type' => 'store_created',     'module' => 'store',  'headline' => ':actor opened a new store'],
+            'product_listed' => ['feed_type' => 'product_reviewed',  'module' => 'store',  'headline' => 'New product: :subject'],
+            'store_created' => ['feed_type' => 'store_created',     'module' => 'store',  'headline' => ':actor opened a new store'],
 
             // SACCO
             'sacco_dividend_declared' => ['feed_type' => 'dividend_received', 'module' => 'sacco', 'headline' => 'Dividends declared!'],
-            'sacco_member_joined'     => ['feed_type' => 'sacco_joined',      'module' => 'sacco', 'headline' => ':actor joined the SACCO'],
+            'sacco_member_joined' => ['feed_type' => 'sacco_joined',      'module' => 'sacco', 'headline' => ':actor joined the SACCO'],
             'sacco_milestone_reached' => ['feed_type' => 'sacco_milestone',   'module' => 'sacco', 'headline' => 'SACCO milestone reached!'],
 
             // Ojokotau
             'ojokotau_campaign_launched' => ['feed_type' => 'campaign_created',   'module' => 'ojokotau', 'headline' => 'New campaign: :subject'],
-            'ojokotau_goal_reached'      => ['feed_type' => 'campaign_milestone', 'module' => 'ojokotau', 'headline' => ':subject reached its goal!'],
+            'ojokotau_goal_reached' => ['feed_type' => 'campaign_milestone', 'module' => 'ojokotau', 'headline' => ':subject reached its goal!'],
 
             // Loyalty
-            'loyalty_card_launched'     => ['feed_type' => 'fan_club_joined',    'module' => 'loyalty', 'headline' => ':actor launched a loyalty card'],
-            'loyalty_tier_upgrade'      => ['feed_type' => 'points_milestone',   'module' => 'loyalty', 'headline' => ':actor leveled up!'],
-            'loyalty_reward_available'  => ['feed_type' => 'reward_redeemed',    'module' => 'loyalty', 'headline' => 'New reward available!'],
+            'loyalty_card_launched' => ['feed_type' => 'fan_club_joined',    'module' => 'loyalty', 'headline' => ':actor launched a loyalty card'],
+            'loyalty_tier_upgrade' => ['feed_type' => 'points_milestone',   'module' => 'loyalty', 'headline' => ':actor leveled up!'],
+            'loyalty_reward_available' => ['feed_type' => 'reward_redeemed',    'module' => 'loyalty', 'headline' => 'New reward available!'],
 
             // Forum
             'forum_topic_created' => ['feed_type' => 'thread_created', 'module' => 'forum', 'headline' => ':actor started a discussion: :subject'],
-            'poll_created'        => ['feed_type' => 'poll_created',   'module' => 'forum', 'headline' => 'New poll: :subject'],
+            'poll_created' => ['feed_type' => 'poll_created',   'module' => 'forum', 'headline' => 'New poll: :subject'],
         ];
     }
 
     protected static function resolveMediaType($subject): ?string
     {
-        if (! $subject) return null;
+        if (! $subject) {
+            return null;
+        }
 
         return match (true) {
-            $subject instanceof \App\Models\Song     => 'song',
-            $subject instanceof \App\Models\Album    => 'album',
-            $subject instanceof \App\Models\Event    => 'image',
+            $subject instanceof \App\Models\Song => 'song',
+            $subject instanceof \App\Models\Album => 'album',
+            $subject instanceof \App\Models\Event => 'image',
             $subject instanceof \App\Models\Playlist => 'playlist',
             default => null,
         };
@@ -163,10 +166,12 @@ class FeedItemFactory
 
     protected static function resolveMediaUrl($subject): ?string
     {
-        if (! $subject) return null;
+        if (! $subject) {
+            return null;
+        }
 
         return match (true) {
-            $subject instanceof \App\Models\Song  => $subject->artwork_url ?? $subject->cover_url ?? null,
+            $subject instanceof \App\Models\Song => $subject->artwork_url ?? $subject->cover_url ?? null,
             $subject instanceof \App\Models\Album => $subject->artwork_url ?? $subject->cover_url ?? null,
             $subject instanceof \App\Models\Event => $subject->banner_url ?? $subject->image_url ?? null,
             default => null,
@@ -175,7 +180,9 @@ class FeedItemFactory
 
     protected static function resolveActions($subject): array
     {
-        if (! $subject) return [];
+        if (! $subject) {
+            return [];
+        }
 
         $actions = [];
 
