@@ -25,10 +25,9 @@ class SongsApiController extends Controller
             return;
         }
 
-        $realPath = $file->getRealPath();
-        $isValid = $file->isValid() && is_string($realPath) && $realPath !== '' && file_exists($realPath);
-
-        if ($isValid) {
+        // On Windows dev, temp files can be cleaned prematurely.
+        // Only check isValid() which verifies the upload error code.
+        if ($file->isValid()) {
             return;
         }
 
@@ -39,7 +38,6 @@ class SongsApiController extends Controller
             'size' => $file->getSize(),
             'error' => method_exists($file, 'getError') ? $file->getError() : null,
             'error_message' => method_exists($file, 'getErrorMessage') ? $file->getErrorMessage() : null,
-            'real_path' => $realPath,
         ]);
 
         throw ValidationException::withMessages([
@@ -160,7 +158,7 @@ class SongsApiController extends Controller
             $data['disc_number'] = $song->disc_number;
             $data['isrc'] = $song->isrc_code;
             $data['bpm'] = $song->bpm ?? null;
-            $data['key'] = $song->key ?? null;
+            $data['key'] = $song->key_signature ?? null;
             $data['credits'] = $song->credits;
             $data['composer'] = $song->composer;
             $data['producer'] = $song->producer;
@@ -323,8 +321,6 @@ class SongsApiController extends Controller
                 'isrc' => 'nullable|string|max:20',
                 'bpm' => 'nullable|integer|min:1|max:999',
                 'key' => 'nullable|string|max:10',
-                'meta_title' => 'nullable|string|max:255',
-                'meta_description' => 'nullable|string|max:500',
                 'genre_ids' => 'nullable|array',
                 'genre_ids.*' => 'exists:genres,id',
                 'featured_artists' => 'nullable|array',
@@ -368,6 +364,13 @@ class SongsApiController extends Controller
             }
             if (isset($validated['featured_artists'])) {
                 $updateData['featured_artists'] = $validated['featured_artists'];
+            }
+
+            if (isset($validated['bpm'])) {
+                $updateData['bpm'] = $validated['bpm'];
+            }
+            if (isset($validated['key'])) {
+                $updateData['key_signature'] = $validated['key'];
             }
 
             if ($request->has('explicit')) {
