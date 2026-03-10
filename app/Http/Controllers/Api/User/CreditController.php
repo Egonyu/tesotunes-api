@@ -381,30 +381,49 @@ class CreditController extends Controller
 
     private function getDailyChallenges($user): array
     {
+        // Calculate real progress from today's activity
+        $today = now()->startOfDay();
+
+        // Music Explorer: distinct artists listened to today
+        $artistsListened = \App\Models\PlayHistory::where('user_id', $user->id)
+            ->where('played_at', '>=', $today)
+            ->distinct('artist_id')
+            ->count('artist_id');
+
+        // Social Butterfly: likes + shares today
+        $socialActions = \App\Models\UserFollow::where('follower_id', $user->id)
+            ->where('created_at', '>=', $today)
+            ->count();
+
+        // Community Builder: new follows today
+        $newFollows = \App\Models\UserFollow::where('follower_id', $user->id)
+            ->where('created_at', '>=', $today)
+            ->count();
+
         return [
             [
                 'title' => 'Music Explorer',
                 'description' => 'Listen to 5 different artists today',
-                'progress' => rand(1, 5),
+                'progress' => min($artistsListened, 5),
                 'target' => 5,
                 'reward' => '10 bonus credits',
-                'completed' => false,
+                'completed' => $artistsListened >= 5,
             ],
             [
                 'title' => 'Social Butterfly',
                 'description' => 'Like and share 3 songs',
-                'progress' => rand(0, 3),
+                'progress' => min($socialActions, 3),
                 'target' => 3,
                 'reward' => '8 bonus credits',
-                'completed' => false,
+                'completed' => $socialActions >= 3,
             ],
             [
                 'title' => 'Community Builder',
                 'description' => 'Follow 2 new users',
-                'progress' => rand(0, 2),
+                'progress' => min($newFollows, 2),
                 'target' => 2,
                 'reward' => '5 bonus credits',
-                'completed' => false,
+                'completed' => $newFollows >= 2,
             ],
         ];
     }

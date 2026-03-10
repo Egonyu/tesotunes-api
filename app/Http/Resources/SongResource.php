@@ -51,6 +51,7 @@ class SongResource extends JsonResource
             ),
 
             // Metadata
+            'status' => $this->status,
             'duration_seconds' => $this->duration_seconds,
             'is_explicit' => (bool) $this->is_explicit,
             'is_featured' => (bool) $this->is_featured,

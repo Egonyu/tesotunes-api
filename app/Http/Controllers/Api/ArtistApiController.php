@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Album;
 use App\Models\Artist;
+use App\Models\Download;
+use App\Models\Payment;
+use App\Models\PlayHistory;
 use App\Models\Song;
 use App\Models\User;
 use App\Notifications\AdminSongPendingNotification;
@@ -12,6 +15,8 @@ use App\Notifications\SongModerationNotification;
 use App\Services\PayoutService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -111,6 +116,59 @@ class ArtistApiController extends Controller
             ['label' => 'Revenue', 'value' => 'UGX '.number_format($artist->total_revenue ?? 0), 'change' => 0, 'period' => 'all time'],
         ];
 
+        // Build chart_data: plays per day over last 30 days
+        $songIds = Song::where('artist_id', $artist->id)->pluck('id');
+        $chartData = [];
+        if ($songIds->isNotEmpty()) {
+            $playsPerDay = PlayHistory::whereIn('song_id', $songIds)
+                ->where('played_at', '>=', now()->subDays(30)->startOfDay())
+                ->selectRaw('DATE(played_at) as date, COUNT(*) as plays')
+                ->groupBy('date')
+                ->orderBy('date')
+                ->pluck('plays', 'date');
+
+            for ($i = 29; $i >= 0; $i--) {
+                $date = now()->subDays($i)->toDateString();
+                $chartData[] = [
+                    'date' => $date,
+                    'label' => Carbon::parse($date)->format('M j'),
+                    'plays' => (int) ($playsPerDay[$date] ?? 0),
+                ];
+            }
+        } else {
+            for ($i = 29; $i >= 0; $i--) {
+                $date = now()->subDays($i)->toDateString();
+                $chartData[] = [
+                    'date' => $date,
+                    'label' => Carbon::parse($date)->format('M j'),
+                    'plays' => 0,
+                ];
+            }
+        }
+
+        // Build pending_actions from real data
+        $pendingActions = [];
+        $pendingSongs = Song::where('artist_id', $artist->id)
+            ->whereIn('status', ['pending', 'pending_review'])
+            ->count();
+        if ($pendingSongs > 0) {
+            $pendingActions[] = [
+                'type' => 'pending_review',
+                'label' => $pendingSongs.' song(s) pending review',
+                'count' => $pendingSongs,
+                'action' => '/artist/songs?status=pending',
+            ];
+        }
+        $draftSongs = Song::where('artist_id', $artist->id)->where('status', 'draft')->count();
+        if ($draftSongs > 0) {
+            $pendingActions[] = [
+                'type' => 'draft',
+                'label' => $draftSongs.' draft song(s)',
+                'count' => $draftSongs,
+                'action' => '/artist/songs?status=draft',
+            ];
+        }
+
         return response()->json([
             'data' => [
                 'artist' => [
@@ -121,8 +179,8 @@ class ArtistApiController extends Controller
                 ],
                 'stats' => $stats,
                 'recent_songs' => $recentSongs,
-                'pending_actions' => [],
-                'chart_data' => [],
+                'pending_actions' => $pendingActions,
+                'chart_data' => $chartData,
             ],
         ]);
     }
@@ -718,21 +776,134 @@ class ArtistApiController extends Controller
         }
         $artist = $result;
 
+        $songIds = Song::where('artist_id', $artist->id)->pluck('id');
+
+        // Calculate real earnings from completed payments linked to this artist's songs
+        $streamingRevenue = 0;
+        $downloadRevenue = 0;
+        $tipsRevenue = 0;
+        $storeRevenue = 0;
+        $thisMonthRevenue = 0;
+        $lastMonthRevenue = 0;
+
+        if ($songIds->isNotEmpty()) {
+            // Streaming revenue: plays * per-play rate (UGX 10 per play)
+            $perPlayRate = 10;
+            $totalPlays = (int) ($artist->total_plays_count ?? 0);
+            $streamingRevenue = $totalPlays * $perPlayRate;
+
+            // Revenue from completed payments for this artist's songs
+            $paymentsByType = Payment::whereIn('song_id', $songIds)
+                ->where('status', 'completed')
+                ->selectRaw("payment_type, SUM(amount) as total")
+                ->groupBy('payment_type')
+                ->pluck('total', 'payment_type');
+
+            $downloadRevenue = (float) ($paymentsByType['purchase'] ?? 0);
+            $tipsRevenue = (float) ($paymentsByType['tip'] ?? 0);
+            $storeRevenue = (float) ($paymentsByType['store_purchase'] ?? 0);
+
+            // This month's revenue
+            $thisMonthPayments = Payment::whereIn('song_id', $songIds)
+                ->where('status', 'completed')
+                ->whereMonth('completed_at', now()->month)
+                ->whereYear('completed_at', now()->year)
+                ->sum('amount');
+            $thisMonthPlays = PlayHistory::whereIn('song_id', $songIds)
+                ->whereMonth('played_at', now()->month)
+                ->whereYear('played_at', now()->year)
+                ->count();
+            $thisMonthRevenue = (float) $thisMonthPayments + ($thisMonthPlays * $perPlayRate);
+
+            // Last month's revenue for comparison
+            $lastMonthPayments = Payment::whereIn('song_id', $songIds)
+                ->where('status', 'completed')
+                ->whereMonth('completed_at', now()->subMonth()->month)
+                ->whereYear('completed_at', now()->subMonth()->year)
+                ->sum('amount');
+            $lastMonthPlays = PlayHistory::whereIn('song_id', $songIds)
+                ->whereMonth('played_at', now()->subMonth()->month)
+                ->whereYear('played_at', now()->subMonth()->year)
+                ->count();
+            $lastMonthRevenue = (float) $lastMonthPayments + ($lastMonthPlays * $perPlayRate);
+        }
+
+        $totalRevenue = $streamingRevenue + $downloadRevenue + $tipsRevenue + $storeRevenue;
+        $monthlyChange = $lastMonthRevenue > 0
+            ? round((($thisMonthRevenue - $lastMonthRevenue) / $lastMonthRevenue) * 100, 1)
+            : ($thisMonthRevenue > 0 ? 100 : 0);
+
+        // Calculate source percentages
+        $sources = [];
+        foreach ([
+            ['source' => 'Streaming', 'amount' => $streamingRevenue],
+            ['source' => 'Downloads', 'amount' => $downloadRevenue],
+            ['source' => 'Tips', 'amount' => $tipsRevenue],
+            ['source' => 'Store', 'amount' => $storeRevenue],
+        ] as $src) {
+            $sources[] = [
+                'source' => $src['source'],
+                'amount' => $src['amount'],
+                'percentage' => $totalRevenue > 0 ? round(($src['amount'] / $totalRevenue) * 100, 1) : 0,
+            ];
+        }
+
+        // Get real transactions (payments for this artist's songs + withdrawals)
+        $transactions = [];
+        if ($songIds->isNotEmpty()) {
+            $recentPayments = Payment::whereIn('song_id', $songIds)
+                ->where('status', 'completed')
+                ->orderByDesc('completed_at')
+                ->limit(20)
+                ->get()
+                ->map(fn ($p) => [
+                    'id' => $p->id,
+                    'type' => 'earning',
+                    'description' => ucfirst($p->payment_type).' - '.($p->description ?: 'Song payment'),
+                    'amount' => (float) $p->amount,
+                    'date' => ($p->completed_at ?? $p->created_at)->toIso8601String(),
+                    'status' => $p->status,
+                ]);
+            $transactions = $recentPayments->toArray();
+        }
+
+        // Monthly chart data (last 6 months)
+        $monthlyChart = [];
+        for ($i = 5; $i >= 0; $i--) {
+            $month = now()->subMonths($i);
+            $monthPayments = 0;
+            $monthPlaysRevenue = 0;
+            if ($songIds->isNotEmpty()) {
+                $monthPayments = (float) Payment::whereIn('song_id', $songIds)
+                    ->where('status', 'completed')
+                    ->whereMonth('completed_at', $month->month)
+                    ->whereYear('completed_at', $month->year)
+                    ->sum('amount');
+                $monthPlaysCount = PlayHistory::whereIn('song_id', $songIds)
+                    ->whereMonth('played_at', $month->month)
+                    ->whereYear('played_at', $month->year)
+                    ->count();
+                $monthPlaysRevenue = $monthPlaysCount * 10;
+            }
+            $monthlyChart[] = [
+                'month' => $month->format('M Y'),
+                'label' => $month->format('M'),
+                'amount' => $monthPayments + $monthPlaysRevenue,
+            ];
+        }
+
         return response()->json([
             'data' => [
                 'stats' => [
                     'balance' => (float) ($artist->earnings_balance ?? 0),
                     'pending_earnings' => 0,
-                    'total_earnings' => (float) ($artist->total_revenue ?? 0),
-                    'this_month' => 0,
-                    'monthly_change' => 0,
+                    'total_earnings' => $totalRevenue > 0 ? $totalRevenue : (float) ($artist->total_revenue ?? 0),
+                    'this_month' => $thisMonthRevenue,
+                    'monthly_change' => $monthlyChange,
                 ],
-                'earnings_sources' => [
-                    ['source' => 'Streaming', 'amount' => 0, 'percentage' => 0],
-                    ['source' => 'Downloads', 'amount' => 0, 'percentage' => 0],
-                    ['source' => 'Store', 'amount' => 0, 'percentage' => 0],
-                ],
-                'transactions' => [],
+                'earnings_sources' => $sources,
+                'transactions' => $transactions,
+                'monthly_chart' => $monthlyChart,
             ],
         ]);
     }
@@ -790,6 +961,128 @@ class ArtistApiController extends Controller
         }
     }
 
+    /**
+     * GET /api/artist/earnings/songs — per-song earnings breakdown
+     */
+    public function perSongEarnings(Request $request): JsonResponse
+    {
+        $result = $this->requireArtist($request);
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
+        $artist = $result;
+
+        $perPage = min((int) $request->get('per_page', 20), 100);
+        $sort = $request->get('sort', 'total_revenue');
+
+        $songs = Song::where('artist_id', $artist->id)
+            ->where('status', 'published')
+            ->get();
+
+        $perPlayRate = 10;
+        $songIds = $songs->pluck('id');
+
+        // Get payment totals per song grouped by type
+        $paymentsBySong = [];
+        if ($songIds->isNotEmpty()) {
+            $paymentsBySong = Payment::whereIn('song_id', $songIds)
+                ->where('status', 'completed')
+                ->selectRaw('song_id, payment_type, SUM(amount) as total')
+                ->groupBy('song_id', 'payment_type')
+                ->get()
+                ->groupBy('song_id');
+        }
+
+        $songEarnings = $songs->map(function ($song) use ($paymentsBySong, $perPlayRate) {
+            $payments = $paymentsBySong[$song->id] ?? collect();
+            $purchaseRevenue = (float) $payments->where('payment_type', 'purchase')->sum('total');
+            $tipRevenue = (float) $payments->where('payment_type', 'tip')->sum('total');
+            $streamRevenue = (int) ($song->play_count ?? 0) * $perPlayRate;
+
+            return [
+                'song_id' => $song->id,
+                'title' => $song->title,
+                'artwork_url' => $song->artwork ? url('storage/'.$song->artwork) : null,
+                'streams_revenue' => $streamRevenue,
+                'downloads_revenue' => $purchaseRevenue,
+                'tips_revenue' => $tipRevenue,
+                'total_revenue' => $streamRevenue + $purchaseRevenue + $tipRevenue,
+                'play_count' => (int) ($song->play_count ?? 0),
+                'download_count' => (int) ($song->download_count ?? 0),
+            ];
+        });
+
+        // Sort
+        $songEarnings = $sort === 'play_count'
+            ? $songEarnings->sortByDesc('play_count')->values()
+            : $songEarnings->sortByDesc('total_revenue')->values();
+
+        // Paginate manually
+        $page = (int) $request->get('page', 1);
+        $total = $songEarnings->count();
+        $paginated = $songEarnings->forPage($page, $perPage)->values();
+
+        return response()->json([
+            'data' => $paginated,
+            'meta' => [
+                'total' => $total,
+                'current_page' => $page,
+                'last_page' => (int) ceil($total / $perPage),
+                'per_page' => $perPage,
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/artist/royalty-splits — list all royalty splits for this artist
+     */
+    public function royaltySplits(Request $request): JsonResponse
+    {
+        $result = $this->requireArtist($request);
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
+        $artist = $result;
+
+        // Check if royalty_splits table exists
+        if (! \Illuminate\Support\Facades\Schema::hasTable('royalty_splits')) {
+            return response()->json([
+                'data' => [],
+                'message' => 'Royalty splits feature coming soon.',
+            ]);
+        }
+
+        $splits = DB::table('royalty_splits')
+            ->join('songs', 'royalty_splits.song_id', '=', 'songs.id')
+            ->where('songs.artist_id', $artist->id)
+            ->select(
+                'royalty_splits.*',
+                'songs.title as song_title',
+                'songs.artwork as song_artwork'
+            )
+            ->orderByDesc('royalty_splits.created_at')
+            ->get()
+            ->map(fn ($split) => [
+                'id' => $split->id,
+                'song_id' => $split->song_id,
+                'song_title' => $split->song_title,
+                'song_artwork' => $split->song_artwork ? url('storage/'.$split->song_artwork) : null,
+                'recipient_id' => $split->recipient_id ?? null,
+                'recipient_name' => $split->recipient_name ?? $split->collaborator_name ?? 'Unknown',
+                'recipient_email' => $split->recipient_email ?? null,
+                'percentage' => (float) ($split->percentage ?? $split->split_percentage ?? 0),
+                'applies_to_streaming' => (bool) ($split->applies_to_streaming ?? true),
+                'applies_to_downloads' => (bool) ($split->applies_to_downloads ?? true),
+                'status' => $split->status ?? 'active',
+                'total_earned' => (float) ($split->total_earned ?? 0),
+                'pending_payout' => (float) ($split->pending_payout ?? 0),
+            ]);
+
+        return response()->json([
+            'data' => $splits,
+        ]);
+    }
+
     // ========================================================================
     // Analytics
     // ========================================================================
@@ -806,6 +1099,7 @@ class ArtistApiController extends Controller
         $artist = $result;
 
         $period = (int) $request->get('period', 30);
+        $songIds = Song::where('artist_id', $artist->id)->pluck('id');
 
         $topSongs = Song::where('artist_id', $artist->id)
             ->orderByDesc('play_count')
@@ -819,19 +1113,95 @@ class ArtistApiController extends Controller
                 'download_count' => (int) ($song->download_count ?? 0),
             ]);
 
+        // Build plays_over_time from play_histories
+        $playsOverTime = [];
+        if ($songIds->isNotEmpty()) {
+            $playsPerDay = PlayHistory::whereIn('song_id', $songIds)
+                ->where('played_at', '>=', now()->subDays($period)->startOfDay())
+                ->selectRaw('DATE(played_at) as date, COUNT(*) as plays')
+                ->groupBy('date')
+                ->orderBy('date')
+                ->pluck('plays', 'date');
+
+            for ($i = $period - 1; $i >= 0; $i--) {
+                $date = now()->subDays($i)->toDateString();
+                $playsOverTime[] = [
+                    'date' => $date,
+                    'label' => Carbon::parse($date)->format('M j'),
+                    'plays' => (int) ($playsPerDay[$date] ?? 0),
+                ];
+            }
+        } else {
+            for ($i = $period - 1; $i >= 0; $i--) {
+                $date = now()->subDays($i)->toDateString();
+                $playsOverTime[] = [
+                    'date' => $date,
+                    'label' => Carbon::parse($date)->format('M j'),
+                    'plays' => 0,
+                ];
+            }
+        }
+
+        // Build demographics from play_histories
+        $countries = [];
+        $devices = [];
+        $uniqueListeners = 0;
+        $avgListenTime = 0;
+
+        if ($songIds->isNotEmpty()) {
+            $countries = PlayHistory::whereIn('song_id', $songIds)
+                ->where('played_at', '>=', now()->subDays($period)->startOfDay())
+                ->whereNotNull('country')
+                ->where('country', '!=', '')
+                ->selectRaw('country, COUNT(*) as plays')
+                ->groupBy('country')
+                ->orderByDesc('plays')
+                ->limit(10)
+                ->get()
+                ->map(fn ($row) => [
+                    'country' => $row->country,
+                    'plays' => (int) $row->plays,
+                ])
+                ->toArray();
+
+            $devices = PlayHistory::whereIn('song_id', $songIds)
+                ->where('played_at', '>=', now()->subDays($period)->startOfDay())
+                ->whereNotNull('device_type')
+                ->where('device_type', '!=', '')
+                ->selectRaw('device_type, COUNT(*) as plays')
+                ->groupBy('device_type')
+                ->orderByDesc('plays')
+                ->get()
+                ->map(fn ($row) => [
+                    'device' => $row->device_type,
+                    'plays' => (int) $row->plays,
+                ])
+                ->toArray();
+
+            $uniqueListeners = (int) PlayHistory::whereIn('song_id', $songIds)
+                ->where('played_at', '>=', now()->subDays($period)->startOfDay())
+                ->distinct('user_id')
+                ->count('user_id');
+
+            $avgListenTime = (int) PlayHistory::whereIn('song_id', $songIds)
+                ->where('played_at', '>=', now()->subDays($period)->startOfDay())
+                ->whereNotNull('duration_played_seconds')
+                ->avg('duration_played_seconds');
+        }
+
         return response()->json([
             'data' => [
                 'period' => "{$period} days",
-                'plays_over_time' => [],
+                'plays_over_time' => $playsOverTime,
                 'top_songs' => $topSongs,
                 'demographics' => [
-                    'countries' => [],
-                    'devices' => [],
+                    'countries' => $countries,
+                    'devices' => $devices,
                 ],
                 'engagement' => [
                     'total_plays' => (int) ($artist->total_plays_count ?? 0),
-                    'unique_listeners' => 0,
-                    'avg_listen_time' => 0,
+                    'unique_listeners' => $uniqueListeners,
+                    'avg_listen_time' => $avgListenTime,
                 ],
             ],
         ]);

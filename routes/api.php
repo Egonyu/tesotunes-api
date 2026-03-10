@@ -105,7 +105,11 @@ Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('ar
 
     // Earnings
     Route::get('/earnings', [\App\Http\Controllers\Api\ArtistApiController::class, 'earnings'])->name('earnings.index');
+    Route::get('/earnings/songs', [\App\Http\Controllers\Api\ArtistApiController::class, 'perSongEarnings'])->name('earnings.songs');
     Route::post('/earnings/withdraw', [\App\Http\Controllers\Api\ArtistApiController::class, 'withdraw'])->name('earnings.withdraw');
+
+    // Royalty Splits
+    Route::get('/royalty-splits', [\App\Http\Controllers\Api\ArtistApiController::class, 'royaltySplits'])->name('royalty-splits.index');
 
     // Analytics
     Route::get('/analytics', [\App\Http\Controllers\Api\ArtistApiController::class, 'analytics'])->name('analytics');
