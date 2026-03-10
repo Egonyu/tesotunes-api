@@ -411,10 +411,15 @@ class Artist extends Model implements HasMedia
         // Get albums count
         $albumsCount = $this->albums()->count();
 
+        // Get followers count
+        $followersCount = $this->followers()->count();
+
         $this->update([
             'total_plays_count' => $songStats->total_plays ?? 0,
+            'total_plays_cached' => $songStats->total_plays ?? 0,
             'total_songs_count' => $songStats->total_songs ?? 0,
             'total_albums_count' => $albumsCount,
+            'followers_count' => $followersCount,
             'stats_last_updated_at' => now(),
         ]);
 

@@ -81,14 +81,16 @@ class RefreshArtistCachedStats extends Command
 
         try {
             $artist->refreshCachedStats();
+            $artist->refresh();
             $this->info('Stats refreshed successfully!');
 
             $this->table(
                 ['Metric', 'Value'],
                 [
-                    ['Total Plays', number_format($artist->total_plays_cached)],
-                    ['Total Revenue', '$'.number_format($artist->total_revenue_cached, 2)],
-                    ['Followers', number_format($artist->followers_count_cached)],
+                    ['Total Songs', number_format($artist->total_songs_count)],
+                    ['Total Albums', number_format($artist->total_albums_count)],
+                    ['Total Plays', number_format($artist->total_plays_count)],
+                    ['Followers', number_format($artist->followers_count)],
                     ['Last Updated', $artist->stats_last_updated_at],
                 ]
             );

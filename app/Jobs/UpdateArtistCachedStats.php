@@ -47,19 +47,25 @@ class UpdateArtistCachedStats implements ShouldQueue
             DB::transaction(function () use ($artist) {
                 // Use optimized single query for song statistics
                 $songStats = $artist->songs()
+                    ->where('status', 'published')
                     ->selectRaw('
-                        COALESCE(SUM(play_count), 0) as total_plays
+                        COALESCE(SUM(play_count), 0) as total_plays,
+                        COUNT(*) as total_songs
                     ')
                     ->first();
+
+                $albumsCount = $artist->albums()->count();
 
                 // Get followers count
                 $followersCount = $artist->followers()->count();
 
-                // Update cached values
+                // Update all cached stat columns
                 $artist->update([
+                    'total_plays_count' => $songStats->total_plays ?? 0,
                     'total_plays_cached' => $songStats->total_plays ?? 0,
-                    'total_revenue_cached' => 0,
-                    'followers_count_cached' => $followersCount,
+                    'total_songs_count' => $songStats->total_songs ?? 0,
+                    'total_albums_count' => $albumsCount,
+                    'followers_count' => $followersCount,
                     'stats_last_updated_at' => now(),
                 ]);
 
@@ -70,7 +76,8 @@ class UpdateArtistCachedStats implements ShouldQueue
                     'artist_id' => $this->artistId,
                     'stage_name' => $artist->stage_name,
                     'total_plays' => $songStats->total_plays ?? 0,
-                    'total_revenue' => $songStats->total_revenue ?? 0,
+                    'total_songs' => $songStats->total_songs ?? 0,
+                    'total_albums' => $albumsCount,
                     'followers_count' => $followersCount,
                 ]);
             });

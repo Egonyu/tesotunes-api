@@ -88,13 +88,33 @@ class UpdateAllArtistCachedStats implements ShouldQueue
         DB::statement('
             UPDATE artists
             SET
+                total_plays_count = COALESCE((
+                    SELECT SUM(play_count)
+                    FROM songs
+                    WHERE songs.artist_id = artists.id
+                    AND songs.status = \'published\'
+                    AND songs.deleted_at IS NULL
+                ), 0),
                 total_plays_cached = COALESCE((
                     SELECT SUM(play_count)
                     FROM songs
                     WHERE songs.artist_id = artists.id
+                    AND songs.status = \'published\'
                     AND songs.deleted_at IS NULL
                 ), 0),
-                total_revenue_cached = 0,
+                total_songs_count = COALESCE((
+                    SELECT COUNT(*)
+                    FROM songs
+                    WHERE songs.artist_id = artists.id
+                    AND songs.status = \'published\'
+                    AND songs.deleted_at IS NULL
+                ), 0),
+                total_albums_count = COALESCE((
+                    SELECT COUNT(*)
+                    FROM albums
+                    WHERE albums.artist_id = artists.id
+                    AND albums.deleted_at IS NULL
+                ), 0),
                 stats_last_updated_at = NOW()
             WHERE artists.id IN ('.implode(',', array_map('intval', $artistIds)).')
         ');
@@ -108,7 +128,7 @@ class UpdateAllArtistCachedStats implements ShouldQueue
         // Use raw SQL to efficiently calculate and update follower counts
         DB::statement("
             UPDATE artists
-            SET followers_count_cached = COALESCE((
+            SET followers_count = COALESCE((
                 SELECT COUNT(*)
                 FROM user_follows
                 WHERE user_follows.following_id = artists.id
