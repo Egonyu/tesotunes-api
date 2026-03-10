@@ -27,12 +27,7 @@ class ArtistRevenueObserver
             $revenue->status = 'pending';
         }
 
-        // Set default currency if not provided
-        if (empty($revenue->currency)) {
-            $revenue->currency = 'UGX';
-        }
-
-        // Set revenue_date if not provided (using actual DB column)
+        // Set revenue_date if not provided
         if (empty($revenue->revenue_date)) {
             $revenue->revenue_date = now()->toDateString();
         }
@@ -41,11 +36,10 @@ class ArtistRevenueObserver
         Log::channel('audit')->info('Artist revenue record created', [
             'artist_id' => $revenue->artist_id,
             'revenue_type' => $revenue->revenue_type,
-            'revenue_source_type' => $revenue->revenue_source_type,
-            'revenue_source_id' => $revenue->revenue_source_id,
+            'sourceable_type' => $revenue->sourceable_type,
+            'sourceable_id' => $revenue->sourceable_id,
             'amount_ugx' => $revenue->amount_ugx,
             'net_amount' => $revenue->net_amount,
-            'is_credit_based' => $revenue->is_credit_based,
             'ip_address' => request()->ip(),
             'timestamp' => now()->toDateTimeString(),
         ]);

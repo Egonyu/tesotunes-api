@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * Database columns:
  * - id, artist_id, revenue_type, revenue_source_type, revenue_source_id,
- *   amount_ugx, amount_usd, currency, platform_fee, net_amount,
+ *   amount_ugx, amount_usd, platform_fee, net_amount,
  *   revenue_date, status, created_at, updated_at
  */
 class ArtistRevenue extends Model
@@ -23,15 +23,19 @@ class ArtistRevenue extends Model
     protected $fillable = [
         'artist_id',
         'revenue_type',
-        'revenue_source_type',
-        'revenue_source_id',
+        'sourceable_type',
+        'sourceable_id',
+        'song_id',
+        'album_id',
         'amount_ugx',
         'amount_usd',
-        'currency',
         'platform_fee',
         'net_amount',
         'revenue_date',
         'status',
+        'notes',
+        'source_platform',
+        'transaction_count',
     ];
 
     protected $casts = [
@@ -71,7 +75,7 @@ class ArtistRevenue extends Model
      */
     public function revenueSource()
     {
-        return $this->morphTo('revenue_source', 'revenue_source_type', 'revenue_source_id');
+        return $this->morphTo('sourceable');
     }
 
     // Helper Methods
