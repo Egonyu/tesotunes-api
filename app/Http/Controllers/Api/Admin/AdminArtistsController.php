@@ -240,6 +240,18 @@ class AdminArtistsController extends Controller
                 'verified_at' => now(),
             ]);
 
+            // Ensure the linked user has the 'artist' role
+            if ($artist->user_id) {
+                $user = \App\Models\User::find($artist->user_id);
+                if ($user && ! $user->hasRole('artist')) {
+                    \Illuminate\Support\Facades\DB::table('users')
+                        ->where('id', $user->id)
+                        ->update(['role' => 'artist']);
+                    $user->assignRole('artist', auth()->id());
+                    $user->update(['is_artist' => true]);
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Artist verified successfully.',
@@ -259,6 +271,22 @@ class AdminArtistsController extends Controller
 
             $artist = Artist::findOrFail($id);
             $artist->update(['status' => $request->input('status')]);
+
+            // Sync user role with artist status
+            if ($artist->user_id) {
+                $user = \App\Models\User::find($artist->user_id);
+                if ($user) {
+                    if ($request->input('status') === 'active' && ! $user->hasRole('artist')) {
+                        \Illuminate\Support\Facades\DB::table('users')
+                            ->where('id', $user->id)
+                            ->update(['role' => 'artist']);
+                        $user->assignRole('artist', auth()->id());
+                        $user->update(['is_artist' => true]);
+                    } elseif (in_array($request->input('status'), ['suspended', 'rejected'])) {
+                        $user->update(['is_artist' => false]);
+                    }
+                }
+            }
 
             return response()->json([
                 'success' => true,

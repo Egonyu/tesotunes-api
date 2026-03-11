@@ -219,11 +219,29 @@ class AdminUsersController extends Controller
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
                 'phone' => $request->phone,
-                'role' => $request->role ?? 'user',
                 'country' => $request->country ?? 'UG',
                 'is_active' => $request->boolean('is_active', true),
                 'email_verified_at' => now(),
             ]);
+
+            // Set role via direct column + pivot table (role is NOT in $fillable)
+            $role = $request->role ?? 'user';
+            \Illuminate\Support\Facades\DB::table('users')
+                ->where('id', $user->id)
+                ->update(['role' => $role]);
+            $user->assignRole($role, $currentUser->id);
+
+            // If creating as artist, ensure Artist record exists
+            if ($role === 'artist') {
+                $user->update(['is_artist' => true]);
+                \App\Models\Artist::create([
+                    'user_id' => $user->id,
+                    'stage_name' => $user->display_name ?? $user->name ?? 'Artist',
+                    'slug' => \Illuminate\Support\Str::slug($user->display_name ?? $user->name ?? 'artist-'.$user->id),
+                    'status' => 'active',
+                    'is_verified' => false,
+                ]);
+            }
 
             return response()->json([
                 'success' => true,
@@ -279,7 +297,8 @@ class AdminUsersController extends Controller
                 ], 403);
             }
 
-            $data = $request->only(['name', 'email', 'username', 'phone', 'role', 'country', 'bio', 'city']);
+            // Separate role from mass-assignable fields (role is NOT in $fillable for security)
+            $data = $request->only(['name', 'email', 'username', 'phone', 'country', 'bio', 'city']);
 
             if ($request->has('is_active')) {
                 $data['is_active'] = $request->boolean('is_active');
@@ -290,6 +309,44 @@ class AdminUsersController extends Controller
             }
 
             $user->update(array_filter($data, fn ($v) => $v !== null));
+
+            // Handle role change explicitly (not mass-assignable)
+            if ($request->filled('role')) {
+                $newRole = $request->input('role');
+                $oldRole = $user->role;
+
+                if ($newRole !== $oldRole) {
+                    // Update the direct 'role' column on users table
+                    \Illuminate\Support\Facades\DB::table('users')
+                        ->where('id', $user->id)
+                        ->update(['role' => $newRole]);
+
+                    // Sync the user_roles pivot table
+                    $user->assignRole($newRole, $currentUser->id);
+
+                    // If upgrading to artist, ensure Artist record exists and link it
+                    if ($newRole === 'artist') {
+                        $user->update(['is_artist' => true]);
+                        $artist = $user->artist;
+                        if (! $artist) {
+                            \App\Models\Artist::create([
+                                'user_id' => $user->id,
+                                'stage_name' => $user->display_name ?? $user->name ?? $user->username ?? 'Artist',
+                                'slug' => \Illuminate\Support\Str::slug($user->display_name ?? $user->name ?? 'artist-'.$user->id),
+                                'status' => 'active',
+                                'is_verified' => false,
+                            ]);
+                        }
+                    }
+
+                    // If downgrading from artist, update is_artist flag
+                    if ($oldRole === 'artist' && $newRole !== 'artist') {
+                        $user->update(['is_artist' => false]);
+                    }
+
+                    $user->clearPermissionCache();
+                }
+            }
 
             return response()->json([
                 'success' => true,

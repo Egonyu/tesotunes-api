@@ -9,15 +9,19 @@ class AuditLog extends Model
 {
     protected $fillable = [
         'user_id',
-        'event',
+        'action',
         'auditable_type',
         'auditable_id',
-        'data',
+        'old_values',
+        'new_values',
         'ip_address',
+        'user_agent',
+        'url',
     ];
 
     protected $casts = [
-        'data' => 'array',
+        'old_values' => 'array',
+        'new_values' => 'array',
     ];
 
     // Relationships
@@ -36,9 +40,11 @@ class AuditLog extends Model
     {
         static::create([
             'user_id' => $userId,
-            'event' => $event,
-            'data' => $data,
+            'action' => $event,
+            'new_values' => $data,
             'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+            'url' => request()->fullUrl(),
         ]);
     }
 
@@ -58,7 +64,7 @@ class AuditLog extends Model
     // Scopes
     public function scopeByEvent($query, string $event)
     {
-        return $query->where('event', $event);
+        return $query->where('action', $event);
     }
 
     public function scopeByUser($query, int $userId)
