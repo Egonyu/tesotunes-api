@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api\ImageUpload;
 
+use App\Models\Artist;
 use App\Models\Genre;
 use App\Models\Song;
 use App\Models\User;
@@ -10,10 +11,6 @@ use Tests\TestCase;
 
 /**
  * Tests admin song artwork upload via POST/PUT /api/admin/songs/{id}.
- *
- * Bug documented: Uses $file->store('songs/artwork', 'public') directly
- * instead of StorageHelper. Won't work with MEDIA_DISK=digitalocean.
- * Also uses store() which calls getRealPath() — fails on Windows.
  */
 class AdminSongImageUploadTest extends TestCase
 {
@@ -21,85 +18,75 @@ class AdminSongImageUploadTest extends TestCase
 
     private User $admin;
 
-    private bool $isWindows;
+    private Artist $artist;
+
+    private Song $song;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->admin = $this->createUserWithRole('admin');
-        $this->isWindows = PHP_OS_FAMILY === 'Windows';
-    }
-
-    private function skipIfStoreAsBug($response): void
-    {
-        if ($this->isWindows && $response->getStatusCode() === 500) {
-            $this->markTestIncomplete(
-                'BUG: SongsApiController uses $file->store() which calls getRealPath(). '.
-                'On Windows, getRealPath() returns false for temp files → ValueError "Path must not be empty".'
-            );
-        }
+        $artistUser = $this->createUserWithRole('artist');
+        $this->artist = Artist::factory()->create([
+            'user_id' => $artistUser->id,
+            'status' => 'active',
+        ]);
+        $this->song = Song::factory()->create([
+            'user_id' => $artistUser->id,
+            'artist_id' => $this->artist->id,
+            'status' => 'published',
+            'artwork' => 'songs/artwork/existing-cover.jpg',
+        ]);
     }
 
     // ─── Create Song with Artwork ────────────────────────────────
 
     public function test_admin_can_create_song_with_artwork(): void
     {
-        $artist = \App\Models\Artist::factory()->create([
-            'user_id' => $this->createUserWithRole('artist')->id,
-        ]);
         $genre = Genre::first() ?? Genre::factory()->create();
         $artwork = UploadedFile::fake()->image('cover.jpg', 100, 100)->size(1024);
+        $audio = UploadedFile::fake()->create('song.mp3', 2048, 'audio/mpeg');
 
         $response = $this->actingAs($this->admin)
             ->post('/api/admin/songs', [
                 'title' => 'Test Song With Art',
-                'artist_id' => $artist->id,
-                'primary_genre_id' => $genre->id,
-                'artwork' => $artwork,
+                'artist_id' => $this->artist->id,
+                'genre_ids' => [$genre->id],
+                'cover_image' => $artwork,
+                'audio_file' => $audio,
                 'status' => 'published',
             ], ['Accept' => 'application/json']);
 
-        $this->skipIfStoreAsBug($response);
-
-        // May fail validation if more fields required — acceptable
-        $this->assertContains($response->getStatusCode(), [200, 201, 422]);
+        $response->assertCreated();
+        $this->assertStringContainsString('songs/artwork/', $response->json('data.artwork_url'));
     }
 
     // ─── Update Song Artwork ─────────────────────────────────────
 
     public function test_admin_can_update_song_artwork(): void
     {
-        $song = Song::first();
-        if (! $song) {
-            $this->markTestSkipped('No song available for update test');
-        }
-
         $artwork = UploadedFile::fake()->image('new-art.jpg', 100, 100)->size(512);
 
         $response = $this->actingAs($this->admin)
-            ->put("/api/admin/songs/{$song->id}", [
+            ->put("/api/admin/songs/{$this->song->id}", [
                 'artwork' => $artwork,
             ]);
 
-        $this->skipIfStoreAsBug($response);
-
         $response->assertOk();
+        $this->song->refresh();
+        $this->assertStringContainsString('songs/artwork/', $this->song->artwork);
+        $this->assertNotSame('songs/artwork/existing-cover.jpg', $this->song->artwork);
     }
 
     // ─── Validation ──────────────────────────────────────────────
 
     public function test_admin_song_artwork_validates_max_size(): void
     {
-        $song = Song::first();
-        if (! $song) {
-            $this->markTestSkipped('No song available');
-        }
-
-        $artwork = UploadedFile::fake()->image('huge.jpg', 100, 100)->size(6000);
+        $artwork = UploadedFile::fake()->image('huge.jpg', 100, 100)->size(11000);
 
         $response = $this->actingAs($this->admin)
             ->put(
-                "/api/admin/songs/{$song->id}",
+                "/api/admin/songs/{$this->song->id}",
                 ['artwork' => $artwork],
                 ['Accept' => 'application/json']
             );
@@ -109,16 +96,11 @@ class AdminSongImageUploadTest extends TestCase
 
     public function test_admin_song_artwork_rejects_non_image(): void
     {
-        $song = Song::first();
-        if (! $song) {
-            $this->markTestSkipped('No song available');
-        }
-
         $file = UploadedFile::fake()->create('doc.pdf', 500, 'application/pdf');
 
         $response = $this->actingAs($this->admin)
             ->put(
-                "/api/admin/songs/{$song->id}",
+                "/api/admin/songs/{$this->song->id}",
                 ['artwork' => $file],
                 ['Accept' => 'application/json']
             );
@@ -130,14 +112,9 @@ class AdminSongImageUploadTest extends TestCase
 
     public function test_admin_song_upload_requires_auth(): void
     {
-        $song = Song::first();
-        if (! $song) {
-            $this->markTestSkipped('No song available');
-        }
-
         $artwork = UploadedFile::fake()->image('art.jpg', 100, 100);
 
-        $response = $this->put("/api/admin/songs/{$song->id}", [
+        $response = $this->put("/api/admin/songs/{$this->song->id}", [
             'artwork' => $artwork,
         ]);
 
@@ -146,31 +123,28 @@ class AdminSongImageUploadTest extends TestCase
 
     public function test_admin_song_upload_requires_admin_role(): void
     {
-        $song = Song::first();
-        if (! $song) {
-            $this->markTestSkipped('No song available');
-        }
-
         $normalUser = User::factory()->create(['is_active' => true]);
         $artwork = UploadedFile::fake()->image('art.jpg', 100, 100);
 
         $response = $this->actingAs($normalUser)
-            ->put("/api/admin/songs/{$song->id}", [
+            ->put("/api/admin/songs/{$this->song->id}", [
                 'artwork' => $artwork,
             ]);
 
         $response->assertStatus(403);
     }
 
-    // ─── Bug: Uses ->store() not StorageHelper ───────────────────
-
-    #[\PHPUnit\Framework\Attributes\Group('bugs')]
-    public function test_song_artwork_uses_direct_store_not_storage_helper(): void
+    public function test_song_artwork_alias_is_accepted_for_updates(): void
     {
-        $this->markTestIncomplete(
-            'BUG: SongsApiController uses $file->store() directly instead of StorageHelper. '.
-            'This means artwork always goes to local public disk even when '.
-            'MEDIA_DISK is set to digitalocean in production.'
-        );
+        $artwork = UploadedFile::fake()->image('alias-cover.jpg', 120, 120);
+
+        $response = $this->actingAs($this->admin)
+            ->put("/api/admin/songs/{$this->song->id}", [
+                'artwork' => $artwork,
+            ], ['Accept' => 'application/json']);
+
+        $response->assertOk();
+        $this->song->refresh();
+        $this->assertStringContainsString('songs/artwork/', $this->song->artwork);
     }
 }

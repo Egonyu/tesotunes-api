@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Helpers\StorageHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SongResource;
 use App\Models\Song;
@@ -12,7 +13,6 @@ use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -24,10 +24,11 @@ class SongsApiController extends Controller
 
     private function storeUploadedFile(UploadedFile $file, string $directory): string
     {
-        $path = $directory.'/'.Str::uuid().'.'.$file->getClientOriginalExtension();
-        Storage::disk('public')->put($path, fopen($file->getPathname(), 'r'));
-
-        return $path;
+        return StorageHelper::store(
+            $file,
+            $directory,
+            Str::uuid().'.'.$file->getClientOriginalExtension()
+        );
     }
 
     private function persistableSongAttributes(array $attributes): array
@@ -182,8 +183,8 @@ class SongsApiController extends Controller
             $data['producer'] = $song->producer;
             $data['copyright_holder'] = $song->copyright_holder;
             $data['copyright_year'] = $song->copyright_year;
-            $data['cover_url'] = $song->artwork ? url('storage/'.$song->artwork) : null;
-            $data['audio_file_url'] = $song->audio_file_320 ? url('storage/'.$song->audio_file_320) : ($song->audio_file_original ? url('storage/'.$song->audio_file_original) : null);
+            $data['cover_url'] = StorageHelper::url($song->artwork);
+            $data['audio_file_url'] = StorageHelper::url($song->audio_file_320 ?? $song->audio_file_original);
             $data['file_size_bytes'] = $song->file_size_bytes;
             $data['file_format'] = $song->file_format;
             $data['bitrate_original'] = $song->bitrate_original;
@@ -238,6 +239,7 @@ class SongsApiController extends Controller
                 'credits' => 'nullable|json',
                 'audio_file' => 'required|file|mimes:mp3,wav,flac,aac,m4a,ogg|max:51200',
                 'cover_image' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
+                'artwork' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
             ]);
 
             // Generate slug if not provided
@@ -258,8 +260,8 @@ class SongsApiController extends Controller
 
             // Handle cover image upload
             $artworkPath = null;
-            if ($request->hasFile('cover_image')) {
-                $coverImage = $request->file('cover_image');
+            $coverImage = $request->file('cover_image') ?? $request->file('artwork');
+            if ($coverImage) {
                 $this->assertValidUpload($coverImage, 'cover_image');
                 $artworkPath = $this->storeUploadedFile($coverImage, 'songs/artwork');
             }
@@ -361,6 +363,7 @@ class SongsApiController extends Controller
                 'credits' => 'nullable|json',
                 'audio_file' => 'nullable|file|mimes:mp3,wav,flac,aac,m4a,ogg|max:51200',
                 'cover_image' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
+                'artwork' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
             ]);
 
             $updateData = [];
@@ -457,10 +460,10 @@ class SongsApiController extends Controller
 
                 // Delete old files
                 if ($song->audio_file_original) {
-                    Storage::disk('public')->delete($song->audio_file_original);
+                    StorageHelper::delete($song->audio_file_original);
                 }
                 if ($song->audio_file_320 && $song->audio_file_320 !== $song->audio_file_original) {
-                    Storage::disk('public')->delete($song->audio_file_320);
+                    StorageHelper::delete($song->audio_file_320);
                 }
 
                 $audioPath = $this->storeUploadedFile($audioFile, 'songs/audio');
@@ -471,12 +474,12 @@ class SongsApiController extends Controller
             }
 
             // Handle cover image replacement
-            if ($request->hasFile('cover_image')) {
-                $coverImage = $request->file('cover_image');
+            $coverImage = $request->file('cover_image') ?? $request->file('artwork');
+            if ($coverImage) {
                 $this->assertValidUpload($coverImage, 'cover_image');
 
                 if ($song->artwork) {
-                    Storage::disk('public')->delete($song->artwork);
+                    StorageHelper::delete($song->artwork);
                 }
                 $updateData['artwork'] = $this->storeUploadedFile($coverImage, 'songs/artwork');
             }
@@ -508,16 +511,16 @@ class SongsApiController extends Controller
 
             // Delete associated files
             if ($song->audio_file_original) {
-                Storage::disk('public')->delete($song->audio_file_original);
+                StorageHelper::delete($song->audio_file_original);
             }
             if ($song->audio_file_320 && $song->audio_file_320 !== $song->audio_file_original) {
-                Storage::disk('public')->delete($song->audio_file_320);
+                StorageHelper::delete($song->audio_file_320);
             }
             if ($song->audio_file_128) {
-                Storage::disk('public')->delete($song->audio_file_128);
+                StorageHelper::delete($song->audio_file_128);
             }
             if ($song->artwork) {
-                Storage::disk('public')->delete($song->artwork);
+                StorageHelper::delete($song->artwork);
             }
 
             $song->delete();
@@ -662,7 +665,7 @@ class SongsApiController extends Controller
                             'id' => $play->user->id,
                             'name' => $play->user->name,
                             'username' => $play->user->username,
-                            'avatar' => $play->user->avatar ? url('storage/'.$play->user->avatar) : null,
+                            'avatar' => StorageHelper::avatarUrl($play->user->avatar, $play->user->name),
                         ] : null,
                         'played_at' => $play->created_at->toIso8601String(),
                         'duration_listened' => $play->duration_listened ?? null,

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api\ImageUpload;
 
+use App\Helpers\StorageHelper;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
@@ -9,34 +10,17 @@ use Tests\TestCase;
 /**
  * Tests for user profile image upload via PUT /api/user.
  *
- * Bugs documented:
- *  - Uses Storage::disk('public') directly instead of StorageHelper.
- *    In production (MEDIA_DISK=digitalocean), uploads still go to local.
- *  - ProfileController references 'cover_image' but the users table has
- *    'banner' column instead — cover_image updates throw QueryException.
- *  - Uses $file->storeAs() which calls getRealPath() — fails on Windows.
+ * Verifies profile uploads use the shared storage helper and persist
+ * banner images on the correct user column for cloud-compatible storage.
  */
 class UserProfileImageUploadTest extends TestCase
 {
     private User $user;
 
-    private bool $isWindows;
-
     protected function setUp(): void
     {
         parent::setUp();
         $this->user = User::factory()->create(['is_active' => true]);
-        $this->isWindows = PHP_OS_FAMILY === 'Windows';
-    }
-
-    private function skipIfStoreAsBug($response): void
-    {
-        if ($this->isWindows && $response->getStatusCode() === 500) {
-            $this->markTestIncomplete(
-                'BUG: ProfileController uses Storage::disk()->storeAs() which calls getRealPath(). '.
-                'On Windows, getRealPath() returns false for temp files → ValueError "Path must not be empty".'
-            );
-        }
     }
 
     // ─── Avatar Upload ────────────────────────────────────────────
@@ -47,8 +31,6 @@ class UserProfileImageUploadTest extends TestCase
 
         $response = $this->actingAs($this->user)
             ->put('/api/user', ['avatar' => $file]);
-
-        $this->skipIfStoreAsBug($response);
 
         $response->assertOk();
         $this->user->refresh();
@@ -62,8 +44,6 @@ class UserProfileImageUploadTest extends TestCase
 
         $file = UploadedFile::fake()->image('new.jpg', 50, 50);
         $response = $this->actingAs($this->user)->put('/api/user', ['avatar' => $file]);
-
-        $this->skipIfStoreAsBug($response);
 
         $response->assertOk();
         $this->user->refresh();
@@ -91,19 +71,21 @@ class UserProfileImageUploadTest extends TestCase
         $response->assertUnprocessable();
     }
 
-    // ─── Cover Image — BUG: column doesn't exist ─────────────────
+    // ─── Cover Image ─────────────────────────────────────────────
 
-    /**
-     * BUG: ProfileController handles 'cover_image' uploads and tries to
-     * store via $updateData['cover_image'], but users table has 'banner'.
-     */
-    public function test_cover_image_upload_fails_due_to_missing_column(): void
+    public function test_cover_image_upload_updates_banner_column(): void
     {
-        $this->markTestIncomplete(
-            'BUG: ProfileController accepts cover_image uploads but the users table '.
-            'has a "banner" column, not "cover_image". The upload stores the file but '.
-            '$user->update() throws SQLSTATE[42S22]: Unknown column \'cover_image\'.'
-        );
+        $file = UploadedFile::fake()->image('cover.webp', 300, 200);
+
+        $response = $this->actingAs($this->user)
+            ->put('/api/user', ['cover_image' => $file], ['Accept' => 'application/json']);
+
+        $response->assertOk();
+        $this->user->refresh();
+
+        $this->assertNotNull($this->user->banner);
+        $this->assertStringContainsString('covers/', $this->user->banner);
+        $this->assertEquals(StorageHelper::url($this->user->banner), $response->json('data.banner'));
     }
 
     // ─── Combined upload ─────────────────────────────────────────
@@ -117,8 +99,6 @@ class UserProfileImageUploadTest extends TestCase
                 'name' => 'Updated Name',
                 'avatar' => $avatar,
             ]);
-
-        $this->skipIfStoreAsBug($response);
 
         $response->assertOk();
         $this->user->refresh();

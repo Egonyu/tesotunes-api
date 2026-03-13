@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Helpers\StorageHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\EventResource;
 use App\Models\Event;
@@ -89,10 +90,7 @@ class ArtistEventsController extends Controller
 
         // Handle image upload
         if ($request->hasFile('cover_image')) {
-            $file = $request->file('cover_image');
-            $filename = time().'_'.$file->getClientOriginalName();
-            $file->move(public_path('uploads/events'), $filename);
-            $validated['artwork'] = 'uploads/events/'.$filename;
+            $validated['artwork'] = StorageHelper::store($request->file('cover_image'), 'events/covers');
         }
 
         // Handle event_location creation
@@ -228,10 +226,10 @@ class ArtistEventsController extends Controller
         }
 
         if ($request->hasFile('cover_image')) {
-            $file = $request->file('cover_image');
-            $filename = time().'_'.$file->getClientOriginalName();
-            $file->move(public_path('uploads/events'), $filename);
-            $validated['artwork'] = 'uploads/events/'.$filename;
+            if ($event->artwork) {
+                StorageHelper::delete($event->artwork);
+            }
+            $validated['artwork'] = StorageHelper::store($request->file('cover_image'), 'events/covers');
         }
 
         unset($validated['start_date'], $validated['start_time'], $validated['end_date'], $validated['end_time'], $validated['cover_image']);
@@ -251,6 +249,11 @@ class ArtistEventsController extends Controller
     {
         $user = auth()->user();
         $event = Event::where('organizer_id', $user->id)->findOrFail($id);
+
+        if ($event->artwork) {
+            StorageHelper::delete($event->artwork);
+        }
+
         $event->delete();
 
         return response()->json(['message' => 'Event deleted successfully']);

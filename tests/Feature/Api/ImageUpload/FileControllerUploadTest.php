@@ -12,47 +12,17 @@ use Tests\TestCase;
  *   POST /api/uploads/avatar
  *   POST /api/uploads/audio
  *
- * Bugs documented:
- *  - resizeImage() only handles JPEG and PNG but validation allows webp.
- *  - getUploadDisk() reads config('filesystems.default') while
- *    StorageHelper::mediaDisk() reads env('MEDIA_DISK') — two mechanisms.
- *  - uploadAvatar() does not accept webp, inconsistent with uploadImage().
- *  - FileController uses $file->storeAs() which calls getRealPath().
- *    On Windows, getRealPath() returns false for temp files, causing
- *    "Path must not be empty" ValueError. This breaks ALL uploads on Windows.
- *    Fix: controllers should use StorageHelper::store() ($file->move()) instead.
+ * Verifies the dedicated upload endpoints use the shared storage strategy
+ * and support the same modern image formats across routes.
  */
 class FileControllerUploadTest extends TestCase
 {
     private User $user;
 
-    private bool $isWindows;
-
     protected function setUp(): void
     {
         parent::setUp();
         $this->user = User::factory()->create(['is_active' => true]);
-        $this->isWindows = PHP_OS_FAMILY === 'Windows';
-    }
-
-    /**
-     * Helper: if upload fails with storeAs bug on Windows, mark incomplete.
-     */
-    private function skipIfStoreAsBug($response): void
-    {
-        if ($response->getStatusCode() === 500) {
-            $body = $response->json();
-            $error = $body['error'] ?? $body['message'] ?? '';
-            if (str_contains($error, 'Path must not be empty')
-                || str_contains($error, 'Failed to upload')
-                || str_contains($error, 'getRealPath')) {
-                $this->markTestIncomplete(
-                    'BUG: FileController uses storeAs() which calls getRealPath(). '.
-                    'getRealPath() can return false for temp files → ValueError "Path must not be empty". '.
-                    'Fix: Use StorageHelper::store() ($file->move()) instead.'
-                );
-            }
-        }
     }
 
     // ━━━ POST /api/uploads/image ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -80,8 +50,6 @@ class FileControllerUploadTest extends TestCase
                 'resize' => false,
             ]);
 
-        $this->skipIfStoreAsBug($response);
-
         $response->assertOk()
             ->assertJsonStructure([
                 'success',
@@ -103,8 +71,6 @@ class FileControllerUploadTest extends TestCase
                 'type' => 'album',
                 'resize' => false,
             ]);
-
-        $this->skipIfStoreAsBug($response);
 
         $response->assertOk()
             ->assertJson(['success' => true]);
@@ -182,8 +148,6 @@ class FileControllerUploadTest extends TestCase
                 'resize' => false,
             ]);
 
-        $this->skipIfStoreAsBug($response);
-
         $response->assertOk();
         $this->assertStringContainsString("images/artist/{$this->user->id}", $response->json('data.path'));
     }
@@ -198,8 +162,6 @@ class FileControllerUploadTest extends TestCase
                 'type' => 'cover',
                 'resize' => false,
             ]);
-
-        $this->skipIfStoreAsBug($response);
 
         $response->assertOk();
     }
@@ -222,8 +184,6 @@ class FileControllerUploadTest extends TestCase
         $response = $this->actingAs($this->user)
             ->post('/api/uploads/avatar', ['avatar' => $file]);
 
-        $this->skipIfStoreAsBug($response);
-
         $response->assertOk()
             ->assertJsonStructure([
                 'success',
@@ -241,8 +201,6 @@ class FileControllerUploadTest extends TestCase
     {
         $file1 = UploadedFile::fake()->image('a1.jpg', 50, 50);
         $resp1 = $this->actingAs($this->user)->post('/api/uploads/avatar', ['avatar' => $file1]);
-
-        $this->skipIfStoreAsBug($resp1);
 
         $resp1->assertOk();
         $firstPath = $this->user->fresh()->avatar;
@@ -274,14 +232,14 @@ class FileControllerUploadTest extends TestCase
         $response->assertUnprocessable();
     }
 
-    public function test_avatar_upload_rejects_webp(): void
+    public function test_avatar_upload_accepts_webp(): void
     {
         $file = UploadedFile::fake()->image('avatar.webp', 100, 100);
 
         $response = $this->actingAs($this->user)
             ->post('/api/uploads/avatar', ['avatar' => $file], ['Accept' => 'application/json']);
 
-        $response->assertUnprocessable();
+        $response->assertOk();
     }
 
     // ━━━ POST /api/uploads/audio ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -304,8 +262,6 @@ class FileControllerUploadTest extends TestCase
                 'audio' => $file,
                 'compress' => false,
             ]);
-
-        $this->skipIfStoreAsBug($response);
 
         $response->assertOk()
             ->assertJsonStructure([
@@ -335,25 +291,18 @@ class FileControllerUploadTest extends TestCase
         $response->assertUnprocessable();
     }
 
-    // ━━━ Bug: getRealPath() fails on Windows ━━━━━━━━━━━━━━━━━━━
-
-    #[\PHPUnit\Framework\Attributes\Group('bugs')]
-    public function test_get_real_path_fails_for_temp_files_on_windows(): void
+    public function test_uploads_work_without_get_real_path_failures(): void
     {
         $file = UploadedFile::fake()->image('test.jpg', 100, 100);
-        $realPath = $file->getRealPath();
-        $pathname = $file->getPathname();
 
-        if ($realPath === false || $realPath === '') {
-            $this->assertNotEmpty($pathname, 'getPathname() should still work when getRealPath() fails');
-            $this->assertTrue(file_exists($pathname), 'File should exist at getPathname() path');
-            $this->markTestIncomplete(
-                'CONFIRMED BUG: getRealPath() returns false for temp files on this platform. '.
-                "getPathname()='{$pathname}', getRealPath()=".var_export($realPath, true).'. '.
-                'This breaks all controllers using storeAs(). Fix: use $file->move() via StorageHelper.'
-            );
-        }
+        $response = $this->actingAs($this->user)
+            ->post('/api/uploads/image', [
+                'image' => $file,
+                'type' => 'cover',
+                'resize' => false,
+            ]);
 
-        $this->assertNotEmpty($realPath, 'getRealPath() should return a valid path');
+        $response->assertOk();
+        $this->assertNotEmpty($response->json('data.path'));
     }
 }

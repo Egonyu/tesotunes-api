@@ -9,33 +9,17 @@ use Tests\TestCase;
 /**
  * Tests post media upload via POST /api/posts.
  *
- * Bugs documented:
- *  - Stores FULL URL in PostMedia.url (Storage::disk('public')->url($path))
- *    instead of relative path. Non-portable across environments.
- *  - Uses $file->store('posts/media', 'public') directly — not StorageHelper.
- *  - store() calls getRealPath() which fails on Windows.
+ * Verifies post media uploads persist relative paths and return absolute URLs
+ * through the API response.
  */
 class PostMediaUploadTest extends TestCase
 {
     private User $user;
 
-    private bool $isWindows;
-
     protected function setUp(): void
     {
         parent::setUp();
         $this->user = User::factory()->create(['is_active' => true]);
-        $this->isWindows = PHP_OS_FAMILY === 'Windows';
-    }
-
-    private function skipIfStoreAsBug($response): void
-    {
-        if ($this->isWindows && $response->getStatusCode() === 500) {
-            $this->markTestIncomplete(
-                'BUG: PostController uses $file->store() which calls getRealPath(). '.
-                'On Windows, getRealPath() returns false for temp files → ValueError "Path must not be empty".'
-            );
-        }
     }
 
     // ─── Create Post with Media ──────────────────────────────────
@@ -49,8 +33,6 @@ class PostMediaUploadTest extends TestCase
                 'content' => 'Check out this photo!',
                 'media' => [$image],
             ]);
-
-        $this->skipIfStoreAsBug($response);
 
         $response->assertCreated();
     }
@@ -69,8 +51,6 @@ class PostMediaUploadTest extends TestCase
                 'media' => $images,
             ]);
 
-        $this->skipIfStoreAsBug($response);
-
         $response->assertCreated();
     }
 
@@ -82,8 +62,6 @@ class PostMediaUploadTest extends TestCase
             ->post('/api/posts', [
                 'media' => [$image],
             ]);
-
-        $this->skipIfStoreAsBug($response);
 
         $response->assertCreated();
     }
@@ -141,10 +119,7 @@ class PostMediaUploadTest extends TestCase
         $response->assertUnauthorized();
     }
 
-    // ─── Bug: Full URL stored in database ────────────────────────
-
-    #[\PHPUnit\Framework\Attributes\Group('bugs')]
-    public function test_post_media_stores_full_url_instead_of_relative_path(): void
+    public function test_post_media_stores_relative_path_and_returns_absolute_url(): void
     {
         $image = UploadedFile::fake()->image('photo.jpg', 100, 100);
 
@@ -154,15 +129,13 @@ class PostMediaUploadTest extends TestCase
                 'media' => [$image],
             ]);
 
-        $this->skipIfStoreAsBug($response);
-
         $response->assertCreated();
 
         $post = \App\Models\Post::latest()->first();
         if ($post && $post->media->isNotEmpty()) {
             $mediaUrl = $post->media->first()->url;
-            $this->assertStringStartsWith('http', $mediaUrl,
-                'BUG CONFIRMED: PostMedia.url stores full URL instead of relative path.');
+            $this->assertStringStartsWith('posts/media/', $mediaUrl);
+            $this->assertStringStartsWith('http', $response->json('data.media.url'));
         }
     }
 }

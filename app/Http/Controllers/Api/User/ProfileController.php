@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\Api\User;
 
+use App\Helpers\StorageHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PlaylistResource;
 use App\Http\Resources\SongResource;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 
 class ProfileController extends Controller
 {
@@ -43,8 +43,8 @@ class ProfileController extends Controller
             'phone' => 'nullable|string|max:20',
             'date_of_birth' => 'nullable|date|before:today',
             'gender' => 'nullable|in:male,female,other,prefer_not_to_say',
-            'avatar' => 'nullable|image|max:2048',
-            'cover_image' => 'nullable|image|max:5120',
+            'avatar' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:2048',
+            'cover_image' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:5120',
         ]);
 
         $updateData = collect($validated)->except(['avatar', 'cover_image'])->toArray();
@@ -52,24 +52,22 @@ class ProfileController extends Controller
         // Handle avatar upload
         if ($request->hasFile('avatar')) {
             if ($user->avatar) {
-                Storage::disk('public')->delete($user->avatar);
+                StorageHelper::delete($user->avatar);
             }
-            $updateData['avatar'] = $request->file('avatar')->store('avatars', 'public');
+            $updateData['avatar'] = StorageHelper::store($request->file('avatar'), 'avatars');
         }
 
         // Handle cover image upload
         if ($request->hasFile('cover_image')) {
-            if ($user->cover_image) {
-                Storage::disk('public')->delete($user->cover_image);
+            if ($user->banner) {
+                StorageHelper::delete($user->banner);
             }
-            $updateData['cover_image'] = $request->file('cover_image')->store('covers', 'public');
+            $updateData['banner'] = StorageHelper::store($request->file('cover_image'), 'covers');
         }
 
         $user->update($updateData);
 
-        $user->load(['settings', 'subscription', 'artist']);
-
-        return new UserResource($user->fresh());
+        return new UserResource($user->fresh()->load(['settings', 'subscription', 'artist']));
     }
 
     /**

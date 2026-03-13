@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Helpers\StorageHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Post;
 use App\Models\PostComment;
@@ -10,7 +11,6 @@ use App\Models\PostMedia;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class PostController extends Controller
@@ -99,14 +99,15 @@ class PostController extends Controller
             // Handle file uploads
             if ($request->hasFile('media')) {
                 foreach ($request->file('media') as $index => $file) {
-                    $path = $file->store('posts/media', 'public');
-                    $type = str_starts_with($file->getMimeType(), 'video/') ? 'video' : 'image';
+                    $mimeType = $file->getMimeType();
+                    $path = StorageHelper::store($file, 'posts/media');
+                    $type = str_starts_with($mimeType, 'video/') ? 'video' : 'image';
 
                     PostMedia::create([
                         'post_id' => $post->id,
                         'type' => $type,
-                        'url' => Storage::disk('public')->url($path),
-                        'thumbnail_url' => $type === 'image' ? Storage::disk('public')->url($path) : null,
+                        'url' => $path,
+                        'thumbnail_url' => $type === 'image' ? $path : null,
                         'order' => $index,
                     ]);
                 }
@@ -429,8 +430,8 @@ class PostController extends Controller
         if ($media) {
             return [
                 'type' => $media->type,
-                'url' => $media->url,
-                'thumbnail_url' => $media->thumbnail_url,
+                'url' => StorageHelper::url($media->url),
+                'thumbnail_url' => StorageHelper::url($media->thumbnail_url),
             ];
         }
 
@@ -521,8 +522,8 @@ class PostController extends Controller
             'name' => $like->user->name,
             'username' => $like->user->username,
             'avatar_url' => $like->user->avatar
-                ? config('app.url').\Illuminate\Support\Facades\Storage::url($like->user->avatar)
-                : 'https://ui-avatars.com/api/?name='.urlencode($like->user->name),
+                ? StorageHelper::avatarUrl($like->user->avatar, $like->user->name)
+                : StorageHelper::avatarUrl(null, $like->user->name),
             'is_verified' => (bool) ($like->user->is_verified ?? false),
         ]);
 

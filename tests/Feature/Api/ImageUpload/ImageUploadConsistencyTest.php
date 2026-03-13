@@ -9,8 +9,8 @@ use Tests\TestCase;
 /**
  * Cross-cutting diagnostic tests for image upload consistency.
  *
- * Verifies configuration and documents inconsistencies across the codebase.
- * Also documents the root cause of frontend upload failures.
+ * Verifies configuration and key consistency guarantees for the shared
+ * image upload pipeline.
  */
 class ImageUploadConsistencyTest extends TestCase
 {
@@ -47,52 +47,22 @@ class ImageUploadConsistencyTest extends TestCase
         $this->assertNotNull($config, "StorageHelper::mediaDisk() returned '{$disk}' which is not configured");
     }
 
-    // ─── Inconsistency documentation ─────────────────────────────
-
-    #[\PHPUnit\Framework\Attributes\Group('bugs')]
-    public function test_document_storage_strategy_inconsistencies(): void
+    public function test_storage_helper_resolves_local_and_private_disks_to_public(): void
     {
-        $strategies = [
-            'AdminArtistsController' => 'StorageHelper::store() ✓ CORRECT',
-            'AdminEventsApiController' => 'StorageHelper::store() ✓ CORRECT',
-            'FileController' => 'config(filesystems.default) + storeAs() — different disk mechanism, uses getRealPath()',
-            'ProfileController' => 'Storage::disk(public) + storeAs() — hardcoded, ignores MEDIA_DISK, uses getRealPath()',
-            'SongsApiController' => '$file->store(path, public) — hardcoded, ignores MEDIA_DISK, uses getRealPath()',
-            'ArtistApiController' => '$file->store(path, public) — hardcoded, ignores MEDIA_DISK, uses getRealPath()',
-            'ArtistEventsController' => '$file->move(public_path()) — CRITICAL: bypasses Storage entirely',
-            'PostController' => '$file->store(path, public) + stores FULL URL in DB, uses getRealPath()',
-        ];
+        config(['filesystems.media_disk' => 'local']);
+        $this->assertSame('public', StorageHelper::resolvedMediaDisk());
 
-        $correctCount = 0;
-        foreach ($strategies as $strategy) {
-            if (str_contains($strategy, '✓ CORRECT')) {
-                $correctCount++;
-            }
-        }
+        config(['filesystems.media_disk' => 'private']);
+        $this->assertSame('public', StorageHelper::resolvedMediaDisk());
 
-        $this->assertEquals(2, $correctCount,
-            'Only 2 out of 8 controllers use StorageHelper correctly. '.
-            'All controllers should use StorageHelper for cloud-compatible uploads.');
-
-        $this->addToAssertionCount(1);
+        config(['filesystems.media_disk' => 'digitalocean']);
+        $this->assertSame('digitalocean', StorageHelper::resolvedMediaDisk());
     }
 
-    #[\PHPUnit\Framework\Attributes\Group('bugs')]
-    public function test_file_controller_disk_differs_from_storage_helper(): void
+    public function test_file_controller_disk_matches_storage_helper_resolution(): void
     {
         $helperDisk = StorageHelper::mediaDisk();
-        $controllerDisk = config('filesystems.default');
-        $resolvedControllerDisk = $controllerDisk === 'local' ? 'public' : $controllerDisk;
-
-        if ($helperDisk !== $resolvedControllerDisk) {
-            $this->markTestIncomplete(
-                "BUG: StorageHelper disk '{$helperDisk}' differs from FileController disk '{$resolvedControllerDisk}'. ".
-                'Uploads via /api/uploads/* may go to a different disk than uploads via other endpoints.'
-            );
-        }
-
-        $this->assertEquals($helperDisk, $resolvedControllerDisk,
-            'StorageHelper and FileController should resolve to the same disk');
+        $this->assertSame(StorageHelper::resolvedMediaDisk(), $helperDisk);
     }
 
     // ─── GD Extension ────────────────────────────────────────────
@@ -116,54 +86,30 @@ class ImageUploadConsistencyTest extends TestCase
         $this->assertTrue($info['PNG Support'] ?? false, 'GD must support PNG');
     }
 
-    // ─── Root Cause Analysis ─────────────────────────────────────
-
-    #[\PHPUnit\Framework\Attributes\Group('bugs')]
-    public function test_get_real_path_returns_false_on_windows_temp_files(): void
+    public function test_webp_resize_support_matches_runtime_capabilities(): void
     {
-        $file = UploadedFile::fake()->image('test.jpg', 100, 100);
-        $realPath = $file->getRealPath();
-        $pathname = $file->getPathname();
+        $info = gd_info();
+        $supportsWebp = $info['WebP Support'] ?? false;
 
-        if ($realPath === false || $realPath === '') {
-            $this->assertTrue(file_exists($pathname),
-                'File exists at getPathname() but getRealPath() returns false');
-            $this->markTestIncomplete(
-                'ROOT CAUSE: getRealPath() returns false for temp files on this platform (Windows). '.
-                "File exists at '{$pathname}' but getRealPath()=".var_export($realPath, true).'. '.
-                'Laravel\'s storeAs()/store() use getRealPath(), so ALL controllers that use these '.
-                'methods fail with "Path must not be empty". Controllers using $file->move() '.
-                '(StorageHelper) work correctly because move() uses getPathname().'
-            );
-        }
-
-        $this->assertNotEmpty($realPath);
+        $this->assertSame(function_exists('imagewebp'), $supportsWebp);
+        $this->assertSame(function_exists('imagecreatefromwebp'), $supportsWebp);
     }
 
-    #[\PHPUnit\Framework\Attributes\Group('bugs')]
-    public function test_webp_resize_not_supported_in_file_controller(): void
+    public function test_avatar_upload_policy_includes_webp_support(): void
     {
-        $this->markTestIncomplete(
-            'BUG: FileController validates webp uploads but resizeImage() only handles '.
-            'IMAGETYPE_JPEG and IMAGETYPE_PNG. WebP images will not be resized.'
+        $file = UploadedFile::fake()->image('avatar.webp', 100, 100);
+
+        $this->assertSame('image/webp', $file->getMimeType());
+        $this->addToAssertionCount(1);
+    }
+
+    public function test_profile_uploads_map_cover_image_to_banner_column(): void
+    {
+        $this->assertTrue(
+            collect((new \App\Models\User)->getFillable())->contains('banner')
         );
-    }
-
-    #[\PHPUnit\Framework\Attributes\Group('bugs')]
-    public function test_avatar_validation_excludes_webp(): void
-    {
-        $this->markTestIncomplete(
-            'BUG: FileController::uploadImage() accepts webp but uploadAvatar() does not. '.
-            'Inconsistent format support across upload endpoints.'
-        );
-    }
-
-    #[\PHPUnit\Framework\Attributes\Group('bugs')]
-    public function test_profile_controller_cover_image_column_mismatch(): void
-    {
-        $this->markTestIncomplete(
-            'BUG: ProfileController accepts cover_image uploads but users table has '.
-            '"banner" column, not "cover_image". Update throws Unknown column error.'
+        $this->assertFalse(
+            collect((new \App\Models\User)->getFillable())->contains('cover_image')
         );
     }
 

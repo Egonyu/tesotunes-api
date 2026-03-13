@@ -10,10 +10,7 @@ use Tests\TestCase;
 /**
  * Tests artist event image upload via POST /api/artist/events.
  *
- * MAJOR BUG: ArtistEventsController::store() uses:
- *   $file->move(public_path('uploads/events'), $filename)
- * This writes to the web-root public/ directory — not storage/ —
- * bypassing the Storage facade, disk configuration, and storage:link.
+ * Verifies artist event cover uploads go through the shared storage layer.
  */
 class ArtistEventImageUploadTest extends TestCase
 {
@@ -70,6 +67,8 @@ class ArtistEventImageUploadTest extends TestCase
             ]);
 
         $this->assertContains($response->getStatusCode(), [200, 201]);
+        $data = $response->json('data') ?? $response->json();
+        $this->assertStringContainsString('events/covers/', $data['artwork']);
     }
 
     // ─── Update Event with Cover Image ───────────────────────────
@@ -165,15 +164,24 @@ class ArtistEventImageUploadTest extends TestCase
         $response->assertStatus(403);
     }
 
-    // ─── Bug: public_path() usage ────────────────────────────────
-
-    #[\PHPUnit\Framework\Attributes\Group('bugs')]
-    public function test_event_upload_uses_public_path_not_storage(): void
+    public function test_event_upload_uses_storage_backed_cover_directory(): void
     {
-        $this->markTestIncomplete(
-            'CRITICAL BUG: ArtistEventsController uses $file->move(public_path(\'uploads/events\'), $filename) '.
-            'instead of Storage facade or StorageHelper. This writes to web-root public/ directory, '.
-            'bypasses disk config, storage:link, and breaks in Docker/CI/production.'
-        );
+        $cover = UploadedFile::fake()->image('storage-check.jpg', 200, 100);
+
+        $response = $this->actingAs($this->artistUser)
+            ->post('/api/artist/events', [
+                'title' => 'Storage Backed Event',
+                'description' => 'Ensures event cover uses StorageHelper',
+                'starts_at' => now()->addDays(10)->toDateTimeString(),
+                'ends_at' => now()->addDays(10)->addHours(2)->toDateTimeString(),
+                'venue_name' => 'Venue',
+                'venue_address' => 'Address',
+                'event_type' => 'concert',
+                'cover_image' => $cover,
+            ]);
+
+        $response->assertCreated();
+        $data = $response->json('data') ?? $response->json();
+        $this->assertStringContainsString('events/covers/', $data['artwork']);
     }
 }

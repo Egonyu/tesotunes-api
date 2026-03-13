@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api\ImageUpload;
 
+use App\Models\Album;
 use App\Models\Artist;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -10,10 +11,7 @@ use Tests\TestCase;
 /**
  * Tests artist album artwork upload via POST /api/artist/albums.
  *
- * Bugs documented:
- *  - Uses $file->store('albums/artwork', 'public') directly instead of StorageHelper.
- *  - store() calls getRealPath() which fails on Windows.
- *  - Field name is 'cover_image' not 'artwork'.
+ * Verifies artist album artwork uploads persist and return cloud-safe paths.
  */
 class ArtistAlbumImageUploadTest extends TestCase
 {
@@ -23,8 +21,6 @@ class ArtistAlbumImageUploadTest extends TestCase
 
     private Artist $artist;
 
-    private bool $isWindows;
-
     protected function setUp(): void
     {
         parent::setUp();
@@ -32,17 +28,6 @@ class ArtistAlbumImageUploadTest extends TestCase
         $this->artist = Artist::factory()->create([
             'user_id' => $this->artistUser->id,
         ]);
-        $this->isWindows = PHP_OS_FAMILY === 'Windows';
-    }
-
-    private function skipIfStoreAsBug($response): void
-    {
-        if ($this->isWindows && $response->getStatusCode() === 500) {
-            $this->markTestIncomplete(
-                'BUG: ArtistApiController uses $file->store() which calls getRealPath(). '.
-                'On Windows, getRealPath() returns false for temp files → ValueError "Path must not be empty".'
-            );
-        }
     }
 
     // ─── Create Album with Artwork ───────────────────────────────
@@ -58,8 +43,6 @@ class ArtistAlbumImageUploadTest extends TestCase
                 'release_date' => now()->addDays(30)->format('Y-m-d'),
             ]);
 
-        $this->skipIfStoreAsBug($response);
-
         $this->assertContains($response->getStatusCode(), [200, 201]);
     }
 
@@ -74,14 +57,12 @@ class ArtistAlbumImageUploadTest extends TestCase
                 'release_date' => now()->addDays(7)->format('Y-m-d'),
             ]);
 
-        $this->skipIfStoreAsBug($response);
-
         $this->assertContains($response->getStatusCode(), [200, 201]);
 
-        $data = $response->json('data') ?? $response->json();
-        if (isset($data['artwork'])) {
-            $this->assertNotEmpty($data['artwork']);
-        }
+        $album = Album::latest('id')->first();
+        $this->assertNotNull($album);
+        $this->assertNotEmpty($album->artwork);
+        $this->assertStringContainsString('albums/artwork/', $album->artwork);
     }
 
     // ─── Validation ──────────────────────────────────────────────
@@ -131,14 +112,20 @@ class ArtistAlbumImageUploadTest extends TestCase
         $response->assertStatus(403);
     }
 
-    // ─── Bug: Direct store ───────────────────────────────────────
-
-    #[\PHPUnit\Framework\Attributes\Group('bugs')]
-    public function test_album_artwork_uses_direct_store_not_storage_helper(): void
+    public function test_album_artwork_uses_expected_storage_directory(): void
     {
-        $this->markTestIncomplete(
-            'BUG: ArtistApiController uses $file->store(\'albums/artwork\', \'public\') '.
-            'directly instead of StorageHelper. Uploads always go to local public disk.'
-        );
+        $artwork = UploadedFile::fake()->image('album-check.jpg', 100, 100);
+
+        $response = $this->actingAs($this->artistUser)
+            ->post('/api/artist/albums', [
+                'title' => 'Album Storage Check',
+                'cover_image' => $artwork,
+                'release_date' => now()->addDays(10)->format('Y-m-d'),
+            ]);
+
+        $response->assertCreated();
+        $album = Album::latest('id')->first();
+        $this->assertNotNull($album);
+        $this->assertStringContainsString('albums/artwork/', $album->artwork);
     }
 }

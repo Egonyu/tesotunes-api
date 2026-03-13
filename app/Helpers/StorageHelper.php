@@ -9,6 +9,16 @@ use Illuminate\Support\Str;
 class StorageHelper
 {
     /**
+     * Resolve the configured media disk, falling back safely for local/private disks.
+     */
+    public static function resolvedMediaDisk(): string
+    {
+        $disk = config('filesystems.media_disk', env('MEDIA_DISK', config('filesystems.default', 'public')));
+
+        return in_array($disk, ['local', 'private'], true) ? 'public' : $disk;
+    }
+
+    /**
      * Get the configured media disk name.
      *
      * In development: 'public' (local storage)
@@ -16,7 +26,7 @@ class StorageHelper
      */
     public static function mediaDisk(): string
     {
-        return env('MEDIA_DISK', 'public');
+        return static::resolvedMediaDisk();
     }
 
     /**
@@ -29,7 +39,7 @@ class StorageHelper
      */
     public static function store(UploadedFile $file, string $directory, ?string $filename = null): string
     {
-        $disk = static::mediaDisk();
+        $disk = static::resolvedMediaDisk();
         if ($filename === null) {
             $original = preg_replace('/[^a-zA-Z0-9._-]/', '', $file->getClientOriginalName());
             $ext = $file->getClientOriginalExtension();
@@ -74,7 +84,7 @@ class StorageHelper
             return;
         }
 
-        $disk = static::mediaDisk();
+        $disk = static::resolvedMediaDisk();
 
         try {
             Storage::disk($disk)->delete($path);
@@ -126,7 +136,7 @@ class StorageHelper
             return $path;
         }
 
-        $disk = static::mediaDisk();
+        $disk = static::resolvedMediaDisk();
 
         if ($disk !== 'public') {
             try {
@@ -157,7 +167,7 @@ class StorageHelper
         }
 
         // Try cloud disk first if configured
-        $disk = static::mediaDisk();
+        $disk = static::resolvedMediaDisk();
         if ($disk !== 'public') {
             try {
                 return Storage::disk($disk)->url($path);
