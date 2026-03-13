@@ -282,4 +282,3 @@ class ResponseFormatConsistencyTest extends TestCase
         $this->assertArrayNotHasKey('id', $json, 'Resource id should not be at top level — must be inside data');
     }
 }
-

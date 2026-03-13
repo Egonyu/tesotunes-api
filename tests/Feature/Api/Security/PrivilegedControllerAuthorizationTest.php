@@ -4,9 +4,9 @@ namespace Tests\Feature\Api\Security;
 
 use App\Http\Controllers\Api\Admin\AdminSubscriptionsController;
 use App\Http\Controllers\Api\Admin\CampaignsApiController;
+use App\Http\Controllers\Api\Admin\DistributionPerformanceController;
 use App\Http\Controllers\Api\Admin\SaccoApiController;
 use App\Http\Controllers\Api\Admin\StoreApiController;
-use App\Http\Controllers\Api\Admin\DistributionPerformanceController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;

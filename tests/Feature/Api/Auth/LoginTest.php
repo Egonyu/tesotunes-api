@@ -404,4 +404,3 @@ class LoginTest extends TestCase
         $this->assertContains($response->getStatusCode(), [200, 204]);
     }
 }
-

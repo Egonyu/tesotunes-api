@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// Fallback: return JSON 404 for any undefined web routes and HTTP verbs.
-Route::any('/{path?}', function () {
+// Fallback: return JSON 404 for undefined read-only web routes.
+Route::get('/{path?}', function () {
     return response()->json(['message' => 'Not Found'], 404);
 })->where('path', '.*');

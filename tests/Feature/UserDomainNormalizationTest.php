@@ -2,11 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Models\UserProfile;
 use App\Models\UserReferral;
 use App\Models\UserSecurityProfile;
-use App\Http\Resources\UserResource;
 use App\Models\UserSetting;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Artisan;

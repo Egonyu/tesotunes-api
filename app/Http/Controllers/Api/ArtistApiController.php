@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Album;
 use App\Models\Artist;
-use App\Models\Download;
 use App\Models\Payment;
 use App\Models\PlayHistory;
 use App\Models\Song;
@@ -1018,7 +1017,7 @@ class ArtistApiController extends Controller
             // Revenue from completed payments for this artist's songs
             $paymentsByType = Payment::whereIn('song_id', $songIds)
                 ->where('status', 'completed')
-                ->selectRaw("payment_type, SUM(amount) as total")
+                ->selectRaw('payment_type, SUM(amount) as total')
                 ->groupBy('payment_type')
                 ->pluck('total', 'payment_type');
 

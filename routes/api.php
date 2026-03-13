@@ -212,8 +212,8 @@ Route::prefix('v1')
     ->name('api.v1.')
     ->middleware('deprecated:2026-06-30,/api')
     ->group(function () {
-    require __DIR__.'/api/v1/api.php';
-});
+        require __DIR__.'/api/v1/api.php';
+    });
 
 // Store Module API Routes (if enabled)
 if (config('store.enabled', false)) {
@@ -221,8 +221,8 @@ if (config('store.enabled', false)) {
         ->name('api.v1.store.')
         ->middleware('deprecated:2026-06-30,/api/store')
         ->group(function () {
-        require app_path('Modules/Store/Routes/api.php');
-    });
+            require app_path('Modules/Store/Routes/api.php');
+        });
 }
 
 // Store API routes
@@ -749,4 +749,3 @@ Route::middleware('auth:sanctum')->prefix('uploads')->name('api.uploads.')->grou
     Route::post('/image', [\App\Http\Controllers\Api\Upload\FileController::class, 'uploadImage'])->name('image');
     Route::post('/avatar', [\App\Http\Controllers\Api\Upload\FileController::class, 'uploadAvatar'])->name('avatar');
 });
-
