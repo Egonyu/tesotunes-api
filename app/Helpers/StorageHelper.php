@@ -52,14 +52,12 @@ class StorageHelper
         }
 
         if ($disk === 'public') {
-            // Local storage: use move() to avoid Windows getRealPath() bug
-            $targetDir = storage_path('app/public/'.$directory);
-            if (! is_dir($targetDir)) {
-                mkdir($targetDir, 0755, true);
-            }
-            $file->move($targetDir, $filename);
+            // Local storage: stream uploads through the adapter so Storage::fake()
+            // assertions work in tests without relying on getRealPath().
+            $path = $directory.'/'.$filename;
+            Storage::disk('public')->put($path, fopen($file->getPathname(), 'r'));
 
-            return $directory.'/'.$filename;
+            return $path;
         }
 
         // Cloud storage: use Storage facade (works for DO Spaces, S3, etc.)

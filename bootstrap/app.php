@@ -12,6 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
+use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
@@ -238,6 +239,13 @@ return Application::configure(basePath: dirname(__DIR__))
                         ])),
                         429
                     )->header('Retry-After', $retryAfter ?: 60);
+                }
+
+                if (! $request->is('api/*') && $e instanceof MethodNotAllowedHttpException) {
+                    return response()->json(
+                        $buildPayload('The requested resource was not found.'),
+                        404
+                    );
                 }
 
                 if ($status === 404) {
