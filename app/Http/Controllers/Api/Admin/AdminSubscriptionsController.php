@@ -13,11 +13,29 @@ class AdminSubscriptionsController extends Controller
 {
     use HandlesApiErrors;
 
+    protected function ensureAdmin(Request $request): ?JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user || ! $user->hasAnyRole(['admin', 'super_admin'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Admin access is required for this action.',
+            ], 403);
+        }
+
+        return null;
+    }
+
     /**
      * GET /api/admin/subscriptions/stats — subscription analytics
      */
-    public function stats(): JsonResponse
+    public function stats(Request $request): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () {
             $total = UserSubscription::count();
             $active = UserSubscription::where('status', 'active')
@@ -68,6 +86,10 @@ class AdminSubscriptionsController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request) {
             $query = UserSubscription::with(['user:id,name,username,email', 'subscriptionPlan:id,name,slug,tier,price,currency']);
 
@@ -153,8 +175,12 @@ class AdminSubscriptionsController extends Controller
     /**
      * GET /api/admin/subscriptions/{id} — single subscription detail
      */
-    public function show(int $id): JsonResponse
+    public function show(Request $request, int $id): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($id) {
             $sub = UserSubscription::with(['user:id,name,username,email', 'subscriptionPlan'])
                 ->findOrFail($id);
@@ -196,6 +222,10 @@ class AdminSubscriptionsController extends Controller
      */
     public function grant(Request $request): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request) {
             $validated = $request->validate([
                 'user_id' => 'required|exists:users,id',
@@ -248,6 +278,10 @@ class AdminSubscriptionsController extends Controller
      */
     public function revoke(Request $request, int $id): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request, $id) {
             $sub = UserSubscription::findOrFail($id);
 
@@ -281,8 +315,12 @@ class AdminSubscriptionsController extends Controller
     /**
      * GET /api/admin/subscription-plans — manage plans (includes hidden)
      */
-    public function plansList(): JsonResponse
+    public function plansList(Request $request): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () {
             $plans = SubscriptionPlan::orderBy('sort_order')->get();
 
@@ -298,6 +336,10 @@ class AdminSubscriptionsController extends Controller
      */
     public function updatePlan(Request $request, int $id): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request, $id) {
             $plan = SubscriptionPlan::findOrFail($id);
 

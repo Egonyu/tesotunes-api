@@ -17,11 +17,29 @@ class SaccoApiController extends Controller
 {
     use HandlesApiErrors;
 
+    protected function ensureAdmin(Request $request): ?JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user || ! $user->hasAnyRole(['admin', 'super_admin'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Admin access is required for this action.',
+            ], 403);
+        }
+
+        return null;
+    }
+
     /**
      * Get SACCO statistics.
      */
-    public function stats(): JsonResponse
+    public function stats(Request $request): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () {
             $data = Cache::remember('admin:sacco:stats', now()->addMinutes(5), function () {
                 $totalMembers = SaccoMember::where('status', 'active')->count();
@@ -57,6 +75,10 @@ class SaccoApiController extends Controller
      */
     public function members(Request $request): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request) {
             $perPage = min((int) $request->get('per_page', 10), 100);
 
@@ -112,6 +134,10 @@ class SaccoApiController extends Controller
      */
     public function loans(Request $request): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request) {
             $perPage = min((int) $request->get('per_page', 10), 100);
 
@@ -156,8 +182,12 @@ class SaccoApiController extends Controller
     /**
      * Get single loan.
      */
-    public function showLoan($id): JsonResponse
+    public function showLoan(Request $request, $id): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($id) {
             $loan = SaccoLoan::with(['member.user:id,username,email', 'member:id,member_number,user_id'])
                 ->findOrFail($id);
@@ -179,6 +209,10 @@ class SaccoApiController extends Controller
      */
     public function approveLoan(Request $request, $id): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($id) {
             $loan = SaccoLoan::findOrFail($id);
 
@@ -201,6 +235,10 @@ class SaccoApiController extends Controller
      */
     public function rejectLoan(Request $request, $id): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request, $id) {
             $validated = $request->validate([
                 'reason' => 'required|string',
@@ -224,6 +262,10 @@ class SaccoApiController extends Controller
      */
     public function disburseLoan(Request $request, $id): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request, $id) {
             $validated = $request->validate([
                 'disbursement_method' => 'required|string',
@@ -248,8 +290,12 @@ class SaccoApiController extends Controller
     /**
      * Get loan repayments.
      */
-    public function loanRepayments($id): JsonResponse
+    public function loanRepayments(Request $request, $id): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($id) {
             SaccoLoan::findOrFail($id); // Ensure loan exists
 
@@ -269,6 +315,10 @@ class SaccoApiController extends Controller
      */
     public function savingsTransactions(Request $request): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request) {
             $perPage = min((int) $request->get('per_page', 20), 100);
             $memberId = $request->get('member_id');

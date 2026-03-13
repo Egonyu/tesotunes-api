@@ -534,16 +534,16 @@ class DistributionService
         $artist = $distribution->song->artist;
 
         $artist->user->notifications()->create([
-            'user_id' => $artist->user_id,
-            'notification_type' => 'distribution_status_change',
-            'title' => 'Distribution Update',
-            'message' => $messages[$status] ?? "Distribution status changed to {$status}",
-            'metadata' => [
+            'type' => 'distribution_status_change',
+            'data' => [
+                'title' => 'Distribution Update',
+                'message' => $messages[$status] ?? "Distribution status changed to {$status}",
                 'distribution_id' => $distribution->id,
                 'song_id' => $distribution->song_id,
                 'platform' => $distribution->platform_code,
                 'status' => $status,
             ],
+            'read_at' => null,
         ]);
     }
 }

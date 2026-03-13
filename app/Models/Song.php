@@ -96,6 +96,8 @@ class Song extends Model
         'featured_artists',
         'credits',
         'additional_credits',
+        'bpm',
+        'key_signature',
         'recording_date',
         'recording_location',
         'recording_studio',

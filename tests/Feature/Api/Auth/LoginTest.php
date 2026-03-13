@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api\Auth;
 
+use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
@@ -11,6 +12,12 @@ class LoginTest extends TestCase
     use DatabaseTransactions;
 
     private string $loginUrl = '/api/auth/login';
+
+    private function postLoginFromIp(array $payload, string $ip)
+    {
+        return $this->withServerVariables(['REMOTE_ADDR' => $ip])
+            ->postJson($this->loginUrl, $payload);
+    }
 
     // ━━━ Successful Login ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -152,6 +159,29 @@ class LoginTest extends TestCase
 
         $response->assertUnauthorized()
             ->assertJson(['message' => 'Invalid credentials']);
+    }
+
+    public function test_login_is_rate_limited_after_configured_max_attempts(): void
+    {
+        Setting::set('auth_max_login_attempts', 2, Setting::TYPE_INTEGER, Setting::GROUP_SECURITY);
+
+        $user = User::factory()->create([
+            'password' => bcrypt('correct-password'),
+            'is_active' => true,
+        ]);
+
+        $ipAddress = '198.51.100.10';
+        $payload = [
+            'email' => $user->email,
+            'password' => 'wrong-password',
+        ];
+
+        $this->postLoginFromIp($payload, $ipAddress)->assertUnauthorized();
+        $this->postLoginFromIp($payload, $ipAddress)->assertUnauthorized();
+
+        $this->postLoginFromIp($payload, $ipAddress)
+            ->assertTooManyRequests()
+            ->assertJsonStructure(['message']);
     }
 
     public function test_login_fails_with_case_sensitive_password(): void
@@ -304,8 +334,8 @@ class LoginTest extends TestCase
 
         $token = $loginResponse->json('token');
 
-        // Use the token to access /api/user
-        $userResponse = $this->getJson('/api/user', [
+        // Use the token to access /api/auth/user
+        $userResponse = $this->getJson('/api/auth/user', [
             'Authorization' => "Bearer {$token}",
         ]);
 
@@ -338,7 +368,7 @@ class LoginTest extends TestCase
         $this->refreshApplication();
 
         // Token should be invalid now
-        $this->getJson('/api/user', [
+        $this->getJson('/api/auth/user', [
             'Authorization' => "Bearer {$token}",
         ])->assertUnauthorized();
     }
@@ -374,3 +404,4 @@ class LoginTest extends TestCase
         $this->assertContains($response->getStatusCode(), [200, 204]);
     }
 }
+

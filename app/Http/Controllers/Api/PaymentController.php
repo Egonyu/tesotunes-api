@@ -18,11 +18,29 @@ class PaymentController extends Controller
         protected PaymentService $paymentService,
     ) {}
 
+    protected function ensureAdmin(Request $request): ?JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user || ! $user->hasAnyRole(['admin', 'super_admin'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Admin access is required for this action.',
+            ], 403);
+        }
+
+        return null;
+    }
+
     /**
      * GET /api/admin/payment-analytics
      */
     public function analytics(Request $request): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         $filters = $request->only(['start_date', 'end_date', 'status']);
 
         $analytics = $this->paymentService->getPaymentAnalytics($filters);
@@ -100,6 +118,10 @@ class PaymentController extends Controller
      */
     public function artistPayout(Request $request): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         $validated = $request->validate([
             'artist_id' => 'required|integer|exists:artists,id',
             'amount' => 'required|numeric|min:1',
@@ -468,7 +490,7 @@ class PaymentController extends Controller
         return response()->json([
             'data' => [
                 'ugx_balance' => (float) ($user->ugx_balance ?? 0),
-                'credits_balance' => (float) ($user->credits ?? $user->credit_balance ?? 0),
+                'credits_balance' => (float) $user->credit_balance,
                 'currency' => 'UGX',
             ],
         ]);

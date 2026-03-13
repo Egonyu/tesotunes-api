@@ -21,6 +21,7 @@ class Album extends Model
         'description',
         'artwork',
         'album_type',
+        'primary_genre_id',
         'price',
         'is_free',
         'is_explicit',

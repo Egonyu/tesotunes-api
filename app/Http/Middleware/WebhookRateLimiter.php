@@ -19,9 +19,13 @@ class WebhookRateLimiter
         $key = 'webhook:'.($request->ip() ?? 'unknown');
 
         if (RateLimiter::tooManyAttempts($key, $maxAttempts)) {
+            $retryAfter = RateLimiter::availableIn($key);
+
             return response()->json([
+                'success' => false,
                 'message' => 'Too many webhook requests.',
-            ], 429);
+                'retry_after' => $retryAfter,
+            ], 429)->header('Retry-After', $retryAfter);
         }
 
         RateLimiter::hit($key, 60);

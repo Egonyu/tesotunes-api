@@ -54,4 +54,5 @@ Add an entry under `### Deprecated` in the current unreleased section.
 
 ## Currently Deprecated Endpoints
 
-_None at this time._
+- `/api/v1/*` sunset scheduled for `2026-06-30`
+- `/api/v1/store/*` sunset scheduled for `2026-06-30`

@@ -11,6 +11,7 @@ use App\Notifications\WelcomeNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
@@ -83,12 +84,29 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
+            Log::channel('security')->warning('auth.login.failed', [
+                'email' => $request->email,
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'url' => $request->fullUrl(),
+                'reason' => 'invalid_credentials',
+            ]);
+
             return response()->json([
                 'message' => 'Invalid credentials',
             ], 401);
         }
 
         if (! $user->is_active) {
+            Log::channel('security')->warning('auth.login.blocked', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'url' => $request->fullUrl(),
+                'reason' => 'account_suspended',
+            ]);
+
             return response()->json([
                 'message' => 'Account is suspended',
             ], 403);
@@ -109,8 +127,17 @@ class AuthController extends Controller
         $tokenName = $request->remember_me ? 'long_lived_token' : 'auth_token';
         $token = $user->createToken($tokenName)->plainTextToken;
 
+        Log::channel('audit')->info('auth.login.succeeded', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'url' => $request->fullUrl(),
+            'remember_me' => (bool) $request->boolean('remember_me'),
+        ]);
+
         return response()->json([
-            'data' => new UserResource($user->load(['settings', 'subscription'])),
+            'data' => new UserResource($user->load(['settings', 'subscription', 'profile', 'referralProfile'])),
             'token' => $token,
             'token_type' => 'Bearer',
         ]);
@@ -148,7 +175,7 @@ class AuthController extends Controller
      */
     public function user(Request $request)
     {
-        $user = $request->user()->load(['settings', 'subscription', 'artist']);
+        $user = $request->user()->load(['settings', 'subscription', 'artist', 'profile', 'referralProfile']);
 
         return new UserResource($user);
     }

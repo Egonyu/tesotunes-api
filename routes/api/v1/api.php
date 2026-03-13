@@ -20,7 +20,7 @@ Route::prefix('tracks')->middleware(['api.rate_limit:30:1'])->group(function () 
     Route::get('/{track}/stream-url', [App\Http\Controllers\Api\MusicController::class, 'getStreamUrl'])
         ->name('api.tracks.stream-url');
     Route::get('/{track}/download-url', [App\Http\Controllers\Api\MusicController::class, 'getDownloadUrl'])
-        ->middleware('auth:web') // Downloads require authentication
+        ->middleware('auth:sanctum') // Downloads require API authentication
         ->name('api.tracks.download-url');
 });
 
@@ -33,10 +33,10 @@ Route::get('/stream/{songId}', [App\Http\Controllers\Api\MusicController::class,
 // Guests can use player, but play tracking requires authentication
 Route::prefix('player')->middleware(['api.rate_limit:20:1'])->group(function () {
     Route::post('/update-now-playing', [App\Http\Controllers\Api\PlayerController::class, 'updateNowPlaying'])
-        ->middleware('auth:web') // Requires auth
+        ->middleware('auth:sanctum') // Requires API authentication
         ->name('api.player.update-now-playing');
     Route::post('/record-play', [App\Http\Controllers\Api\PlayerController::class, 'recordPlay'])
-        ->middleware('auth:web') // Requires auth
+        ->middleware('auth:sanctum') // Requires API authentication
         ->name('api.player.record-play');
 });
 
@@ -60,9 +60,8 @@ Route::prefix('public')->middleware(['api.rate_limit:100:1'])->group(function ()
         ->name('api.public.artist-songs');
 });
 
-// Authenticated API routes with web authentication (session-based)
-// Note: CSRF protection is automatically applied to these routes via web middleware group
-Route::middleware(['web', 'auth', 'api.rate_limit:60:1'])->group(function () {
+// Authenticated API routes use the same Sanctum-based API auth model as the main surface.
+Route::middleware(['auth:sanctum', 'api.rate_limit:60:1'])->group(function () {
     // User authentication check
     Route::get('/user', [\App\Http\Controllers\Api\Auth\AuthController::class, 'user'])->name('api.user');
 

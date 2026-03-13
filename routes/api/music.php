@@ -55,6 +55,7 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::post('/artists/{id}/toggle-featured', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'toggleFeatured']);
     Route::post('/artists/{id}/status', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'updateStatus']);
     Route::post('/artists/{id}/approve', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'approve']);
+    Route::post('/artists/{id}/reject', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'reject']);
     Route::post('/artists/{id}/suspend', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'suspend']);
 });
 

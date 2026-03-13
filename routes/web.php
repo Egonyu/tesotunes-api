@@ -8,16 +8,12 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 |
 | This API backend has minimal web routes. All application logic is
-| served via routes/api.php. These web routes exist only for:
-| - Auth endpoints that need CSRF exemption (NextAuth integration)
-| - Health check fallback
+| served via routes/api.php. Web traffic falls through to a JSON 404
+| unless an explicit web route is introduced for a deliberate reason.
 |
 */
 
-// Include auth routes (CSRF-exempt login/register for NextAuth)
-require __DIR__.'/auth.php';
-
-// Fallback: return JSON 404 for any undefined web routes
-Route::fallback(function () {
+// Fallback: return JSON 404 for any undefined web routes and HTTP verbs.
+Route::any('/{path?}', function () {
     return response()->json(['message' => 'Not Found'], 404);
-});
+})->where('path', '.*');

@@ -272,6 +272,7 @@ class ArtistApiController extends Controller
                 'id' => $song->id,
                 'title' => $song->title,
                 'cover' => $song->artwork ? url('storage/'.$song->artwork) : null,
+                'artwork_url' => $song->artwork ? url('storage/'.$song->artwork) : null,
                 'album' => $song->album ? $song->album->title : null,
                 'album_id' => $song->album_id,
                 'plays' => (int) ($song->play_count ?? 0),
@@ -283,8 +284,16 @@ class ArtistApiController extends Controller
                 'description' => $song->description,
                 'is_explicit' => (bool) $song->is_explicit,
                 'genre' => $song->primaryGenre ? $song->primaryGenre->name : null,
+                'genre_id' => $song->primary_genre_id,
+                'primary_genre_id' => $song->primary_genre_id,
                 'price' => $song->price,
                 'is_free' => (bool) $song->is_free,
+                'is_downloadable' => (bool) $song->is_downloadable,
+                'featured_artists' => is_array($song->featured_artists)
+                    ? implode(', ', array_filter($song->featured_artists))
+                    : $song->featured_artists,
+                'composer' => $song->composer,
+                'producer' => $song->producer,
             ],
         ]);
     }
@@ -518,18 +527,99 @@ class ArtistApiController extends Controller
 
         $validated = $request->validate([
             'title' => 'sometimes|string|max:255',
-            'lyrics' => 'nullable|string',
-            'description' => 'nullable|string|max:2000',
-            'release_date' => 'nullable|date',
-            'is_explicit' => 'nullable',
-            'price' => 'nullable|numeric|min:0',
-            'album_id' => 'nullable|integer|exists:albums,id',
+            'lyrics' => 'sometimes|nullable|string',
+            'description' => 'sometimes|nullable|string|max:2000',
+            'release_date' => 'sometimes|nullable|date',
+            'is_explicit' => 'sometimes',
+            'price' => 'sometimes|nullable|numeric|min:0',
+            'album_id' => 'sometimes|nullable|integer|exists:albums,id',
+            'genre_id' => 'sometimes|nullable|string',
+            'featured_artists' => 'sometimes|nullable',
+            'composer' => 'sometimes|nullable|string|max:255',
+            'producer' => 'sometimes|nullable|string|max:255',
+            'is_downloadable' => 'sometimes',
+            'is_free' => 'sometimes',
+            'cover' => 'sometimes|nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
+            'cover_image' => 'sometimes|nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
         ]);
 
-        $song->update($validated);
+        $updateData = [];
+
+        foreach ([
+            'title',
+            'lyrics',
+            'description',
+            'release_date',
+            'price',
+            'album_id',
+            'featured_artists',
+            'composer',
+            'producer',
+        ] as $field) {
+            if ($request->exists($field)) {
+                $updateData[$field] = $validated[$field] ?? null;
+            }
+        }
+
+        if ($request->exists('is_explicit')) {
+            $updateData['is_explicit'] = $request->boolean('is_explicit');
+        }
+
+        if ($request->exists('is_downloadable')) {
+            $updateData['is_downloadable'] = $request->boolean('is_downloadable');
+        }
+
+        if ($request->exists('is_free')) {
+            $updateData['is_free'] = $request->boolean('is_free');
+        }
+
+        if ($request->exists('genre_id')) {
+            $genreId = null;
+            if (! empty($validated['genre_id'])) {
+                if (is_numeric($validated['genre_id'])) {
+                    $genreId = (int) $validated['genre_id'];
+                } else {
+                    $genre = \App\Models\Genre::where('name', $validated['genre_id'])
+                        ->orWhere('slug', Str::slug($validated['genre_id']))
+                        ->first();
+                    $genreId = $genre?->id;
+                }
+            }
+
+            $updateData['primary_genre_id'] = $genreId;
+        }
+
+        $coverFile = $request->file('cover') ?? $request->file('cover_image');
+        if ($coverFile && $coverFile->isValid()) {
+            $coverFileName = Str::uuid().'.'.$coverFile->getClientOriginalExtension();
+            $artworkPath = 'songs/artwork/'.$coverFileName;
+
+            $this->uploadDisk()->put($artworkPath, fopen($coverFile->getPathname(), 'r'));
+
+            if ($song->artwork) {
+                $this->uploadDisk()->delete($song->artwork);
+            }
+
+            $updateData['artwork'] = $artworkPath;
+        }
+
+        $song->update($updateData);
+
+        if ($request->exists('genre_id')) {
+            if (! empty($updateData['primary_genre_id'])) {
+                $song->genres()->sync([$updateData['primary_genre_id']]);
+            } else {
+                $song->genres()->detach();
+            }
+        }
 
         return response()->json([
             'message' => 'Song updated successfully.',
+            'data' => [
+                'id' => $song->id,
+                'title' => $song->title,
+                'artwork_url' => $song->artwork ? Storage::disk($this->uploadDiskName())->url($song->artwork) : null,
+            ],
         ]);
     }
 
@@ -634,6 +724,7 @@ class ArtistApiController extends Controller
                 'id' => $album->id,
                 'title' => $album->title,
                 'artwork' => $album->artwork ? url('storage/'.$album->artwork) : null,
+                'artwork_url' => $album->artwork ? Storage::disk($this->uploadDiskName())->url($album->artwork) : null,
                 'songs_count' => $album->songs_count,
             ]),
             'pagination' => [
@@ -661,6 +752,8 @@ class ArtistApiController extends Controller
             'cover_image' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
             'description' => 'nullable|string|max:2000',
             'release_date' => 'nullable|date',
+            'type' => 'nullable|in:album,single,ep',
+            'genre' => 'nullable|string|max:255',
         ]);
 
         $artworkPath = null;
@@ -678,6 +771,18 @@ class ArtistApiController extends Controller
             $slug = $originalSlug.'-'.$counter++;
         }
 
+        $genreId = null;
+        if (! empty($validated['genre'])) {
+            if (is_numeric($validated['genre'])) {
+                $genreId = (int) $validated['genre'];
+            } else {
+                $genre = \App\Models\Genre::where('name', $validated['genre'])
+                    ->orWhere('slug', Str::slug($validated['genre']))
+                    ->first();
+                $genreId = $genre?->id;
+            }
+        }
+
         $album = Album::create([
             'title' => $validated['title'],
             'slug' => $slug,
@@ -685,6 +790,8 @@ class ArtistApiController extends Controller
             'artwork' => $artworkPath,
             'description' => $validated['description'] ?? null,
             'release_date' => $validated['release_date'] ?? null,
+            'album_type' => $validated['type'] ?? 'album',
+            'primary_genre_id' => $genreId,
             'status' => 'published',
         ]);
 
@@ -697,6 +804,122 @@ class ArtistApiController extends Controller
                 'title' => $album->title,
             ],
         ], 201);
+    }
+
+    /**
+     * GET /api/artist/albums/{id}
+     */
+    public function showAlbum(Request $request, int $id): JsonResponse
+    {
+        $result = $this->requireArtist($request);
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
+        $artist = $result;
+
+        $album = Album::where('artist_id', $artist->id)
+            ->with(['songs', 'primaryGenre'])
+            ->findOrFail($id);
+
+        return response()->json([
+            'data' => [
+                'id' => $album->id,
+                'title' => $album->title,
+                'description' => $album->description,
+                'artwork' => $album->artwork ? url('storage/'.$album->artwork) : null,
+                'artwork_url' => $album->artwork ? Storage::disk($this->uploadDiskName())->url($album->artwork) : null,
+                'type' => $album->album_type ?? 'album',
+                'status' => $album->status ?? 'draft',
+                'release_date' => $album->release_date?->toDateString(),
+                'genre' => $album->primaryGenre?->name,
+                'genre_id' => $album->primary_genre_id,
+                'songs_count' => $album->songs()->count(),
+                'total_plays' => (int) ($album->play_count ?? 0),
+                'songs' => $album->songs->map(fn ($song) => [
+                    'id' => $song->id,
+                    'title' => $song->title,
+                    'duration_seconds' => (int) ($song->duration_seconds ?? 0),
+                    'play_count' => (int) ($song->play_count ?? 0),
+                    'status' => $song->status ?? 'draft',
+                ])->values(),
+                'created_at' => optional($album->created_at)?->toIso8601String(),
+                'updated_at' => optional($album->updated_at)?->toIso8601String(),
+            ],
+        ]);
+    }
+
+    /**
+     * PUT /api/artist/albums/{id}
+     */
+    public function updateAlbum(Request $request, int $id): JsonResponse
+    {
+        $result = $this->requireArtist($request);
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
+        $artist = $result;
+
+        $album = Album::where('artist_id', $artist->id)->findOrFail($id);
+
+        $validated = $request->validate([
+            'title' => 'sometimes|string|max:255',
+            'cover_image' => 'sometimes|nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
+            'description' => 'sometimes|nullable|string|max:2000',
+            'release_date' => 'sometimes|nullable|date',
+            'type' => 'sometimes|nullable|in:album,single,ep',
+            'genre' => 'sometimes|nullable|string|max:255',
+        ]);
+
+        $updateData = [];
+        foreach (['title', 'description', 'release_date'] as $field) {
+            if ($request->exists($field)) {
+                $updateData[$field] = $validated[$field] ?? null;
+            }
+        }
+
+        if ($request->exists('type')) {
+            $updateData['album_type'] = $validated['type'] ?? 'album';
+        }
+
+        if ($request->exists('genre')) {
+            $genreId = null;
+            if (! empty($validated['genre'])) {
+                if (is_numeric($validated['genre'])) {
+                    $genreId = (int) $validated['genre'];
+                } else {
+                    $genre = \App\Models\Genre::where('name', $validated['genre'])
+                        ->orWhere('slug', Str::slug($validated['genre']))
+                        ->first();
+                    $genreId = $genre?->id;
+                }
+            }
+
+            $updateData['primary_genre_id'] = $genreId;
+        }
+
+        if ($request->hasFile('cover_image')) {
+            $coverFile = $request->file('cover_image');
+            $coverFileName = Str::uuid().'.'.$coverFile->getClientOriginalExtension();
+            $artworkPath = 'albums/artwork/'.$coverFileName;
+            $this->uploadDisk()->put($artworkPath, fopen($coverFile->getPathname(), 'r'));
+
+            if ($album->artwork) {
+                $this->uploadDisk()->delete($album->artwork);
+            }
+
+            $updateData['artwork'] = $artworkPath;
+        }
+
+        $album->update($updateData);
+
+        return response()->json([
+            'message' => 'Album updated successfully.',
+            'data' => [
+                'id' => $album->id,
+                'title' => $album->title,
+                'artwork_url' => $album->artwork ? Storage::disk($this->uploadDiskName())->url($album->artwork) : null,
+            ],
+        ]);
     }
 
     // ========================================================================

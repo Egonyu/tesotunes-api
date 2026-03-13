@@ -13,6 +13,12 @@ class RegisterTest extends TestCase
 
     private string $registerUrl = '/api/auth/register';
 
+    private function postRegisterFromIp(array $payload, string $ip)
+    {
+        return $this->withServerVariables(['REMOTE_ADDR' => $ip])
+            ->postJson($this->registerUrl, $payload);
+    }
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -86,6 +92,19 @@ class RegisterTest extends TestCase
         ]);
     }
 
+    public function test_register_is_rate_limited_after_three_attempts_per_hour(): void
+    {
+        $ipAddress = '198.51.100.20';
+
+        $this->postRegisterFromIp($this->validPayload(), $ipAddress)->assertCreated();
+        $this->postRegisterFromIp($this->validPayload(), $ipAddress)->assertCreated();
+        $this->postRegisterFromIp($this->validPayload(), $ipAddress)->assertCreated();
+
+        $this->postRegisterFromIp($this->validPayload(), $ipAddress)
+            ->assertTooManyRequests()
+            ->assertJsonStructure(['message']);
+    }
+
     public function test_register_hashes_password(): void
     {
         $payload = $this->validPayload(['password' => 'MyPlainText!', 'password_confirmation' => 'MyPlainText!']);
@@ -151,8 +170,8 @@ class RegisterTest extends TestCase
 
         $token = $response->json('token');
 
-        // Use token to access /api/user
-        $userResponse = $this->getJson('/api/user', [
+        // Use token to access /api/auth/user
+        $userResponse = $this->getJson('/api/auth/user', [
             'Authorization' => "Bearer {$token}",
         ]);
 
@@ -370,3 +389,4 @@ class RegisterTest extends TestCase
         $this->assertContains($response->getStatusCode(), [200, 204]);
     }
 }
+

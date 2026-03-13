@@ -16,6 +16,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable implements MustVerifyEmail
@@ -169,6 +171,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'email_verified_at' => 'datetime',
             'phone_verified_at' => 'datetime',
             'verified_at' => 'datetime',
+            'two_factor_confirmed_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
@@ -208,11 +211,17 @@ class User extends Authenticatable implements MustVerifyEmail
         });
 
         static::created(function (User $user) {
-            // Auto-create user profile (NEW - for normalized structure)
-            // Disabled until user_profiles migration is added
-            // if (!$user->profile) {
-            //     UserProfile::createDefault($user);
-            // }
+            if (Schema::hasTable('user_profiles')) {
+                UserProfile::createDefault($user);
+            }
+
+            if (Schema::hasTable('user_security_profiles')) {
+                UserSecurityProfile::createDefault($user);
+            }
+
+            if (Schema::hasTable('user_referrals')) {
+                UserReferral::createDefault($user);
+            }
 
             // Auto-create default user settings
             // Disabled - user_settings uses key-value structure
@@ -241,11 +250,25 @@ class User extends Authenticatable implements MustVerifyEmail
     // Relationships
 
     // NEW: Core user relationships for normalized structure
-    // DEPRECATED: Profile relationship removed - all profile data is in users table
-    // public function profile(): HasOne
-    // {
-    //     return $this->hasOne(UserProfile::class);
-    // }
+    public function profile(): HasOne
+    {
+        return $this->hasOne(UserProfile::class);
+    }
+
+    public function securityProfile(): HasOne
+    {
+        return $this->hasOne(UserSecurityProfile::class);
+    }
+
+    public function artistProfile(): HasOne
+    {
+        return $this->hasOne(ArtistProfile::class);
+    }
+
+    public function referralProfile(): HasOne
+    {
+        return $this->hasOne(UserReferral::class);
+    }
 
     public function sessions(): HasMany
     {
@@ -288,9 +311,9 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->saccoMember();
     }
 
-    public function settings(): HasMany
+    public function settings(): HasOne
     {
-        return $this->hasMany(UserSetting::class);
+        return $this->hasOne(UserSetting::class);
     }
 
     public function subscription(): HasOne
@@ -508,9 +531,16 @@ class User extends Authenticatable implements MustVerifyEmail
 
         do {
             $code = strtoupper(substr(md5(uniqid()), 0, 4).'-'.$this->id);
-        } while (self::where('referral_code', $code)->exists());
+        } while (
+            self::where('referral_code', $code)->exists()
+            || UserReferral::where('referral_code', $code)->exists()
+        );
 
         $this->update(['referral_code' => $code]);
+        $this->referralProfile()->updateOrCreate(
+            ['user_id' => $this->id],
+            ['referral_code' => $code]
+        );
 
         return $code;
     }
@@ -539,10 +569,24 @@ class User extends Authenticatable implements MustVerifyEmail
     public function recordReferral(User $referredUser): void
     {
         $this->increment('referral_count');
+        $updatedReferralCount = (int) $this->fresh()->getRawOriginal('referral_count');
+
+        $this->referralProfile()->updateOrCreate(
+            ['user_id' => $this->id],
+            ['referral_count' => $updatedReferralCount]
+        );
+
         $referredUser->update([
             'referrer_id' => $this->id,
             'referred_at' => now(),
         ]);
+        $referredUser->referralProfile()->updateOrCreate(
+            ['user_id' => $referredUser->id],
+            [
+                'referrer_id' => $this->id,
+                'referred_at' => now(),
+            ]
+        );
     }
 
     // Credit system relationships
@@ -680,25 +724,133 @@ class User extends Authenticatable implements MustVerifyEmail
     // Backward compatibility accessors for profile fields (NEW)
     public function getBioAttribute($value)
     {
-        // If bio exists on users table (old structure), use it
-        if ($value !== null) {
-            return $value;
-        }
-
-        // Otherwise, get from profile (new structure)
-        return $this->profile?->bio;
+        return $this->profileValue('bio', $value);
     }
 
     public function getAvatarAttribute($value)
     {
-        // Avatar is stored directly on users table
-        return $value;
+        return $this->profileValue('avatar', $value);
     }
 
     public function getDateOfBirthAttribute($value)
     {
-        // Date of birth is stored directly on users table
+        return $this->profileValue('date_of_birth', $value);
+    }
+
+    public function getBannerAttribute($value)
+    {
+        return $this->profileValue('banner', $value);
+    }
+
+    public function getCountryAttribute($value)
+    {
+        return $this->profileValue('country', $value);
+    }
+
+    public function getCityAttribute($value)
+    {
+        return $this->profileValue('city', $value);
+    }
+
+    public function getTimezoneAttribute($value)
+    {
+        return $this->profileValue('timezone', $value);
+    }
+
+    public function getLanguageAttribute($value)
+    {
+        return $this->profileValue('language', $value);
+    }
+
+    public function getInstagramUrlAttribute($value)
+    {
+        return $this->profileValue('instagram_url', $value);
+    }
+
+    public function getTwitterUrlAttribute($value)
+    {
+        return $this->profileValue('twitter_url', $value);
+    }
+
+    public function getFacebookUrlAttribute($value)
+    {
+        return $this->profileValue('facebook_url', $value);
+    }
+
+    public function getYoutubeUrlAttribute($value)
+    {
+        return $this->profileValue('youtube_url', $value);
+    }
+
+    public function getTiktokUrlAttribute($value)
+    {
+        return $this->profileValue('tiktok_url', $value);
+    }
+
+    public function getProfileCompletionPercentageAttribute($value)
+    {
+        return $this->profileValue('profile_completion_percentage', $value);
+    }
+
+    public function getProfileStepsCompletedAttribute($value)
+    {
+        return $this->profileValue('profile_steps_completed', $value);
+    }
+
+    public function getReferralCodeAttribute($value)
+    {
+        return $this->referralValue('referral_code', $value);
+    }
+
+    public function getReferrerIdAttribute($value)
+    {
+        return $this->referralValue('referrer_id', $value);
+    }
+
+    public function getReferralCountAttribute($value)
+    {
+        return $this->referralValue('referral_count', $value);
+    }
+
+    public function getReferredAtAttribute($value)
+    {
+        return $this->referralValue('referred_at', $value);
+    }
+
+    public function getThemePreferenceAttribute($value): string
+    {
+        return (string) ($this->settingsValue('theme', $value ?? 'system') ?? 'system');
+    }
+
+    public function getSettingsAttribute($value): mixed
+    {
+        if ($this->relationLoaded('settings')) {
+            return $this->getRelation('settings');
+        }
+
+        if ($this->exists) {
+            $setting = $this->settings()->first();
+            if ($setting) {
+                return $setting;
+            }
+        }
+
         return $value;
+    }
+
+    public function getNotificationPreferencesAttribute($value): mixed
+    {
+        return $this->settingsValue('notification_preferences', $value);
+    }
+
+    public function getEmailNotificationsEnabledAttribute($value): bool
+    {
+        return (bool) $this->settingsValue('email_notifications', $value ?? true);
+    }
+
+    public function getSmsNotificationsEnabledAttribute($value): bool
+    {
+        return (bool) $this->settingsValue('sms_notifications', $value ?? true);
     }
 
     public function getAvatarUrlAttribute(): string
@@ -744,6 +896,22 @@ class User extends Authenticatable implements MustVerifyEmail
     public function getCreditBalanceAttribute(): int
     {
         return $this->creditWallet?->balance ?? 0;
+    }
+
+    public function getCreditsAttribute($value): int
+    {
+        if ($this->relationLoaded('creditWallet') && $this->creditWallet) {
+            return (int) $this->creditWallet->balance;
+        }
+
+        if ($this->exists) {
+            $walletBalance = $this->creditWallet()->value('balance');
+            if ($walletBalance !== null) {
+                return (int) $walletBalance;
+            }
+        }
+
+        return (int) ($value ?? 0);
     }
 
     public function setCreditBalanceAttribute($value): void
@@ -1434,6 +1602,7 @@ class User extends Authenticatable implements MustVerifyEmail
     public function enableTwoFactor(): void
     {
         $this->update(['two_factor_enabled' => true]);
+        $this->syncSecurityProfile();
     }
 
     public function disableTwoFactor(): void
@@ -1444,6 +1613,7 @@ class User extends Authenticatable implements MustVerifyEmail
             'two_factor_recovery_codes' => null,
             'two_factor_confirmed_at' => null,
         ]);
+        $this->syncSecurityProfile();
     }
 
     public function hasTwoFactorEnabled(): bool
@@ -1493,18 +1663,18 @@ class User extends Authenticatable implements MustVerifyEmail
     // Artist-specific helper methods
     public function getDisplayNameAttribute(): string
     {
+        $profileDisplayName = $this->profileValue('display_name', $this->attributes['display_name'] ?? null);
+        if ($profileDisplayName) {
+            return $profileDisplayName;
+        }
+
         // If user has artist profile, use artist's stage name
         if ($this->artist) {
             return $this->artist->stage_name;
         }
 
-        // Use actual display_name from database or fallback to first_name + last_name
-        if ($this->attributes['display_name'] ?? null) {
-            return $this->attributes['display_name'];
-        }
-
-        $firstName = $this->attributes['first_name'] ?? '';
-        $lastName = $this->attributes['last_name'] ?? '';
+        $firstName = $this->profileValue('first_name', $this->attributes['first_name'] ?? '');
+        $lastName = $this->profileValue('last_name', $this->attributes['last_name'] ?? '');
 
         return trim($firstName.' '.$lastName) ?: 'User';
     }
@@ -1758,6 +1928,195 @@ class User extends Authenticatable implements MustVerifyEmail
             'profile_completion_percentage' => $percentage,
             'profile_steps_completed' => $steps,
         ]);
+
+        $this->profile()->updateOrCreate(
+            ['user_id' => $this->id],
+            [
+                'profile_completion_percentage' => $percentage,
+                'profile_steps_completed' => $steps,
+            ]
+        );
+    }
+
+    public function syncSecurityProfile(): void
+    {
+        $this->securityProfile()->updateOrCreate(
+            ['user_id' => $this->id],
+            [
+                'two_factor_enabled' => (bool) $this->two_factor_enabled,
+                'two_factor_secret' => $this->two_factor_secret,
+                'two_factor_recovery_codes' => $this->normalizeRecoveryCodesForStorage($this->two_factor_recovery_codes),
+                'two_factor_confirmed_at' => $this->two_factor_confirmed_at,
+                'last_security_reviewed_at' => now(),
+            ]
+        );
+    }
+
+    protected function normalizeRecoveryCodesForStorage(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_array($value)) {
+            return json_encode(array_values($value));
+        }
+
+        if (is_string($value)) {
+            json_decode($value, true);
+
+            return json_last_error() === JSON_ERROR_NONE ? $value : json_encode([$value]);
+        }
+
+        return json_encode([$value]);
+    }
+
+    public function syncArtistApplicationState(array $attributes): void
+    {
+        $legacyUserUpdates = [];
+        foreach ([
+            'full_name',
+            'nin_number',
+            'phone',
+            'mobile_money_number',
+            'mobile_money_provider',
+            'application_status',
+            'rejection_reason',
+        ] as $key) {
+            if (array_key_exists($key, $attributes)) {
+                $legacyUserUpdates[$key] = $attributes[$key];
+            }
+        }
+
+        if (! empty($legacyUserUpdates)) {
+            $this->update($legacyUserUpdates);
+        }
+
+        $this->profile()->updateOrCreate(
+            ['user_id' => $this->id],
+            array_filter([
+                'display_name' => $attributes['stage_name'] ?? null,
+                'bio' => $attributes['bio'] ?? null,
+                'country' => $attributes['country'] ?? null,
+                'city' => $attributes['city'] ?? null,
+                'instagram_url' => $attributes['social_links']['instagram'] ?? null,
+                'twitter_url' => $attributes['social_links']['twitter'] ?? null,
+                'facebook_url' => $attributes['social_links']['facebook'] ?? null,
+                'youtube_url' => $attributes['social_links']['youtube'] ?? null,
+                'tiktok_url' => $attributes['social_links']['tiktok'] ?? null,
+            ], fn ($value) => $value !== null)
+        );
+
+        $verificationDocuments = $attributes['verification_documents'] ?? [];
+
+        $this->artistProfile()->updateOrCreate(
+            ['user_id' => $this->id],
+            [
+                'stage_name' => $attributes['stage_name'] ?? $this->artistProfile?->stage_name,
+                'real_name' => $attributes['full_name'] ?? $this->artistProfile?->real_name,
+                'nin_number' => $attributes['nin_number'] ?? $this->artistProfile?->nin_number,
+                'verification_status' => $attributes['verification_status'] ?? 'pending',
+                'verification_documents' => $verificationDocuments,
+                'bio' => $attributes['bio'] ?? $this->artistProfile?->bio,
+                'website' => $attributes['website_url'] ?? $this->artistProfile?->website,
+                'social_links' => $attributes['social_links'] ?? $this->artistProfile?->social_links,
+                'genres' => $attributes['genres'] ?? $this->artistProfile?->genres,
+                'career_stage' => $attributes['career_stage'] ?? $this->artistProfile?->career_stage,
+                'mobile_money_provider' => $attributes['mobile_money_provider'] ?? $this->artistProfile?->mobile_money_provider,
+                'mobile_money_number' => $attributes['mobile_money_number'] ?? $this->artistProfile?->mobile_money_number,
+                'bank_name' => $attributes['bank_name'] ?? $this->artistProfile?->bank_name,
+                'bank_account' => $attributes['bank_account'] ?? $this->artistProfile?->bank_account,
+                'payout_method' => $attributes['artist_profile_payout_method'] ?? $this->artistProfile?->payout_method ?? 'mobile_money',
+                'profile_completed' => (bool) ($attributes['profile_completed'] ?? true),
+                'is_active' => true,
+            ]
+        );
+    }
+
+    public function syncArtistReviewState(Artist $artist, array $attributes): void
+    {
+        $applicationStatus = $attributes['application_status'] ?? null;
+        $verifiedAt = $attributes['verified_at'] ?? null;
+        $verifiedBy = $attributes['verified_by'] ?? null;
+        $rejectionReason = $attributes['rejection_reason'] ?? null;
+        $isArtist = (bool) ($attributes['is_artist'] ?? false);
+
+        $this->update(array_filter([
+            'application_status' => $applicationStatus,
+            'verified_at' => $verifiedAt,
+            'verified_by' => $verifiedBy,
+            'rejection_reason' => $rejectionReason,
+            'is_artist' => $isArtist,
+            'phone_verified_at' => $attributes['phone_verified_at'] ?? null,
+        ], fn ($value) => $value !== null));
+
+        if (! empty($attributes['email_verified_at']) && ! $this->email_verified_at) {
+            $this->forceFill([
+                'email_verified_at' => $attributes['email_verified_at'],
+            ])->save();
+        }
+
+        $this->artistProfile()->updateOrCreate(
+            ['user_id' => $this->id],
+            [
+                'artist_id' => $artist->id,
+                'stage_name' => $artist->stage_name,
+                'real_name' => $this->full_name ?? $this->artistProfile?->real_name,
+                'nin_number' => $this->nin_number ?? $this->artistProfile?->nin_number,
+                'verification_status' => $attributes['verification_status'] ?? $this->artistProfile?->verification_status ?? 'pending',
+                'verification_documents' => $this->artistProfile?->verification_documents ?? [],
+                'verified_at' => $verifiedAt,
+                'bio' => $artist->bio ?? $this->artistProfile?->bio,
+                'website' => $artist->website_url ?? $this->artistProfile?->website,
+                'social_links' => $artist->social_links ?? $this->artistProfile?->social_links,
+                'genres' => $attributes['genres'] ?? $this->artistProfile?->genres,
+                'mobile_money_provider' => $this->mobile_money_provider ?? $this->artistProfile?->mobile_money_provider,
+                'mobile_money_number' => $this->mobile_money_number ?? $this->artistProfile?->mobile_money_number,
+                'bank_name' => $this->artistProfile?->bank_name,
+                'bank_account' => $this->artistProfile?->bank_account,
+                'payout_method' => $this->artistProfile?->payout_method ?? 'mobile_money',
+                'profile_completed' => true,
+                'is_active' => $attributes['artist_profile_active'] ?? true,
+            ]
+        );
+    }
+
+    protected function profileValue(string $key, mixed $fallback = null): mixed
+    {
+        if ($this->relationLoaded('profile') && $this->profile) {
+            $value = $this->profile->getAttribute($key);
+            if ($value !== null && $value !== '') {
+                return $value;
+            }
+        }
+
+        return $fallback;
+    }
+
+    protected function referralValue(string $key, mixed $fallback = null): mixed
+    {
+        if ($this->relationLoaded('referralProfile') && $this->referralProfile) {
+            $value = $this->referralProfile->getAttribute($key);
+            if ($value !== null && $value !== '') {
+                return $value;
+            }
+        }
+
+        return $fallback;
+    }
+
+    protected function settingsValue(string $key, mixed $fallback = null): mixed
+    {
+        $settings = $this->settings;
+
+        if ($settings instanceof UserSetting) {
+            $value = $settings->getAttribute($key);
+            if ($value !== null && $value !== '') {
+                return $value;
+            }
+        }
+
+        return $fallback;
     }
 
     /**

@@ -15,11 +15,29 @@ class CampaignsApiController extends Controller
 {
     use HandlesApiErrors;
 
+    protected function ensureAdmin(Request $request): ?\Illuminate\Http\JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user || ! $user->hasAnyRole(['admin', 'super_admin'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Admin access is required for this action.',
+            ], 403);
+        }
+
+        return null;
+    }
+
     /**
      * GET /api/admin/campaigns/stats
      */
-    public function stats()
+    public function stats(Request $request)
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () {
             $data = Cache::remember('admin:campaigns:stats', now()->addMinutes(5), function () {
                 return [
@@ -46,6 +64,10 @@ class CampaignsApiController extends Controller
      */
     public function index(Request $request)
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request) {
             $campaigns = Campaign::query()
                 ->with('user')
@@ -77,8 +99,12 @@ class CampaignsApiController extends Controller
     /**
      * GET /api/admin/campaigns/{id}
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($id) {
             $campaign = Campaign::with('user')
                 ->withCount('pledges', 'updates')
@@ -97,6 +123,10 @@ class CampaignsApiController extends Controller
      */
     public function store(Request $request)
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request) {
             $validated = $request->validate([
                 'title' => 'required|string|max:255',
@@ -137,6 +167,10 @@ class CampaignsApiController extends Controller
      */
     public function update(Request $request, $id)
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request, $id) {
             $campaign = Campaign::findOrFail($id);
 
@@ -176,8 +210,12 @@ class CampaignsApiController extends Controller
     /**
      * DELETE /api/admin/campaigns/{id}
      */
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($id) {
             $campaign = Campaign::findOrFail($id);
             $campaign->delete();
@@ -191,6 +229,10 @@ class CampaignsApiController extends Controller
      */
     public function approve(Request $request, $id)
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request, $id) {
             $campaign = Campaign::findOrFail($id);
 
@@ -218,6 +260,10 @@ class CampaignsApiController extends Controller
      */
     public function reject(Request $request, $id)
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request, $id) {
             $campaign = Campaign::findOrFail($id);
 
@@ -247,6 +293,10 @@ class CampaignsApiController extends Controller
      */
     public function pledges(Request $request, $id)
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request, $id) {
             $campaign = Campaign::findOrFail($id);
 
@@ -273,6 +323,10 @@ class CampaignsApiController extends Controller
      */
     public function updates(Request $request, $id)
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request, $id) {
             $campaign = Campaign::findOrFail($id);
 

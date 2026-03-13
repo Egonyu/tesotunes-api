@@ -13,11 +13,29 @@ class DistributionPerformanceController extends Controller
 {
     use HandlesApiErrors;
 
+    protected function ensureAdmin(Request $request): ?JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user || ! $user->hasAnyRole(['admin', 'super_admin'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Admin access is required for this action.',
+            ], 403);
+        }
+
+        return null;
+    }
+
     /**
      * Get admin overview of distribution performance across all artists
      */
     public function performance(Request $request): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request) {
             $days = min((int) $request->get('days', 30), 365);
             $cacheKey = "admin:distribution:performance:{$days}";

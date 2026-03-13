@@ -4,10 +4,11 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Artist;
-use App\Models\User;
+use App\Models\KYCDocument;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ArtistApplicationApiController extends Controller
@@ -22,26 +23,67 @@ class ArtistApplicationApiController extends Controller
      */
     public function status()
     {
-        $user = Auth::user();
+        $user = Auth::user()->load(['artist', 'artistProfile']);
 
-        // Check if user already has artist profile
-        if ($user->artist) {
+        if ($user->artist && in_array($user->artist->status, ['active', 'verified'], true)) {
             return response()->json([
                 'success' => true,
                 'data' => [
                     'status' => 'approved',
                     'is_artist' => true,
-                    'artist' => $user->artist,
+                    'artist' => [
+                        'id' => $user->artist->id,
+                        'stage_name' => $user->artist->stage_name,
+                        'slug' => $user->artist->slug,
+                        'is_verified' => (bool) $user->artist->is_verified,
+                        'can_upload' => (bool) $user->artist->can_upload,
+                    ],
+                    'approved_at' => optional($user->artist->verified_at ?? $user->verified_at)->toIso8601String(),
                 ],
             ]);
         }
 
-        // No pending application (instant approval flow)
+        if ($user->artist && $user->artist->status === 'rejected') {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'status' => 'rejected',
+                    'is_artist' => false,
+                    'artist' => [
+                        'id' => $user->artist->id,
+                        'stage_name' => $user->artist->stage_name,
+                        'slug' => $user->artist->slug,
+                    ],
+                    'rejection_reason' => $user->artist->rejection_reason ?? $user->rejection_reason,
+                    'submitted_at' => optional($user->artist->created_at)->toIso8601String(),
+                    'can_reapply' => true,
+                ],
+            ]);
+        }
+
+        if ($user->artist && in_array($user->artist->status, ['pending', 'review'], true)) {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'status' => 'pending',
+                    'is_artist' => false,
+                    'artist' => [
+                        'id' => $user->artist->id,
+                        'stage_name' => $user->artist->stage_name,
+                        'slug' => $user->artist->slug,
+                    ],
+                    'submitted_at' => optional($user->artist->created_at)->toIso8601String(),
+                    'message' => 'Your application is being reviewed.',
+                ],
+            ]);
+        }
+
         return response()->json([
             'success' => true,
             'data' => [
-                'status' => null,
+                'status' => 'none',
                 'is_artist' => false,
+                'message' => 'No application submitted',
             ],
         ]);
     }
@@ -53,8 +95,7 @@ class ArtistApplicationApiController extends Controller
     {
         $user = Auth::user();
 
-        // Check if already an artist
-        if ($user->artist) {
+        if ($user->artist && $user->artist->status !== 'rejected') {
             return response()->json([
                 'success' => false,
                 'message' => 'You already have an artist account',
@@ -78,10 +119,17 @@ class ArtistApplicationApiController extends Controller
                 'bank_account' => 'required_if:payout_method,bank',
                 'country' => 'nullable|string|max:2',
                 'city' => 'nullable|string|max:255',
+                'website_url' => 'nullable|url|max:255',
+                'career_start_year' => 'nullable|integer|min:1900|max:2100',
+                'nin_number' => 'nullable|string|max:255',
                 'social_links' => 'nullable|array',
+                'social_links.*' => 'nullable|string|max:255',
                 'terms_accepted' => 'required|accepted',
                 'artist_agreement_accepted' => 'required|accepted',
-                // REMOVED avatar validation - handle it separately
+                'avatar' => 'nullable|image|max:5120',
+                'national_id_front' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+                'national_id_back' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+                'selfie_with_id' => 'nullable|file|mimes:jpg,jpeg,png|max:10240',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
@@ -94,58 +142,86 @@ class ArtistApplicationApiController extends Controller
         DB::beginTransaction();
 
         try {
-            // Create artist record directly (instant approval for better UX)
             $genreIds = [$validated['primary_genre']];
             if (! empty($validated['secondary_genres'])) {
                 $genreIds = array_merge($genreIds, $validated['secondary_genres']);
             }
 
-            $artist = Artist::create([
+            $existingApplication = $user->artist;
+            if ($existingApplication && in_array($existingApplication->status, ['pending', 'active', 'verified'], true)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You already have an active artist application',
+                ], 409);
+            }
+
+            $artistAttributes = [
                 'user_id' => $user->id,
                 'stage_name' => $validated['stage_name'],
-                'slug' => Str::slug($validated['stage_name']).'-'.Str::random(6),
+                'slug' => $existingApplication?->slug ?: Str::slug($validated['stage_name']).'-'.Str::random(6),
                 'bio' => $validated['bio'],
                 'primary_genre_id' => $validated['primary_genre'],
                 'social_links' => $validated['social_links'] ?? [],
                 'is_verified' => false,
-                'status' => 'active',
-            ]);
+                'status' => 'pending',
+                'verification_status' => 'pending',
+                'can_upload' => false,
+                'website_url' => $validated['website_url'] ?? null,
+                'career_start_year' => $validated['career_start_year'] ?? null,
+                'payout_phone_number' => $validated['mobile_money_number'] ?? $validated['phone'],
+                'verified_at' => null,
+                'verified_by' => null,
+                'rejection_reason' => null,
+            ];
 
-            // Handle avatar upload
+            $artist = $existingApplication
+                ? tap($existingApplication)->update($artistAttributes)
+                : Artist::create($artistAttributes);
+
+            $artist = $artist->fresh();
+
             if ($request->hasFile('avatar')) {
                 $artist->addMediaFromRequest('avatar')->toMediaCollection('avatar');
             }
 
-            // Update user phone and artist payout info
-            $user->update([
+            $verificationDocuments = $this->storeVerificationDocuments($request, $user);
+
+            $user->syncArtistApplicationState([
+                'stage_name' => $validated['stage_name'],
+                'full_name' => $validated['full_name'],
+                'nin_number' => $validated['nin_number'] ?? null,
                 'phone' => $validated['phone'],
+                'bio' => $validated['bio'],
+                'country' => $validated['country'] ?? null,
+                'city' => $validated['city'] ?? null,
+                'website_url' => $validated['website_url'] ?? null,
+                'social_links' => $validated['social_links'] ?? [],
                 'mobile_money_number' => $validated['mobile_money_number'] ?? null,
                 'mobile_money_provider' => $validated['mobile_money_provider'] ?? null,
+                'bank_name' => $validated['bank_name'] ?? null,
+                'bank_account' => $validated['bank_account'] ?? null,
+                'application_status' => 'pending',
+                'verification_status' => 'pending',
+                'verification_documents' => $verificationDocuments,
+                'genres' => $genreIds,
+                'artist_profile_payout_method' => $validated['payout_method'] === 'bank' ? 'bank_transfer' : 'mobile_money',
+                'profile_completed' => true,
+                'rejection_reason' => null,
             ]);
 
-            // Store payout phone on artist record
-            $artist->update([
-                'payout_phone_number' => $validated['mobile_money_number'] ?? $validated['phone'],
-            ]);
-
-            // Assign artist role
-            $artistRole = DB::table('roles')->where('name', 'Artist')->first();
-            if ($artistRole) {
-                DB::table('user_roles')->insert([
-                    'user_id' => $user->id,
-                    'role_id' => $artistRole->id,
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
-            }
+            $user->artistProfile()->update(['artist_id' => $artist->id]);
 
             DB::commit();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Artist application submitted successfully! Welcome to TesoTunes!',
+                'message' => 'Artist application submitted successfully.',
                 'data' => [
-                    'artist' => $artist->fresh(),
+                    'application_status' => 'pending',
+                    'artist_id' => $artist->id,
+                    'stage_name' => $artist->stage_name,
+                    'slug' => $artist->slug,
+                    'submitted_at' => optional($artist->created_at)->toIso8601String(),
                 ],
             ], 201);
 
@@ -160,11 +236,63 @@ class ArtistApplicationApiController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to submit application: '.$e->getMessage(),
+                'message' => 'Failed to submit application.',
                 'errors' => [
                     'general' => [$e->getMessage()],
                 ],
             ], 500);
+        }
+    }
+
+    private function storeVerificationDocuments(Request $request, $user): array
+    {
+        $storedDocuments = [];
+
+        foreach ([KYCDocument::TYPE_NATIONAL_ID_FRONT, KYCDocument::TYPE_NATIONAL_ID_BACK, KYCDocument::TYPE_SELFIE_WITH_ID] as $type) {
+            if (! $request->hasFile($type)) {
+                continue;
+            }
+
+            $file = $request->file($type);
+            $path = $this->storeDocumentFile($file, $user->id);
+
+            KYCDocument::create([
+                'user_id' => $user->id,
+                'document_type' => $type,
+                'document_number' => $request->input('nin_number'),
+                'document_front' => $path,
+                'file_path' => $path,
+                'file_name' => $file->getClientOriginalName(),
+                'mime_type' => $file->getMimeType(),
+                'file_size' => $file->getSize(),
+                'status' => KYCDocument::STATUS_PENDING,
+                'ip_address' => $request->ip(),
+            ]);
+
+            $storedDocuments[$type] = [
+                'path' => $path,
+                'name' => $file->getClientOriginalName(),
+                'mime_type' => $file->getMimeType(),
+                'size' => $file->getSize(),
+                'disk' => 'private',
+            ];
+        }
+
+        return $storedDocuments;
+    }
+
+    private function storeDocumentFile($file, int $userId): string
+    {
+        $directory = "kyc/{$userId}";
+
+        try {
+            return $file->store($directory, 'private');
+        } catch (\ValueError) {
+            $filename = Str::uuid().'.'.$file->getClientOriginalExtension();
+            $path = "{$directory}/{$filename}";
+            Storage::disk('private')->put($path, $file->get());
+
+            return $path;
         }
     }
 }

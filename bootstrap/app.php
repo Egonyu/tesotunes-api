@@ -1,12 +1,19 @@
 <?php
 
 use App\Services\Monitoring\AlertingService;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\HttpKernel\Exception\TooManyRequestsHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -26,10 +33,8 @@ return Application::configure(basePath: dirname(__DIR__))
         // Enable API rate limiting (defined in AppServiceProvider)
         $middleware->throttleApi('api');
 
-        // Exclude auth endpoints from CSRF verification (for API/NextAuth)
+        // Exclude API endpoints from CSRF verification for the SPA/API contract.
         $middleware->validateCsrfTokens(except: [
-            '/auth/login',
-            '/auth/register',
             '/api/*',
         ]);
 
@@ -73,14 +78,51 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // ── Report: send alerts for server errors ────────────────────
         $exceptions->report(function (\Throwable $e) {
+            $request = request();
+
+            if ($request && ($request->is('api/*') || $request->expectsJson())) {
+                if ($e instanceof AuthenticationException) {
+                    Log::channel('security')->warning('api.authentication_failed', [
+                        'guards' => $e->guards(),
+                        'ip' => $request->ip(),
+                        'user_agent' => $request->userAgent(),
+                        'url' => $request->fullUrl(),
+                        'method' => $request->method(),
+                        'user_id' => auth()->id(),
+                    ]);
+                }
+
+                if ($e instanceof AuthorizationException) {
+                    Log::channel('security')->warning('api.authorization_denied', [
+                        'ip' => $request->ip(),
+                        'user_agent' => $request->userAgent(),
+                        'url' => $request->fullUrl(),
+                        'method' => $request->method(),
+                        'user_id' => auth()->id(),
+                        'message' => $e->getMessage(),
+                    ]);
+                }
+
+                if ($e instanceof TooManyRequestsHttpException) {
+                    Log::channel('security')->warning('api.rate_limited', [
+                        'ip' => $request->ip(),
+                        'user_agent' => $request->userAgent(),
+                        'url' => $request->fullUrl(),
+                        'method' => $request->method(),
+                        'user_id' => auth()->id(),
+                        'retry_after' => $e->getHeaders()['Retry-After'] ?? null,
+                    ]);
+                }
+            }
+
             // Skip noise — 404s, validation, auth, and client errors
             if ($e instanceof NotFoundHttpException) {
                 return false;
             }
-            if ($e instanceof \Illuminate\Validation\ValidationException) {
+            if ($e instanceof ValidationException) {
                 return false;
             }
-            if ($e instanceof \Illuminate\Auth\AuthenticationException) {
+            if ($e instanceof AuthenticationException) {
                 return false;
             }
             if ($e instanceof HttpExceptionInterface && $e->getStatusCode() < 500) {
@@ -131,6 +173,24 @@ return Application::configure(basePath: dirname(__DIR__))
         // ── Render: consistent JSON error responses for API routes ───
         $exceptions->render(function (\Throwable $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
+                $buildPayload = function (string $message, array $extra = []) use ($e) {
+                    $payload = array_merge([
+                        'success' => false,
+                        'message' => $message,
+                    ], $extra);
+
+                    if (! app()->isProduction()) {
+                        $payload['exception'] = get_class($e);
+                        $payload['trace'] = collect($e->getTrace())->take(5)->map(function ($frame) {
+                            unset($frame['args']);
+
+                            return $frame;
+                        })->toArray();
+                    }
+
+                    return $payload;
+                };
+
                 $status = 500;
                 $message = 'An unexpected error occurred.';
 
@@ -139,45 +199,54 @@ return Application::configure(basePath: dirname(__DIR__))
                     $message = $e->getMessage() ?: $message;
                 }
 
-                if ($e instanceof \Illuminate\Auth\AuthenticationException) {
-                    $status = 401;
-                    $message = 'Unauthenticated.';
+                if ($e instanceof ValidationException) {
+                    return response()->json(
+                        $buildPayload('Validation failed.', [
+                            'errors' => $e->errors(),
+                        ]),
+                        422
+                    );
                 }
 
-                if ($e instanceof \Illuminate\Validation\ValidationException) {
-                    return response()->json([
-                        'success' => false,
-                        'message' => $e->getMessage(),
-                        'errors' => $e->errors(),
-                    ], 422);
+                if ($e instanceof AuthenticationException) {
+                    return response()->json($buildPayload('Unauthenticated.'), 401);
                 }
 
-                if ($e instanceof \Illuminate\Database\Eloquent\ModelNotFoundException) {
-                    $status = 404;
+                if ($e instanceof AuthorizationException) {
+                    return response()->json($buildPayload('Forbidden.'), 403);
+                }
+
+                if ($e instanceof ModelNotFoundException) {
+                    return response()->json($buildPayload('The requested resource was not found.'), 404);
+                }
+
+                if ($e instanceof QueryException) {
+                    return response()->json(
+                        $buildPayload('A database error occurred. Please try again later.'),
+                        500
+                    );
+                }
+
+                if ($e instanceof TooManyRequestsHttpException || $status === 429) {
+                    $retryAfter = (int) ($e instanceof HttpExceptionInterface
+                        ? ($e->getHeaders()['Retry-After'] ?? 0)
+                        : 0);
+
+                    return response()->json(
+                        $buildPayload('Too many attempts. Please try again later.', array_filter([
+                            'retry_after' => $retryAfter ?: null,
+                        ])),
+                        429
+                    )->header('Retry-After', $retryAfter ?: 60);
+                }
+
+                if ($status === 404) {
                     $message = 'The requested resource was not found.';
+                } elseif ($status >= 400 && $status < 500 && empty($e->getMessage())) {
+                    $message = 'The request could not be processed.';
                 }
 
-                if ($e instanceof \Illuminate\Database\QueryException) {
-                    $status = 500;
-                    $message = 'A database error occurred. Please try again later.';
-                }
-
-                // In production, never leak stack traces
-                $payload = [
-                    'success' => false,
-                    'message' => $message,
-                ];
-                if (! app()->isProduction()) {
-                    $payload['exception'] = get_class($e);
-                    // Sanitize trace to remove non-serializable values (resources, Closures, etc.)
-                    $payload['trace'] = collect($e->getTrace())->take(5)->map(function ($frame) {
-                        unset($frame['args']); // args can contain resources/Closures that break json_encode
-
-                        return $frame;
-                    })->toArray();
-                }
-
-                return response()->json($payload, $status);
+                return response()->json($buildPayload($message), $status);
             }
         });
 

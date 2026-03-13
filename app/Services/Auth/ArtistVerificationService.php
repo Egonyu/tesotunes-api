@@ -50,11 +50,26 @@ class ArtistVerificationService
             // Upload KYC documents
             $this->uploadKYCDocuments($user, $data);
 
-            // Update user to mark as artist applicant
-            $user->update([
-                'is_artist' => true,
+            $user->syncArtistApplicationState([
+                'stage_name' => $data['stage_name'],
+                'full_name' => $data['full_name'] ?? $user->full_name,
+                'nin_number' => $data['nin_number'] ?? null,
                 'phone' => $data['phone'] ?? $user->phone,
+                'bio' => $data['bio'] ?? null,
+                'country' => $data['country'] ?? null,
+                'city' => $data['city'] ?? null,
+                'website_url' => $data['website_url'] ?? null,
+                'social_links' => $data['social_links'] ?? [],
+                'mobile_money_number' => $data['mobile_money_number'] ?? null,
+                'mobile_money_provider' => $data['mobile_money_provider'] ?? null,
+                'bank_name' => $data['bank_name'] ?? null,
+                'bank_account' => $data['bank_account'] ?? null,
+                'application_status' => 'pending',
+                'verification_status' => 'pending',
+                'genres' => array_values(array_filter([$data['genre_id'] ?? null])),
             ]);
+
+            $user->artistProfile()->update(['artist_id' => $artist->id]);
 
             // Log activity
             AuditLog::create([
@@ -134,23 +149,29 @@ class ArtistVerificationService
             $artist->update([
                 'status' => 'active',
                 'is_verified' => true,
+                'verification_status' => 'approved',
                 'verified_at' => now(),
                 'verified_by' => $admin->id,
                 'can_upload' => true,
                 'rejection_reason' => null,
             ]);
 
-            // Update user role and status
-            $artist->user->update([
+            $artist->user->syncArtistReviewState($artist, [
+                'application_status' => 'approved',
+                'verification_status' => 'verified',
+                'verified_at' => $artist->verified_at,
+                'verified_by' => $admin->id,
+                'rejection_reason' => null,
+                'is_artist' => true,
+                'artist_profile_active' => true,
+                'phone_verified_at' => now(),
+                'email_verified_at' => $artist->user->email_verified_at ?? now(),
+            ]);
+
+            $artist->user->forceFill([
                 'role' => 'artist',
                 'status' => 'active',
-                'verified_at' => now(),
-                'verified_by' => $admin->id,
-                'artist_application_notes' => $notes,
-                // Verify email and phone number when approving artist
-                'email_verified_at' => $artist->user->email_verified_at ?? now(),
-                'phone_verified_at' => now(),
-            ]);
+            ])->save();
 
             // Assign artist role in user_roles table
             $this->assignArtistRole($artist->user, $admin);
@@ -210,15 +231,21 @@ class ArtistVerificationService
             $artist->update([
                 'status' => 'rejected',
                 'is_verified' => false,
+                'verification_status' => 'rejected',
                 'verified_at' => now(),
                 'verified_by' => $admin->id,
                 'rejection_reason' => $reason,
                 'can_upload' => false,
             ]);
 
-            // Update user record
-            $artist->user->update([
-                'artist_application_notes' => "Rejected: {$reason}",
+            $artist->user->syncArtistReviewState($artist, [
+                'application_status' => 'rejected',
+                'verification_status' => 'rejected',
+                'verified_at' => $artist->verified_at,
+                'verified_by' => $admin->id,
+                'rejection_reason' => $reason,
+                'is_artist' => false,
+                'artist_profile_active' => true,
             ]);
 
             // Mark KYC documents as rejected
@@ -277,13 +304,19 @@ class ArtistVerificationService
             // Update artist record
             $artist->update([
                 'status' => 'pending',
+                'verification_status' => 'pending',
                 'verified_by' => $admin->id,
                 'verified_at' => now(),
             ]);
 
-            // Update user record with admin notes
-            $artist->user->update([
-                'artist_application_notes' => $notes,
+            $artist->user->syncArtistReviewState($artist, [
+                'application_status' => 'pending',
+                'verification_status' => 'pending',
+                'verified_at' => $artist->verified_at,
+                'verified_by' => $admin->id,
+                'rejection_reason' => null,
+                'is_artist' => false,
+                'artist_profile_active' => true,
             ]);
 
             // Mark specific documents as requiring resubmission

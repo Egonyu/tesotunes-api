@@ -98,6 +98,8 @@ Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('ar
     // Albums
     Route::get('/albums', [\App\Http\Controllers\Api\ArtistApiController::class, 'albums'])->name('albums.index');
     Route::post('/albums', [\App\Http\Controllers\Api\ArtistApiController::class, 'storeAlbum'])->name('albums.store');
+    Route::get('/albums/{id}', [\App\Http\Controllers\Api\ArtistApiController::class, 'showAlbum'])->name('albums.show');
+    Route::put('/albums/{id}', [\App\Http\Controllers\Api\ArtistApiController::class, 'updateAlbum'])->name('albums.update');
 
     // Profile
     Route::get('/profile', [\App\Http\Controllers\Api\ArtistApiController::class, 'profile'])->name('profile.show');
@@ -125,11 +127,15 @@ Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('ar
 });
 
 // Ad tracking endpoints (no auth required for impressions)
-Route::post('/ads/impression', [\App\Http\Controllers\Api\AdTrackingController::class, 'recordImpression']);
-Route::post('/ads/click', [\App\Http\Controllers\Api\AdTrackingController::class, 'recordClick']);
+Route::middleware('throttle:ad-tracking')->group(function () {
+    Route::post('/ads/impression', [\App\Http\Controllers\Api\AdTrackingController::class, 'recordImpression']);
+    Route::post('/ads/click', [\App\Http\Controllers\Api\AdTrackingController::class, 'recordClick']);
+});
 
 // Theme preference (works for both guests and authenticated users)
-Route::post('/theme', [\App\Http\Controllers\ThemeController::class, 'update'])->name('api.theme.update');
+Route::post('/theme', [\App\Http\Controllers\ThemeController::class, 'update'])
+    ->middleware('throttle:theme')
+    ->name('api.theme.update');
 Route::get('/theme', [\App\Http\Controllers\ThemeController::class, 'get'])->name('api.theme.get');
 
 // Genres API endpoint for artist registration
@@ -166,6 +172,14 @@ Route::middleware('auth:sanctum')->prefix('player')->name('api.player.')->group(
 
 // Activity Interaction API endpoints
 Route::middleware('auth:sanctum')->group(function () {
+    Route::prefix('settings')->group(function () {
+        Route::get('/2fa', [\App\Http\Controllers\Api\Settings\TwoFactorSettingsController::class, 'status']);
+        Route::post('/2fa/enable', [\App\Http\Controllers\Api\Settings\TwoFactorSettingsController::class, 'enable']);
+        Route::post('/2fa/verify', [\App\Http\Controllers\Api\Settings\TwoFactorSettingsController::class, 'verify']);
+        Route::post('/2fa/disable', [\App\Http\Controllers\Api\Settings\TwoFactorSettingsController::class, 'disable']);
+        Route::post('/2fa/recovery-codes', [\App\Http\Controllers\Api\Settings\TwoFactorSettingsController::class, 'regenerateRecoveryCodes']);
+    });
+
     // User profile management
     Route::put('/user', [\App\Http\Controllers\Api\User\ProfileController::class, 'update'])
         ->name('api.user.update.sanctum');
@@ -194,13 +208,19 @@ Route::middleware('auth:sanctum')->group(function () {
 // Content API (Genres & Moods)
 require __DIR__.'/api/content.php';
 
-Route::prefix('v1')->name('api.v1.')->group(function () {
+Route::prefix('v1')
+    ->name('api.v1.')
+    ->middleware('deprecated:2026-06-30,/api')
+    ->group(function () {
     require __DIR__.'/api/v1/api.php';
 });
 
 // Store Module API Routes (if enabled)
 if (config('store.enabled', false)) {
-    Route::prefix('v1/store')->name('api.v1.store.')->group(function () {
+    Route::prefix('v1/store')
+        ->name('api.v1.store.')
+        ->middleware('deprecated:2026-06-30,/api/store')
+        ->group(function () {
         require app_path('Modules/Store/Routes/api.php');
     });
 }
@@ -721,31 +741,6 @@ Route::prefix('credits')->middleware('auth:sanctum')->name('api.credits.')->grou
     Route::post('/promotions/{promotion}/participate', [\App\Http\Controllers\Api\User\CreditController::class, 'participateInPromotion'])->name('promotions.participate');
 });
 
-// Auth prefix routes (rate-limited, for compatibility with frontend)
-Route::prefix('auth')->group(function () {
-    Route::middleware('throttle:login')->post('/login', [\App\Http\Controllers\Api\Auth\AuthController::class, 'login']);
-    Route::middleware('throttle:register')->post('/register', [\App\Http\Controllers\Api\Auth\AuthController::class, 'register']);
-
-    // Password Reset (public — rate limited)
-    Route::middleware('throttle:login')->group(function () {
-        Route::post('/forgot-password', [\App\Http\Controllers\Api\Auth\PasswordResetController::class, 'forgotPassword']);
-        Route::post('/reset-password', [\App\Http\Controllers\Api\Auth\PasswordResetController::class, 'resetPassword']);
-    });
-
-    // Email Verification (public — verify endpoint uses signed URL params)
-    Route::middleware('throttle:login')->post('/email/verify', [\App\Http\Controllers\Api\Auth\EmailVerificationController::class, 'verify']);
-
-    Route::middleware('auth:sanctum')->group(function () {
-        Route::post('/logout', [\App\Http\Controllers\Api\Auth\AuthController::class, 'logout']);
-        Route::post('/refresh', [\App\Http\Controllers\Api\Auth\AuthController::class, 'refresh']);
-        Route::get('/user', [\App\Http\Controllers\Api\Auth\AuthController::class, 'user']);
-
-        // Email verification (authenticated)
-        Route::post('/email/resend', [\App\Http\Controllers\Api\Auth\EmailVerificationController::class, 'resend']);
-        Route::get('/email/verify/status', [\App\Http\Controllers\Api\Auth\EmailVerificationController::class, 'status']);
-    });
-});
-
 // REMOVED: test-upload debug endpoint — security hardening
 
 // File Upload API Routes (authenticated)
@@ -754,3 +749,4 @@ Route::middleware('auth:sanctum')->prefix('uploads')->name('api.uploads.')->grou
     Route::post('/image', [\App\Http\Controllers\Api\Upload\FileController::class, 'uploadImage'])->name('image');
     Route::post('/avatar', [\App\Http\Controllers\Api\Upload\FileController::class, 'uploadAvatar'])->name('avatar');
 });
+

@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -18,6 +19,23 @@ use Illuminate\Validation\ValidationException;
 class SongsApiController extends Controller
 {
     use HandlesApiErrors;
+
+    private static ?array $songTableColumns = null;
+
+    private function storeUploadedFile(UploadedFile $file, string $directory): string
+    {
+        $path = $directory.'/'.Str::uuid().'.'.$file->getClientOriginalExtension();
+        Storage::disk('public')->put($path, fopen($file->getPathname(), 'r'));
+
+        return $path;
+    }
+
+    private function persistableSongAttributes(array $attributes): array
+    {
+        $columns = self::$songTableColumns ??= array_flip(Schema::getColumnListing((new Song)->getTable()));
+
+        return array_intersect_key($attributes, $columns);
+    }
 
     private function assertValidUpload(?UploadedFile $file, string $field): void
     {
@@ -208,8 +226,11 @@ class SongsApiController extends Controller
                 'isrc' => 'nullable|string|max:20',
                 'bpm' => 'nullable|integer|min:1|max:999',
                 'key' => 'nullable|string|max:10',
-                'meta_title' => 'nullable|string|max:255',
-                'meta_description' => 'nullable|string|max:500',
+                'composer' => 'nullable|string|max:255',
+                'producer' => 'nullable|string|max:255',
+                'price' => 'nullable|numeric|min:0',
+                'is_free' => 'nullable|boolean',
+                'is_downloadable' => 'nullable|boolean',
                 'genre_ids' => 'nullable|array',
                 'genre_ids.*' => 'exists:genres,id',
                 'featured_artists' => 'nullable|array',
@@ -232,7 +253,7 @@ class SongsApiController extends Controller
             if ($request->hasFile('audio_file')) {
                 $audioFile = $request->file('audio_file');
                 $this->assertValidUpload($audioFile, 'audio_file');
-                $audioPath = $audioFile->store('songs/audio', 'public');
+                $audioPath = $this->storeUploadedFile($audioFile, 'songs/audio');
             }
 
             // Handle cover image upload
@@ -240,7 +261,7 @@ class SongsApiController extends Controller
             if ($request->hasFile('cover_image')) {
                 $coverImage = $request->file('cover_image');
                 $this->assertValidUpload($coverImage, 'cover_image');
-                $artworkPath = $coverImage->store('songs/artwork', 'public');
+                $artworkPath = $this->storeUploadedFile($coverImage, 'songs/artwork');
             }
 
             // Parse duration string to seconds
@@ -254,7 +275,7 @@ class SongsApiController extends Controller
                 }
             }
 
-            $song = Song::create([
+            $song = Song::create($this->persistableSongAttributes([
                 'title' => $validated['title'],
                 'slug' => $slug,
                 'artist_id' => $validated['artist_id'],
@@ -269,17 +290,24 @@ class SongsApiController extends Controller
                 'track_number' => $validated['track_number'] ?? null,
                 'disc_number' => $validated['disc_number'] ?? null,
                 'isrc_code' => $validated['isrc'] ?? null,
+                'composer' => $validated['composer'] ?? null,
+                'producer' => $validated['producer'] ?? null,
+                'price' => $validated['price'] ?? 0,
+                'is_free' => $request->boolean('is_free', true),
+                'is_downloadable' => $request->boolean('is_downloadable', true),
                 'credits' => ! empty($validated['credits']) ? json_decode($validated['credits'], true) : null,
                 'featured_artists' => $validated['featured_artists'] ?? null,
-                'duration_seconds' => $durationSeconds,
+                'duration_seconds' => $durationSeconds ?? 0,
                 'audio_file_original' => $audioPath,
                 'audio_file_320' => $audioPath, // In production, transcode separately
                 'artwork' => $artworkPath,
                 'file_format' => $request->hasFile('audio_file') ? $request->file('audio_file')->getClientOriginalExtension() : null,
                 'file_size_bytes' => $request->hasFile('audio_file') ? $request->file('audio_file')->getSize() : null,
+                'bpm' => $validated['bpm'] ?? null,
+                'key_signature' => $validated['key'] ?? null,
                 'processing_status' => 'completed',
                 'visibility' => 'public',
-            ]);
+            ]));
 
             // Sync genres
             if (! empty($validated['genre_ids'])) {
@@ -321,6 +349,11 @@ class SongsApiController extends Controller
                 'isrc' => 'nullable|string|max:20',
                 'bpm' => 'nullable|integer|min:1|max:999',
                 'key' => 'nullable|string|max:10',
+                'composer' => 'nullable|string|max:255',
+                'producer' => 'nullable|string|max:255',
+                'price' => 'nullable|numeric|min:0',
+                'is_free' => 'nullable|boolean',
+                'is_downloadable' => 'nullable|boolean',
                 'genre_ids' => 'nullable|array',
                 'genre_ids.*' => 'exists:genres,id',
                 'featured_artists' => 'nullable|array',
@@ -365,12 +398,27 @@ class SongsApiController extends Controller
             if (isset($validated['featured_artists'])) {
                 $updateData['featured_artists'] = $validated['featured_artists'];
             }
+            if (isset($validated['composer'])) {
+                $updateData['composer'] = $validated['composer'];
+            }
+            if (isset($validated['producer'])) {
+                $updateData['producer'] = $validated['producer'];
+            }
+            if (isset($validated['price'])) {
+                $updateData['price'] = $validated['price'];
+            }
 
             if (isset($validated['bpm'])) {
                 $updateData['bpm'] = $validated['bpm'];
             }
             if (isset($validated['key'])) {
                 $updateData['key_signature'] = $validated['key'];
+            }
+            if ($request->has('is_free')) {
+                $updateData['is_free'] = $request->boolean('is_free');
+            }
+            if ($request->has('is_downloadable')) {
+                $updateData['is_downloadable'] = $request->boolean('is_downloadable');
             }
 
             if ($request->has('explicit')) {
@@ -415,7 +463,7 @@ class SongsApiController extends Controller
                     Storage::disk('public')->delete($song->audio_file_320);
                 }
 
-                $audioPath = $audioFile->store('songs/audio', 'public');
+                $audioPath = $this->storeUploadedFile($audioFile, 'songs/audio');
                 $updateData['audio_file_original'] = $audioPath;
                 $updateData['audio_file_320'] = $audioPath;
                 $updateData['file_format'] = $audioFile->getClientOriginalExtension();
@@ -430,7 +478,7 @@ class SongsApiController extends Controller
                 if ($song->artwork) {
                     Storage::disk('public')->delete($song->artwork);
                 }
-                $updateData['artwork'] = $coverImage->store('songs/artwork', 'public');
+                $updateData['artwork'] = $this->storeUploadedFile($coverImage, 'songs/artwork');
             }
 
             // Update genre
@@ -439,7 +487,7 @@ class SongsApiController extends Controller
                 $song->genres()->sync($validated['genre_ids']);
             }
 
-            $song->update($updateData);
+            $song->update($this->persistableSongAttributes($updateData));
             $song->load(['artist', 'album', 'primaryGenre', 'genres']);
 
             return response()->json([

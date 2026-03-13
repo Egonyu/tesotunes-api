@@ -97,6 +97,21 @@ return [
         'base_url' => env('ZENGAPAY_BASE_URL', 'https://api.zengapay.com/v1'),
     ],
 
+    'distribution' => [
+        'webhook_secret' => env('DISTRIBUTION_WEBHOOK_SECRET'),
+        'webhook_secrets' => [
+            'spotify' => env('SPOTIFY_DISTRIBUTION_WEBHOOK_SECRET'),
+            'apple_music' => env('APPLE_MUSIC_DISTRIBUTION_WEBHOOK_SECRET'),
+            'youtube_music' => env('YOUTUBE_MUSIC_DISTRIBUTION_WEBHOOK_SECRET'),
+            'amazon_music' => env('AMAZON_MUSIC_DISTRIBUTION_WEBHOOK_SECRET'),
+            'deezer' => env('DEEZER_DISTRIBUTION_WEBHOOK_SECRET'),
+            'tidal' => env('TIDAL_DISTRIBUTION_WEBHOOK_SECRET'),
+            'pandora' => env('PANDORA_DISTRIBUTION_WEBHOOK_SECRET'),
+            'soundcloud' => env('SOUNDCLOUD_DISTRIBUTION_WEBHOOK_SECRET'),
+            'bandcamp' => env('BANDCAMP_DISTRIBUTION_WEBHOOK_SECRET'),
+        ],
+    ],
+
     // OAuth Providers (Social Authentication)
     'google' => [
         'client_id' => env('GOOGLE_CLIENT_ID'),

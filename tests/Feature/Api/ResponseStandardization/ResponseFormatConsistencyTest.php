@@ -226,7 +226,7 @@ class ResponseFormatConsistencyTest extends TestCase
     public function test_validation_errors_use_standard_format(): void
     {
         // Register with invalid data
-        $response = $this->postJson('/api/register', [
+        $response = $this->postJson('/api/auth/register', [
             'name' => '',
             'email' => 'not-an-email',
         ]);
@@ -282,3 +282,4 @@ class ResponseFormatConsistencyTest extends TestCase
         $this->assertArrayNotHasKey('id', $json, 'Resource id should not be at top level — must be inside data');
     }
 }
+

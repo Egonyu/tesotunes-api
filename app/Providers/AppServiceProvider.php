@@ -342,5 +342,15 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('register', function (Request $request) {
             return Limit::perHour(3)->by($request->ip());
         });
+
+        // Guest-facing UI preference writes should stay lightweight and abuse-resistant.
+        RateLimiter::for('theme', function (Request $request) {
+            return Limit::perMinute(15)->by($request->user()?->id ?? $request->ip());
+        });
+
+        // Ad tracking is intentionally public, but callback-style writes still need throttling.
+        RateLimiter::for('ad-tracking', function (Request $request) {
+            return Limit::perMinute(120)->by($request->ip());
+        });
     }
 }

@@ -28,7 +28,7 @@ Route::middleware(['auth:sanctum'])->prefix('store')->name('store.')->group(func
     });
 
     // Seller Promotion endpoints (Artist)
-    Route::prefix('seller/promotions')->name('seller.promotions.')->group(function () {
+    Route::middleware('role:artist,admin,super_admin')->prefix('seller/promotions')->name('seller.promotions.')->group(function () {
         Route::get('/', [App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'index'])->name('index');
         Route::post('/', [App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'store'])->name('store');
         Route::put('/{product}', [App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'update'])->name('update');

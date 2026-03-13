@@ -6,6 +6,7 @@ use App\Models\Distribution;
 use App\Services\DistributionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class DistributionWebhookController extends Controller
@@ -31,6 +32,25 @@ class DistributionWebhookController extends Controller
                     'success' => false,
                     'message' => "Unsupported platform: {$platform}",
                 ], 422);
+            }
+
+            if (! $this->verifySignature($request, $platform)) {
+                Log::warning("Distribution webhook: invalid signature from {$platform}", [
+                    'platform' => $platform,
+                    'ip' => $request->ip(),
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Invalid signature.',
+                ], 403);
+            }
+
+            if ($this->isReplay($request, $platform)) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Webhook already processed.',
+                ]);
             }
 
             Log::info("Distribution webhook received from {$platform}", [
@@ -215,5 +235,56 @@ class DistributionWebhookController extends Controller
         }
 
         return null;
+    }
+
+    protected function verifySignature(Request $request, string $platform): bool
+    {
+        $signature = $request->header('X-Signature')
+            ?? $request->header('X-Webhook-Signature')
+            ?? '';
+
+        $platformSecrets = config('services.distribution.webhook_secrets', []);
+        $secret = $platformSecrets[$platform] ?? config('services.distribution.webhook_secret');
+
+        if (empty($secret)) {
+            if (app()->environment('local', 'testing')) {
+                Log::warning("Distribution webhook: no secret configured for {$platform} — skipping in dev");
+
+                return true;
+            }
+
+            return false;
+        }
+
+        $computed = hash_hmac('sha256', $request->getContent(), $secret);
+
+        return hash_equals($computed, $signature);
+    }
+
+    protected function isReplay(Request $request, string $platform): bool
+    {
+        $eventId = $request->header('X-Event-Id')
+            ?? $request->input('event_id')
+            ?? $request->input('id')
+            ?? null;
+
+        if (! $eventId) {
+            return false;
+        }
+
+        $cacheKey = "distribution_webhook:{$platform}:{$eventId}";
+
+        if (Cache::has($cacheKey)) {
+            Log::info("Distribution webhook replay detected for {$platform}", [
+                'platform' => $platform,
+                'event_id' => $eventId,
+            ]);
+
+            return true;
+        }
+
+        Cache::put($cacheKey, true, now()->addDay());
+
+        return false;
     }
 }

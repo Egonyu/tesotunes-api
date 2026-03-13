@@ -27,22 +27,7 @@ class RateLimitServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Global API rate limit
-        RateLimiter::for('api', function (Request $request) {
-            return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
-        });
-
-        // Authentication endpoints (stricter)
-        RateLimiter::for('auth', function (Request $request) {
-            return Limit::perMinute(10)->by($request->ip());
-        });
-
-        // Upload endpoints
-        RateLimiter::for('uploads', function (Request $request) {
-            return Limit::perMinute(20)->by($request->user()?->id ?: $request->ip());
-        });
-
-        // Webhook endpoints
+        // Webhooks are defined here because AppServiceProvider owns user-facing rate limiters.
         RateLimiter::for('webhooks', function (Request $request) {
             return Limit::perMinute(120)->by($request->ip());
         });

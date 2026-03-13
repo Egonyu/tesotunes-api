@@ -16,11 +16,29 @@ class StoreApiController extends Controller
 {
     use HandlesApiErrors;
 
+    protected function ensureAdmin(Request $request): ?JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user || ! $user->hasAnyRole(['admin', 'super_admin'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Admin access is required for this action.',
+            ], 403);
+        }
+
+        return null;
+    }
+
     /**
      * Get store statistics.
      */
-    public function stats(): JsonResponse
+    public function stats(Request $request): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () {
             $data = Cache::remember('admin:store:stats', now()->addMinutes(5), function () {
                 $revenueThisMonth = Order::where('status', 'completed')
@@ -59,6 +77,10 @@ class StoreApiController extends Controller
      */
     public function products(Request $request): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request) {
             $perPage = min((int) $request->get('per_page', 10), 100);
 
@@ -113,6 +135,10 @@ class StoreApiController extends Controller
      */
     public function shops(Request $request): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request) {
             $perPage = min((int) $request->get('per_page', 10), 100);
 
@@ -147,6 +173,10 @@ class StoreApiController extends Controller
      */
     public function orders(Request $request): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request) {
             $perPage = min((int) $request->get('per_page', 10), 100);
 
@@ -182,8 +212,12 @@ class StoreApiController extends Controller
     /**
      * Delete a product (soft-delete).
      */
-    public function deleteProduct($id): JsonResponse
+    public function deleteProduct(Request $request, $id): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($id) {
             $product = Product::findOrFail($id);
             $product->delete();
@@ -195,8 +229,12 @@ class StoreApiController extends Controller
     /**
      * Toggle product status.
      */
-    public function toggleProductStatus($id): JsonResponse
+    public function toggleProductStatus(Request $request, $id): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($id) {
             $product = Product::findOrFail($id);
             $newStatus = $product->status === 'active' ? 'draft' : 'active';
@@ -213,8 +251,12 @@ class StoreApiController extends Controller
     /**
      * Toggle shop status.
      */
-    public function toggleShopStatus($id): JsonResponse
+    public function toggleShopStatus(Request $request, $id): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($id) {
             $shop = Store::findOrFail($id);
             $newStatus = $shop->status === 'active' ? 'suspended' : 'active';
@@ -231,8 +273,12 @@ class StoreApiController extends Controller
     /**
      * Approve shop.
      */
-    public function approveShop($id): JsonResponse
+    public function approveShop(Request $request, $id): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($id) {
             $shop = Store::findOrFail($id);
             $shop->update([
@@ -251,8 +297,12 @@ class StoreApiController extends Controller
     /**
      * Suspend shop.
      */
-    public function suspendShop($id): JsonResponse
+    public function suspendShop(Request $request, $id): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($id) {
             $shop = Store::findOrFail($id);
             $shop->update([
@@ -270,8 +320,12 @@ class StoreApiController extends Controller
     /**
      * Verify shop.
      */
-    public function verifyShop($id): JsonResponse
+    public function verifyShop(Request $request, $id): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($id) {
             $shop = Store::findOrFail($id);
             $shop->update([
@@ -289,8 +343,12 @@ class StoreApiController extends Controller
     /**
      * Unverify shop.
      */
-    public function unverifyShop($id): JsonResponse
+    public function unverifyShop(Request $request, $id): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($id) {
             $shop = Store::findOrFail($id);
             $shop->update([
@@ -308,8 +366,12 @@ class StoreApiController extends Controller
     /**
      * Delete shop (soft-delete).
      */
-    public function deleteShop($id): JsonResponse
+    public function deleteShop(Request $request, $id): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($id) {
             $shop = Store::findOrFail($id);
             $shop->delete();
@@ -323,6 +385,10 @@ class StoreApiController extends Controller
      */
     public function createProduct(Request $request): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request) {
             $validated = $request->validate([
                 'store_id' => 'required|integer|exists:stores,id',
@@ -369,6 +435,10 @@ class StoreApiController extends Controller
      */
     public function updateProduct(Request $request, $product): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request, $product) {
             $existing = Product::findOrFail($product);
 
@@ -401,6 +471,10 @@ class StoreApiController extends Controller
      */
     public function updateOrderStatus(Request $request, $order): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request, $order) {
             $existing = Order::findOrFail($order);
 
@@ -446,6 +520,10 @@ class StoreApiController extends Controller
      */
     public function createShop(Request $request): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request) {
             $validated = $request->validate([
                 'user_id' => 'required|integer|exists:users,id',
@@ -487,6 +565,10 @@ class StoreApiController extends Controller
      */
     public function updateShop(Request $request, $store): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () use ($request, $store) {
             $existing = Store::findOrFail($store);
 
@@ -515,8 +597,12 @@ class StoreApiController extends Controller
     /**
      * Get analytics.
      */
-    public function analytics(): JsonResponse
+    public function analytics(Request $request): JsonResponse
     {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
         return $this->handleApiAction(function () {
             return response()->json([
                 'success' => true,
