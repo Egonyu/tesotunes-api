@@ -74,13 +74,18 @@ jobs:
           port: ${{ secrets.SERVER_PORT }}
           script_stop: true
           script: |
-            set -e
+            set -Eeuo pipefail
 
             APP_PATH="/var/www/api.tesotunes.com"
             SHARED_PATH="/var/www/tesotunes-shared"
             RELEASES_PATH="/var/www/tesotunes-releases"
             TIMESTAMP=$(date +%Y%m%d_%H%M%S)
             NEW_RELEASE="$RELEASES_PATH/$TIMESTAMP"
+
+            step() {
+              echo ""
+              echo "==> $1"
+            }
 
             # Safety: bring app up if stuck in maintenance mode from a previous failed deploy
             sudo rm -f $SHARED_PATH/storage/framework/down 2>/dev/null || true
@@ -91,6 +96,9 @@ jobs:
 
             # Trap: ensure app comes back up even if deployment fails
             cleanup() {
+              local exit_code=$?
+              echo "❌ Deployment failed at command: ${BASH_COMMAND}"
+              echo "❌ Exit code: ${exit_code}"
               echo "⚠️ Deployment failed — ensuring app is brought back up..."
               sudo rm -f $SHARED_PATH/storage/framework/down 2>/dev/null || true
               if [ -L "$APP_PATH" ] || [ -d "$APP_PATH" ]; then
@@ -101,17 +109,20 @@ jobs:
                 php artisan route:clear 2>/dev/null || true
                 sudo systemctl reload php8.4-fpm 2>/dev/null || true
               fi
+              exit $exit_code
             }
             trap cleanup ERR
 
-            echo "🚀 Starting deployment..."
+            step "Starting deployment"
 
+            step "Preparing directories"
             mkdir -p $SHARED_PATH
             mkdir -p $SHARED_PATH/storage
             mkdir -p $RELEASES_PATH
             mkdir -p $NEW_RELEASE
 
             # Extract new release
+            step "Extracting release artifact"
             tar -xzf /tmp/deployment.tar.gz -C $NEW_RELEASE
             rm -f /tmp/deployment.tar.gz
 
@@ -120,6 +131,7 @@ jobs:
             # ------------------------------------------------
             # Link shared files
             # ------------------------------------------------
+            step "Linking shared environment and storage"
             if [ ! -f "$SHARED_PATH/.env" ]; then
               echo "❌ Missing .env in $SHARED_PATH"
               exit 1
@@ -133,6 +145,7 @@ jobs:
             # ------------------------------------------------
             # FIX: Required Laravel directories
             # ------------------------------------------------
+            step "Preparing Laravel writable directories"
             mkdir -p bootstrap/cache
             mkdir -p storage/framework/{sessions,views,cache}
             mkdir -p storage/logs
@@ -144,28 +157,22 @@ jobs:
             # ------------------------------------------------
             # Storage symlink (needed for local file serving)
             # ------------------------------------------------
+            step "Ensuring public storage symlink"
             php artisan storage:link --force 2>/dev/null || true
 
             # ------------------------------------------------
             # Install dependencies safely
             # ------------------------------------------------
-            echo "📦 Installing dependencies..."
+            step "Installing production dependencies"
             composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
 
+            step "Discovering Laravel packages"
             php artisan package:discover --ansi
-
-            # ------------------------------------------------
-            # Maintenance mode on current release
-            # ------------------------------------------------
-            if [ -L "$APP_PATH" ]; then
-              cd $APP_PATH
-              php artisan down --retry=60 || true
-              cd $NEW_RELEASE
-            fi
 
             # ------------------------------------------------
             # Run migrations
             # ------------------------------------------------
+            step "Running database migrations"
             RESET_PRODUCTION_DB="${{ secrets.PRODUCTION_DB_RESET_ONCE }}"
             RESET_CONFIRM="${{ secrets.PRODUCTION_DB_RESET_CONFIRM }}"
 
@@ -183,29 +190,43 @@ jobs:
             fi
 
             # ------------------------------------------------
+            # Maintenance mode just before switching live release
+            # ------------------------------------------------
+            step "Putting current app into maintenance mode"
+            if [ -L "$APP_PATH" ] || [ -d "$APP_PATH" ]; then
+              cd $APP_PATH
+              php artisan down --retry=60
+            fi
+
+            # ------------------------------------------------
             # Atomic symlink switch
             # ------------------------------------------------
+            step "Switching current release symlink"
             ln -sfn $NEW_RELEASE $APP_PATH
 
             # ------------------------------------------------
             # Optimize (clear stale caches first)
             # ------------------------------------------------
+            step "Clearing stale Laravel caches"
             cd $APP_PATH
             php artisan config:clear
             php artisan route:clear
             php artisan event:clear
             php artisan view:clear
 
+            step "Rebuilding Laravel caches"
             php artisan config:cache
             php artisan route:cache
             php artisan event:cache
 
             # Ensure app is out of maintenance mode
+            step "Bringing application back up"
             php artisan up || true
             sudo rm -f $SHARED_PATH/storage/framework/down 2>/dev/null || true
             sudo rm -f storage/framework/down 2>/dev/null || true
 
             # Set correct ownership for web server
+            step "Fixing ownership and reloading services"
             sudo chown -R www-data:www-data $NEW_RELEASE 2>/dev/null || true
             sudo chown -R www-data:www-data $SHARED_PATH/storage 2>/dev/null || true
 
@@ -218,6 +239,7 @@ jobs:
             # ------------------------------------------------
             # Cleanup old releases (keep 5)
             # ------------------------------------------------
+            step "Cleaning up old releases"
             cd $RELEASES_PATH
             ls -t | tail -n +6 | xargs rm -rf 2>/dev/null || true
 
