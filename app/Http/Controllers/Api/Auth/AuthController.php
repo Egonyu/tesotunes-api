@@ -12,10 +12,33 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
+    /**
+     * Only eager-load auth relations that exist in the current schema.
+     */
+    private function loadAuthRelations(User $user, array $relations = []): User
+    {
+        $relationTableMap = [
+            'settings' => 'user_settings',
+            'subscription' => 'user_subscriptions',
+            'profile' => 'user_profiles',
+            'referralProfile' => 'user_referrals',
+            'artist' => 'artists',
+        ];
+
+        $loadableRelations = array_values(array_filter($relations, function (string $relation) use ($relationTableMap) {
+            $table = $relationTableMap[$relation] ?? null;
+
+            return $table === null || Schema::hasTable($table);
+        }));
+
+        return empty($loadableRelations) ? $user : $user->load($loadableRelations);
+    }
+
     /**
      * POST /api/auth/register
      */
@@ -57,7 +80,7 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'data' => new UserResource($user->load('settings')),
+            'data' => new UserResource($this->loadAuthRelations($user, ['settings'])),
             'token' => $token,
             'token_type' => 'Bearer',
         ], 201);
@@ -137,7 +160,12 @@ class AuthController extends Controller
         ]);
 
         return response()->json([
-            'data' => new UserResource($user->load(['settings', 'subscription', 'profile', 'referralProfile'])),
+            'data' => new UserResource($this->loadAuthRelations($user, [
+                'settings',
+                'subscription',
+                'profile',
+                'referralProfile',
+            ])),
             'token' => $token,
             'token_type' => 'Bearer',
         ]);
@@ -175,7 +203,13 @@ class AuthController extends Controller
      */
     public function user(Request $request)
     {
-        $user = $request->user()->load(['settings', 'subscription', 'artist', 'profile', 'referralProfile']);
+        $user = $this->loadAuthRelations($request->user(), [
+            'settings',
+            'subscription',
+            'artist',
+            'profile',
+            'referralProfile',
+        ]);
 
         return new UserResource($user);
     }

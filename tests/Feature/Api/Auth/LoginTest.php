@@ -5,6 +5,7 @@ namespace Tests\Feature\Api\Auth;
 use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
 class LoginTest extends TestCase
@@ -111,6 +112,28 @@ class LoginTest extends TestCase
         $response->assertOk()
             ->assertJsonStructure(['token', 'token_type']);
         $this->assertNotEmpty($response->json('token'));
+    }
+
+    public function test_login_succeeds_when_optional_profile_tables_are_missing(): void
+    {
+        $user = User::factory()->create([
+            'password' => bcrypt('password123'),
+            'is_active' => true,
+        ]);
+
+        Schema::partialMock()
+            ->shouldReceive('hasTable')
+            ->andReturnUsing(function (string $table): bool {
+                return ! in_array($table, ['user_profiles', 'user_referrals', 'user_subscriptions'], true);
+            });
+
+        $response = $this->postJson($this->loginUrl, [
+            'email' => $user->email,
+            'password' => 'password123',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.email', $user->email);
     }
 
     public function test_login_returns_json_content_type(): void
