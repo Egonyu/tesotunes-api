@@ -177,7 +177,11 @@ jobs:
             RESET_CONFIRM="${{ secrets.PRODUCTION_DB_RESET_CONFIRM }}"
 
             step "Checking Laravel migration status"
-            php -d display_errors=1 artisan migrate:status --no-ansi || true
+            set +e
+            php -d display_errors=1 artisan migrate:status --no-ansi
+            MIGRATION_STATUS_EXIT=$?
+            set -e
+            echo "Migration status exit code: ${MIGRATION_STATUS_EXIT}"
 
             if [ "$RESET_PRODUCTION_DB" = "true" ]; then
               if [ "$RESET_CONFIRM" != "WIPE_PRODUCTION_DB" ]; then
