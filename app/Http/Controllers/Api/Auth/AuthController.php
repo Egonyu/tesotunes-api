@@ -72,10 +72,29 @@ class AuthController extends Controller
             // 'email_verified_at' => now(), // REMOVED: security risk
         ]);
 
-        UserSetting::createDefault($user);
+        try {
+            if (Schema::hasTable('user_settings')) {
+                UserSetting::createDefault($user);
+            }
+        } catch (\Throwable $e) {
+            Log::error('auth.register.settings_initialization_failed', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'exception' => get_class($e),
+                'message' => $e->getMessage(),
+            ]);
+        }
 
-        // Send welcome notification
-        $user->notify(new WelcomeNotification);
+        try {
+            $user->notify(new WelcomeNotification);
+        } catch (\Throwable $e) {
+            Log::error('auth.register.welcome_notification_failed', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'exception' => get_class($e),
+                'message' => $e->getMessage(),
+            ]);
+        }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
