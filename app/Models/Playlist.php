@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 
 class Playlist extends Model
@@ -153,7 +154,7 @@ class Playlist extends Model
     // Polymorphic relationships
     public function followers()
     {
-        return $this->morphMany(UserFollow::class, 'following');  // Laravel will auto-detect following_type and following_id
+        return $this->morphMany(UserFollow::class, 'followable');
     }
 
     public function activities()
@@ -410,17 +411,21 @@ class Playlist extends Model
         $followers = $this->followers()->with('follower')->get();
 
         foreach ($followers as $follow) {
-            $follow->follower->notifications()->create([
-                'type' => 'playlist_activity',
-                'title' => 'Playlist Updated',
-                'message' => "{$user->name} added \"{$song->title}\" to \"{$this->name}\"",
-                'data' => [
+            Notification::createRichForUser(
+                $follow->follower,
+                'playlist_activity',
+                'Playlist Updated',
+                "{$user->name} added \"{$song->title}\" to \"{$this->name}\"",
+                [
                     'playlist_id' => $this->id,
                     'song_id' => $song->id,
                     'activity_type' => $activityType,
                 ],
-                'action_url' => route('playlist.show', $this->slug),
-            ]);
+                Route::has('playlist.show') ? route('playlist.show', $this->slug) : url("/playlists/{$this->slug}"),
+                'social',
+                $this,
+                $user->id
+            );
         }
     }
 }

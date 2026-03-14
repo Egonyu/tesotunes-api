@@ -55,6 +55,7 @@ trait ChecksNotificationPreferences
         return match ($channel) {
             'mail' => 'email_notifications',
             'database' => 'in_app_notifications',
+            \App\Channels\AppNotificationChannel::class => 'in_app_notifications',
             \App\Channels\ExpoPushChannel::class => 'push_notifications',
             default => $channel,
         };

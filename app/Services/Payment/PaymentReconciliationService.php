@@ -280,7 +280,7 @@ class PaymentReconciliationService
                         $results['resolved']++;
                     })(),
                     'failed', 'cancelled' => (function () use ($payment, &$results) {
-                        $payment->markAsFailed('Confirmed failed/cancelled during reconciliation');
+                        $payment->markAsCancelled();
                         $results['failed']++;
                     })(),
                     default => (function () use (&$results) {

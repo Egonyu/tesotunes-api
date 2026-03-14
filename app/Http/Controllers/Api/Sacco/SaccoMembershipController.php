@@ -4,7 +4,10 @@ namespace App\Http\Controllers\Api\Sacco;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SaccoMemberResource;
+use App\Models\Sacco\SaccoLoan;
 use App\Models\Sacco\SaccoMember;
+use App\Models\Sacco\SaccoSavingsAccount;
+use App\Models\Sacco\SaccoSavingsTransaction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -26,6 +29,121 @@ class SaccoMembershipController extends Controller
 
         return response()->json([
             'data' => new SaccoMemberResource($member),
+        ]);
+    }
+
+    /**
+     * GET /api/sacco/dashboard — member-facing SACCO summary
+     */
+    public function dashboard(Request $request): JsonResponse
+    {
+        $member = $this->getAuthenticatedMember($request);
+
+        $member->loadMissing(['shares', 'activeLoan']);
+
+        $savingsAccounts = SaccoSavingsAccount::query()
+            ->where('member_id', $member->id)
+            ->get();
+
+        $savingsBalance = (float) $savingsAccounts->sum('balance_ugx');
+        $share = $member->shares;
+        $thisMonthDeposits = (float) SaccoSavingsTransaction::query()
+            ->where('member_id', $member->id)
+            ->where('type', 'deposit')
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->sum('amount_ugx');
+
+        $activeLoanCount = SaccoLoan::query()
+            ->where('member_id', $member->id)
+            ->whereIn('status', ['approved', 'disbursed', 'active'])
+            ->count();
+
+        $totalBorrowed = (float) SaccoLoan::query()
+            ->where('member_id', $member->id)
+            ->sum('principal_amount_ugx');
+
+        $totalPaid = (float) SaccoLoan::query()
+            ->where('member_id', $member->id)
+            ->sum('amount_paid_ugx');
+
+        $outstanding = (float) SaccoLoan::query()
+            ->where('member_id', $member->id)
+            ->whereIn('status', ['approved', 'disbursed', 'active'])
+            ->sum('balance_remaining_ugx');
+
+        return response()->json([
+            'data' => [
+                'member' => [
+                    'id' => $member->id,
+                    'member_number' => $member->member_number,
+                    'status' => $member->status,
+                    'credit_score' => $member->credit_score,
+                    'joined_at' => optional($member->joined_at)->toDateString(),
+                ],
+                'accounts' => [
+                    'savings' => $savingsBalance,
+                    'shares' => (float) optional($share)->total_value_ugx,
+                    'fixed_deposits' => (float) $savingsAccounts->where('account_type', 'fixed_deposit')->sum('balance_ugx'),
+                ],
+                'loans' => [
+                    'active_count' => $activeLoanCount,
+                    'total_borrowed' => $totalBorrowed,
+                    'total_outstanding' => $outstanding,
+                    'total_paid' => $totalPaid,
+                ],
+                'transactions' => [
+                    'today' => SaccoSavingsTransaction::query()
+                        ->where('member_id', $member->id)
+                        ->whereDate('created_at', today())
+                        ->count(),
+                    'this_month' => $thisMonthDeposits,
+                    'total_volume' => (float) SaccoSavingsTransaction::query()
+                        ->where('member_id', $member->id)
+                        ->sum('amount_ugx'),
+                ],
+                'dividends' => [
+                    'total_earned' => 0,
+                    'pending' => 0,
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/sacco/profile — current user's profile details
+     */
+    public function profile(Request $request): JsonResponse
+    {
+        $member = $this->getAuthenticatedMember($request);
+        $member->loadMissing('user:id,username,email,phone');
+
+        return response()->json([
+            'data' => [
+                'id' => $member->id,
+                'user' => [
+                    'id' => $member->user?->id,
+                    'name' => $member->user?->username ?? $member->user?->name,
+                    'email' => $member->user?->email,
+                    'phone' => $member->phone_number ?? $member->user?->phone,
+                ],
+                'member_number' => $member->member_number,
+                'status' => $member->status,
+                'credit_score' => $member->credit_score,
+                'joined_at' => optional($member->joined_at)->toDateString(),
+                'national_id' => $member->national_id ?? $member->id_number,
+                'phone_number' => $member->phone_number ?? $member->user?->phone,
+                'date_of_birth' => optional($member->date_of_birth)->toDateString(),
+                'address' => $member->address,
+                'occupation' => $member->occupation,
+                'employer' => $member->employer,
+                'monthly_income' => $member->monthly_income,
+                'next_of_kin' => [
+                    'name' => $member->next_of_kin_name ?? $member->emergency_contact_name,
+                    'phone' => $member->next_of_kin_phone ?? $member->emergency_contact_phone,
+                    'relationship' => $member->next_of_kin_relationship,
+                ],
+            ],
         ]);
     }
 
@@ -172,5 +290,12 @@ class SaccoMembershipController extends Controller
             'data' => new SaccoMemberResource($member),
             'message' => 'Member status updated to '.$validated['status'].'.',
         ]);
+    }
+
+    private function getAuthenticatedMember(Request $request): SaccoMember
+    {
+        return SaccoMember::with(['user:id,username,email,phone'])
+            ->where('user_id', $request->user()->id)
+            ->firstOrFail();
     }
 }

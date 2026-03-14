@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
 use App\Models\PodcastEpisode;
 use App\Traits\ChecksNotificationPreferences;
@@ -21,7 +22,7 @@ class NewEpisodePublishedNotification extends Notification implements ShouldQueu
     {
         return $this->filterChannelsByPreference(
             $notifiable,
-            ['database', ExpoPushChannel::class],
+            [AppNotificationChannel::class, ExpoPushChannel::class],
             'podcast'
         );
     }

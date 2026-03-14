@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -14,7 +15,7 @@ class WelcomeNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database', ExpoPushChannel::class];
+        return ['mail', AppNotificationChannel::class, ExpoPushChannel::class];
     }
 
     public function toMail(object $notifiable): MailMessage

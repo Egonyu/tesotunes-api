@@ -5,9 +5,11 @@ namespace App\Services\Auth;
 use App\Models\Artist;
 use App\Models\AuditLog;
 use App\Models\KYCDocument;
+use App\Models\Notification as AppNotification;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -201,17 +203,21 @@ class ArtistVerificationService
             ]);
 
             // Send notification to user
-            $artist->user->notifications()->create([
-                'notification_type' => 'artist_application_approved',
-                'notifiable_type' => \App\Models\User::class,
-                'notifiable_id' => $artist->user_id,
-                'title' => 'Artist Application Approved! 🎉',
-                'message' => 'Congratulations! Your artist application has been approved. You can now access your artist dashboard and start uploading music.',
-                'action_url' => route('frontend.artist.dashboard'),
-                'actor_id' => $admin->id,
-                'priority' => 'high',
-                'is_read' => false,
-            ]);
+            $this->createAppNotification(
+                $artist->user,
+                'artist_application_approved',
+                'artist_verification',
+                'Artist Application Approved!',
+                'Congratulations! Your artist application has been approved. You can now access your artist dashboard and start uploading music.',
+                $this->resolveRoute('frontend.artist.dashboard', '/artist/dashboard'),
+                [
+                    'artist_id' => $artist->id,
+                    'status' => 'approved',
+                    'reviewed_by' => $admin->id,
+                ],
+                $admin->id,
+                'high'
+            );
 
             Log::info('Artist application approved', [
                 'artist_id' => $artist->id,
@@ -274,17 +280,22 @@ class ArtistVerificationService
             ]);
 
             // Send notification to user
-            $artist->user->notifications()->create([
-                'notification_type' => 'artist_application_rejected',
-                'notifiable_type' => \App\Models\User::class,
-                'notifiable_id' => $artist->user_id,
-                'title' => 'Artist Application Update',
-                'message' => "Your artist application has been reviewed. Reason: {$reason}",
-                'action_url' => route('frontend.home'),
-                'actor_id' => $admin->id,
-                'priority' => 'high',
-                'is_read' => false,
-            ]);
+            $this->createAppNotification(
+                $artist->user,
+                'artist_application_rejected',
+                'artist_verification',
+                'Artist Application Update',
+                "Your artist application has been reviewed. Reason: {$reason}",
+                $this->resolveRoute('frontend.home', '/'),
+                [
+                    'artist_id' => $artist->id,
+                    'status' => 'rejected',
+                    'reason' => $reason,
+                    'reviewed_by' => $admin->id,
+                ],
+                $admin->id,
+                'high'
+            );
 
             Log::info('Artist application rejected', [
                 'artist_id' => $artist->id,
@@ -346,17 +357,23 @@ class ArtistVerificationService
             ]);
 
             // Send notification to user
-            $artist->user->notifications()->create([
-                'notification_type' => 'artist_application_requires_info',
-                'notifiable_type' => \App\Models\User::class,
-                'notifiable_id' => $artist->user_id,
-                'title' => 'Additional Information Required',
-                'message' => "Please provide additional information for your artist application. {$notes}",
-                'action_url' => route('frontend.home'), // Update when application edit route exists
-                'actor_id' => $admin->id,
-                'priority' => 'medium',
-                'is_read' => false,
-            ]);
+            $this->createAppNotification(
+                $artist->user,
+                'artist_application_requires_info',
+                'artist_verification',
+                'Additional Information Required',
+                "Please provide additional information for your artist application. {$notes}",
+                $this->resolveRoute('frontend.home', '/'),
+                [
+                    'artist_id' => $artist->id,
+                    'status' => 'pending',
+                    'missing_documents' => $missingDocuments,
+                    'notes' => $notes,
+                    'reviewed_by' => $admin->id,
+                ],
+                $admin->id,
+                'medium'
+            );
 
             Log::info('More info requested for artist application', [
                 'artist_id' => $artist->id,
@@ -454,18 +471,59 @@ class ArtistVerificationService
         })->where('is_active', true)->get();
 
         foreach ($admins as $admin) {
-            $admin->notifications()->create([
-                'notification_type' => 'new_artist_application',
-                'notifiable_type' => \App\Models\User::class,
-                'notifiable_id' => $admin->id,
-                'title' => 'New Artist Application',
-                'message' => "{$artist->stage_name} has submitted an artist application",
-                'action_url' => route('admin.artist-verification.show', $artist->id),
-                'actor_id' => $artist->user_id,
-                'priority' => 'medium',
-                'is_read' => false,
-            ]);
+            $this->createAppNotification(
+                $admin,
+                'new_artist_application',
+                'artist_verification',
+                'New Artist Application',
+                "{$artist->stage_name} has submitted an artist application",
+                $this->resolveRoute('admin.artist-verification.show', "/admin/artist-verification/{$artist->id}", $artist->id),
+                [
+                    'artist_id' => $artist->id,
+                    'applicant_user_id' => $artist->user_id,
+                    'stage_name' => $artist->stage_name,
+                ],
+                $artist->user_id,
+                'medium'
+            );
         }
+    }
+
+    protected function createAppNotification(
+        ?User $user,
+        string $type,
+        string $category,
+        string $title,
+        string $message,
+        ?string $actionUrl = null,
+        array $data = [],
+        ?int $actorId = null,
+        string $priority = 'normal'
+    ): void {
+        if (! $user) {
+            return;
+        }
+
+        AppNotification::create([
+            'user_id' => $user->id,
+            'type' => $type,
+            'category' => $category,
+            'title' => $title,
+            'message' => $message,
+            'action_url' => $actionUrl,
+            'notifiable_type' => Artist::class,
+            'notifiable_id' => $data['artist_id'] ?? null,
+            'actor_id' => $actorId,
+            'priority' => $priority,
+            'data' => $data,
+        ]);
+    }
+
+    protected function resolveRoute(string $name, string $fallback, mixed ...$parameters): string
+    {
+        return Route::has($name)
+            ? route($name, ...$parameters)
+            : url($fallback);
     }
 
     /**

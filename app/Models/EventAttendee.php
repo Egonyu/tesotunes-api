@@ -16,7 +16,7 @@ class EventAttendee extends Model
         'uuid',
         'confirmation_code',
         'event_id',
-        'ticket_type_id',
+        'ticket_id',
         'user_id',
         'attendee_name',
         'attendee_email',
@@ -29,10 +29,6 @@ class EventAttendee extends Model
         'checked_in_at',
         'cancelled_at',
         'qr_code',
-        'notes',
-        // Legacy fields
-        'event_ticket_id',
-        'ticket_number',
         'attendance_type',
         'quantity',
         'amount_paid',
@@ -41,6 +37,7 @@ class EventAttendee extends Model
         'checked_in_by_user_id',
         'attended_at',
         'attendee_metadata',
+        'notes',
     ];
 
     protected $casts = [
@@ -79,7 +76,13 @@ class EventAttendee extends Model
 
     const STATUS_NO_SHOW = 'no_show';
 
-    const PAYMENT_METHOD_UGX = 'ugx';
+    const PAYMENT_METHOD_WALLET = 'wallet';
+
+    const PAYMENT_METHOD_MTN_MOMO = 'mtn_momo';
+
+    const PAYMENT_METHOD_AIRTEL_MONEY = 'airtel_money';
+
+    const PAYMENT_METHOD_CARD = 'card';
 
     const PAYMENT_METHOD_CREDITS = 'credits';
 
@@ -98,26 +101,47 @@ class EventAttendee extends Model
 
     public function ticketType(): BelongsTo
     {
-        return $this->belongsTo(EventTicket::class, 'ticket_type_id');
+        return $this->belongsTo(EventTicket::class, 'ticket_id');
     }
 
-    // Legacy relationship
     public function ticket(): BelongsTo
     {
-        return $this->belongsTo(EventTicket::class, 'event_ticket_id');
+        return $this->belongsTo(EventTicket::class, 'ticket_id');
+    }
+
+    public function eventTicket(): BelongsTo
+    {
+        return $this->belongsTo(EventTicket::class, 'ticket_id');
+    }
+
+    public function getTicketNumberAttribute(): string
+    {
+        return $this->confirmation_code;
+    }
+
+    public function getTicketCodeAttribute(): string
+    {
+        return $this->confirmation_code;
     }
 
     // Status Methods
-    public function confirm(): void
+    public function confirm(?string $paymentReference = null): void
     {
-        $this->update([
+        $payload = [
             'status' => self::STATUS_CONFIRMED,
             'confirmed_at' => now(),
-        ]);
+            'payment_status' => 'completed',
+        ];
+
+        if ($paymentReference) {
+            $payload['payment_reference'] = $paymentReference;
+        }
+
+        $this->update($payload);
 
         // If this was a paid ticket, dispatch event for loyalty points
         if (($this->price_paid_ugx ?? 0) > 0 || ($this->amount_paid ?? 0) > 0) {
-            \App\Events\TicketPurchased::dispatch($this);
+            \App\Events\TicketPurchased::dispatch($this, $this->ticket, $this->event);
         }
     }
 
@@ -134,10 +158,11 @@ class EventAttendee extends Model
         $this->update([
             'status' => self::STATUS_ATTENDED,
             'checked_in_at' => now(),
+            'attended_at' => now(),
         ]);
 
         // Dispatch event for loyalty points
-        \App\Events\AttendeeCheckedIn::dispatch($this);
+        \App\Events\AttendeeCheckedIn::dispatch($this, $this->event);
     }
 
     public function markAsNoShow(): void
@@ -155,7 +180,7 @@ class EventAttendee extends Model
 
     public function hasAttended(): bool
     {
-        return $this->status === self::STATUS_ATTENDED;
+        return $this->status === self::STATUS_ATTENDED || $this->checked_in_at !== null;
     }
 
     public function isCancelled(): bool

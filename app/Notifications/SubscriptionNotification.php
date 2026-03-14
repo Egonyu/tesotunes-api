@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -32,7 +33,7 @@ class SubscriptionNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        $channels = ['database', ExpoPushChannel::class];
+        $channels = [AppNotificationChannel::class, ExpoPushChannel::class];
 
         if (in_array($this->event, [self::SUBSCRIBED, self::CANCELLED, self::PAYMENT_FAILED, self::EXPIRED, self::EXPIRING_SOON])) {
             $channels[] = 'mail';

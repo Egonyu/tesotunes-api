@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\NotificationResource;
+use App\Models\Notification;
 use App\Models\UserSetting;
 use App\Services\CrossModuleNotificationService;
 use Illuminate\Http\Request;
@@ -28,15 +29,19 @@ class NotificationController extends Controller
     {
         $user = Auth::user();
 
-        $query = $user->notifications()
+        $query = Notification::query()
+            ->where('user_id', $user->id)
             ->orderBy('created_at', 'desc');
 
         if ($request->filled('module')) {
-            $query->whereJsonContains('data->module', $request->module);
+            $query->where(function ($subQuery) use ($request) {
+                $subQuery->where('category', $request->module)
+                    ->orWhereJsonContains('data->module', $request->module);
+            });
         }
 
         if ($request->boolean('unread_only')) {
-            $query->whereNull('read_at');
+            $query->where('is_read', false);
         }
 
         return NotificationResource::collection(
@@ -68,7 +73,8 @@ class NotificationController extends Controller
         $user = Auth::user();
         $limit = min($request->integer('limit', 5), 50);
 
-        $notifications = $user->notifications()
+        $notifications = Notification::query()
+            ->where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->limit($limit)
             ->get();
@@ -152,7 +158,10 @@ class NotificationController extends Controller
         if ($request->filled('module')) {
             $this->notificationService->markModuleNotificationsAsRead($user, $request->module);
         } else {
-            $user->unreadNotifications()->update(['read_at' => now()]);
+            Notification::query()
+                ->where('user_id', $user->id)
+                ->where('is_read', false)
+                ->update(['read_at' => now(), 'is_read' => true]);
         }
 
         return response()->json(['message' => 'Notifications marked as read.']);
@@ -165,9 +174,10 @@ class NotificationController extends Controller
      */
     public function markAsRead(string $notificationId)
     {
-        $notification = Auth::user()->notifications()
+        $notification = Notification::query()
+            ->where('user_id', Auth::id())
             ->where('id', $notificationId)
-            ->whereNull('read_at')
+            ->where('is_read', false)
             ->firstOrFail();
 
         $notification->markAsRead();
@@ -182,7 +192,8 @@ class NotificationController extends Controller
      */
     public function destroy(string $notificationId)
     {
-        $notification = Auth::user()->notifications()
+        $notification = Notification::query()
+            ->where('user_id', Auth::id())
             ->where('id', $notificationId)
             ->firstOrFail();
 
@@ -200,9 +211,9 @@ class NotificationController extends Controller
     {
         $period = $request->integer('period', 30);
 
-        $totalSent = \Illuminate\Notifications\DatabaseNotification::where('created_at', '>=', now()->subDays($period))->count();
-        $totalRead = \Illuminate\Notifications\DatabaseNotification::where('created_at', '>=', now()->subDays($period))
-            ->whereNotNull('read_at')->count();
+        $totalSent = Notification::where('created_at', '>=', now()->subDays($period))->count();
+        $totalRead = Notification::where('created_at', '>=', now()->subDays($period))
+            ->where('is_read', true)->count();
 
         return response()->json([
             'data' => [

@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
@@ -19,7 +20,7 @@ class NewFollowerNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['database', ExpoPushChannel::class];
+        return [AppNotificationChannel::class, ExpoPushChannel::class];
     }
 
     public function toArray(object $notifiable): array

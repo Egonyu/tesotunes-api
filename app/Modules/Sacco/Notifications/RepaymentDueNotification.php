@@ -2,6 +2,7 @@
 
 namespace App\Modules\Sacco\Notifications;
 
+use App\Channels\AppNotificationChannel;
 use App\Modules\Sacco\Models\SaccoLoanRepayment;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -21,7 +22,7 @@ class RepaymentDueNotification extends Notification implements ShouldQueue
 
     public function via($notifiable): array
     {
-        return ['mail', 'database'];
+        return ['mail', AppNotificationChannel::class];
     }
 
     public function toMail($notifiable): MailMessage

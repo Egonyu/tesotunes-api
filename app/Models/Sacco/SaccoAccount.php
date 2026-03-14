@@ -11,11 +11,23 @@ class SaccoAccount extends Model
 {
     use HasFactory;
 
+    public const TYPE_SAVINGS = 'savings';
+
+    public const TYPE_SHARES = 'shares';
+
+    public const TYPE_CHECKING = 'checking';
+
     protected $fillable = [
+        'uuid',
         'member_id',
         'account_number',
         'account_type',
+        'account_name',
+        'balance',
+        'available_balance',
         'interest_rate',
+        'interest_earned',
+        'last_interest_date',
         'status',
         'opened_at',
         'closed_at',
@@ -30,6 +42,8 @@ class SaccoAccount extends Model
         'balance' => 'decimal:2',
         'available_balance' => 'decimal:2',
         'interest_rate' => 'decimal:2',
+        'interest_earned' => 'decimal:2',
+        'last_interest_date' => 'date',
         'opened_at' => 'datetime',
         'closed_at' => 'datetime',
     ];
@@ -38,6 +52,7 @@ class SaccoAccount extends Model
         'balance' => 0,
         'available_balance' => 0,
         'interest_rate' => 0,
+        'interest_earned' => 0,
         'status' => 'active',
     ];
 
@@ -97,6 +112,11 @@ class SaccoAccount extends Model
             && $amount > 0;
     }
 
+    public function canDeposit(): bool
+    {
+        return $this->status === 'active';
+    }
+
     public function calculatePendingBalance(): float
     {
         return $this->balance - $this->available_balance;
@@ -113,12 +133,21 @@ class SaccoAccount extends Model
         return ($this->balance * $this->interest_rate) / (12 * 100);
     }
 
+    public function calculateInterest(int $months = 1): float
+    {
+        return $this->calculateMonthlyInterest() * max(1, $months);
+    }
+
     // Auto-generate account number
     protected static function boot()
     {
         parent::boot();
 
         static::creating(function ($account) {
+            if (empty($account->uuid)) {
+                $account->uuid = (string) \Illuminate\Support\Str::uuid();
+            }
+
             if (empty($account->account_number)) {
                 $account->account_number = self::generateAccountNumber($account->account_type);
             }

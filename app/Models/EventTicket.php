@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class EventTicket extends Model
 {
@@ -35,32 +36,20 @@ class EventTicket extends Model
         'required_loyalty_tier',
         'tier_early_access_hours',
         'tier_discounts',
-        // Legacy fields
-        'ticket_type',
-        'price',
-        'quantity_available',
-        'sales_start_at',
-        'sales_end_at',
-        'perks',
     ];
 
     protected $casts = [
         'price_ugx' => 'decimal:2',
         'price_credits' => 'decimal:2',
-        'price' => 'decimal:2',
         'quantity_total' => 'integer',
         'quantity_sold' => 'integer',
         'quantity_reserved' => 'integer',
-        'quantity_available' => 'integer',
         'min_per_order' => 'integer',
         'max_per_order' => 'integer',
         'sale_starts_at' => 'datetime',
         'sale_ends_at' => 'datetime',
-        'sales_start_at' => 'datetime',
-        'sales_end_at' => 'datetime',
         'is_active' => 'boolean',
         'is_free' => 'boolean',
-        'perks' => 'array',
         'tier_discounts' => 'array',
         'tier_early_access_hours' => 'integer',
         'sort_order' => 'integer',
@@ -85,12 +74,13 @@ class EventTicket extends Model
 
     public function attendees(): HasMany
     {
-        return $this->hasMany(EventAttendee::class);
+        return $this->hasMany(EventAttendee::class, 'ticket_id');
     }
 
     public function purchases(): HasMany
     {
-        return $this->hasMany(EventAttendee::class)->where('attendance_type', 'ticket_purchase');
+        return $this->hasMany(EventAttendee::class, 'ticket_id')
+            ->whereNotIn('status', [EventAttendee::STATUS_CANCELLED, EventAttendee::STATUS_NO_SHOW]);
     }
 
     // Scopes
@@ -103,16 +93,15 @@ class EventTicket extends Model
     {
         return $query->active()
             ->where(function ($q) {
-                $q->where('quantity_available', '>', 0)
-                    ->orWhereNull('quantity_available'); // unlimited
+                $q->whereRaw('(quantity_total IS NULL OR quantity_total - quantity_sold - quantity_reserved > 0)');
             })
             ->where(function ($q) {
-                $q->where('sales_start_at', '<=', now())
-                    ->orWhereNull('sales_start_at');
+                $q->where('sale_starts_at', '<=', now())
+                    ->orWhereNull('sale_starts_at');
             })
             ->where(function ($q) {
-                $q->where('sales_end_at', '>=', now())
-                    ->orWhereNull('sales_end_at');
+                $q->where('sale_ends_at', '>=', now())
+                    ->orWhereNull('sale_ends_at');
             });
     }
 
@@ -123,27 +112,49 @@ class EventTicket extends Model
 
     public function scopeByPriceAsc(Builder $query): Builder
     {
-        return $query->orderBy('price', 'asc');
+        return $query->orderBy('price_ugx', 'asc');
     }
 
     public function scopeByPriceDesc(Builder $query): Builder
     {
-        return $query->orderBy('price', 'desc');
+        return $query->orderBy('price_ugx', 'desc');
     }
 
     public function scopeBySortOrder(Builder $query): Builder
     {
-        return $query->orderBy('sort_order', 'asc')->orderBy('price', 'asc');
+        return $query->orderBy('sort_order', 'asc')->orderBy('price_ugx', 'asc');
     }
 
     // Accessors
     public function getQuantityAvailableAttribute()
     {
+        $reserved = (int) ($this->quantity_reserved ?? 0);
+
         if ($this->quantity_total === null) {
             return null; // Unlimited
         }
 
-        return max(0, $this->quantity_total - $this->quantity_sold - $this->quantity_reserved);
+        return max(0, $this->quantity_total - $this->quantity_sold - $reserved);
+    }
+
+    public function getTicketTypeAttribute(): string
+    {
+        return $this->name;
+    }
+
+    public function getPriceAttribute(): float
+    {
+        return (float) ($this->price_ugx ?? 0);
+    }
+
+    public function getSalesStartAtAttribute()
+    {
+        return $this->sale_starts_at;
+    }
+
+    public function getSalesEndAtAttribute()
+    {
+        return $this->sale_ends_at;
     }
 
     public function isSoldOut(): bool
@@ -205,11 +216,11 @@ class EventTicket extends Model
 
     public function getFormattedPriceAttribute(): string
     {
-        if ($this->price == 0) {
+        if (($this->price_ugx ?? 0) == 0) {
             return 'Free';
         }
 
-        return 'UGX '.number_format($this->price, 0);
+        return 'UGX '.number_format((float) $this->price_ugx, 0);
     }
 
     public function getAvailabilityStatusAttribute(): string
@@ -224,11 +235,11 @@ class EventTicket extends Model
 
         $now = now();
 
-        if ($this->sales_start_at && $now->isBefore($this->sales_start_at)) {
+        if ($this->sale_starts_at && $now->isBefore($this->sale_starts_at)) {
             return 'not_yet_available';
         }
 
-        if ($this->sales_end_at && $now->isAfter($this->sales_end_at)) {
+        if ($this->sale_ends_at && $now->isAfter($this->sale_ends_at)) {
             return 'sales_ended';
         }
 
@@ -240,10 +251,10 @@ class EventTicket extends Model
         return match ($this->availability_status) {
             'inactive' => 'This ticket type is currently inactive',
             'sold_out' => 'Sold Out',
-            'not_yet_available' => 'Sales start '.$this->sales_start_at->format('M j, Y \a\t g:i A'),
-            'sales_ended' => 'Sales ended '.$this->sales_end_at->format('M j, Y \a\t g:i A'),
+            'not_yet_available' => 'Sales start '.$this->sale_starts_at->format('M j, Y \a\t g:i A'),
+            'sales_ended' => 'Sales ended '.$this->sale_ends_at->format('M j, Y \a\t g:i A'),
             'available' => $this->quantity_available ?
-                ($this->quantity_remaining.' remaining') :
+                ($this->quantity_available.' remaining') :
                 'Available',
             default => 'Unknown status'
         };
@@ -259,7 +270,7 @@ class EventTicket extends Model
             return 0;
         }
 
-        return ($this->quantity_sold / $this->quantity_available) * 100;
+        return ($this->quantity_sold / $this->quantity_total) * 100;
     }
 
     public function getTotalRevenueAttribute(): float
@@ -272,7 +283,7 @@ class EventTicket extends Model
     // Helper Methods
     public function canPurchase(int $quantity = 1): bool
     {
-        if (! $this->is_available) {
+        if (! $this->isOnSale()) {
             return false;
         }
 
@@ -280,7 +291,7 @@ class EventTicket extends Model
             return false;
         }
 
-        if ($this->quantity_available !== null && $quantity > $this->quantity_remaining) {
+        if ($this->quantity_available !== null && $quantity > $this->quantity_available) {
             return false;
         }
 
@@ -294,21 +305,22 @@ class EventTicket extends Model
         }
 
         // Generate unique ticket code
-        $ticketCode = $this->generateTicketCode();
+        $ticketCode = strtoupper(Str::random(10));
 
         // Create attendee record
         $attendee = $this->attendees()->create([
             'event_id' => $this->event_id,
+            'ticket_id' => $this->id,
             'user_id' => $user->id,
-            'ticket_code' => $ticketCode,
-            'attendance_type' => 'ticket_purchase',
-            'status' => $this->price > 0 ? 'pending' : 'confirmed',
-            'amount_paid' => $this->price * $quantity,
-            'payment_status' => $this->price > 0 ? 'pending' : 'completed',
+            'confirmation_code' => $ticketCode,
+            'status' => ($this->price_ugx ?? 0) > 0 ? 'pending' : 'confirmed',
+            'quantity' => $quantity,
+            'amount_paid' => ($this->price_ugx ?? 0) * $quantity,
+            'price_paid_ugx' => ($this->price_ugx ?? 0) * $quantity,
+            'payment_status' => ($this->price_ugx ?? 0) > 0 ? 'pending' : 'completed',
             'attendee_metadata' => array_merge($metadata, [
-                'quantity' => $quantity,
-                'unit_price' => $this->price,
-                'ticket_type' => $this->ticket_type,
+                'unit_price' => $this->price_ugx ?? 0,
+                'ticket_type' => $this->name,
             ]),
         ]);
 
@@ -320,7 +332,7 @@ class EventTicket extends Model
 
     public function refund(EventAttendee $attendee): bool
     {
-        if ($attendee->event_ticket_id !== $this->id) {
+        if ($attendee->ticket_id !== $this->id) {
             return false;
         }
 
@@ -345,12 +357,12 @@ class EventTicket extends Model
     {
         // If this is an early bird ticket, calculate savings vs regular price
         $regularTicket = $this->event->tickets()
-            ->where('ticket_type', 'LIKE', '%General%')
+            ->where('name', 'LIKE', '%General%')
             ->where('id', '!=', $this->id)
             ->first();
 
-        if ($regularTicket && $regularTicket->price > $this->price) {
-            return $regularTicket->price - $this->price;
+        if ($regularTicket && $regularTicket->price_ugx > $this->price_ugx) {
+            return (float) $regularTicket->price_ugx - (float) $this->price_ugx;
         }
 
         return null;
@@ -358,14 +370,14 @@ class EventTicket extends Model
 
     public function isEarlyBird(): bool
     {
-        return str_contains(strtolower($this->ticket_type), 'early') ||
-               str_contains(strtolower($this->ticket_type), 'bird');
+        return str_contains(strtolower($this->name), 'early') ||
+               str_contains(strtolower($this->name), 'bird');
     }
 
     public function isVIP(): bool
     {
-        return str_contains(strtolower($this->ticket_type), 'vip') ||
-               str_contains(strtolower($this->ticket_type), 'premium');
+        return str_contains(strtolower($this->name), 'vip') ||
+               str_contains(strtolower($this->name), 'premium');
     }
 
     public function getTypeClassAttribute(): string
@@ -378,7 +390,7 @@ class EventTicket extends Model
             return 'early-bird';
         }
 
-        if ($this->price == 0) {
+        if (($this->price_ugx ?? 0) == 0) {
             return 'free';
         }
 
@@ -426,7 +438,7 @@ class EventTicket extends Model
     public function getPriceForUser(\App\Models\User $user): float
     {
         if (! $this->tier_discounts) {
-            return $this->price_ugx ?? $this->price ?? 0;
+            return (float) ($this->price_ugx ?? 0);
         }
 
         $tierService = app(\App\Services\Loyalty\TierAccessService::class);
@@ -436,7 +448,7 @@ class EventTicket extends Model
             return $access['discount']['discounted_price'];
         }
 
-        return $this->price_ugx ?? $this->price ?? 0;
+        return (float) ($this->price_ugx ?? 0);
     }
 
     /**

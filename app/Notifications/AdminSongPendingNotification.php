@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\AppNotificationChannel;
 use App\Models\Song;
 use App\Models\User;
 use Illuminate\Bus\Queueable;
@@ -24,7 +25,7 @@ class AdminSongPendingNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return ['mail', AppNotificationChannel::class];
     }
 
     public function toMail(object $notifiable): MailMessage

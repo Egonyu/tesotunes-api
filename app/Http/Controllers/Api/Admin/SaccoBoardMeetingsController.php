@@ -30,16 +30,20 @@ class SaccoBoardMeetingsController extends Controller
         $members = $query->orderBy('position')->get();
 
         return response()->json([
+            'success' => true,
             'data' => $members->map(fn ($bm) => [
                 'id' => $bm->id,
-                'name' => $bm->member?->user?->name ?? 'Unknown',
+                'name' => $bm->member?->user?->username
+                    ?? $bm->member?->user?->name
+                    ?? $bm->member?->member_number
+                    ?? 'Unknown',
                 'email' => $bm->member?->user?->email ?? null,
                 'role' => $bm->position_display,
                 'position' => $bm->position,
                 'appointed_at' => $bm->term_start_date?->toISOString(),
                 'term_end' => $bm->term_end_date?->toISOString(),
                 'status' => $bm->is_active ? 'active' : 'inactive',
-            ]),
+            ])->values(),
         ]);
     }
 
@@ -60,7 +64,16 @@ class SaccoBoardMeetingsController extends Controller
 
         $meetings->getCollection()->transform(fn ($m) => $this->formatMeeting($m));
 
-        return response()->json($meetings);
+        return response()->json([
+            'success' => true,
+            'data' => $meetings->items(),
+            'meta' => [
+                'current_page' => $meetings->currentPage(),
+                'last_page' => $meetings->lastPage(),
+                'per_page' => $meetings->perPage(),
+                'total' => $meetings->total(),
+            ],
+        ]);
     }
 
     /**
@@ -71,6 +84,7 @@ class SaccoBoardMeetingsController extends Controller
         $meeting = SaccoBoardMeeting::with('attendance')->findOrFail($id);
 
         return response()->json([
+            'success' => true,
             'data' => $this->formatMeeting($meeting),
         ]);
     }
@@ -97,6 +111,7 @@ class SaccoBoardMeetingsController extends Controller
         ]);
 
         return response()->json([
+            'success' => true,
             'data' => $this->formatMeeting($meeting),
             'message' => 'Board meeting created successfully.',
         ], 201);
@@ -122,6 +137,7 @@ class SaccoBoardMeetingsController extends Controller
         $meeting->update(array_filter($validated, fn ($v) => $v !== null));
 
         return response()->json([
+            'success' => true,
             'data' => $this->formatMeeting($meeting->fresh()),
             'message' => 'Board meeting updated successfully.',
         ]);
@@ -160,7 +176,7 @@ class SaccoBoardMeetingsController extends Controller
             'location' => $m->venue,
             'venue' => $m->venue,
             'is_online' => empty($m->venue),
-            'status' => $m->status,
+            'status' => $m->status === 'in_progress' ? 'ongoing' : $m->status,
             'quorum_met' => $m->attendance_rate > 50,
             'attendees_count' => $m->attendance()->count(),
             'minutes' => $m->minutes,

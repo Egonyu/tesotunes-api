@@ -2,6 +2,8 @@
 
 namespace App\Notifications;
 
+use App\Channels\AppNotificationChannel;
+use App\Channels\ExpoPushChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -48,7 +50,7 @@ class CrossModuleNotification extends Notification implements ShouldQueue
      */
     public function via(object $notifiable): array
     {
-        $channels = ['database'];
+        $channels = [AppNotificationChannel::class];
 
         // Send email for critical notifications
         if ($this->isCritical()) {
@@ -57,7 +59,7 @@ class CrossModuleNotification extends Notification implements ShouldQueue
 
         // Add push notification channel if enabled
         if ($this->shouldSendPush()) {
-            $channels[] = 'push';
+            $channels[] = ExpoPushChannel::class;
         }
 
         return $channels;

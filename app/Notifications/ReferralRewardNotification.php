@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
 use App\Traits\ChecksNotificationPreferences;
 use Illuminate\Bus\Queueable;
@@ -22,7 +23,7 @@ class ReferralRewardNotification extends Notification implements ShouldQueue
     {
         return $this->filterChannelsByPreference(
             $notifiable,
-            ['database', ExpoPushChannel::class],
+            [AppNotificationChannel::class, ExpoPushChannel::class],
             'credits'
         );
     }

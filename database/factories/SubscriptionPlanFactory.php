@@ -109,11 +109,19 @@ class SubscriptionPlanFactory extends Factory
         $planData = $planTypes[$planType];
 
         return [
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
             'name' => $planData['name'],
+            'slug' => \Illuminate\Support\Str::slug($planData['name']).'-'.strtolower($planType).'-'.fake()->unique()->numberBetween(1, 10000),
             'description' => $planData['description'],
+            'tier' => $planType,
             'price_usd' => $planData['price_usd'],
             'price' => $planData['price_local'], // Use 'price' column instead of missing 'price_local'
+            'price_monthly' => $planData['price_local'],
+            'price_yearly' => $planData['price_local'] * 10,
             'currency' => 'UGX',
+            'interval' => 'month',
+            'interval_count' => 1,
+            'region' => 'EA',
             'duration_days' => $planData['duration_days'],
             'features' => $planData['features'],
             'limits' => $planData['limits'],
@@ -147,10 +155,18 @@ class SubscriptionPlanFactory extends Factory
     public function basic(): static
     {
         return $this->state(fn (array $attributes) => [
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
             'name' => 'Basic Plan',
+            'slug' => 'basic-plan-'.fake()->unique()->numberBetween(1, 10000),
             'description' => 'Essential features for music streaming',
+            'tier' => 'basic',
             'price_usd' => 4.99,
             'price' => 20000,
+            'price_monthly' => 20000,
+            'price_yearly' => 200000,
+            'interval' => 'month',
+            'interval_count' => 1,
+            'region' => 'EA',
             'type' => 'basic',
             'features' => [
                 'Unlimited streaming',
@@ -173,10 +189,18 @@ class SubscriptionPlanFactory extends Factory
     public function premium(): static
     {
         return $this->state(fn (array $attributes) => [
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
             'name' => 'Premium Plan',
+            'slug' => 'premium-plan-'.fake()->unique()->numberBetween(1, 10000),
             'description' => 'Full access with premium features',
+            'tier' => 'premium',
             'price_usd' => 9.99,
             'price' => 40000,
+            'price_monthly' => 40000,
+            'price_yearly' => 400000,
+            'interval' => 'month',
+            'interval_count' => 1,
+            'region' => 'EA',
             'type' => 'premium',
             'features' => [
                 'Unlimited streaming',
@@ -201,10 +225,18 @@ class SubscriptionPlanFactory extends Factory
     public function artist(): static
     {
         return $this->state(fn (array $attributes) => [
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
             'name' => 'Artist Plan',
+            'slug' => 'artist-plan-'.fake()->unique()->numberBetween(1, 10000),
             'description' => 'Professional tools for musicians',
+            'tier' => 'artist',
             'price_usd' => 19.99,
             'price' => 80000,
+            'price_monthly' => 80000,
+            'price_yearly' => 800000,
+            'interval' => 'month',
+            'interval_count' => 1,
+            'region' => 'EA',
             'type' => 'artist',
             'features' => [
                 'All Premium features',
@@ -231,10 +263,18 @@ class SubscriptionPlanFactory extends Factory
     public function label(): static
     {
         return $this->state(fn (array $attributes) => [
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
             'name' => 'Label Plan',
+            'slug' => 'label-plan-'.fake()->unique()->numberBetween(1, 10000),
             'description' => 'Enterprise solution for record labels',
+            'tier' => 'label',
             'price_usd' => 49.99,
             'price' => 200000,
+            'price_monthly' => 200000,
+            'price_yearly' => 2000000,
+            'interval' => 'month',
+            'interval_count' => 1,
+            'region' => 'EA',
             'type' => 'label',
             'features' => [
                 'All Artist features',

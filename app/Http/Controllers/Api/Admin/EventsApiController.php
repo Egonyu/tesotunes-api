@@ -10,6 +10,7 @@ use App\Models\EventLocation;
 use App\Models\EventTicket;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
@@ -368,35 +369,180 @@ class EventsApiController extends Controller
     }
 
     /**
-     * GET /api/admin/events/{id}/registrations
+     * POST /api/admin/events/{id}/publish
      */
-    public function registrations(int $id, Request $request)
+    public function publish(int $id)
+    {
+        return $this->handleApiAction(function () use ($id) {
+            $event = Event::findOrFail($id);
+
+            if ($event->status !== 'published') {
+                $event->publish();
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Event published successfully.',
+                'data' => new EventResource($event->fresh()->load(['organizer', 'location', 'tickets'])),
+            ]);
+        }, 'Failed to publish event.');
+    }
+
+    /**
+     * POST /api/admin/events/{id}/toggle-featured
+     */
+    public function toggleFeatured(int $id)
+    {
+        return $this->handleApiAction(function () use ($id) {
+            $event = Event::findOrFail($id);
+
+            $event->update([
+                'is_featured' => ! $event->is_featured,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => $event->is_featured ? 'Event featured successfully.' : 'Event unfeatured successfully.',
+                'data' => new EventResource($event->fresh()->load(['organizer', 'location', 'tickets'])),
+            ]);
+        }, 'Failed to update event featured state.');
+    }
+
+    /**
+     * GET /api/admin/events/{id}/analytics
+     */
+    public function analytics(int $id)
+    {
+        return $this->handleApiAction(function () use ($id) {
+            $event = Event::with(['tickets', 'attendees.ticket', 'interestedUsers'])
+                ->findOrFail($id);
+
+            $confirmedAttendees = $event->attendees->whereIn('status', ['confirmed', 'attended']);
+            $ticketsSold = (int) $event->tickets->sum('quantity_sold');
+            $interestedCount = (int) $event->interestedUsers->count();
+            $revenue = (float) $confirmedAttendees->sum(fn ($attendee) => $attendee->price_paid_ugx ?? $attendee->amount_paid ?? 0);
+            $revenueCredits = (float) $confirmedAttendees->sum('price_paid_credits');
+            $checkIns = (int) $event->attendees->whereNotNull('checked_in_at')->count();
+
+            $byTier = $event->tickets->map(function ($ticket) {
+                return [
+                    'id' => $ticket->id,
+                    'name' => $ticket->name,
+                    'sold' => (int) $ticket->quantity_sold,
+                    'total' => $ticket->quantity_total,
+                    'revenue' => (float) ($ticket->quantity_sold * ($ticket->price_ugx ?? 0)),
+                    'available' => (int) ($ticket->quantity_available ?? 0),
+                ];
+            })->values();
+
+            $byDate = $event->attendees()
+                ->where(function ($query) {
+                    $query->whereIn('status', ['confirmed', 'attended'])
+                        ->orWhereNotNull('checked_in_at');
+                })
+                ->selectRaw('DATE(created_at) as date, COUNT(*) as tickets_sold, SUM(COALESCE(price_paid_ugx, amount_paid, 0)) as revenue')
+                ->groupBy(DB::raw('DATE(created_at)'))
+                ->orderBy(DB::raw('DATE(created_at)'))
+                ->get()
+                ->map(fn ($row) => [
+                    'date' => $row->date,
+                    'tickets_sold' => (int) $row->tickets_sold,
+                    'revenue' => (float) $row->revenue,
+                ])
+                ->values();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'event_id' => $event->id,
+                    'status' => $event->status,
+                    'tickets_sold' => $ticketsSold,
+                    'total_attendees' => (int) $confirmedAttendees->count(),
+                    'interested_count' => $interestedCount,
+                    'check_ins' => $checkIns,
+                    'revenue' => $revenue,
+                    'revenue_credits' => $revenueCredits,
+                    'conversion_rate' => $interestedCount > 0 ? round(($ticketsSold / $interestedCount) * 100, 2) : 0.0,
+                    'sell_through_rate' => $event->tickets->sum('quantity_total') > 0
+                        ? round(($ticketsSold / max(1, $event->tickets->sum('quantity_total'))) * 100, 2)
+                        : 0.0,
+                    'by_tier' => $byTier,
+                    'by_date' => $byDate,
+                ],
+            ]);
+        }, 'Failed to retrieve event analytics.');
+    }
+
+    /**
+     * GET /api/admin/events/{id}/attendees
+     */
+    public function attendees(int $id, Request $request)
     {
         return $this->handleApiAction(function () use ($id, $request) {
             $perPage = min((int) $request->get('per_page', 20), 100);
             $event = Event::findOrFail($id);
 
-            $registrations = $event->attendees()
-                ->with('user:id,name,username,email,avatar')
+            $attendees = $event->attendees()
+                ->with(['user:id,name,username,email,avatar', 'ticket:id,event_id,name,price_ugx'])
+                ->when($request->filled('status'), function ($query) use ($request) {
+                    $query->where('status', $request->status);
+                })
                 ->orderByDesc('created_at')
                 ->paginate($perPage);
 
             return response()->json([
                 'success' => true,
-                'data' => $registrations->items(),
+                'data' => collect($attendees->items())->map(function ($attendee) {
+                    return [
+                        'id' => $attendee->id,
+                        'ticket_number' => $attendee->confirmation_code,
+                        'status' => $attendee->status,
+                        'payment_status' => $attendee->payment_status,
+                        'quantity' => (int) ($attendee->quantity ?? 1),
+                        'amount_paid' => (float) ($attendee->amount_paid ?? $attendee->price_paid_ugx ?? 0),
+                        'checked_in_at' => $attendee->checked_in_at?->toIso8601String(),
+                        'confirmed_at' => $attendee->confirmed_at?->toIso8601String(),
+                        'created_at' => $attendee->created_at?->toIso8601String(),
+                        'attendee' => [
+                            'name' => $attendee->attendee_name,
+                            'email' => $attendee->attendee_email,
+                            'phone' => $attendee->attendee_phone,
+                        ],
+                        'user' => $attendee->user ? [
+                            'id' => $attendee->user->id,
+                            'name' => $attendee->user->name,
+                            'username' => $attendee->user->username,
+                            'email' => $attendee->user->email,
+                            'avatar' => $attendee->user->avatar,
+                        ] : null,
+                        'ticket' => $attendee->ticket ? [
+                            'id' => $attendee->ticket->id,
+                            'name' => $attendee->ticket->name,
+                            'price_ugx' => (float) ($attendee->ticket->price_ugx ?? 0),
+                        ] : null,
+                    ];
+                })->values(),
                 'meta' => [
-                    'current_page' => $registrations->currentPage(),
-                    'last_page' => $registrations->lastPage(),
-                    'per_page' => $registrations->perPage(),
-                    'total' => $registrations->total(),
+                    'current_page' => $attendees->currentPage(),
+                    'last_page' => $attendees->lastPage(),
+                    'per_page' => $attendees->perPage(),
+                    'total' => $attendees->total(),
                 ],
                 'links' => [
-                    'first' => $registrations->url(1),
-                    'last' => $registrations->url($registrations->lastPage()),
-                    'prev' => $registrations->previousPageUrl(),
-                    'next' => $registrations->nextPageUrl(),
+                    'first' => $attendees->url(1),
+                    'last' => $attendees->url($attendees->lastPage()),
+                    'prev' => $attendees->previousPageUrl(),
+                    'next' => $attendees->nextPageUrl(),
                 ],
             ]);
-        }, 'Failed to retrieve event registrations.');
+        }, 'Failed to retrieve event attendees.');
+    }
+
+    /**
+     * GET /api/admin/events/{id}/registrations
+     */
+    public function registrations(int $id, Request $request)
+    {
+        return $this->attendees($id, $request);
     }
 }

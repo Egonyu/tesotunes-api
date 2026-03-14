@@ -20,8 +20,8 @@ class SendWeeklyDigest extends Command
         $isDryRun = $this->option('dry-run');
 
         // Get active users who have play history in the last week
-        $activeUserIds = DB::table('play_history')
-            ->where('created_at', '>=', $weekAgo)
+        $activeUserIds = DB::table('play_histories')
+            ->where('played_at', '>=', $weekAgo)
             ->distinct('user_id')
             ->pluck('user_id');
 
@@ -63,9 +63,9 @@ class SendWeeklyDigest extends Command
 
     private function buildDigestForUser(User $user, $since): array
     {
-        $plays = DB::table('play_history')
+        $plays = DB::table('play_histories')
             ->where('user_id', $user->id)
-            ->where('created_at', '>=', $since)
+            ->where('played_at', '>=', $since)
             ->get();
 
         $songsListened = $plays->unique('song_id')->count();

@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Modules\Sacco\Models\SaccoMember;
+use App\Models\Sacco\SaccoMember;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -18,7 +18,6 @@ class CheckSaccoMembershipApi
     {
         if (! auth()->check()) {
             return response()->json([
-                'success' => false,
                 'message' => 'Authentication required',
             ], 401);
         }
@@ -31,7 +30,6 @@ class CheckSaccoMembershipApi
         // Check if SACCO module is enabled
         if (! config('sacco.enabled', false)) {
             return response()->json([
-                'success' => false,
                 'message' => 'SACCO module is currently unavailable',
             ], 503);
         }
@@ -40,22 +38,21 @@ class CheckSaccoMembershipApi
 
         if (! $member) {
             return response()->json([
-                'success' => false,
                 'message' => 'SACCO membership required. Please join SACCO to access this feature.',
             ], 403);
         }
 
         if ($member->status !== 'active') {
             $message = match ($member->status) {
-                'pending' => 'Your SACCO membership application is pending approval',
+                'pending', 'pending_approval' => 'Your SACCO membership application is pending approval',
                 'suspended' => 'Your SACCO membership is currently suspended',
-                'inactive' => 'Your SACCO membership is inactive',
+                'inactive', 'resigned' => 'Your SACCO membership is inactive',
+                'deceased' => 'This SACCO membership is no longer active',
                 'rejected' => 'Your SACCO membership application was rejected',
                 default => 'Your SACCO membership is not active',
             };
 
             return response()->json([
-                'success' => false,
                 'message' => $message,
             ], 403);
         }

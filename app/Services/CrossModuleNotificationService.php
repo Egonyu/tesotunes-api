@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
+use App\Models\Notification as AppNotification;
 use App\Models\User;
 use App\Notifications\CrossModuleNotification;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Notification;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Notification as NotificationFacade;
 
 class CrossModuleNotificationService
 {
@@ -58,7 +60,7 @@ class CrossModuleNotificationService
             $actionText
         );
 
-        Notification::send($users, $notification);
+        NotificationFacade::send($users, $notification);
     }
 
     /**
@@ -452,8 +454,9 @@ class CrossModuleNotificationService
      */
     public function getUnreadCountByModule(User $user): array
     {
-        $notifications = $user->unreadNotifications()
-            ->where('following_type', CrossModuleNotification::class)
+        $notifications = AppNotification::query()
+            ->where('user_id', $user->id)
+            ->where('is_read', false)
             ->get();
 
         $counts = [
@@ -467,7 +470,9 @@ class CrossModuleNotificationService
         ];
 
         foreach ($notifications as $notification) {
-            $module = $notification->data['module'] ?? 'other';
+            $module = $notification->category
+                ?? ($notification->data['module'] ?? null)
+                ?? 'other';
             if (isset($counts[$module])) {
                 $counts[$module]++;
             }
@@ -482,19 +487,23 @@ class CrossModuleNotificationService
      */
     public function markModuleNotificationsAsRead(User $user, string $module): void
     {
-        $user->unreadNotifications()
-            ->where('following_type', CrossModuleNotification::class)
-            ->whereJsonContains('data->module', $module)
-            ->update(['read_at' => now()]);
+        AppNotification::query()
+            ->where('user_id', $user->id)
+            ->where('is_read', false)
+            ->where(function ($query) use ($module) {
+                $query->where('category', $module)
+                    ->orWhereJsonContains('data->module', $module);
+            })
+            ->update(['read_at' => now(), 'is_read' => true]);
     }
 
     /**
      * Get recent notifications for a user with pagination
      */
-    public function getRecentNotifications(User $user, int $limit = 20): \Illuminate\Pagination\LengthAwarePaginator
+    public function getRecentNotifications(User $user, int $limit = 20): LengthAwarePaginator
     {
-        return $user->notifications()
-            ->where('following_type', CrossModuleNotification::class)
+        return AppNotification::query()
+            ->where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->paginate($limit);
     }

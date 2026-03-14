@@ -20,10 +20,10 @@ class GenreFactory extends Factory
         $name = fake()->randomElement($genres);
 
         return [
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
             'name' => $name.' '.fake()->unique()->numberBetween(1, 1000),
             'slug' => \Illuminate\Support\Str::slug($name).'-'.fake()->unique()->numberBetween(1, 10000),
             'description' => fake()->sentence(),
-            'icon' => 'genres/'.fake()->uuid().'.jpg',
             'is_active' => true,
             'sort_order' => fake()->numberBetween(0, 100),
         ];

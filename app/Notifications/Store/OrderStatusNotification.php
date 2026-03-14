@@ -2,6 +2,7 @@
 
 namespace App\Notifications\Store;
 
+use App\Channels\AppNotificationChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -32,7 +33,7 @@ class OrderStatusNotification extends Notification implements ShouldQueue
      */
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return ['mail', AppNotificationChannel::class];
     }
 
     /**

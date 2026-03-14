@@ -7,6 +7,7 @@ use App\Http\Resources\AlbumResource;
 use App\Http\Resources\ArtistResource;
 use App\Http\Resources\SongResource;
 use App\Models\Artist;
+use App\Models\Event;
 use App\Notifications\NewFollowerNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -110,6 +111,104 @@ class ArtistController extends Controller
             ->paginate($perPage);
 
         return AlbumResource::collection($albums);
+    }
+
+    /**
+     * GET /api/artists/{artist}/events
+     * Public event listing for an artist profile.
+     */
+    public function events(string $artist): JsonResponse
+    {
+        $record = Artist::with('user')
+            ->where('status', 'active')
+            ->where(function ($query) use ($artist) {
+                $query->where('id', $artist)
+                    ->orWhere('slug', $artist)
+                    ->orWhere('uuid', $artist);
+            })
+            ->firstOrFail();
+
+        $viewer = auth('sanctum')->user() ?? auth()->user();
+
+        $events = Event::with(['tickets', 'interestedUsers'])
+            ->where('status', 'published')
+            ->where(function ($query) use ($record) {
+                $query->where('artist_id', $record->id);
+
+                if ($record->user_id) {
+                    $query->orWhere('organizer_id', $record->user_id)
+                        ->orWhere('user_id', $record->user_id);
+                }
+            })
+            ->orderByDesc('starts_at')
+            ->get();
+
+        $formatted = $events->map(function (Event $event) use ($viewer) {
+            $startsAt = $event->starts_at;
+            $endsAt = $event->ends_at;
+            $status = 'upcoming';
+
+            if ($event->status === 'cancelled') {
+                $status = 'cancelled';
+            } elseif ($endsAt && $endsAt->isPast()) {
+                $status = 'past';
+            } elseif ($startsAt && $startsAt->isPast() && (! $endsAt || $endsAt->isFuture())) {
+                $status = 'live';
+            }
+
+            $prices = $event->tickets
+                ->where('is_active', true)
+                ->pluck('price_ugx')
+                ->filter(fn ($price) => $price !== null);
+
+            $attending = $viewer
+                ? $event->attendees()
+                    ->where('user_id', $viewer->id)
+                    ->whereIn('status', ['pending', 'confirmed', 'attended'])
+                    ->exists()
+                : false;
+
+            $interested = $viewer
+                ? $event->interestedUsers->contains('id', $viewer->id)
+                : false;
+
+            return [
+                'id' => $event->id,
+                'title' => $event->title,
+                'slug' => $event->slug,
+                'type' => $event->event_type ?: ($event->category ?: 'concert'),
+                'description' => $event->description ?? '',
+                'cover_url' => $event->artwork ? \App\Helpers\StorageHelper::url($event->artwork) : null,
+                'date' => $startsAt?->toIso8601String(),
+                'end_date' => $endsAt?->toIso8601String(),
+                'venue' => [
+                    'name' => $event->venue_name ?? 'TBA',
+                    'address' => $event->venue_address ?? '',
+                    'city' => $event->city ?? '',
+                    'country' => $event->country ?? 'Uganda',
+                ],
+                'is_virtual' => (bool) $event->is_virtual,
+                'tickets_url' => url("/events/{$event->id}"),
+                'ticket_price_min' => $prices->isNotEmpty() ? (float) $prices->min() : null,
+                'ticket_price_max' => $prices->isNotEmpty() ? (float) $prices->max() : null,
+                'attendees_count' => (int) ($event->attendee_count ?? $event->confirmed_attendees_count),
+                'interested_count' => (int) $event->interestedUsers->count(),
+                'is_attending' => $attending,
+                'is_interested' => $interested,
+                'status' => $status,
+            ];
+        })->values();
+
+        return response()->json([
+            'artist' => [
+                'id' => $record->id,
+                'name' => $record->stage_name,
+                'slug' => $record->slug,
+                'avatar_url' => $record->avatar_url,
+            ],
+            'upcoming' => $formatted->filter(fn ($event) => in_array($event['status'], ['upcoming', 'live'], true))->values(),
+            'past' => $formatted->filter(fn ($event) => in_array($event['status'], ['past', 'cancelled'], true))->values(),
+        ]);
     }
 
     public function toggleFollow(Artist $artist): JsonResponse

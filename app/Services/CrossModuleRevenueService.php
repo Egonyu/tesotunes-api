@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Modules\Podcast\Models\Podcast;
-use App\Modules\Sacco\Models\Loan;
 use App\Modules\Sacco\Models\SaccoMember;
 use Illuminate\Support\Collection;
 

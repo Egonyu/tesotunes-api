@@ -291,7 +291,10 @@ class EventSettingsService
         $maxEvents = $this->getMaxEventsPerArtist();
 
         $eventsThisMonth = DB::table('events')
-            ->where('user_id', $artist->id)
+            ->where(function ($query) use ($artist) {
+                $query->where('organizer_id', $artist->id)
+                    ->orWhere('user_id', $artist->id);
+            })
             ->whereYear('created_at', now()->year)
             ->whereMonth('created_at', now()->month)
             ->count();
@@ -410,10 +413,13 @@ class EventSettingsService
             'pending_approval' => DB::table('events')
                 ->where('status', 'draft')
                 ->count(),
-            'total_tickets_sold' => DB::table('event_attendees')->count(),
-            'total_revenue' => DB::table('event_tickets')
-                ->join('event_attendees', 'event_tickets.id', '=', 'event_attendees.ticket_id')
-                ->sum('event_tickets.price') ?? 0,
+            'total_tickets_sold' => DB::table('event_attendees')
+                ->whereIn('status', ['confirmed', 'attended'])
+                ->count(),
+            'total_revenue' => DB::table('event_attendees')
+                ->whereIn('status', ['confirmed', 'attended'])
+                ->where('payment_status', 'completed')
+                ->sum(DB::raw('COALESCE(amount_paid, price_paid_ugx, 0)')) ?? 0,
         ];
     }
 }

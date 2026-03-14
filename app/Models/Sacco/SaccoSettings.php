@@ -14,11 +14,15 @@ class SaccoSettings extends Model
         'key',
         'value',
         'type',
+        'category',
         'description',
+        'is_editable',
     ];
 
     protected $attributes = [
         'type' => 'string',
+        'category' => 'general',
+        'is_editable' => true,
     ];
 
     // Static methods for easy access

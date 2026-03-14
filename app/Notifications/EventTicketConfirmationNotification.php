@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
 use App\Traits\ChecksNotificationPreferences;
 use Illuminate\Bus\Queueable;
@@ -23,7 +24,7 @@ class EventTicketConfirmationNotification extends Notification implements Should
     {
         return $this->filterChannelsByPreference(
             $notifiable,
-            ['mail', 'database', ExpoPushChannel::class],
+            ['mail', AppNotificationChannel::class, ExpoPushChannel::class],
             'music'
         );
     }
@@ -31,8 +32,8 @@ class EventTicketConfirmationNotification extends Notification implements Should
     public function toMail(object $notifiable): MailMessage
     {
         $eventName = $this->event->title ?? $this->event->name ?? 'Event';
-        $ticketType = $this->ticket->ticket_type ?? $this->ticket->name ?? 'General';
-        $eventDate = $this->event->start_date ?? $this->event->event_date ?? 'TBD';
+        $ticketType = $this->ticket->name ?? $this->ticket->ticket_type ?? 'General';
+        $eventDate = $this->event->starts_at?->format('M j, Y g:i A') ?? 'TBD';
 
         return (new MailMessage)
             ->subject("Ticket Confirmed — {$eventName}")
@@ -40,7 +41,7 @@ class EventTicketConfirmationNotification extends Notification implements Should
             ->line("Your ticket for **{$eventName}** has been confirmed!")
             ->line("**Ticket Type**: {$ticketType}")
             ->line("**Event Date**: {$eventDate}")
-            ->line("**Ticket Reference**: {$this->attendee->ticket_code}")
+            ->line("**Ticket Reference**: {$this->attendee->confirmation_code}")
             ->action('View My Tickets', url('/tickets'))
             ->line('See you there!');
     }
@@ -54,7 +55,7 @@ class EventTicketConfirmationNotification extends Notification implements Should
             'module' => 'events',
             'event_id' => $this->event->id,
             'event_name' => $eventName,
-            'ticket_code' => $this->attendee->ticket_code ?? null,
+            'ticket_code' => $this->attendee->confirmation_code ?? null,
             'title' => 'Ticket Confirmed',
             'message' => "Your ticket for \"{$eventName}\" has been confirmed!",
             'icon' => 'ticket',

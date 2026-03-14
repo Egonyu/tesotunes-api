@@ -305,6 +305,10 @@ class Payment extends Model
             $this->payable->confirm($this->provider_reference ?? $this->provider_transaction_id);
         }
 
+        if ($this->payment_type === 'ticket_purchase') {
+            app(\App\Services\Events\EventTicketingService::class)->settlePendingOrderPayment($this);
+        }
+
         // Complete auto-renewal if this is a subscription renewal payment
         $this->completeAutoRenewalIfApplicable();
     }
@@ -323,6 +327,10 @@ class Payment extends Model
 
         $this->forceFill($updateData)->save();
 
+        if ($this->payment_type === 'ticket_purchase') {
+            app(\App\Services\Events\EventTicketingService::class)->failPendingOrderPayment($this, $reason);
+        }
+
         // Expire subscription if auto-renewal payment failed
         $this->failAutoRenewalIfApplicable($reason);
     }
@@ -333,6 +341,10 @@ class Payment extends Model
             'status' => self::STATUS_CANCELLED,
             'failed_at' => now(),
         ])->save();
+
+        if ($this->payment_type === 'ticket_purchase') {
+            app(\App\Services\Events\EventTicketingService::class)->failPendingOrderPayment($this, 'Payment cancelled');
+        }
     }
 
     public function markAsRefunded(): void
@@ -469,7 +481,7 @@ class Payment extends Model
         $payment->transaction_id = self::generateTransactionId();
         $payment->payment_data = [
             'event_id' => $attendee->event_id,
-            'ticket_type' => $attendee->eventTicket->ticket_type,
+            'ticket_type' => $attendee->ticket?->name,
             'quantity' => $attendee->quantity,
             'user_agent' => request()->userAgent(),
             'ip_address' => request()->ip(),

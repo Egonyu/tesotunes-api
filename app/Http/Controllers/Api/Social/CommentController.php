@@ -5,9 +5,11 @@ namespace App\Http\Controllers\Api\Social;
 use App\Http\Controllers\Controller;
 use App\Models\Comment;
 use App\Models\Like;
+use App\Models\Notification;
 use App\Notifications\NewCommentNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Validator;
 
 class CommentController extends Controller
@@ -114,17 +116,22 @@ class CommentController extends Controller
 
                 // Notify parent comment author
                 if ($parentComment->user_id !== $user->id) {
-                    $parentComment->user->notifications()->create([
-                        'type' => 'comment_reply',
-                        'data' => [
-                            'title' => 'New Reply',
-                            'message' => "{$user->name} replied to your comment",
+                    Notification::createRichForUser(
+                        $parentComment->user,
+                        'comment_reply',
+                        'New Reply',
+                        "{$user->name} replied to your comment",
+                        [
                             'comment_id' => $parentComment->id,
                             'reply_id' => $comment->id,
                             'commentable_type' => $modelClass,
                             'commentable_id' => $commentable->id,
                         ],
-                    ]);
+                        null,
+                        'social',
+                        $parentComment,
+                        $user->id
+                    );
 
                     // Push notification for reply
                     $parentComment->user->notify(new NewCommentNotification(
@@ -137,16 +144,23 @@ class CommentController extends Controller
             } else {
                 // Notify content owner if it's a top-level comment
                 if (method_exists($commentable, 'user') && $commentable->user && $commentable->user->id !== $user->id) {
-                    $commentable->user->notifications()->create([
-                        'type' => 'new_comment',
-                        'data' => [
-                            'title' => 'New Comment',
-                            'message' => "{$user->name} commented on your ".class_basename($commentable),
+                    Notification::createRichForUser(
+                        $commentable->user,
+                        'new_comment',
+                        'New Comment',
+                        "{$user->name} commented on your ".class_basename($commentable),
+                        [
                             'comment_id' => $comment->id,
                             'commentable_type' => $modelClass,
                             'commentable_id' => $commentable->id,
                         ],
-                    ]);
+                        Route::has('frontend.social.post') && method_exists($commentable, 'getKey')
+                            ? route('frontend.social.post', $commentable->getKey())
+                            : null,
+                        'social',
+                        $commentable,
+                        $user->id
+                    );
 
                     // Push notification for top-level comment
                     $commentable->user->notify(new NewCommentNotification(

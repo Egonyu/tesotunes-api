@@ -119,7 +119,9 @@ class DepositRequest extends FormRequest
                 // Check if account type allows deposits using admin-configured account types
                 if ($account) {
                     $accountTypeCode = strtoupper(substr($account->account_number ?? '', 0, 3));
-                    $accountType = \App\Models\Sacco\SaccoAccountType::where('code', $accountTypeCode)->first();
+                    $accountType = class_exists(\App\Models\Sacco\SaccoAccountType::class)
+                        ? \App\Models\Sacco\SaccoAccountType::where('code', $accountTypeCode)->first()
+                        : null;
 
                     if ($accountType && ! $accountType->allow_deposits) {
                         $validator->errors()->add('account_id', 'This account type does not accept deposits');

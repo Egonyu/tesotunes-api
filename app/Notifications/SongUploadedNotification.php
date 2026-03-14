@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
 use App\Models\Song;
 use App\Models\User;
@@ -20,7 +21,7 @@ class SongUploadedNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return ['database', ExpoPushChannel::class];
+        return [AppNotificationChannel::class, ExpoPushChannel::class];
     }
 
     public function toArray(object $notifiable): array

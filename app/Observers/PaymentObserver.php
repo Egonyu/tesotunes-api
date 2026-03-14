@@ -2,8 +2,10 @@
 
 namespace App\Observers;
 
-use App\Facades\AuditLog;
+use App\Models\AuditLog;
+use App\Models\Notification as AppNotification;
 use App\Models\Payment;
+use App\Models\Role;
 use App\Models\User;
 use App\Notifications\AdminPaymentNotification;
 use App\Notifications\ArtistRevenueNotification;
@@ -11,6 +13,7 @@ use App\Notifications\PaymentFailedNotification;
 use App\Notifications\PaymentSuccessNotification;
 use App\Services\Loyalty\PaymentLoyaltyService;
 use App\Services\Sacco\SavingsAutoDepositService;
+use Illuminate\Notifications\Notification as BaseNotification;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
 
@@ -80,30 +83,15 @@ class PaymentObserver
 
         // Log to SystemAuditLog for admin dashboard
         try {
-            $user = $payment->user;
-            AuditLog::log(
-                'WALLET_EVENT',
-                'payment_created',
-                "Payment initiated: {$payment->currency} ".number_format($payment->amount)." via {$payment->payment_method}",
-                [
-                    'actor_id' => $payment->user_id,
-                    'actor_name' => $user?->name ?? 'Unknown User',
-                    'actor_email' => $user?->email ?? 'unknown',
-                    'target_type' => 'Payment',
-                    'target_id' => $payment->id,
-                    'target_identifier' => $payment->transaction_id,
-                    'module' => 'payments',
-                    'metadata' => [
-                        'transaction_id' => $payment->transaction_id,
-                        'amount' => $payment->amount,
-                        'currency' => $payment->currency,
-                        'payment_method' => $payment->payment_method,
-                        'payment_type' => $payment->payment_type,
-                        'status' => $payment->status,
-                    ],
-                ]
-            );
-        } catch (\Exception $e) {
+            $this->writeAuditEntry($payment, 'payment_created', [], [
+                'transaction_id' => $payment->transaction_id,
+                'amount' => $payment->amount,
+                'currency' => $payment->currency,
+                'payment_method' => $payment->payment_method,
+                'payment_type' => $payment->payment_type,
+                'status' => $payment->status,
+            ]);
+        } catch (\Throwable $e) {
             Log::error('Failed to log payment to audit log: '.$e->getMessage());
         }
     }
@@ -189,51 +177,18 @@ class PaymentObserver
     protected function logStatusChangeToAuditLog(Payment $payment, ?string $oldStatus, string $newStatus): void
     {
         try {
-            $user = $payment->user;
-            $severity = match ($newStatus) {
-                Payment::STATUS_COMPLETED => 'info',
-                Payment::STATUS_FAILED => 'warning',
-                Payment::STATUS_REFUNDED => 'warning',
-                Payment::STATUS_CANCELLED => 'notice',
-                default => 'info',
-            };
-
-            $narrative = match ($newStatus) {
-                Payment::STATUS_COMPLETED => "Payment completed: {$payment->currency} ".number_format($payment->amount),
-                Payment::STATUS_FAILED => "Payment failed: {$payment->currency} ".number_format($payment->amount).' - '.($payment->failure_reason ?? 'Unknown reason'),
-                Payment::STATUS_REFUNDED => "Payment refunded: {$payment->currency} ".number_format($payment->amount),
-                Payment::STATUS_CANCELLED => "Payment cancelled: {$payment->currency} ".number_format($payment->amount),
-                default => "Payment status changed from {$oldStatus} to {$newStatus}",
-            };
-
-            AuditLog::log(
-                'WALLET_EVENT',
-                'payment_'.$newStatus,
-                $narrative,
-                [
-                    'actor_id' => $payment->user_id,
-                    'actor_name' => $user?->name ?? 'Unknown User',
-                    'actor_email' => $user?->email ?? 'unknown',
-                    'target_type' => 'Payment',
-                    'target_id' => $payment->id,
-                    'target_identifier' => $payment->transaction_id,
-                    'module' => 'payments',
-                    'severity' => $severity,
-                    'old_values' => ['status' => $oldStatus],
-                    'new_values' => ['status' => $newStatus],
-                    'metadata' => [
-                        'transaction_id' => $payment->transaction_id,
-                        'amount' => $payment->amount,
-                        'currency' => $payment->currency,
-                        'payment_method' => $payment->payment_method,
-                        'payment_type' => $payment->payment_type,
-                        'old_status' => $oldStatus,
-                        'new_status' => $newStatus,
-                        'failure_reason' => $payment->failure_reason,
-                    ],
-                ]
-            );
-        } catch (\Exception $e) {
+            $this->writeAuditEntry($payment, 'payment_'.$newStatus, [
+                'status' => $oldStatus,
+            ], [
+                'status' => $newStatus,
+                'transaction_id' => $payment->transaction_id,
+                'amount' => $payment->amount,
+                'currency' => $payment->currency,
+                'payment_method' => $payment->payment_method,
+                'payment_type' => $payment->payment_type,
+                'failure_reason' => $payment->failure_reason,
+            ]);
+        } catch (\Throwable $e) {
             Log::error('Failed to log payment status change to audit log: '.$e->getMessage());
         }
     }
@@ -300,7 +255,16 @@ class PaymentObserver
 
                 // Notify user of successful payment
                 if ($user && $this->shouldNotifyUser($user, 'payment_received')) {
-                    $user->notify(new PaymentSuccessNotification($payment));
+                    $this->deliverUserPaymentNotification(
+                        $user,
+                        $payment,
+                        'payment_success',
+                        'payments',
+                        'Payment Successful',
+                        "Your payment of {$payment->currency} ".number_format((float) $payment->amount).' was processed successfully.',
+                        new PaymentSuccessNotification($payment),
+                        'normal'
+                    );
                 }
 
                 // Notify admins for high value payments
@@ -310,7 +274,16 @@ class PaymentObserver
 
                 // Check if this is artist revenue
                 if ($payment->payment_type === 'artist_revenue' && $user?->isArtist()) {
-                    $user->notify(new ArtistRevenueNotification($payment, 'revenue_received'));
+                    $this->deliverUserPaymentNotification(
+                        $user,
+                        $payment,
+                        'artist_revenue_received',
+                        'artist_revenue',
+                        'Revenue Received',
+                        "You've received {$payment->currency} ".number_format((float) $payment->amount).' in artist revenue.',
+                        new ArtistRevenueNotification($payment, 'revenue_received'),
+                        'normal'
+                    );
                 }
 
                 // Award loyalty points for the payment
@@ -330,7 +303,16 @@ class PaymentObserver
 
                 // Notify user of failed payment
                 if ($user && $this->shouldNotifyUser($user, 'payment_failed')) {
-                    $user->notify(new PaymentFailedNotification($payment));
+                    $this->deliverUserPaymentNotification(
+                        $user,
+                        $payment,
+                        'payment_failed',
+                        'payments',
+                        'Payment Failed',
+                        "Your payment of {$payment->currency} ".number_format((float) $payment->amount).' failed. Please try again.',
+                        new PaymentFailedNotification($payment),
+                        'high'
+                    );
                 }
 
                 // Notify admins of failed payment for investigation
@@ -338,7 +320,16 @@ class PaymentObserver
 
                 // Check if this is a failed artist payout
                 if ($payment->payment_type === 'artist_payout' && $user?->isArtist()) {
-                    $user->notify(new ArtistRevenueNotification($payment, 'payout_failed'));
+                    $this->deliverUserPaymentNotification(
+                        $user,
+                        $payment,
+                        'artist_payout_failed',
+                        'artist_revenue',
+                        'Artist Payout Failed',
+                        "Your payout of {$payment->currency} ".number_format((float) $payment->amount).' could not be processed.',
+                        new ArtistRevenueNotification($payment, 'payout_failed'),
+                        'high'
+                    );
                 }
                 break;
 
@@ -362,9 +353,8 @@ class PaymentObserver
     {
         try {
             // Get admin users with admin role
-            $admins = User::where('is_admin', true)
-                ->orWhereHas('roles', function ($query) {
-                    $query->whereIn('name', ['admin', 'super-admin', 'finance']);
+            $admins = User::whereHas('roles', function ($query) {
+                $query->whereIn('name', [Role::ADMIN, Role::SUPER_ADMIN, 'finance', 'super-admin']);
                 })
                 ->get();
 
@@ -377,6 +367,26 @@ class PaymentObserver
                 return;
             }
 
+            foreach ($admins as $admin) {
+                $this->createAppNotification(
+                    $admin,
+                    "admin_payment_{$eventType}",
+                    'admin',
+                    $this->adminNotificationTitle($eventType),
+                    $this->adminNotificationMessage($payment, $eventType),
+                    [
+                        'payment_id' => $payment->id,
+                        'transaction_reference' => $payment->transaction_reference,
+                        'event_type' => $eventType,
+                        'amount' => $payment->amount,
+                        'currency' => $payment->currency ?? 'UGX',
+                        'user_id' => $payment->user_id,
+                    ],
+                    $payment,
+                    $eventType === 'failed' ? 'high' : 'normal'
+                );
+            }
+
             Notification::send($admins, new AdminPaymentNotification($payment, $eventType));
 
             Log::info('Admin notification sent for payment event', [
@@ -384,7 +394,7 @@ class PaymentObserver
                 'event_type' => $eventType,
                 'admins_notified' => $admins->count(),
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Failed to send admin payment notification', [
                 'payment_id' => $payment->id,
                 'event_type' => $eventType,
@@ -425,7 +435,7 @@ class PaymentObserver
                     'points' => $result['points_awarded'] ?? 0,
                 ]);
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             // Don't let loyalty point failures break payment processing
             Log::warning('Failed to award loyalty points for payment', [
                 'payment_id' => $payment->id,
@@ -450,7 +460,7 @@ class PaymentObserver
                     'message' => $result['message'] ?? '',
                 ]);
             }
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             // Don't let auto-deposit failures break payment processing
             Log::warning('Auto-deposit processing failed', [
                 'payment_id' => $payment->id,
@@ -466,5 +476,112 @@ class PaymentObserver
     {
         // Check if call is from service layer or console command
         return app()->runningInConsole() || ! auth()->check();
+    }
+
+    protected function writeAuditEntry(Payment $payment, string $action, array $oldValues = [], array $newValues = []): void
+    {
+        AuditLog::create([
+            'user_id' => $payment->user_id,
+            'action' => $action,
+            'auditable_type' => Payment::class,
+            'auditable_id' => $payment->id,
+            'old_values' => empty($oldValues) ? null : $oldValues,
+            'new_values' => empty($newValues) ? null : $newValues,
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+            'url' => request()->fullUrl(),
+        ]);
+    }
+
+    protected function deliverUserPaymentNotification(
+        User $user,
+        Payment $payment,
+        string $type,
+        string $category,
+        string $title,
+        string $message,
+        BaseNotification $mailNotification,
+        string $priority = 'normal'
+    ): void {
+        $this->createAppNotification($user, $type, $category, $title, $message, [
+            'payment_id' => $payment->id,
+            'amount' => $payment->amount,
+            'currency' => $payment->currency ?? 'UGX',
+            'payment_type' => $payment->payment_type,
+            'payment_method' => $payment->payment_method,
+            'transaction_reference' => $payment->transaction_reference,
+            'failure_reason' => $payment->failure_reason,
+        ], $payment, $priority);
+
+        $this->sendMailNotification($user, $mailNotification, $type, $payment);
+    }
+
+    protected function createAppNotification(
+        User $user,
+        string $type,
+        string $category,
+        string $title,
+        string $message,
+        array $data = [],
+        ?Payment $payment = null,
+        string $priority = 'normal'
+    ): void {
+        try {
+            AppNotification::create([
+                'user_id' => $user->id,
+                'type' => $type,
+                'category' => $category,
+                'title' => $title,
+                'message' => $message,
+                'notifiable_type' => $payment ? Payment::class : null,
+                'notifiable_id' => $payment?->id,
+                'actor_id' => $payment?->user_id,
+                'priority' => $priority,
+                'data' => $data,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to create in-app payment notification', [
+                'user_id' => $user->id,
+                'payment_id' => $payment?->id,
+                'type' => $type,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    protected function sendMailNotification(User $user, BaseNotification $notification, string $type, ?Payment $payment = null): void
+    {
+        try {
+            $user->notify($notification);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to send payment mail notification', [
+                'user_id' => $user->id,
+                'payment_id' => $payment?->id,
+                'type' => $type,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    protected function adminNotificationTitle(string $eventType): string
+    {
+        return match ($eventType) {
+            'high_value' => 'High-Value Payment Alert',
+            'failed' => 'Payment Failure Alert',
+            'refunded' => 'Payment Refunded',
+            default => 'Payment Update',
+        };
+    }
+
+    protected function adminNotificationMessage(Payment $payment, string $eventType): string
+    {
+        $amount = ($payment->currency ?? 'UGX').' '.number_format((float) $payment->amount);
+
+        return match ($eventType) {
+            'high_value' => "A high-value payment of {$amount} was completed.",
+            'failed' => "A payment of {$amount} failed and may require review.",
+            'refunded' => "A payment of {$amount} was refunded.",
+            default => "Payment event {$eventType} was recorded for {$amount}.",
+        };
     }
 }

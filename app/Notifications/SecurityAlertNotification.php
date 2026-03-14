@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -27,7 +28,7 @@ class SecurityAlertNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        $channels = ['database', 'mail'];
+        $channels = [AppNotificationChannel::class, 'mail'];
 
         if ($this->event !== self::NEW_LOGIN) {
             $channels[] = ExpoPushChannel::class;

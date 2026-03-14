@@ -210,7 +210,8 @@ class MobileSocialController extends Controller
             if ($post->user_id !== $user->id) {
                 Notification::create([
                     'user_id' => $post->user_id,
-                    'notification_type' => 'post_like',
+                    'type' => 'post_like',
+                    'category' => 'social',
                     'actor_id' => $user->id,
                     'notifiable_type' => Post::class,
                     'notifiable_id' => $post->id,
@@ -281,7 +282,8 @@ class MobileSocialController extends Controller
         if ($post->user_id !== $user->id) {
             Notification::create([
                 'user_id' => $post->user_id,
-                'notification_type' => 'post_comment',
+                'type' => 'post_comment',
+                'category' => 'social',
                 'actor_id' => $user->id,
                 'notifiable_type' => Post::class,
                 'notifiable_id' => $post->id,
@@ -345,12 +347,14 @@ class MobileSocialController extends Controller
             'notifications' => $notifications->map(fn ($n) => [
                 'id' => $n->id,
                 'type' => $n->type,
+                'title' => $n->title,
+                'message' => $n->message,
                 'data' => $n->data,
-                'read' => (bool) $n->read_at,
+                'read' => (bool) ($n->is_read || $n->read_at),
                 'created_at' => $n->created_at->toISOString(),
             ]),
             'unread_count' => Notification::where('user_id', $user->id)
-                ->whereNull('read_at')
+                ->where('is_read', false)
                 ->count(),
             'pagination' => [
                 'current_page' => $notifications->currentPage(),
@@ -373,7 +377,10 @@ class MobileSocialController extends Controller
             ], 403);
         }
 
-        $notification->update(['read_at' => now()]);
+        $notification->update([
+            'read_at' => now(),
+            'is_read' => true,
+        ]);
 
         return response()->json([
             'success' => true,
@@ -389,8 +396,8 @@ class MobileSocialController extends Controller
         $user = $request->user();
 
         Notification::where('user_id', $user->id)
-            ->whereNull('read_at')
-            ->update(['read_at' => now()]);
+            ->where('is_read', false)
+            ->update(['read_at' => now(), 'is_read' => true]);
 
         return response()->json([
             'success' => true,

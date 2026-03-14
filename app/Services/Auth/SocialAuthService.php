@@ -3,10 +3,12 @@
 namespace App\Services\Auth;
 
 use App\Models\AuditLog;
+use App\Models\Notification as AppNotification;
 use App\Models\User;
 use App\Services\ProfileCompletionService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 
@@ -174,12 +176,15 @@ class SocialAuthService
             }
 
             // Send welcome notification
-            $user->notifications()->create([
-                'type' => 'welcome',
-                'title' => 'Welcome to LineOne Music!',
-                'message' => 'Start exploring music from Uganda and East Africa',
-                'action_url' => route('frontend.home'),
-            ]);
+            AppNotification::createRichForUser(
+                $user,
+                'welcome',
+                'Welcome to LineOne Music!',
+                'Start exploring music from Uganda and East Africa',
+                [],
+                $this->resolveRoute('frontend.home', '/'),
+                'auth'
+            );
 
             Log::info('New user created via social auth', [
                 'user_id' => $user->id,
@@ -198,22 +203,22 @@ class SocialAuthService
     {
         // Check if user needs phone verification (for artists or security)
         if ($user->requiresPhoneVerification()) {
-            return route('frontend.auth.phone-verification');
+            return $this->resolveRoute('frontend.auth.phone-verification', '/auth/phone-verification');
         }
 
         // Admin/moderator/finance access
         if ($user->canAccessAdminPanel()) {
-            return route('admin.dashboard');
+            return $this->resolveRoute('admin.dashboard', '/admin');
         }
 
         // Artist dashboard
         if ($user->isVerified() && $user->canAccessArtistDashboard()) {
-            return route('frontend.artist.dashboard');
+            return $this->resolveRoute('frontend.artist.dashboard', '/artist/dashboard');
         }
 
         // Pending verification
         if ($user->isPendingVerification()) {
-            return route('frontend.dashboard');
+            return $this->resolveRoute('frontend.dashboard', '/dashboard');
         }
 
         // Check if user has intended URL in session
@@ -222,7 +227,7 @@ class SocialAuthService
         }
 
         // Default to frontend dashboard/home
-        return route('frontend.dashboard');
+        return $this->resolveRoute('frontend.dashboard', '/dashboard');
     }
 
     /**
@@ -286,5 +291,12 @@ class SocialAuthService
 
             return null;
         }
+    }
+
+    protected function resolveRoute(string $name, string $fallback, mixed ...$parameters): string
+    {
+        return Route::has($name)
+            ? route($name, ...$parameters)
+            : url($fallback);
     }
 }

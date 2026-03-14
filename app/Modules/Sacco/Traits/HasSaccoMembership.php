@@ -2,7 +2,7 @@
 
 namespace App\Modules\Sacco\Traits;
 
-use App\Models\SaccoMember;
+use App\Models\Sacco\SaccoMember;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 trait HasSaccoMembership

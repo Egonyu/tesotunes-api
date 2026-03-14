@@ -3,16 +3,16 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Event;
 use App\Models\EventAttendee;
-use App\Models\EventTicket;
-use App\Models\Payment;
-use App\Services\Payment\ZengaPayService;
+use App\Services\Events\EventTicketingService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class TicketController extends Controller
 {
+    public function __construct(
+        private readonly EventTicketingService $eventTicketingService,
+    ) {}
+
     /**
      * POST /api/tickets/purchase
      */
@@ -20,7 +20,7 @@ class TicketController extends Controller
     {
         $validated = $request->validate([
             'event_id' => 'required|integer|exists:events,id',
-            'ticket_tier_id' => 'required|integer|exists:event_ticket_types,id',
+            'ticket_tier_id' => 'required|integer|exists:event_tickets,id',
             'quantity' => 'required|integer|min:1|max:10',
             'payment_method' => 'required|in:wallet,mtn_momo,airtel_money,card,credits',
             'phone' => 'nullable|string',
@@ -29,156 +29,9 @@ class TicketController extends Controller
             'holder_phone' => 'nullable|string|max:20',
         ]);
 
-        $user = auth()->user();
-        $event = Event::findOrFail($validated['event_id']);
-        $ticketType = EventTicket::where('event_id', $event->id)
-            ->findOrFail($validated['ticket_tier_id']);
+        $result = $this->eventTicketingService->purchase(auth()->user(), $validated);
 
-        // Validate ticket is on sale
-        if (! $ticketType->isOnSale()) {
-            return response()->json(['message' => 'This ticket type is not currently available'], 422);
-        }
-
-        // Validate quantity
-        if (! $ticketType->isValidOrderQuantity($validated['quantity'])) {
-            return response()->json([
-                'message' => "Order quantity must be between {$ticketType->min_per_order} and {$ticketType->max_per_order}",
-            ], 422);
-        }
-
-        // Check availability
-        if ($ticketType->quantity_total !== null) {
-            $available = $ticketType->quantity_total - $ticketType->quantity_sold - $ticketType->quantity_reserved;
-            if ($validated['quantity'] > $available) {
-                return response()->json(['message' => "Only {$available} tickets remaining"], 422);
-            }
-        }
-
-        $pricePerTicket = $ticketType->price_ugx;
-        $totalAmount = $pricePerTicket * $validated['quantity'];
-        $serviceFee = round($totalAmount * 0.05, 2); // 5% platform fee
-        $grandTotal = $totalAmount + $serviceFee;
-        $paymentMethod = $validated['payment_method'];
-
-        // Handle credits payment
-        if ($paymentMethod === 'credits') {
-            $pricePerTicketCredits = $ticketType->price_credits;
-            if ($pricePerTicketCredits <= 0) {
-                return response()->json(['message' => 'This ticket does not support credit payment'], 422);
-            }
-            $totalCredits = $pricePerTicketCredits * $validated['quantity'];
-            if ($user->credits < $totalCredits) {
-                return response()->json(['message' => 'Insufficient credits'], 422);
-            }
-            $user->decrement('credits', $totalCredits);
-        }
-
-        // Handle wallet payment
-        if ($paymentMethod === 'wallet') {
-            if ($user->ugx_balance < $grandTotal) {
-                return response()->json(['message' => 'Insufficient wallet balance'], 422);
-            }
-            $user->decrement('ugx_balance', $grandTotal);
-        }
-
-        // Reserve tickets
-        $ticketType->reserve($validated['quantity']);
-
-        // Generate tickets
-        $orderId = 'ORD-'.strtoupper(Str::random(10));
-        $tickets = [];
-
-        for ($i = 0; $i < $validated['quantity']; $i++) {
-            $ticketNumber = 'TKT-'.strtoupper(Str::random(8));
-            $qrData = json_encode([
-                'ticket' => $ticketNumber,
-                'event' => $event->id,
-                'type' => $ticketType->name,
-            ]);
-
-            $registration = EventAttendee::create([
-                'uuid' => (string) Str::uuid(),
-                'confirmation_code' => $ticketNumber,
-                'event_id' => $event->id,
-                'ticket_type_id' => $ticketType->id,
-                'user_id' => $user->id,
-                'attendee_name' => $validated['holder_name'] ?? $user->full_name ?? $user->display_name ?? $user->username,
-                'attendee_email' => $validated['holder_email'] ?? $user->email,
-                'attendee_phone' => $validated['holder_phone'] ?? $user->phone,
-                'price_paid_ugx' => $paymentMethod === 'credits' ? 0 : $pricePerTicket,
-                'price_paid_credits' => $paymentMethod === 'credits' ? ($ticketType->price_credits) : 0,
-                'payment_method' => $paymentMethod === 'credits' ? 'credits' : 'ugx',
-                'status' => in_array($paymentMethod, ['wallet', 'credits']) ? 'confirmed' : 'pending',
-                'confirmed_at' => in_array($paymentMethod, ['wallet', 'credits']) ? now() : null,
-                'qr_code' => base64_encode($qrData),
-            ]);
-
-            $tickets[] = [
-                'id' => $registration->id,
-                'ticket_number' => $ticketNumber,
-                'qr_code' => $registration->qr_code,
-                'status' => $registration->status,
-                'tier' => $ticketType->name,
-                'price' => (float) $pricePerTicket,
-                'holder_name' => $registration->attendee_name,
-            ];
-        }
-
-        // Mark as sold if wallet/credits (instant payment)
-        if (in_array($paymentMethod, ['wallet', 'credits'])) {
-            $ticketType->sell($validated['quantity']);
-        }
-
-        // For mobile money, initiate payment via ZengaPay (external webhook will confirm)
-        $paymentReference = null;
-        if (in_array($paymentMethod, ['mtn_momo', 'airtel_money'])) {
-            $paymentReference = 'PAY-'.strtoupper(Str::random(12));
-
-            $payment = Payment::create([
-                'user_id' => auth()->id(),
-                'amount' => $grandTotal,
-                'currency' => 'UGX',
-                'payment_reference' => $paymentReference,
-                'payment_method' => $paymentMethod,
-                'payment_type' => 'ticket_purchase',
-                'provider' => 'zengapay',
-                'phone_number' => $validated['phone_number'] ?? null,
-                'status' => 'pending',
-                'description' => "Ticket purchase for event #{$event->id} - Order {$orderId}",
-                'metadata' => [
-                    'order_id' => $orderId,
-                    'event_id' => $event->id,
-                    'ticket_type_id' => $ticketType->id,
-                    'quantity' => $validated['quantity'],
-                ],
-            ]);
-
-            try {
-                $zengaPay = app(ZengaPayService::class);
-                $zengaPay->processPayment($payment, [
-                    'phone_number' => $validated['phone_number'] ?? null,
-                ]);
-            } catch (\Exception $e) {
-                // Payment initiation failed but tickets are reserved — payment can be retried
-                \Illuminate\Support\Facades\Log::warning('ZengaPay ticket payment initiation failed', [
-                    'payment_id' => $payment->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
-
-        return response()->json([
-            'data' => [
-                'order_id' => $orderId,
-                'tickets' => $tickets,
-                'total_amount' => $grandTotal,
-                'service_fee' => $serviceFee,
-                'payment_method' => $paymentMethod,
-                'payment_reference' => $paymentReference,
-                'status' => in_array($paymentMethod, ['wallet', 'credits']) ? 'completed' : 'pending_payment',
-            ],
-            'message' => 'Tickets purchased successfully',
-        ], 201);
+        return response()->json($result, 201);
     }
 
     /**
@@ -273,7 +126,7 @@ class TicketController extends Controller
     /**
      * GET /api/tickets/validate/{ticketNumber}
      */
-    public function validate_(string $ticketNumber)
+    public function validateTicket(string $ticketNumber)
     {
         $registration = EventAttendee::with(['event'])
             ->where('confirmation_code', $ticketNumber)
@@ -332,12 +185,13 @@ class TicketController extends Controller
 
         $registration->update([
             'checked_in_at' => now(),
-            'status' => 'attended',
+            'attended_at' => now(),
+            'status' => EventAttendee::STATUS_ATTENDED,
         ]);
 
         // Award loyalty points if event has a loyalty card
         $event = $registration->event;
-        if ($event && $event->loyalty_points_per_checkin > 0 && $registration->user_id) {
+        if ($event && ($event->loyalty_points_per_checkin ?? 0) > 0 && $registration->user_id) {
             // Award points via loyalty service
             try {
                 $pointsService = app(\App\Services\Loyalty\LoyaltyPointsService::class);
@@ -362,7 +216,7 @@ class TicketController extends Controller
                 'holder_name' => $registration->attendee_name,
                 'checked_in_at' => $registration->checked_in_at->toIso8601String(),
                 'event' => $event ? $event->title : null,
-                'loyalty_points_earned' => ($event && $event->loyalty_points_per_checkin > 0) ? $event->loyalty_points_per_checkin : 0,
+                'loyalty_points_earned' => ($event && ($event->loyalty_points_per_checkin ?? 0) > 0) ? $event->loyalty_points_per_checkin : 0,
             ],
         ]);
     }

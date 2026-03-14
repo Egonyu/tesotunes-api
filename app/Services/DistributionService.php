@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Artist;
 use App\Models\Distribution;
+use App\Models\Notification;
 use App\Models\Song;
 use Exception;
 use Illuminate\Database\Eloquent\Collection;
@@ -533,17 +534,21 @@ class DistributionService
 
         $artist = $distribution->song->artist;
 
-        $artist->user->notifications()->create([
-            'type' => 'distribution_status_change',
-            'data' => [
-                'title' => 'Distribution Update',
-                'message' => $messages[$status] ?? "Distribution status changed to {$status}",
+        Notification::createRichForUser(
+            $artist->user,
+            'distribution_status_change',
+            'Distribution Update',
+            $messages[$status] ?? "Distribution status changed to {$status}",
+            [
                 'distribution_id' => $distribution->id,
                 'song_id' => $distribution->song_id,
                 'platform' => $distribution->platform_code,
                 'status' => $status,
             ],
-            'read_at' => null,
-        ]);
+            null,
+            'music',
+            $distribution,
+            null
+        );
     }
 }

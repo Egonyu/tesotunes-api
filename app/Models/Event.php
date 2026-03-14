@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Jobs\SendEventCancellationNotificationsJob;
 use App\Traits\HasComments;
 use App\Traits\HasReviews;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -128,11 +130,6 @@ class Event extends Model
         return $this->belongsTo(EventLocation::class, 'event_location_id');
     }
 
-    public function statistics()
-    {
-        return $this->hasOne(EventStatistics::class);
-    }
-
     public function tickets(): HasMany
     {
         return $this->hasMany(EventTicket::class);
@@ -141,6 +138,12 @@ class Event extends Model
     public function attendees(): HasMany
     {
         return $this->hasMany(EventAttendee::class);
+    }
+
+    public function interestedUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'event_interests', 'event_id', 'user_id')
+            ->withTimestamps();
     }
 
     public function activities()
@@ -269,7 +272,11 @@ class Event extends Model
     {
         return $this->attendees()
             ->where('user_id', $user->id)
-            ->whereIn('status', ['confirmed', 'pending'])
+            ->whereIn('status', [
+                EventAttendee::STATUS_PENDING,
+                EventAttendee::STATUS_CONFIRMED,
+                EventAttendee::STATUS_ATTENDED,
+            ])
             ->exists();
     }
 
@@ -311,9 +318,18 @@ class Event extends Model
 
         return $this->attendees()->create([
             'user_id' => $user->id,
-            'status' => $this->is_free ? 'confirmed' : 'pending',
-            'registration_data' => $data,
-            'registered_at' => now(),
+            'attendee_name' => $data['attendee_name'] ?? $user->name,
+            'attendee_email' => $data['attendee_email'] ?? $user->email,
+            'attendee_phone' => $data['attendee_phone'] ?? $user->phone,
+            'status' => $this->is_free ? EventAttendee::STATUS_CONFIRMED : EventAttendee::STATUS_PENDING,
+            'payment_method' => $this->is_free ? EventAttendee::PAYMENT_METHOD_FREE : null,
+            'payment_status' => $this->is_free ? 'completed' : 'pending',
+            'confirmed_at' => $this->is_free ? now() : null,
+            'quantity' => (int) ($data['quantity'] ?? 1),
+            'amount_paid' => $this->is_free ? 0 : (float) ($data['amount_paid'] ?? 0),
+            'price_paid_ugx' => $this->is_free ? 0 : (float) ($data['price_paid_ugx'] ?? ($data['amount_paid'] ?? 0)),
+            'price_paid_credits' => (int) ($data['price_paid_credits'] ?? 0),
+            'attendee_metadata' => $data ?: null,
         ]);
     }
 
@@ -321,6 +337,7 @@ class Event extends Model
     {
         $this->update([
             'status' => 'published',
+            'is_published' => true,
             'published_at' => now(),
         ]);
     }
@@ -339,16 +356,7 @@ class Event extends Model
             'cancellation_reason' => $reason,
         ]);
 
-        // Notify attendees
-        $this->attendees()->each(function ($attendee) use ($reason) {
-            $attendee->user->notifications()->create([
-                'type' => 'event_cancelled',
-                'title' => 'Event Cancelled',
-                'message' => "The event '{$this->title}' has been cancelled.".($reason ? " Reason: {$reason}" : ''),
-                'data' => ['event_id' => $this->id],
-                'action_url' => route('frontend.events.show', $this->id),
-            ]);
-        });
+        SendEventCancellationNotificationsJob::dispatch($this->id, $reason);
     }
 
     // Ticketing helper methods
@@ -372,18 +380,18 @@ class Event extends Model
     public function getConfirmedAttendeesCountAttribute(): int
     {
         return $this->attendees()
-            ->whereIn('status', ['confirmed', 'checked_in'])
+            ->whereIn('status', [EventAttendee::STATUS_CONFIRMED, EventAttendee::STATUS_ATTENDED])
             ->count();
     }
 
     public function getPendingAttendeesCountAttribute(): int
     {
-        return $this->attendees()->where('status', 'pending')->count();
+        return $this->attendees()->where('status', EventAttendee::STATUS_PENDING)->count();
     }
 
     public function getCheckedInAttendeesCountAttribute(): int
     {
-        return $this->attendees()->where('status', 'checked_in')->count();
+        return $this->attendees()->whereNotNull('checked_in_at')->count();
     }
 
     public function getTotalTicketsSoldAttribute(): int
@@ -398,12 +406,12 @@ class Event extends Model
 
     public function getCheapestTicketPriceAttribute(): ?float
     {
-        return $this->onSaleTickets()->min('price');
+        return $this->onSaleTickets()->min('price_ugx');
     }
 
     public function getMostExpensiveTicketPriceAttribute(): ?float
     {
-        return $this->onSaleTickets()->max('price');
+        return $this->onSaleTickets()->max('price_ugx');
     }
 
     public function getPriceRangeAttribute(): string
@@ -433,10 +441,12 @@ class Event extends Model
     public function createDefaultTicket(): EventTicket
     {
         return $this->tickets()->create([
-            'ticket_type' => 'General Admission',
+            'name' => 'General Admission',
             'description' => 'Standard event access',
-            'price' => $this->base_price ?? 0,
-            'quantity_available' => $this->capacity,
+            'price_ugx' => $this->ticket_price ?? 0,
+            'is_free' => (float) ($this->ticket_price ?? 0) === 0.0,
+            'quantity_total' => $this->capacity,
+            'quantity_reserved' => 0,
             'max_per_order' => 10,
             'is_active' => true,
             'sort_order' => 1,
@@ -449,11 +459,11 @@ class Event extends Model
 
         return [
             'total_ticket_types' => $tickets->count(),
-            'total_tickets_available' => $tickets->sum('quantity_available'),
+            'total_tickets_available' => $tickets->sum(fn ($ticket) => $ticket->quantity_available ?? 0),
             'total_tickets_sold' => $tickets->sum('quantity_sold'),
             'total_revenue' => $this->total_revenue,
             'tickets_remaining' => $tickets->sum(function ($ticket) {
-                return $ticket->quantity_available ? $ticket->quantity_remaining : 0;
+                return $ticket->quantity_available ?? 0;
             }),
             'sales_progress' => $this->capacity ?
                 ($this->total_tickets_sold / $this->capacity) * 100 : 0,

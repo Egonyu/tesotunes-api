@@ -10,6 +10,12 @@ class SaccoDividend extends Model
 {
     use HasFactory;
 
+    public const STATUS_DECLARED = 'declared';
+
+    public const STATUS_APPROVED = 'approved';
+
+    public const STATUS_PAID = 'paid';
+
     protected $fillable = [
         'dividend_year',
         'total_profit',
@@ -28,7 +34,7 @@ class SaccoDividend extends Model
     ];
 
     protected $attributes = [
-        'status' => 'declared',
+        'status' => self::STATUS_DECLARED,
     ];
 
     // Relationships
@@ -72,5 +78,10 @@ class SaccoDividend extends Model
     public function getPendingPaymentsCountAttribute(): int
     {
         return $this->memberDividends()->where('status', 'pending')->count();
+    }
+
+    public function calculateMemberDividend(float $sharesAmount): float
+    {
+        return round(($sharesAmount * (float) $this->dividend_rate) / 100, 2);
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
 use App\Traits\ChecksNotificationPreferences;
 use Illuminate\Bus\Queueable;
@@ -23,7 +24,7 @@ class EventReminderNotification extends Notification implements ShouldQueue
     {
         return $this->filterChannelsByPreference(
             $notifiable,
-            ['database', ExpoPushChannel::class, 'mail'],
+            [AppNotificationChannel::class, ExpoPushChannel::class, 'mail'],
             'music'
         );
     }
@@ -31,8 +32,8 @@ class EventReminderNotification extends Notification implements ShouldQueue
     public function toMail(object $notifiable): MailMessage
     {
         $eventName = $this->event->title ?? $this->event->name ?? 'Event';
-        $venue = $this->event->venue ?? $this->event->location ?? 'TBD';
-        $eventDate = $this->event->start_date ?? $this->event->event_date ?? 'TBD';
+        $venue = $this->event->venue_name ?? $this->event->location?->name ?? 'TBD';
+        $eventDate = $this->event->starts_at?->format('M j, Y g:i A') ?? 'TBD';
 
         return (new MailMessage)
             ->subject("Reminder: {$eventName} starts in {$this->hoursUntil} hours!")
@@ -40,8 +41,8 @@ class EventReminderNotification extends Notification implements ShouldQueue
             ->line("Just a reminder — **{$eventName}** starts in **{$this->hoursUntil} hours**!")
             ->line("**Venue**: {$venue}")
             ->line("**Date**: {$eventDate}")
-            ->line("**Your Ticket**: {$this->attendee->ticket_code}")
-            ->action('View Event Details', url("/events/{$this->event->slug}"))
+            ->line("**Your Ticket**: {$this->attendee->confirmation_code}")
+            ->action('View Event Details', url("/events/{$this->event->id}"))
             ->line('See you there!');
     }
 

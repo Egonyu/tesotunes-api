@@ -13,16 +13,30 @@ class SaccoLoanProduct extends Model
     protected $fillable = [
         'name',
         'slug',
+        'code',
         'description',
+        'loan_type',
         'min_amount',
         'max_amount',
         'interest_rate',
+        'default_interest_rate',
         'min_term_months',
         'max_term_months',
+        'min_repayment_months',
+        'max_repayment_months',
         'processing_fee_percentage',
         'insurance_fee_percentage',
+        'requires_guarantor',
         'min_guarantors',
+        'requires_collateral',
         'collateral_percentage',
+        'min_savings_balance_required',
+        'max_loan_to_savings_ratio',
+        'grace_period_days',
+        'penalty_rate_per_day',
+        'eligibility_criteria',
+        'required_documents',
+        'terms_and_conditions',
         'is_active',
     ];
 
@@ -33,6 +47,10 @@ class SaccoLoanProduct extends Model
         'processing_fee_percentage' => 'decimal:2',
         'insurance_fee_percentage' => 'decimal:2',
         'collateral_percentage' => 'decimal:2',
+        'requires_guarantor' => 'boolean',
+        'requires_collateral' => 'boolean',
+        'eligibility_criteria' => 'array',
+        'required_documents' => 'array',
         'is_active' => 'boolean',
     ];
 
@@ -42,6 +60,46 @@ class SaccoLoanProduct extends Model
         'min_guarantors' => 0,
         'is_active' => true,
     ];
+
+    public function getMinDurationMonthsAttribute(): int
+    {
+        return $this->min_repayment_months ?? $this->min_term_months;
+    }
+
+    public function getMaxDurationMonthsAttribute(): int
+    {
+        return $this->max_repayment_months ?? $this->max_term_months;
+    }
+
+    public function getProcessingFeeRateAttribute(): string
+    {
+        return (string) $this->processing_fee_percentage;
+    }
+
+    public function getRequiresGuarantorsAttribute(): bool
+    {
+        return (bool) $this->requires_guarantor;
+    }
+
+    public function getMinSavingsBalanceAttribute(): string
+    {
+        return (string) ($this->min_savings_balance_required ?? 0);
+    }
+
+    public function getMinSharesAttribute(): int
+    {
+        return (int) data_get($this->eligibility_criteria, 'min_shares', 0);
+    }
+
+    public function getMinMembershipMonthsAttribute(): int
+    {
+        return (int) data_get($this->eligibility_criteria, 'min_membership_months', 0);
+    }
+
+    public function getMinCreditScoreAttribute(): int
+    {
+        return (int) data_get($this->eligibility_criteria, 'min_credit_score', 0);
+    }
 
     // Relationships
     public function loans(): HasMany
@@ -124,5 +182,15 @@ class SaccoLoanProduct extends Model
     public function isEligibleTerm(int $termMonths): bool
     {
         return $termMonths >= $this->min_term_months && $termMonths <= $this->max_term_months;
+    }
+
+    public function isAmountEligible(float $amount): bool
+    {
+        return $this->isEligibleAmount($amount);
+    }
+
+    public function isTermEligible(int $termMonths): bool
+    {
+        return $this->isEligibleTerm($termMonths);
     }
 }

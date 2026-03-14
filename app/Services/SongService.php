@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Jobs\IncrementCounter;
 use App\Models\Download;
 use App\Models\Like;
+use App\Models\Notification as AppNotification;
 use App\Models\PlayHistory;
 use App\Models\Song;
 use App\Models\User;
@@ -653,15 +654,20 @@ class SongService
      */
     protected function notifyArtistOfModeration(Song $song, string $action, ?string $reason): void
     {
-        $song->artist->notifications()->create([
-            'notification_type' => 'song_moderated',  // Fixed: use notification_type instead of type
-            'title' => 'Song Moderation Update',
-            'message' => "Your song '{$song->title}' has been {$action}.",
-            'metadata' => [  // Fixed: use metadata instead of data
+        AppNotification::createRichForUser(
+            $song->artist->user,
+            'song_moderated',
+            'Song Moderation Update',
+            "Your song '{$song->title}' has been {$action}.",
+            [
                 'song_id' => $song->id,
                 'action' => $action,
                 'reason' => $reason,
             ],
-        ]);
+            null,
+            'music',
+            $song,
+            auth()->id()
+        );
     }
 }

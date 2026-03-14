@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
 use App\Models\Song;
 use App\Traits\ChecksNotificationPreferences;
@@ -30,7 +31,7 @@ class SongModerationNotification extends Notification implements ShouldQueue
     {
         return $this->filterChannelsByPreference(
             $notifiable,
-            ['mail', 'database', ExpoPushChannel::class],
+            ['mail', AppNotificationChannel::class, ExpoPushChannel::class],
             'music'
         );
     }

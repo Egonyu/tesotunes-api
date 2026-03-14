@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
 use App\Models\Song;
 use Illuminate\Bus\Queueable;
@@ -36,7 +37,7 @@ class StreamMilestoneNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        $channels = ['database', ExpoPushChannel::class];
+        $channels = [AppNotificationChannel::class, ExpoPushChannel::class];
 
         // Email for major milestones (10K+)
         if ($this->milestone >= 10_000) {

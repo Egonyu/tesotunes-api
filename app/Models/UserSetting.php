@@ -12,6 +12,7 @@ class UserSetting extends Model
         'user_id',
         'email_notifications',
         'push_notifications',
+        'sms_notifications',
         'language',
         'theme',
         'autoplay',
@@ -37,6 +38,7 @@ class UserSetting extends Model
     protected $casts = [
         'email_notifications' => 'boolean',
         'push_notifications' => 'boolean',
+        'sms_notifications' => 'boolean',
         'autoplay' => 'boolean',
         'explicit_content' => 'boolean',
         'show_listening_activity' => 'boolean',

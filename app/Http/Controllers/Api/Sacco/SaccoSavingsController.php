@@ -10,10 +10,68 @@ use App\Models\Sacco\SaccoSavingsAccount;
 use App\Models\Sacco\SaccoSavingsTransaction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
 
 class SaccoSavingsController extends Controller
 {
+    /**
+     * GET /api/sacco/savings — member savings summary
+     */
+    public function summary(Request $request): JsonResponse
+    {
+        $member = $this->getAuthenticatedMember($request);
+
+        $accounts = SaccoSavingsAccount::query()
+            ->where('member_id', $member->id)
+            ->orderByDesc('created_at')
+            ->get();
+
+        $goals = \App\Models\Sacco\SaccoGoal::query()
+            ->where('member_id', $member->id)
+            ->where('status', 'active')
+            ->orderBy('deadline')
+            ->limit(5)
+            ->get();
+
+        $balance = (float) $accounts->sum('balance_ugx');
+        $interestEarned = (float) $accounts->sum('accrued_interest_ugx');
+        $interestRate = $accounts->count() > 0
+            ? round((float) $accounts->avg('interest_rate'), 2)
+            : 0;
+
+        $thisMonthDeposits = (float) SaccoSavingsTransaction::query()
+            ->where('member_id', $member->id)
+            ->where('type', 'deposit')
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->sum('amount_ugx');
+
+        $lastDeposit = SaccoSavingsTransaction::query()
+            ->where('member_id', $member->id)
+            ->where('type', 'deposit')
+            ->latest()
+            ->first();
+
+        return response()->json([
+            'data' => [
+                'accounts' => SaccoSavingsAccountResource::collection($accounts)->resolve(),
+                'balance' => $balance,
+                'interest_earned' => $interestEarned,
+                'interest_rate' => $interestRate,
+                'this_month' => $thisMonthDeposits,
+                'last_deposit' => optional($lastDeposit?->created_at)->toIso8601String(),
+                'goals' => $goals->map(fn ($goal) => [
+                    'id' => $goal->id,
+                    'name' => $goal->title,
+                    'target' => (float) $goal->target_amount,
+                    'current' => (float) $goal->current_amount,
+                    'deadline' => optional($goal->deadline)->toDateString(),
+                ])->values(),
+            ],
+        ]);
+    }
+
     /**
      * POST /api/sacco/savings/accounts — open account
      */
@@ -53,13 +111,17 @@ class SaccoSavingsController extends Controller
     public function deposit(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'account_id' => 'required|integer|exists:sacco_savings_accounts,id',
+            'account_id' => 'nullable|integer|exists:sacco_savings_accounts,id',
             'amount' => 'required|numeric|min:1',
             'description' => 'nullable|string|max:500',
             'reference_number' => 'nullable|string|max:100',
+            'phone_number' => 'nullable|string|max:20',
+            'payment_method' => 'nullable|string|max:50',
         ]);
 
-        $account = SaccoSavingsAccount::findOrFail($validated['account_id']);
+        $account = isset($validated['account_id'])
+            ? SaccoSavingsAccount::findOrFail($validated['account_id'])
+            : $this->resolveDefaultAccount($request, true);
 
         if ($account->status !== 'active') {
             return response()->json(['message' => 'Account is not active.'], 422);
@@ -97,13 +159,17 @@ class SaccoSavingsController extends Controller
     public function withdraw(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'account_id' => 'required|integer|exists:sacco_savings_accounts,id',
+            'account_id' => 'nullable|integer|exists:sacco_savings_accounts,id',
             'amount' => 'required|numeric|min:1',
             'description' => 'nullable|string|max:500',
             'reference_number' => 'nullable|string|max:100',
+            'phone_number' => 'nullable|string|max:20',
+            'payment_method' => 'nullable|string|max:50',
         ]);
 
-        $account = SaccoSavingsAccount::findOrFail($validated['account_id']);
+        $account = isset($validated['account_id'])
+            ? SaccoSavingsAccount::findOrFail($validated['account_id'])
+            : $this->resolveDefaultAccount($request, false);
 
         if (! $account->canWithdraw($validated['amount'])) {
             return response()->json([
@@ -135,6 +201,35 @@ class SaccoSavingsController extends Controller
         return response()->json([
             'data' => new SaccoSavingsAccountResource($account),
             'message' => 'Withdrawal successful.',
+        ]);
+    }
+
+    /**
+     * GET /api/sacco/transactions — consolidated member savings transactions
+     */
+    public function memberTransactions(Request $request): JsonResponse
+    {
+        $member = $this->getAuthenticatedMember($request);
+        $perPage = min((int) $request->input('per_page', $request->input('limit', 15)), 100);
+
+        $query = SaccoSavingsTransaction::query()
+            ->where('member_id', $member->id)
+            ->latest();
+
+        if ($type = $request->input('type')) {
+            $query->where('type', $type);
+        }
+
+        $transactions = $query->paginate($perPage);
+
+        return response()->json([
+            'data' => SaccoTransactionResource::collection($transactions->getCollection())->resolve(),
+            'meta' => [
+                'current_page' => $transactions->currentPage(),
+                'last_page' => $transactions->lastPage(),
+                'per_page' => $transactions->perPage(),
+                'total' => $transactions->total(),
+            ],
         ]);
     }
 
@@ -183,6 +278,43 @@ class SaccoSavingsController extends Controller
                 'minimum_balance_ugx' => $account->minimum_balance_ugx,
                 'available_for_withdrawal' => max(0, $account->balance_ugx - ($account->minimum_balance_ugx ?? 0)),
             ],
+        ]);
+    }
+
+    private function getAuthenticatedMember(Request $request): SaccoMember
+    {
+        return SaccoMember::query()
+            ->where('user_id', $request->user()->id)
+            ->firstOrFail();
+    }
+
+    private function resolveDefaultAccount(Request $request, bool $createIfMissing): SaccoSavingsAccount
+    {
+        $member = $this->getAuthenticatedMember($request);
+
+        $account = SaccoSavingsAccount::query()
+            ->where('member_id', $member->id)
+            ->where('status', 'active')
+            ->orderBy('id')
+            ->first();
+
+        if ($account) {
+            return $account;
+        }
+
+        if (! $createIfMissing) {
+            throw ValidationException::withMessages([
+                'account_id' => ['No active savings account found for this member.'],
+            ]);
+        }
+
+        return SaccoSavingsAccount::create([
+            'member_id' => $member->id,
+            'account_type' => 'regular',
+            'account_name' => 'Main Savings',
+            'interest_rate' => 0,
+            'minimum_balance_ugx' => 0,
+            'status' => 'active',
         ]);
     }
 }

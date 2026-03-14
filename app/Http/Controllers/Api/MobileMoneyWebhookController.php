@@ -73,21 +73,21 @@ class MobileMoneyWebhookController extends Controller
         $status = strtolower($payload['status'] ?? $payload['transactionStatus'] ?? '');
 
         if (in_array($status, ['completed', 'successful', 'success', 'succeeded'])) {
-            $payment->forceFill([
-                'status' => 'completed',
-                'completed_at' => now(),
-                'provider_transaction_id' => $transactionId,
-            ])->save();
+            $payment->markAsCompleted([
+                'external_transaction_id' => $transactionId,
+                'provider_reference' => $payload['reference'] ?? $payload['externalId'] ?? $payment->payment_reference,
+                'payment_data' => ['webhook_payload' => $payload],
+            ]);
 
             Log::info('Mobile money payment completed', [
                 'payment_id' => $payment->id,
                 'provider' => $provider,
             ]);
         } elseif (in_array($status, ['failed', 'failure', 'declined', 'rejected'])) {
-            $payment->forceFill([
-                'status' => 'failed',
-                'failure_reason' => $payload['reason'] ?? $payload['message'] ?? 'Payment failed',
-            ])->save();
+            $payment->markAsFailed(
+                $payload['reason'] ?? $payload['message'] ?? 'Payment failed',
+                ['payment_data' => ['webhook_payload' => $payload]]
+            );
 
             Log::warning('Mobile money payment failed', [
                 'payment_id' => $payment->id,
@@ -95,9 +95,7 @@ class MobileMoneyWebhookController extends Controller
                 'reason' => $payload['reason'] ?? $payload['message'] ?? 'unknown',
             ]);
         } elseif (in_array($status, ['cancelled', 'expired', 'timeout'])) {
-            $payment->forceFill([
-                'status' => 'cancelled',
-            ])->save();
+            $payment->markAsCancelled();
         }
 
         return response()->json([

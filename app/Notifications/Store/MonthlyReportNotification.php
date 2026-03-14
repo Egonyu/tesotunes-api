@@ -2,6 +2,7 @@
 
 namespace App\Notifications\Store;
 
+use App\Channels\AppNotificationChannel;
 use App\Modules\Store\Models\Store;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -18,7 +19,7 @@ class MonthlyReportNotification extends Notification
 
     public function via(object $notifiable): array
     {
-        return ['mail', 'database'];
+        return ['mail', AppNotificationChannel::class];
     }
 
     public function toMail(object $notifiable): MailMessage

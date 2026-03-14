@@ -16,6 +16,7 @@ Route::prefix('')->group(function () {
     // Artists — standardized via ArtistController + ArtistResource
     Route::get('/artists', [ArtistController::class, 'index'])->name('api.music.artists');
     Route::get('/artists/{artist}', [ArtistController::class, 'show'])->name('api.music.artist');
+    Route::get('/artists/{artist}/events', [ArtistController::class, 'events'])->name('api.music.artist.events');
     Route::get('/artists/{artist}/songs', [ArtistController::class, 'songs'])->name('api.music.artist.songs');
     Route::get('/artists/{artist}/albums', [ArtistController::class, 'albums'])->name('api.music.artist.albums');
 

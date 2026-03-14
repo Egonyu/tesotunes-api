@@ -34,6 +34,7 @@ class SaccoMeeting extends Model
         'ended_at' => 'datetime',
         'quorum_required' => 'integer',
         'attendees_count' => 'integer',
+        'resolutions' => 'array',
     ];
 
     protected $attributes = [

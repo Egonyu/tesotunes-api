@@ -62,7 +62,7 @@ Route::prefix('events')->name('api.events.')->group(function () {
 Route::middleware('auth:sanctum')->prefix('tickets')->name('api.tickets.')->group(function () {
     Route::post('/purchase', [\App\Http\Controllers\Api\TicketController::class, 'purchase'])->name('purchase');
     Route::get('/my', [\App\Http\Controllers\Api\TicketController::class, 'myTickets'])->name('my');
-    Route::get('/validate/{ticketNumber}', [\App\Http\Controllers\Api\TicketController::class, 'validate'])->name('validate');
+    Route::get('/validate/{ticketNumber}', [\App\Http\Controllers\Api\TicketController::class, 'validateTicket'])->name('validate');
     Route::post('/check-in', [\App\Http\Controllers\Api\TicketController::class, 'checkIn'])->name('check-in');
     Route::get('/{id}', [\App\Http\Controllers\Api\TicketController::class, 'show'])->name('show');
 });
@@ -360,6 +360,10 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::post('/events', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'store'])->name('events.store');
     Route::put('/events/{id}', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'update'])->name('events.update');
     Route::delete('/events/{id}', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'destroy'])->name('events.destroy');
+    Route::post('/events/{id}/publish', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'publish'])->name('events.publish');
+    Route::post('/events/{id}/toggle-featured', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'toggleFeatured'])->name('events.toggle-featured');
+    Route::get('/events/{id}/analytics', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'analytics'])->name('events.analytics');
+    Route::get('/events/{id}/attendees', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'attendees'])->name('events.attendees');
     Route::get('/events/{id}/registrations', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'registrations'])->name('events.registrations');
 
     // Campaigns API
@@ -403,6 +407,9 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     // SACCO API
     Route::get('/sacco/stats', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'stats'])->name('sacco.stats');
     Route::get('/sacco/members', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'members'])->name('sacco.members');
+    Route::get('/sacco/members/{id}', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'showMember'])->name('sacco.members.show');
+    Route::get('/sacco/members/{id}/transactions', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'memberTransactions'])->name('sacco.members.transactions');
+    Route::get('/sacco/members/{id}/loans', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'memberLoans'])->name('sacco.members.loans');
     Route::get('/sacco/loans', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'loans'])->name('sacco.loans');
     Route::get('/sacco/loans/{id}', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'showLoan'])->name('sacco.loans.show');
     Route::post('/sacco/loans/{id}/approve', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'approveLoan'])->name('sacco.loans.approve');
@@ -418,6 +425,14 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::get('/sacco/board-meetings/{id}', [\App\Http\Controllers\Api\Admin\SaccoBoardMeetingsController::class, 'show'])->name('sacco.board-meetings.show');
     Route::put('/sacco/board-meetings/{id}', [\App\Http\Controllers\Api\Admin\SaccoBoardMeetingsController::class, 'update'])->name('sacco.board-meetings.update');
     Route::delete('/sacco/board-meetings/{id}', [\App\Http\Controllers\Api\Admin\SaccoBoardMeetingsController::class, 'destroy'])->name('sacco.board-meetings.destroy');
+    Route::get('/sacco/meetings', [\App\Http\Controllers\Api\Admin\SaccoGovernanceController::class, 'meetings'])->name('sacco.meetings.index');
+    Route::post('/sacco/meetings', [\App\Http\Controllers\Api\Admin\SaccoGovernanceController::class, 'storeMeeting'])->name('sacco.meetings.store');
+    Route::get('/sacco/meetings/attendance-summary', [\App\Http\Controllers\Api\Admin\SaccoGovernanceController::class, 'attendanceSummary'])->name('sacco.meetings.attendance-summary');
+    Route::get('/sacco/meetings/{meeting}', [\App\Http\Controllers\Api\Admin\SaccoGovernanceController::class, 'showMeeting'])->name('sacco.meetings.show');
+    Route::put('/sacco/meetings/{meeting}', [\App\Http\Controllers\Api\Admin\SaccoGovernanceController::class, 'updateMeeting'])->name('sacco.meetings.update');
+    Route::delete('/sacco/meetings/{meeting}', [\App\Http\Controllers\Api\Admin\SaccoGovernanceController::class, 'destroyMeeting'])->name('sacco.meetings.destroy');
+    Route::get('/sacco/meetings/{meeting}/attendance', [\App\Http\Controllers\Api\Admin\SaccoGovernanceController::class, 'attendance'])->name('sacco.meetings.attendance');
+    Route::post('/sacco/meetings/{meeting}/attendance', [\App\Http\Controllers\Api\Admin\SaccoGovernanceController::class, 'markAttendance'])->name('sacco.meetings.attendance.mark');
 
     // Songs API
     Route::get('/songs/statistics', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'statistics'])->name('songs.statistics');
@@ -600,15 +615,21 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // SACCO API Routes
 Route::prefix('sacco')
-    ->middleware(['auth:sanctum', 'sacco.member.api'])
+    ->middleware(['auth:sanctum'])
     ->name('api.sacco.')
     ->group(function () {
-        // Base sacco route
-        Route::get('/', \App\Http\Controllers\Api\Sacco\SaccoIndexController::class)->name('index');
-
-        // Membership
+        // Public-to-authenticated membership entrypoints
         Route::get('membership', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'myMembership'])->name('membership');
         Route::post('join', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'join'])->name('join');
+
+        Route::middleware('sacco.member.api')->group(function () {
+        // Base sacco route
+        Route::get('/', \App\Http\Controllers\Api\Sacco\SaccoIndexController::class)->name('index');
+        Route::get('dashboard', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'dashboard'])->name('dashboard');
+        Route::get('profile', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'profile'])->name('profile');
+        Route::get('transactions', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'memberTransactions'])->name('transactions.index');
+
+        // Membership
         Route::get('members', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'index'])->name('members.index');
         Route::post('members', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'store'])->name('members.store');
         Route::get('members/{member}', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'show'])->name('members.show');
@@ -616,6 +637,7 @@ Route::prefix('sacco')
         Route::patch('members/{member}/status', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'updateStatus'])->name('members.status');
 
         // Savings
+        Route::get('savings', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'summary'])->name('savings.summary');
         Route::prefix('savings')->name('savings.')->group(function () {
             Route::post('accounts', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'openAccount'])->name('accounts.open');
             Route::post('deposit', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'deposit'])->name('deposit');
@@ -626,12 +648,17 @@ Route::prefix('sacco')
         });
 
         // Loans
+        Route::get('loan-products', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'products'])->name('loan-products.index');
         Route::prefix('loans')->name('loans.')->group(function () {
             Route::get('', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'myLoans'])->name('index');
+            Route::get('guarantors', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'guarantors'])->name('guarantors');
             Route::post('apply', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'apply'])->name('apply');
+            Route::get('eligibility', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'eligibility'])->name('eligibility');
+            Route::post('calculate-schedule', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'calculateSchedule'])->name('calculate-schedule');
             Route::post('{loan}/approve', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'approve'])->name('approve');
             Route::post('{loan}/disburse', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'disburse'])->name('disburse');
             Route::post('{loan}/repay', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'repay'])->name('repay');
+            Route::post('{loan}/pay', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'repay'])->name('pay');
             Route::get('{loan}', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'show'])->name('show');
             Route::get('member/{member}', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'memberLoans'])->name('member');
             Route::get('{loan}/schedule', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'schedule'])->name('schedule');
@@ -639,12 +666,22 @@ Route::prefix('sacco')
         });
 
         // Shares
+        Route::get('shares', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'myShares'])->name('shares.self');
         Route::prefix('shares')->name('shares.')->group(function () {
             Route::post('purchase', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'purchase'])->name('purchase');
+            Route::post('buy', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'purchase'])->name('buy');
             Route::post('transfer', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'transfer'])->name('transfer');
             Route::get('member/{member}', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'memberShares'])->name('member');
             Route::get('value', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'currentValue'])->name('value');
         });
+
+        // Meetings
+        Route::get('meetings', [\App\Http\Controllers\Api\Sacco\SaccoMeetingsController::class, 'index'])->name('meetings.index');
+        Route::get('meetings/{meeting}', [\App\Http\Controllers\Api\Sacco\SaccoMeetingsController::class, 'show'])->name('meetings.show');
+        Route::post('meetings/{meeting}/rsvp', [\App\Http\Controllers\Api\Sacco\SaccoMeetingsController::class, 'rsvp'])->name('meetings.rsvp');
+        Route::get('notifications', [\App\Http\Controllers\Api\Sacco\SaccoNotificationsController::class, 'index'])->name('notifications.index');
+        Route::post('notifications/read-all', [\App\Http\Controllers\Api\Sacco\SaccoNotificationsController::class, 'markAllRead'])->name('notifications.read-all');
+        Route::post('notifications/{notification}/read', [\App\Http\Controllers\Api\Sacco\SaccoNotificationsController::class, 'markRead'])->name('notifications.read');
 
         // Goals (savings goals)
         Route::prefix('goals')->name('goals.')->group(function () {
@@ -682,6 +719,7 @@ Route::prefix('sacco')
             Route::get('activity', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'activity'])->name('activity');
             Route::get('top-performers', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'topPerformers'])->name('top-performers');
             Route::get('risk', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'risk'])->name('risk');
+        });
         });
     });
 

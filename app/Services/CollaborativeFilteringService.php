@@ -108,10 +108,10 @@ class CollaborativeFilteringService
                     ->mapWithKeys(fn ($id) => [$id => 2.0]);
 
                 // Playlist additions (weight: 2.5)
-                $playlistSongs = DB::table('playlist_song')
-                    ->join('playlists', 'playlists.id', '=', 'playlist_song.playlist_id')
+                $playlistSongs = DB::table('playlist_songs')
+                    ->join('playlists', 'playlists.id', '=', 'playlist_songs.playlist_id')
                     ->where('playlists.user_id', $user->id)
-                    ->select('playlist_song.song_id')
+                    ->select('playlist_songs.song_id')
                     ->distinct()
                     ->pluck('song_id')
                     ->mapWithKeys(fn ($id) => [$id => 2.5]);

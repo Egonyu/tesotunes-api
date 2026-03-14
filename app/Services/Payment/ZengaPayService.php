@@ -167,6 +167,7 @@ class ZengaPayService
         match ($status) {
             'succeeded', 'successful', 'completed', 'success' => $payment->markAsCompleted([
                 'external_transaction_id' => $transactionId,
+                'provider_reference' => $externalRef ?? $transactionId,
                 'payment_data' => ['webhook_payload' => $payload],
             ]),
             'failed', 'failure', 'declined', 'rejected' => $payment->markAsFailed(

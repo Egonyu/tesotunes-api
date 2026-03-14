@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Model as EloquentModel;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -225,6 +226,33 @@ class Notification extends Model
             'message' => $message,
             'data' => $data,
             'action_url' => $actionUrl,
+        ]);
+    }
+
+    public static function createRichForUser(
+        User $user,
+        string $type,
+        string $title,
+        string $message,
+        array $data = [],
+        ?string $actionUrl = null,
+        string $category = 'general',
+        ?EloquentModel $notifiable = null,
+        ?int $actorId = null,
+        string $priority = 'normal'
+    ): self {
+        return static::create([
+            'user_id' => $user->id,
+            'type' => $type,
+            'category' => $category,
+            'title' => $title,
+            'message' => $message,
+            'data' => $data,
+            'action_url' => $actionUrl,
+            'notifiable_type' => $notifiable ? $notifiable::class : null,
+            'notifiable_id' => $notifiable?->getKey(),
+            'actor_id' => $actorId,
+            'priority' => $priority,
         ]);
     }
 

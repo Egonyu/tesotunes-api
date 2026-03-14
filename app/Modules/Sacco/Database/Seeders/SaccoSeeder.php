@@ -4,6 +4,7 @@ namespace App\Modules\Sacco\Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class SaccoSeeder extends Seeder
 {
@@ -245,6 +246,15 @@ class SaccoSeeder extends Seeder
                 'updated_at' => now(),
             ],
         ];
+
+        $loanProducts = array_map(function (array $product): array {
+            return array_merge($product, [
+                'code' => $product['loan_type'] ?? Str::slug($product['name']),
+                'interest_rate' => $product['default_interest_rate'] ?? 0,
+                'min_term_months' => $product['min_repayment_months'] ?? 1,
+                'max_term_months' => $product['max_repayment_months'] ?? 12,
+            ]);
+        }, $loanProducts);
 
         DB::table('sacco_loan_products')->insert($loanProducts);
 
@@ -525,6 +535,12 @@ class SaccoSeeder extends Seeder
                 'updated_at' => now(),
             ],
         ];
+
+        $settings = array_map(function (array $setting): array {
+            return array_merge($setting, [
+                'type' => $setting['data_type'] ?? 'string',
+            ]);
+        }, $settings);
 
         DB::table('sacco_settings')->insert($settings);
 

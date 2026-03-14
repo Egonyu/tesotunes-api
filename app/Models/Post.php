@@ -7,12 +7,15 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Str;
 
 class Post extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        'uuid',
         'user_id',
         'song_id',
         'content',
@@ -35,6 +38,17 @@ class Post extends Model
         'is_pinned' => 'boolean',
         'published_at' => 'datetime',
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function (Post $post) {
+            if (empty($post->uuid)) {
+                $post->uuid = (string) Str::uuid();
+            }
+        });
+    }
 
     // Relationships
     public function user(): BelongsTo
@@ -202,13 +216,17 @@ class Post extends Model
 
         // Create notification for post owner
         if ($this->user_id !== $user->id) {
-            $this->user->notifications()->create([
-                'type' => 'post_comment',
-                'title' => 'New Comment',
-                'message' => "{$user->name} commented on your post",
-                'data' => ['post_id' => $this->id, 'comment_id' => $comment->id],
-                'action_url' => route('frontend.social.post', $this->id),
-            ]);
+            Notification::createRichForUser(
+                $this->user,
+                'post_comment',
+                'New Comment',
+                "{$user->name} commented on your post",
+                ['post_id' => $this->id, 'comment_id' => $comment->id],
+                Route::has('frontend.social.post') ? route('frontend.social.post', $this->id) : url("/social/posts/{$this->id}"),
+                'social',
+                $this,
+                $user->id
+            );
         }
 
         return $comment;
@@ -232,13 +250,17 @@ class Post extends Model
 
         // Create notification for original post owner
         if ($this->user_id !== $user->id) {
-            $this->user->notifications()->create([
-                'type' => 'post_shared',
-                'title' => 'Post Shared',
-                'message' => "{$user->name} shared your post",
-                'data' => ['post_id' => $this->id, 'shared_post_id' => $sharedPost->id],
-                'action_url' => route('frontend.social.post', $sharedPost->id),
-            ]);
+            Notification::createRichForUser(
+                $this->user,
+                'post_shared',
+                'Post Shared',
+                "{$user->name} shared your post",
+                ['post_id' => $this->id, 'shared_post_id' => $sharedPost->id],
+                Route::has('frontend.social.post') ? route('frontend.social.post', $sharedPost->id) : url("/social/posts/{$sharedPost->id}"),
+                'social',
+                $this,
+                $user->id
+            );
         }
 
         return $sharedPost;

@@ -19,6 +19,7 @@ class SongFactory extends Factory
         $title = fake()->sentence(3);
 
         return [
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
             'user_id' => \App\Models\User::factory(),
             'artist_id' => \App\Models\Artist::factory(),
             'title' => $title,
@@ -32,12 +33,12 @@ class SongFactory extends Factory
             'duration_seconds' => fake()->numberBetween(120, 360),
             'file_size_bytes' => fake()->numberBetween(3000000, 10000000),
             'file_format' => 'mp3',
-            'status' => fake()->randomElement(['draft', 'pending_review', 'approved', 'published']),
+            'status' => fake()->randomElement(['draft', 'pending_review', 'published', 'rejected']),
             'visibility' => fake()->randomElement(['public', 'private', 'unlisted']),
             'is_explicit' => fake()->boolean(20),
             'is_featured' => fake()->boolean(10),
             'is_downloadable' => true,
-            'price' => null,
+            'price' => 0,
             'currency' => 'UGX',
             'play_count' => fake()->numberBetween(0, 100000),
             'download_count' => fake()->numberBetween(0, 10000),

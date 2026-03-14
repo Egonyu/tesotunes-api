@@ -11,6 +11,16 @@ class SaccoAuditLog extends Model
 {
     use HasFactory;
 
+    public const ACTION_CREATED = 'created';
+
+    public const ACTION_APPROVED = 'approved';
+
+    public const ACTION_DISBURSED = 'disbursed';
+
+    public const ACTION_REPAID = 'repaid';
+
+    public const ACTION_REJECTED = 'rejected';
+
     const UPDATED_AT = null; // No updated_at column
 
     protected $fillable = [
@@ -63,16 +73,23 @@ class SaccoAuditLog extends Model
     }
 
     // Static logging helper
-    public static function log(string $action, ?Model $model = null, array $oldValues = [], array $newValues = []): void
+    public static function log(
+        string $action,
+        ?Model $model = null,
+        ?string $modelType = null,
+        ?int $modelId = null,
+        array $oldValues = [],
+        array $newValues = []
+    ): void
     {
         self::create([
             'user_id' => auth()->id(),
             'action' => $action,
-            'model_type' => $model ? get_class($model) : null,
-            'model_id' => $model?->id,
+            'model_type' => $modelType ?? ($model ? get_class($model) : null),
+            'model_id' => $modelId ?? $model?->id,
             'old_values' => $oldValues,
             'new_values' => $newValues,
-            'ip_address' => request()->ip(),
+            'ip_address' => request()?->ip(),
         ]);
     }
 }

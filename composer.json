@@ -86,6 +86,9 @@
         ],
         "test:fast": [
             "@php vendor/bin/pest"
+        ],
+        "migrations:verify": [
+            "@php artisan test tests/Feature/BaselineSchemaRegressionTest.php tests/Feature/MigrationPolicyGuardTest.php"
         ]
     },
     "extra": {

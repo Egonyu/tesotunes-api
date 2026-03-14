@@ -9,7 +9,6 @@ use App\Models\UserReferral;
 use App\Models\UserSecurityProfile;
 use App\Models\UserSetting;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -21,15 +20,9 @@ class UserDomainNormalizationTest extends TestCase
     {
         parent::setUp();
 
-        if (! Schema::hasTable('user_profiles')
-            || ! Schema::hasTable('user_security_profiles')
-            || ! Schema::hasTable('user_referrals')) {
-            Artisan::call('migrate', [
-                '--path' => 'database/migrations/2026_03_13_160000_create_user_domain_normalization_tables.php',
-                '--realpath' => false,
-                '--force' => true,
-            ]);
-        }
+        $this->assertTrue(Schema::hasTable('user_profiles'));
+        $this->assertTrue(Schema::hasTable('user_security_profiles'));
+        $this->assertTrue(Schema::hasTable('user_referrals'));
     }
 
     public function test_creating_a_user_creates_normalized_domain_records(): void

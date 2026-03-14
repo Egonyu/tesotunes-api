@@ -14,14 +14,15 @@ class EventObserver
     public function created(Event $event): void
     {
         // Log activity when event is published
-        if ($event->status === 'published' && $event->user) {
+        $organizer = $event->organizer ?? $event->user;
+        if ($event->status === 'published' && $organizer) {
             ActivityService::log(
-                actor: $event->user,
+                actor: $organizer,
                 action: 'created_event',
                 subject: $event,
                 metadata: [
                     'event_title' => $event->title,
-                    'venue' => $event->venue,
+                    'venue' => $event->venue_name,
                     'start_date' => $event->starts_at?->format('Y-m-d H:i'),
                     'category' => $event->category,
                 ]
@@ -32,21 +33,21 @@ class EventObserver
                 'module' => 'events',
                 'title' => 'New event: '.$event->title,
                 'body' => $event->description ? substr($event->description, 0, 200) : null,
-                'actor_id' => $event->user->id,
+                'actor_id' => $organizer->id,
                 'actor_type' => 'user',
-                'actor_name' => $event->user->name,
-                'actor_avatar_url' => $event->user->avatar_url,
+                'actor_name' => $organizer->name,
+                'actor_avatar_url' => $organizer->avatar_url,
                 'subject_type' => Event::class,
                 'subject_id' => $event->id,
                 'media_type' => 'image',
-                'media_url' => $event->banner_url ?? $event->image_url,
+                'media_url' => $event->banner ? \App\Helpers\StorageHelper::url($event->banner) : \App\Helpers\StorageHelper::url($event->artwork),
                 'actions' => [
-                    ['type' => 'view', 'label' => 'View Event', 'url' => "/events/{$event->slug}"],
-                    ['type' => 'register', 'label' => 'Interested', 'url' => "/events/{$event->slug}"],
+                    ['type' => 'view', 'label' => 'View Event', 'url' => "/events/{$event->id}"],
+                    ['type' => 'register', 'label' => 'Interested', 'url' => "/events/{$event->id}"],
                 ],
                 'extras' => [
                     'event_id' => $event->id,
-                    'venue' => $event->venue,
+                    'venue' => $event->venue_name,
                     'starts_at' => $event->starts_at?->toIso8601String(),
                     'ticket_price' => $event->ticket_price,
                     'category' => $event->category,
@@ -61,14 +62,15 @@ class EventObserver
     public function updated(Event $event): void
     {
         // Log activity when event status changes to published
-        if ($event->isDirty('status') && $event->status === 'published' && $event->user) {
+        $organizer = $event->organizer ?? $event->user;
+        if ($event->isDirty('status') && $event->status === 'published' && $organizer) {
             ActivityService::log(
-                actor: $event->user,
+                actor: $organizer,
                 action: 'created_event',
                 subject: $event,
                 metadata: [
                     'event_title' => $event->title,
-                    'venue' => $event->venue,
+                    'venue' => $event->venue_name,
                     'start_date' => $event->starts_at?->format('Y-m-d H:i'),
                     'category' => $event->category,
                 ]

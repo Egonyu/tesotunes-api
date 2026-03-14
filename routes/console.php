@@ -2,6 +2,8 @@
 
 use App\Jobs\FeedAggregationJob;
 use App\Jobs\ScanPaymentIssuesJob;
+use App\Jobs\SendEventReminderNotificationsJob;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -269,3 +271,24 @@ Schedule::command('notifications:weekly-digest')
     ->withoutOverlapping()
     ->onOneServer()
     ->runInBackground();
+
+/*
+|--------------------------------------------------------------------------
+| Event Reminder Notifications
+|--------------------------------------------------------------------------
+|
+| Send attendee reminders ahead of published events.
+|
+*/
+
+Schedule::job(new SendEventReminderNotificationsJob(24))
+    ->hourly()
+    ->name('event-reminders-24h')
+    ->withoutOverlapping()
+    ->onOneServer();
+
+Artisan::command('events:send-reminders {--hours=24 : Hours before start time}', function () {
+    $hours = (int) $this->option('hours');
+    Bus::dispatchSync(new SendEventReminderNotificationsJob($hours));
+    $this->info("Event reminders queued for the {$hours}-hour window.");
+})->purpose('Queue attendee reminder notifications for upcoming events');

@@ -3,6 +3,7 @@
 namespace App\Listeners;
 
 use App\Events\CrossModuleEvent;
+use App\Models\Notification;
 use App\Services\CrossModuleNotificationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Queue\InteractsWithQueue;
@@ -169,9 +170,9 @@ class CrossModuleEventListener implements ShouldQueue
 
         if ($activeModules >= 2) {
             // Check if achievement already awarded
-            $existingNotification = $user->notifications()
-                ->where('following_type', \App\Notifications\CrossModuleNotification::class)
-                ->whereJsonContains('data->type', 'multi_module_creator')
+            $existingNotification = Notification::query()
+                ->where('user_id', $user->id)
+                ->where('type', 'multi_module_creator')
                 ->exists();
 
             if (! $existingNotification) {
@@ -213,9 +214,10 @@ class CrossModuleEventListener implements ShouldQueue
             foreach ($milestones as $milestone) {
                 if ($totalRevenue['total'] >= $milestone) {
                     // Check if milestone notification already sent
-                    $existingNotification = $user->notifications()
-                        ->where('following_type', \App\Notifications\CrossModuleNotification::class)
-                        ->whereJsonContains('data->type', 'milestone_reached')
+                    $existingNotification = Notification::query()
+                        ->where('user_id', $user->id)
+                        ->where('type', 'milestone_reached')
+                        ->where('category', 'revenue')
                         ->whereJsonContains('data->amount', $milestone)
                         ->exists();
 

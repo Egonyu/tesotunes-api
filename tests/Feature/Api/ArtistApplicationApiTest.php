@@ -7,37 +7,14 @@ use App\Models\ArtistProfile;
 use App\Models\Genre;
 use App\Models\KYCDocument;
 use App\Models\User;
-use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ArtistApplicationApiTest extends TestCase
 {
-    use DatabaseTransactions;
-
-    protected function setUp(): void
-    {
-        parent::setUp();
-
-        if (! Schema::hasTable('artist_profiles')) {
-            Artisan::call('migrate', [
-                '--path' => 'database/migrations/2026_02_23_100000_create_missing_sacco_tables_and_fixes.php',
-                '--realpath' => false,
-                '--force' => true,
-            ]);
-        }
-
-        if (! Schema::hasTable('kyc_documents')) {
-            Artisan::call('migrate', [
-                '--path' => 'database/migrations/2026_03_13_180000_create_kyc_documents_table.php',
-                '--realpath' => false,
-                '--force' => true,
-            ]);
-        }
-    }
+    use RefreshDatabase;
 
     public function test_application_status_returns_none_when_user_has_no_application(): void
     {
@@ -91,7 +68,7 @@ class ArtistApplicationApiTest extends TestCase
             'phone' => null,
             'nin_number' => null,
         ]);
-        $genre = Genre::factory()->create();
+        $genre = $this->createGenre('frontend-contract-genre');
 
         $payload = [
             'stage_name' => 'Frontend Contract Artist',
@@ -171,7 +148,7 @@ class ArtistApplicationApiTest extends TestCase
             'application_status' => 'rejected',
             'rejection_reason' => 'Old rejection reason',
         ]);
-        $genre = Genre::factory()->create();
+        $genre = $this->createGenre('reapplied-genre');
 
         $artist = Artist::factory()->create([
             'user_id' => $user->id,
@@ -226,6 +203,18 @@ class ArtistApplicationApiTest extends TestCase
             'user_id' => $user->id,
             'artist_id' => $artist->id,
             'verification_status' => 'pending',
+        ]);
+    }
+
+    protected function createGenre(string $slug): Genre
+    {
+        return Genre::create([
+            'uuid' => (string) \Str::uuid(),
+            'name' => ucwords(str_replace('-', ' ', $slug)),
+            'slug' => $slug,
+            'description' => 'Test genre',
+            'is_active' => true,
+            'sort_order' => 1,
         ]);
     }
 }

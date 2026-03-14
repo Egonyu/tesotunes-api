@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -302,7 +303,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function saccoMember(): HasOne
     {
-        return $this->hasOne(\App\Modules\Sacco\Models\SaccoMember::class);
+        return $this->hasOne(\App\Models\Sacco\SaccoMember::class);
     }
 
     public function saccoMembership(): HasOne
@@ -947,13 +948,17 @@ class User extends Authenticatable implements MustVerifyEmail
             ]);
 
             // Create notification
-            $user->notifications()->create([
-                'type' => 'new_follower',
-                'title' => 'New Follower',
-                'message' => "{$this->name} started following you",
-                'data' => ['follower_id' => $this->id],
-                'action_url' => route('user.profile', $this->id),
-            ]);
+            Notification::createRichForUser(
+                $user,
+                'new_follower',
+                'New Follower',
+                "{$this->name} started following you",
+                ['follower_id' => $this->id],
+                Route::has('user.profile') ? route('user.profile', $this->id) : url("/users/{$this->id}"),
+                'social',
+                $this,
+                $this->id
+            );
         }
     }
 

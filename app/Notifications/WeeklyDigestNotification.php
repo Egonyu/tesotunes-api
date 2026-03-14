@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Channels\AppNotificationChannel;
 use App\Traits\ChecksNotificationPreferences;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -20,7 +21,7 @@ class WeeklyDigestNotification extends Notification implements ShouldQueue
     {
         return $this->filterChannelsByPreference(
             $notifiable,
-            ['mail', 'database'],
+            ['mail', AppNotificationChannel::class],
             'music'
         );
     }

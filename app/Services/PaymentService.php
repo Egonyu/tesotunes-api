@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Artist;
+use App\Models\Notification as AppNotification;
 use App\Models\Payment;
 use App\Models\Payout;
 use App\Models\SubscriptionPlan;
@@ -839,13 +840,23 @@ class PaymentService
      */
     protected function notifyUserOfRefund(Payment $payment, float $amount, string $reason): void
     {
-        $payment->user->notifications()->create([
-            'notification_type' => 'payment_refunded',
-            'notifiable_type' => 'App\Models\Payment',
-            'notifiable_id' => $payment->id,
-            'title' => 'Payment Refunded',
-            'message' => "Your payment of {$payment->currency} {$amount} has been refunded. Reason: {$reason}",
-        ]);
+        $this->createAppNotification(
+            $payment->user,
+            'payment_refunded',
+            'payments',
+            'Payment Refunded',
+            "Your payment of {$payment->currency} {$amount} has been refunded. Reason: {$reason}",
+            [
+                'payment_id' => $payment->id,
+                'refund_amount' => $amount,
+                'currency' => $payment->currency,
+                'reason' => $reason,
+                'transaction_reference' => $payment->transaction_reference,
+            ],
+            Payment::class,
+            $payment->id,
+            'normal'
+        );
     }
 
     /**
@@ -853,13 +864,22 @@ class PaymentService
      */
     protected function notifyUserOfCancellation(UserSubscription $subscription, string $reason): void
     {
-        $subscription->user->notifications()->create([
-            'notification_type' => 'subscription_cancelled',
-            'notifiable_type' => 'App\Models\UserSubscription',
-            'notifiable_id' => $subscription->id,
-            'title' => 'Subscription Cancelled',
-            'message' => "Your subscription has been cancelled. Reason: {$reason}",
-        ]);
+        $this->createAppNotification(
+            $subscription->user,
+            'subscription_cancelled',
+            'subscription',
+            'Subscription Cancelled',
+            "Your subscription has been cancelled. Reason: {$reason}",
+            [
+                'subscription_id' => $subscription->id,
+                'reason' => $reason,
+                'expires_at' => $subscription->expires_at?->toIso8601String(),
+                'plan_id' => $subscription->subscription_plan_id,
+            ],
+            UserSubscription::class,
+            $subscription->id,
+            'high'
+        );
     }
 
     /**
@@ -867,12 +887,49 @@ class PaymentService
      */
     protected function notifyUserOfExtension(UserSubscription $subscription, int $days, string $reason): void
     {
-        $subscription->user->notifications()->create([
-            'notification_type' => 'subscription_extended',
-            'notifiable_type' => 'App\Models\UserSubscription',
-            'notifiable_id' => $subscription->id,
-            'title' => 'Subscription Extended',
-            'message' => "Your subscription has been extended by {$days} days. New expiry: {$subscription->expires_at->format('Y-m-d')}. Reason: {$reason}",
+        $this->createAppNotification(
+            $subscription->user,
+            'subscription_extended',
+            'subscription',
+            'Subscription Extended',
+            "Your subscription has been extended by {$days} days. New expiry: {$subscription->expires_at->format('Y-m-d')}. Reason: {$reason}",
+            [
+                'subscription_id' => $subscription->id,
+                'days' => $days,
+                'reason' => $reason,
+                'expires_at' => $subscription->expires_at?->toIso8601String(),
+                'plan_id' => $subscription->subscription_plan_id,
+            ],
+            UserSubscription::class,
+            $subscription->id
+        );
+    }
+
+    protected function createAppNotification(
+        ?User $user,
+        string $type,
+        string $category,
+        string $title,
+        string $message,
+        array $data = [],
+        ?string $notifiableType = null,
+        ?int $notifiableId = null,
+        string $priority = 'normal'
+    ): void {
+        if (! $user) {
+            return;
+        }
+
+        AppNotification::create([
+            'user_id' => $user->id,
+            'type' => $type,
+            'category' => $category,
+            'title' => $title,
+            'message' => $message,
+            'notifiable_type' => $notifiableType,
+            'notifiable_id' => $notifiableId,
+            'priority' => $priority,
+            'data' => $data,
         ]);
     }
 }

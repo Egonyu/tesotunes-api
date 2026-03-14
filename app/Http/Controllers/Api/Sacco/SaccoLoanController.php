@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Sacco;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SaccoLoanResource;
 use App\Models\Sacco\SaccoLoan;
+use App\Models\Sacco\SaccoLoanProduct;
 use App\Models\Sacco\SaccoLoanRepayment;
 use App\Models\Sacco\SaccoMember;
 use Illuminate\Http\JsonResponse;
@@ -13,6 +14,204 @@ use Illuminate\Support\Facades\DB;
 
 class SaccoLoanController extends Controller
 {
+    /**
+     * GET /api/sacco/loan-products -- list active loan products for the current member
+     */
+    public function products(Request $request): JsonResponse
+    {
+        $member = $this->getAuthenticatedMember($request);
+
+        $products = SaccoLoanProduct::query()
+            ->active()
+            ->orderBy('name')
+            ->get()
+            ->map(function (SaccoLoanProduct $product) use ($member) {
+                $maxEligibleAmount = min(
+                    (float) $product->max_amount,
+                    max((float) $member->calculateLoanEligibility(), (float) $product->min_amount)
+                );
+
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'description' => $product->description,
+                    'min_amount' => (float) $product->min_amount,
+                    'max_amount' => (float) $product->max_amount,
+                    'interest_rate' => (float) $product->interest_rate,
+                    'min_duration_months' => $product->minDurationMonths,
+                    'max_duration_months' => $product->maxDurationMonths,
+                    'processing_fee_rate' => (float) $product->processingFeeRate,
+                    'requires_guarantors' => $product->requiresGuarantors,
+                    'min_guarantors' => $product->min_guarantors,
+                    'is_eligible' => $member->isActive(),
+                    'max_eligible_amount' => $maxEligibleAmount,
+                    'eligibility_requirements' => [
+                        'min_savings' => (float) $product->minSavingsBalance,
+                        'min_shares' => $product->minShares,
+                        'min_membership_months' => $product->minMembershipMonths,
+                        'min_credit_score' => $product->minCreditScore,
+                    ],
+                ];
+            });
+
+        return response()->json([
+            'data' => $products,
+        ]);
+    }
+
+    /**
+     * GET /api/sacco/loans/eligibility -- member eligibility summary
+     */
+    public function eligibility(Request $request): JsonResponse
+    {
+        $member = $this->getAuthenticatedMember($request);
+        $product = $request->filled('product_id')
+            ? SaccoLoanProduct::findOrFail((int) $request->input('product_id'))
+            : null;
+
+        $maxAmount = $product
+            ? min((float) $product->max_amount, $member->calculateLoanEligibility())
+            : $member->calculateLoanEligibility();
+
+        $reasons = [];
+        if (! $member->isActive()) {
+            $reasons[] = 'Membership must be active.';
+        }
+        if ($product && $member->credit_score < $product->minCreditScore) {
+            $reasons[] = "Minimum credit score of {$product->minCreditScore} required.";
+        }
+        if ($product && $member->total_savings < (float) $product->minSavingsBalance) {
+            $reasons[] = 'Minimum savings requirement not met.';
+        }
+        if ($product && $member->total_shares < $product->minShares) {
+            $reasons[] = 'Minimum shareholding requirement not met.';
+        }
+
+        $joinedAt = $member->joined_at ?? $member->created_at;
+        $membershipMonths = $joinedAt ? $joinedAt->diffInMonths(now()) : 0;
+        if ($product && $membershipMonths < $product->minMembershipMonths) {
+            $reasons[] = "Minimum {$product->minMembershipMonths} months of membership required.";
+        }
+
+        return response()->json([
+            'data' => [
+                'is_eligible' => $member->canApplyForLoan() && count($reasons) === 0,
+                'max_amount' => $maxAmount,
+                'credit_score' => $member->credit_score,
+                'savings_balance' => $member->total_savings,
+                'shares_value' => $member->total_shares,
+                'membership_months' => $membershipMonths,
+                'reasons' => $reasons,
+                'product' => $product ? [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'requires_guarantors' => $product->requiresGuarantors,
+                    'min_guarantors' => $product->min_guarantors,
+                ] : null,
+            ],
+        ]);
+    }
+
+    /**
+     * GET /api/sacco/loans/guarantors -- active members that can act as guarantors
+     */
+    public function guarantors(Request $request): JsonResponse
+    {
+        $member = $this->getAuthenticatedMember($request);
+        $search = trim((string) $request->input('search', ''));
+
+        $guarantors = SaccoMember::query()
+            ->where('status', 'active')
+            ->where('id', '!=', $member->id)
+            ->with('user:id,username,email,name')
+            ->when($search !== '', function ($query) use ($search) {
+                $escaped = escape_like($search);
+
+                $query->whereHas('user', function ($userQuery) use ($escaped) {
+                    $userQuery->where('username', 'like', "%{$escaped}%")
+                        ->orWhere('name', 'like', "%{$escaped}%")
+                        ->orWhere('email', 'like', "%{$escaped}%");
+                });
+            })
+            ->limit(50)
+            ->get()
+            ->map(function (SaccoMember $guarantor) {
+                return [
+                    'id' => $guarantor->id,
+                    'name' => $guarantor->user?->username ?? $guarantor->user?->name,
+                    'member_number' => $guarantor->member_number,
+                    'credit_score' => $guarantor->credit_score,
+                    'total_savings' => (float) $guarantor->total_savings,
+                    'shares_value' => (float) $guarantor->total_shares,
+                    'active_loans' => $guarantor->loans()->whereIn('status', ['approved', 'disbursed', 'active'])->count(),
+                ];
+            })
+            ->values();
+
+        return response()->json([
+            'data' => $guarantors,
+        ]);
+    }
+
+    /**
+     * POST /api/sacco/loans/calculate-schedule -- preview a repayment schedule
+     */
+    public function calculateSchedule(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'product_id' => 'required|integer|exists:sacco_loan_products,id',
+            'amount' => 'required|numeric|min:10000',
+            'term_months' => 'nullable|integer|min:1|max:60',
+            'duration_months' => 'nullable|integer|min:1|max:60',
+        ]);
+
+        $product = SaccoLoanProduct::findOrFail((int) $validated['product_id']);
+        $months = (int) ($validated['term_months'] ?? $validated['duration_months'] ?? 0);
+
+        if ($months < $product->minDurationMonths || $months > $product->maxDurationMonths) {
+            return response()->json([
+                'message' => "Loan term must be between {$product->minDurationMonths} and {$product->maxDurationMonths} months.",
+            ], 422);
+        }
+
+        $principal = (float) $validated['amount'];
+        $costs = $product->calculateTotalLoanCost($principal, $months);
+        $remaining = (float) $costs['total_amount'];
+        $startDate = now()->addMonth()->startOfMonth();
+        $schedule = [];
+
+        for ($installment = 1; $installment <= $months; $installment++) {
+            $payment = min((float) $costs['monthly_installment'], $remaining);
+            $remaining -= $payment;
+
+            $schedule[] = [
+                'installment' => $installment,
+                'due_date' => $startDate->copy()->addMonths($installment - 1)->toDateString(),
+                'amount_ugx' => round($payment, 2),
+                'balance_after_ugx' => round(max(0, $remaining), 2),
+            ];
+        }
+
+        return response()->json([
+            'data' => [
+                'product' => [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                ],
+                'summary' => [
+                    'principal_amount' => round($principal, 2),
+                    'interest_amount' => round((float) $costs['interest_amount'], 2),
+                    'processing_fee' => round((float) $costs['processing_fee'], 2),
+                    'insurance_fee' => round((float) $costs['insurance_fee'], 2),
+                    'total_amount' => round((float) $costs['total_amount'], 2),
+                    'monthly_installment' => round((float) $costs['monthly_installment'], 2),
+                    'term_months' => $months,
+                ],
+                'schedule' => $schedule,
+            ],
+        ]);
+    }
+
     /**
      * GET /api/sacco/loans -- list authenticated user's own loans
      */
@@ -39,14 +238,44 @@ class SaccoLoanController extends Controller
     public function apply(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'member_id' => 'required|integer|exists:sacco_members,id',
+            'member_id' => 'nullable|integer|exists:sacco_members,id',
+            'product_id' => 'nullable|integer|exists:sacco_loan_products,id',
             'loan_type' => 'nullable|string|in:normal,emergency,development,school_fees',
-            'principal_amount_ugx' => 'required|numeric|min:10000',
-            'tenure_months' => 'required|integer|min:1|max:60',
+            'principal_amount_ugx' => 'nullable|numeric|min:10000',
+            'amount' => 'nullable|numeric|min:10000',
+            'tenure_months' => 'nullable|integer|min:1|max:60',
+            'term_months' => 'nullable|integer|min:1|max:60',
             'purpose' => 'nullable|string|max:1000',
+            'phone_number' => 'nullable|string|max:20',
+            'payment_method' => 'nullable|string|in:mtn_momo,airtel_money,manual,bank',
         ]);
 
-        $member = SaccoMember::where('id', $validated['member_id'])
+        $member = isset($validated['member_id'])
+            ? SaccoMember::where('id', $validated['member_id'])
+                ->where('status', 'active')
+                ->firstOrFail()
+            : $this->getAuthenticatedMember($request);
+
+        $product = isset($validated['product_id'])
+            ? SaccoLoanProduct::findOrFail($validated['product_id'])
+            : null;
+
+        $principalAmount = (float) ($validated['principal_amount_ugx'] ?? $validated['amount'] ?? 0);
+        $tenureMonths = (int) ($validated['tenure_months'] ?? $validated['term_months'] ?? 0);
+
+        if ($principalAmount < 10000) {
+            return response()->json([
+                'message' => 'The amount field must be at least 10000.',
+            ], 422);
+        }
+
+        if ($tenureMonths < 1 || $tenureMonths > 60) {
+            return response()->json([
+                'message' => 'The term_months field must be between 1 and 60 months.',
+            ], 422);
+        }
+
+        $member = SaccoMember::where('id', $member->id)
             ->where('status', 'active')
             ->firstOrFail();
 
@@ -61,22 +290,23 @@ class SaccoLoanController extends Controller
             ], 422);
         }
 
-        $interestRate = config('sacco.loan_interest_rate', 12);
-        $totalInterest = ($validated['principal_amount_ugx'] * $interestRate * $validated['tenure_months']) / (12 * 100);
-        $totalPayable = $validated['principal_amount_ugx'] + $totalInterest;
-        $monthlyInstallment = ceil($totalPayable / $validated['tenure_months']);
+        $interestRate = (float) ($product?->interest_rate ?? config('sacco.loan_interest_rate', 12));
+        $totalInterest = ($principalAmount * $interestRate * $tenureMonths) / (12 * 100);
+        $totalPayable = $principalAmount + $totalInterest;
+        $monthlyInstallment = ceil($totalPayable / $tenureMonths);
 
         $loan = SaccoLoan::create([
             'member_id' => $member->id,
             'user_id' => $member->user_id,
-            'loan_type' => $validated['loan_type'] ?? 'normal',
-            'principal_amount_ugx' => $validated['principal_amount_ugx'],
+            'loan_product_id' => $product?->id,
+            'loan_type' => $validated['loan_type'] ?? $product?->loan_type ?? 'normal',
+            'principal_amount_ugx' => $principalAmount,
             'interest_rate' => $interestRate,
             'total_interest_ugx' => $totalInterest,
             'total_payable_ugx' => $totalPayable,
             'amount_paid_ugx' => 0,
             'balance_remaining_ugx' => $totalPayable,
-            'tenure_months' => $validated['tenure_months'],
+            'tenure_months' => $tenureMonths,
             'monthly_installment_ugx' => $monthlyInstallment,
             'purpose' => $validated['purpose'] ?? null,
             'status' => 'pending',
@@ -140,6 +370,7 @@ class SaccoLoanController extends Controller
             'amount' => 'required|numeric|min:1',
             'payment_method' => 'nullable|string|max:50',
             'reference_number' => 'nullable|string|max:100',
+            'phone_number' => 'nullable|string|max:20',
         ]);
 
         $loan = SaccoLoan::whereIn('status', ['disbursed', 'active'])
@@ -188,7 +419,7 @@ class SaccoLoanController extends Controller
      */
     public function show($loan)
     {
-        $loan = SaccoLoan::with(['member.user:id,username,email', 'repayments'])
+        $loan = SaccoLoan::with(['member.user:id,username,email', 'repayments', 'loanProduct'])
             ->findOrFail($loan);
 
         return new SaccoLoanResource($loan);
@@ -257,5 +488,12 @@ class SaccoLoanController extends Controller
                 'is_fully_paid' => $loan->balance_remaining_ugx <= 0,
             ],
         ]);
+    }
+
+    private function getAuthenticatedMember(Request $request): SaccoMember
+    {
+        return SaccoMember::query()
+            ->where('user_id', $request->user()->id)
+            ->firstOrFail();
     }
 }
