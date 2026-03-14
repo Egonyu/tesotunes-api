@@ -22,7 +22,7 @@ class CommentObserver
                 action: $action,
                 subject: $comment->commentable,
                 metadata: [
-                    'comment_excerpt' => substr($comment->comment, 0, 100),
+                    'comment_excerpt' => substr($comment->content, 0, 100),
                     'commentable_type' => class_basename($comment->commentable_type),
                     'commentable_title' => $comment->commentable->title ?? $comment->commentable->name ?? null,
                 ]
@@ -33,7 +33,7 @@ class CommentObserver
                 'type' => 'comment_posted',
                 'module' => 'social',
                 'title' => ($comment->user->name ?? 'Someone').' commented on "'.($comment->commentable->title ?? $comment->commentable->name ?? 'content').'"',
-                'body' => substr($comment->comment, 0, 200),
+                'body' => substr($comment->content, 0, 200),
                 'actor_id' => $comment->user->id,
                 'actor_type' => 'user',
                 'actor_name' => $comment->user->name,
@@ -59,13 +59,19 @@ class CommentObserver
      */
     public function deleted(Comment $comment): void
     {
+        if (! $comment->commentable) {
+            return;
+        }
+
         // Decrement comment count on the activity if it exists
         $activity = \App\Models\Activity::where('subject_type', get_class($comment->commentable))
             ->where('subject_id', $comment->commentable->id)
             ->latest()
             ->first();
 
-        if ($activity && $activity->comments_count > 0) {
+        $commentsCount = (int) ($activity?->getRawOriginal('comments_count') ?? 0);
+
+        if ($activity && $commentsCount > 0) {
             ActivityService::incrementEngagement($activity, 'comments', -1);
         }
     }

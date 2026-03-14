@@ -18,7 +18,7 @@ class DeviceTokenController extends Controller
         $tokens = DeviceToken::where('user_id', $request->user()->id)
             ->active()
             ->orderByDesc('last_used_at')
-            ->get(['id', 'platform', 'device_info', 'is_active', 'last_used_at', 'created_at']);
+            ->get(['id', 'platform', 'device_type', 'device_name', 'app_version', 'is_active', 'last_used_at', 'created_at']);
 
         return response()->json([
             'data' => $tokens,

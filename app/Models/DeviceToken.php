@@ -13,15 +13,16 @@ class DeviceToken extends Model
 
     protected $fillable = [
         'user_id',
-        'device_token',
+        'token',
         'platform',
-        'device_info',
+        'device_type',
+        'device_name',
+        'app_version',
         'is_active',
         'last_used_at',
     ];
 
     protected $casts = [
-        'device_info' => 'array',
         'is_active' => 'boolean',
         'last_used_at' => 'datetime',
     ];
@@ -108,22 +109,22 @@ class DeviceToken extends Model
 
     public function getDeviceName(): ?string
     {
-        return $this->device_info['name'] ?? null;
+        return $this->device_name;
     }
 
     public function getDeviceModel(): ?string
     {
-        return $this->device_info['model'] ?? null;
+        return $this->device_type;
     }
 
     public function getOsVersion(): ?string
     {
-        return $this->device_info['os_version'] ?? null;
+        return null;
     }
 
     public function getAppVersion(): ?string
     {
-        return $this->device_info['app_version'] ?? null;
+        return $this->app_version;
     }
 
     // Static helper methods
@@ -136,11 +137,13 @@ class DeviceToken extends Model
         return static::updateOrCreate(
             [
                 'user_id' => $userId,
-                'device_token' => $token,
+                'token' => $token,
             ],
             [
                 'platform' => $platform,
-                'device_info' => $deviceInfo,
+                'device_type' => $deviceInfo['model'] ?? $deviceInfo['modelName'] ?? $deviceInfo['device_type'] ?? null,
+                'device_name' => $deviceInfo['name'] ?? $deviceInfo['brand'] ?? $deviceInfo['device_name'] ?? null,
+                'app_version' => $deviceInfo['app_version'] ?? null,
                 'is_active' => true,
                 'last_used_at' => now(),
             ]
@@ -152,7 +155,7 @@ class DeviceToken extends Model
         $query = static::where('user_id', $userId);
 
         if ($exceptToken) {
-            $query->where('device_token', '!=', $exceptToken);
+            $query->where('token', '!=', $exceptToken);
         }
 
         return $query->update(['is_active' => false]);
@@ -163,5 +166,14 @@ class DeviceToken extends Model
         return static::inactive()
             ->unusedSince(now()->subDays($daysInactive))
             ->delete();
+    }
+
+    public function getDeviceInfoAttribute(): array
+    {
+        return array_filter([
+            'name' => $this->device_name,
+            'model' => $this->device_type,
+            'app_version' => $this->app_version,
+        ], fn ($value) => $value !== null && $value !== '');
     }
 }

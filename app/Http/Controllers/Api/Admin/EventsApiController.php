@@ -10,8 +10,8 @@ use App\Models\EventLocation;
 use App\Models\EventTicket;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class EventsApiController extends Controller

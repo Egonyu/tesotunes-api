@@ -2,12 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\Artist;
 use App\Models\Comment;
 use App\Models\Like;
 use App\Models\Playlist;
 use App\Models\Post;
 use App\Models\Song;
-use App\Models\Artist;
 use App\Models\User;
 use App\Models\UserFollow;
 use Illuminate\Foundation\Testing\RefreshDatabase;

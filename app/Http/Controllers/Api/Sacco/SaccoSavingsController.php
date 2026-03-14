@@ -10,8 +10,8 @@ use App\Models\Sacco\SaccoSavingsAccount;
 use App\Models\Sacco\SaccoSavingsTransaction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SaccoSavingsController extends Controller
 {

@@ -200,7 +200,7 @@ class MobileNotificationController extends Controller
         try {
             $devices = $request->user()->deviceTokens()
                 ->active()
-                ->select(['id', 'platform', 'device_info', 'created_at', 'last_used_at'])
+                ->select(['id', 'platform', 'device_type', 'device_name', 'app_version', 'created_at', 'last_used_at'])
                 ->get()
                 ->map(function ($device) {
                     return [

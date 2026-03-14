@@ -7,21 +7,21 @@ use App\Models\Podcast;
 use App\Models\SaccoLoan;
 use App\Models\Song;
 use App\Models\User;
+use App\Modules\Sacco\Models\SaccoMember;
+use App\Modules\Sacco\Notifications\MemberApprovedNotification;
+use App\Modules\Store\Models\Order;
+use App\Modules\Store\Models\Store;
 use App\Notifications\AdminSongPendingNotification;
 use App\Notifications\CrossModuleNotification;
 use App\Notifications\LoanStatusNotification;
 use App\Notifications\PodcastStatusNotification;
-use App\Notifications\SubscriptionNotification;
-use App\Notifications\WeeklyDigestNotification;
-use App\Notifications\WelcomeNotification;
 use App\Notifications\Store\MonthlyReportNotification;
 use App\Notifications\Store\OrderStatusNotification;
 use App\Notifications\Store\RefundNotification;
 use App\Notifications\Store\StorePaymentNotification;
-use App\Modules\Sacco\Models\SaccoMember;
-use App\Modules\Store\Models\Store;
-use App\Modules\Sacco\Notifications\MemberApprovedNotification;
-use App\Modules\Store\Models\Order;
+use App\Notifications\SubscriptionNotification;
+use App\Notifications\WeeklyDigestNotification;
+use App\Notifications\WelcomeNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -64,7 +64,7 @@ class NotificationChannelContractTest extends TestCase
             new CrossModuleNotification('music', 'song_approved', 'Song Approved', 'Your song is approved.'),
             new SubscriptionNotification(SubscriptionNotification::SUBSCRIBED, 'Premium'),
             new WeeklyDigestNotification(['songs_listened' => 4, 'minutes_listened' => 16]),
-            new WelcomeNotification(),
+            new WelcomeNotification,
             new MemberApprovedNotification($member),
         ];
 

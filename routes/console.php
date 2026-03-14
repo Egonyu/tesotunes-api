@@ -3,9 +3,9 @@
 use App\Jobs\FeedAggregationJob;
 use App\Jobs\ScanPaymentIssuesJob;
 use App\Jobs\SendEventReminderNotificationsJob;
-use Illuminate\Support\Facades\Bus;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Schedule;
 
 Artisan::command('inspire', function () {

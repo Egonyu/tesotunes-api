@@ -21,7 +21,7 @@ class PushNotificationService
         array $data = [],
         array $options = []
     ): bool {
-        $tokens = $user->deviceTokens()->active()->pluck('device_token')->toArray();
+        $tokens = $user->deviceTokens()->active()->pluck('token')->toArray();
 
         if (empty($tokens)) {
             Log::info("No active device tokens found for user {$user->id}");
@@ -44,7 +44,7 @@ class PushNotificationService
     ): bool {
         $tokens = DeviceToken::whereIn('user_id', $userIds)
             ->active()
-            ->pluck('device_token')
+            ->pluck('token')
             ->toArray();
 
         if (empty($tokens)) {
@@ -173,7 +173,7 @@ class PushNotificationService
 
                 // Deactivate invalid tokens
                 if (in_array($error, ['DeviceNotRegistered', 'InvalidCredentials'])) {
-                    DeviceToken::where('device_token', $token)->update(['is_active' => false]);
+                    DeviceToken::where('token', $token)->update(['is_active' => false]);
                 }
             }
         }
@@ -190,15 +190,17 @@ class PushNotificationService
     ): DeviceToken {
         // Deactivate existing tokens for this device
         DeviceToken::where('user_id', $user->id)
-            ->where('device_token', $token)
+            ->where('token', $token)
             ->update(['is_active' => false]);
 
         // Create new token record
         return DeviceToken::create([
             'user_id' => $user->id,
-            'device_token' => $token,
+            'token' => $token,
             'platform' => $platform,
-            'device_info' => $deviceInfo,
+            'device_type' => $deviceInfo['model'] ?? $deviceInfo['modelName'] ?? $deviceInfo['device_type'] ?? null,
+            'device_name' => $deviceInfo['name'] ?? $deviceInfo['brand'] ?? $deviceInfo['device_name'] ?? null,
+            'app_version' => $deviceInfo['app_version'] ?? null,
             'is_active' => true,
             'last_used_at' => now(),
         ]);

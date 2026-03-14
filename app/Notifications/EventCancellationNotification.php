@@ -39,7 +39,7 @@ class EventCancellationNotification extends Notification implements ShouldQueue
             ->greeting("Hey {$notifiable->display_name}!")
             ->line("Your event booking for **{$eventName}** has been cancelled.")
             ->line("**Date**: {$eventDate}")
-            ->line("**Ticket Reference**: ".($this->attendee->confirmation_code ?? 'N/A'))
+            ->line('**Ticket Reference**: '.($this->attendee->confirmation_code ?? 'N/A'))
             ->action('View Event', url("/events/{$this->event->id}"));
 
         if ($this->reason) {

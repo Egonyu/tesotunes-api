@@ -28,7 +28,7 @@ class AlbumFactory extends Factory
             'release_date' => fake()->date(),
             'status' => fake()->randomElement(['draft', 'pending_review', 'approved', 'published', 'archived']),
             'is_explicit' => fake()->boolean(20),
-            'price' => null,
+            'price' => 0,
             'is_free' => true,
             'currency' => 'UGX',
             'total_tracks' => fake()->numberBetween(1, 20),

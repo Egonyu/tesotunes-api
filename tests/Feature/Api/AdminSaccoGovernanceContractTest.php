@@ -3,11 +3,11 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Role;
-use App\Models\Sacco\SaccoMeeting;
-use App\Models\Sacco\SaccoMeetingAttendance;
 use App\Models\Sacco\SaccoBoardMeeting;
 use App\Models\Sacco\SaccoBoardMeetingAttendance;
 use App\Models\Sacco\SaccoBoardMember;
+use App\Models\Sacco\SaccoMeeting;
+use App\Models\Sacco\SaccoMeetingAttendance;
 use App\Models\Sacco\SaccoMember;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;

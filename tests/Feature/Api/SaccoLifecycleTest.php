@@ -1,8 +1,8 @@
 <?php
 
-use App\Models\User;
-use App\Models\Sacco\SaccoMember;
 use App\Models\Sacco\SaccoLoanProduct;
+use App\Models\Sacco\SaccoMember;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 

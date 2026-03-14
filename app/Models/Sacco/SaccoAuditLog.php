@@ -80,8 +80,7 @@ class SaccoAuditLog extends Model
         ?int $modelId = null,
         array $oldValues = [],
         array $newValues = []
-    ): void
-    {
+    ): void {
         self::create([
             'user_id' => auth()->id(),
             'action' => $action,

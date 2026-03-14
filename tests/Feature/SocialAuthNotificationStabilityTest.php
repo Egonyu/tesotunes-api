@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Role;
-use App\Models\UserSetting;
 use App\Services\Auth\SocialAuthService;
 use App\Services\ProfileCompletionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -38,6 +37,7 @@ class SocialAuthNotificationStabilityTest extends TestCase
         $socialUser = new class
         {
             public string $token = 'social-token';
+
             public ?string $refreshToken = 'refresh-token';
 
             public function getName(): string

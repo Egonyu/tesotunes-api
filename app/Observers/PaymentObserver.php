@@ -355,7 +355,7 @@ class PaymentObserver
             // Get admin users with admin role
             $admins = User::whereHas('roles', function ($query) {
                 $query->whereIn('name', [Role::ADMIN, Role::SUPER_ADMIN, 'finance', 'super-admin']);
-                })
+            })
                 ->get();
 
             if ($admins->isEmpty()) {
