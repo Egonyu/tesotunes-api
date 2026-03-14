@@ -6,13 +6,16 @@ name: Deploy API to Production (Legacy - DISABLED)
 on:
   workflow_dispatch: # Manual trigger only — no longer auto-deploys
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   security-gate:
     name: Pre-Deploy Security Gate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
