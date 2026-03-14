@@ -176,6 +176,9 @@ jobs:
             RESET_PRODUCTION_DB="${{ secrets.PRODUCTION_DB_RESET_ONCE }}"
             RESET_CONFIRM="${{ secrets.PRODUCTION_DB_RESET_CONFIRM }}"
 
+            step "Checking Laravel migration status"
+            php -d display_errors=1 artisan migrate:status --no-ansi || true
+
             if [ "$RESET_PRODUCTION_DB" = "true" ]; then
               if [ "$RESET_CONFIRM" != "WIPE_PRODUCTION_DB" ]; then
                 echo "❌ Refusing production reset: set PRODUCTION_DB_RESET_CONFIRM=WIPE_PRODUCTION_DB"
@@ -183,10 +186,10 @@ jobs:
               fi
 
               echo "⚠️ Running one-time production database reset..."
-              php artisan migrate:fresh --force
+              php -d display_errors=1 artisan migrate:fresh --force -v
               php artisan db:seed --class='Database\\Seeders\\GenreSeeder' --force
             else
-              php artisan migrate --force
+              php -d display_errors=1 artisan migrate --force -v
             fi
 
             # ------------------------------------------------
