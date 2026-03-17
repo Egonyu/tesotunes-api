@@ -9,13 +9,13 @@ use App\Http\Resources\ArtistResource;
 use App\Http\Resources\EventResource;
 use App\Http\Resources\PlaylistResource;
 use App\Http\Resources\SongResource;
-use App\Models\FeaturedContent;
 use App\Models\Event;
+use App\Models\FeaturedContent;
 use App\Models\Song;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 
 class FeaturedContentController extends Controller
 {

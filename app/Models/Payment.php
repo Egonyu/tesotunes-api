@@ -86,14 +86,20 @@ class Payment extends Model
 
     // Payment statuses
     const STATUS_PENDING = 'pending';
+
     const STATUS_PROCESSING = 'processing';
+
     const STATUS_COMPLETED = 'completed';
+
     const STATUS_FAILED = 'failed';
+
     const STATUS_CANCELLED = 'cancelled';
+
     const STATUS_REFUNDED = 'refunded';
 
     // Payment methods
     const METHOD_MOBILE_MONEY = 'mobile_money'; // legacy, kept for existing records
+
     const METHOD_ZENGAPAY = 'zengapay';
 
     // Payment provider — ZengaPay only
@@ -101,6 +107,7 @@ class Payment extends Model
 
     // Mobile money providers (used by MobileMoneyService)
     const PROVIDER_MTN = 'mtn';
+
     const PROVIDER_AIRTEL = 'airtel';
 
     // Relationships
@@ -639,5 +646,4 @@ class Payment extends Model
             'payment_data' => array_merge($this->payment_data ?? [], $data),
         ])->save();
     }
-
 }
