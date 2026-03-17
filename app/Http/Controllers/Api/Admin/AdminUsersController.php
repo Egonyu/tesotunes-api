@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Role;
 use App\Models\User;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
@@ -19,6 +21,162 @@ use Illuminate\Support\Facades\Validator;
 class AdminUsersController extends Controller
 {
     use HandlesApiErrors;
+
+    private const MANAGED_ROLE_NAMES = ['user', 'artist', 'moderator', 'admin', 'super_admin'];
+
+    private const MANAGED_ROLE_DEFAULTS = [
+        Role::USER => [
+            'display_name' => 'User',
+            'description' => 'Standard user account',
+            'priority' => 20,
+            'is_active' => true,
+        ],
+        Role::ARTIST => [
+            'display_name' => 'Artist',
+            'description' => 'Music artist account',
+            'priority' => 40,
+            'is_active' => true,
+        ],
+        Role::MODERATOR => [
+            'display_name' => 'Moderator',
+            'description' => 'Content moderation access',
+            'priority' => 60,
+            'is_active' => true,
+        ],
+        Role::ADMIN => [
+            'display_name' => 'Administrator',
+            'description' => 'General administration access',
+            'priority' => 80,
+            'is_active' => true,
+        ],
+        Role::SUPER_ADMIN => [
+            'display_name' => 'Super Administrator',
+            'description' => 'Full system access',
+            'priority' => 100,
+            'is_active' => true,
+        ],
+    ];
+
+    private function resolveManagedRole(string $roleName): Role
+    {
+        if (! in_array($roleName, self::MANAGED_ROLE_NAMES, true)) {
+            return Role::where('name', $roleName)->firstOrFail();
+        }
+
+        return Role::firstOrCreate(
+            ['name' => $roleName],
+            self::MANAGED_ROLE_DEFAULTS[$roleName] ?? [
+                'display_name' => str_replace('_', ' ', ucfirst($roleName)),
+                'description' => ucfirst(str_replace('_', ' ', $roleName)).' role',
+                'priority' => 1,
+                'is_active' => true,
+            ]
+        );
+    }
+
+    private function buildArtistReference(User $user): ?array
+    {
+        $artist = $user->artist;
+
+        if (! $artist) {
+            return null;
+        }
+
+        return [
+            'id' => $artist->id,
+            'stage_name' => $artist->stage_name,
+            'slug' => $artist->slug,
+            'status' => $artist->status,
+        ];
+    }
+
+    private function buildUserPayload(User $user): array
+    {
+        $user->loadMissing('artist');
+
+        return [
+            'id' => $user->id,
+            'uuid' => $user->uuid,
+            'name' => $user->name,
+            'full_name' => $user->full_name,
+            'username' => $user->username,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'bio' => $user->bio ?? null,
+            'country' => $user->country,
+            'city' => $user->city ?? null,
+            'role' => $user->role,
+            'is_active' => (bool) $user->is_active,
+            'email_verified_at' => $user->email_verified_at,
+            'last_login_at' => $user->last_login_at ?? null,
+            'avatar_url' => $user->avatar
+                ? url('storage/'.$user->avatar)
+                : null,
+            'artist' => $this->buildArtistReference($user),
+            'created_at' => $user->created_at,
+            'updated_at' => $user->updated_at,
+        ];
+    }
+
+    private function generateUniqueArtistSlug(string $name, int $userId, ?int $ignoreArtistId = null): string
+    {
+        $baseSlug = \Illuminate\Support\Str::slug($name) ?: 'artist-'.$userId;
+        $slug = $baseSlug;
+        $suffix = 2;
+
+        while (\App\Models\Artist::query()
+            ->when($ignoreArtistId, fn ($query) => $query->where('id', '!=', $ignoreArtistId))
+            ->where('slug', $slug)
+            ->exists()) {
+            $slug = $baseSlug.'-'.$suffix;
+            $suffix++;
+        }
+
+        return $slug;
+    }
+
+    private function applyRole(User $user, string $roleName, ?int $assignedBy = null): void
+    {
+        $role = $this->resolveManagedRole($roleName);
+
+        $managedRoleIds = Role::whereIn('name', self::MANAGED_ROLE_NAMES)->pluck('id');
+
+        if ($managedRoleIds->isNotEmpty()) {
+            DB::table('user_roles')
+                ->where('user_id', $user->id)
+                ->whereIn('role_id', $managedRoleIds)
+                ->update([
+                    'is_active' => false,
+                    'updated_at' => now(),
+                ]);
+        }
+
+        $existingPivot = DB::table('user_roles')
+            ->where('user_id', $user->id)
+            ->where('role_id', $role->id)
+            ->exists();
+
+        if ($existingPivot) {
+            $user->roles()->updateExistingPivot($role->id, [
+                'is_active' => true,
+                'assigned_at' => now(),
+                'assigned_by' => $assignedBy,
+                'updated_at' => now(),
+            ]);
+        } else {
+            $user->roles()->attach($role->id, [
+                'is_active' => true,
+                'assigned_at' => now(),
+                'assigned_by' => $assignedBy,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        $user->clearPermissionCache();
+        $user->unsetRelation('roles');
+        $user->unsetRelation('activeRoles');
+    }
 
     /**
      * List users with filtering, searching, and pagination.
@@ -41,7 +199,9 @@ class AdminUsersController extends Controller
 
             // Filter by role
             if ($request->filled('role') && $request->role !== 'all') {
-                $query->where('role', $request->role);
+                $query->whereHas('activeRoles', function ($roleQuery) use ($request) {
+                    $roleQuery->where('name', $request->role);
+                });
             }
 
             // Filter by status
@@ -67,7 +227,7 @@ class AdminUsersController extends Controller
             // Sorting
             $sortBy = $request->get('sort_by', 'created_at');
             $sortOrder = $request->get('sort_order', 'desc');
-            $allowed = ['created_at', 'name', 'email', 'username', 'role', 'is_active'];
+            $allowed = ['created_at', 'name', 'email', 'username', 'is_active'];
             if (in_array($sortBy, $allowed)) {
                 $query->orderBy($sortBy, $sortOrder === 'asc' ? 'asc' : 'desc');
             } else {
@@ -125,9 +285,14 @@ class AdminUsersController extends Controller
                 'new_this_month' => User::whereMonth('created_at', now()->month)
                     ->whereYear('created_at', now()->year)
                     ->count(),
-                'users_by_role' => User::selectRaw('role, count(*) as count')
-                    ->groupBy('role')
-                    ->pluck('count', 'role'),
+                'users_by_role' => DB::table('roles')
+                    ->leftJoin('user_roles', function ($join) {
+                        $join->on('roles.id', '=', 'user_roles.role_id')
+                            ->where('user_roles.is_active', true);
+                    })
+                    ->selectRaw('roles.name, count(user_roles.user_id) as count')
+                    ->groupBy('roles.name')
+                    ->pluck('count', 'name'),
                 'users_by_country' => User::selectRaw('country, count(*) as count')
                     ->whereNotNull('country')
                     ->groupBy('country')
@@ -149,33 +314,11 @@ class AdminUsersController extends Controller
     public function show($id): JsonResponse
     {
         return $this->handleApiAction(function () use ($id) {
-            $user = User::findOrFail($id);
-
-            $data = [
-                'id' => $user->id,
-                'uuid' => $user->uuid,
-                'name' => $user->name,
-                'full_name' => $user->full_name,
-                'username' => $user->username,
-                'email' => $user->email,
-                'phone' => $user->phone,
-                'bio' => $user->bio ?? null,
-                'country' => $user->country,
-                'city' => $user->city ?? null,
-                'role' => $user->role,
-                'is_active' => (bool) $user->is_active,
-                'email_verified_at' => $user->email_verified_at,
-                'last_login_at' => $user->last_login_at ?? null,
-                'avatar_url' => $user->avatar
-                    ? url('storage/'.$user->avatar)
-                    : null,
-                'created_at' => $user->created_at,
-                'updated_at' => $user->updated_at,
-            ];
+            $user = User::with('artist')->findOrFail($id);
 
             return response()->json([
                 'success' => true,
-                'data' => $data,
+                'data' => $this->buildUserPayload($user),
             ]);
         }, 'Failed to load user details.');
     }
@@ -214,38 +357,40 @@ class AdminUsersController extends Controller
                 ], 403);
             }
 
-            $user = User::create([
-                'name' => $request->name,
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
-                'phone' => $request->phone,
-                'country' => $request->country ?? 'UG',
-                'is_active' => $request->boolean('is_active', true),
-                'email_verified_at' => now(),
-            ]);
-
-            // Set role via direct column + pivot table (role is NOT in $fillable)
-            $role = $request->role ?? 'user';
-            \Illuminate\Support\Facades\DB::table('users')
-                ->where('id', $user->id)
-                ->update(['role' => $role]);
-            $user->assignRole($role, $currentUser->id);
-
-            // If creating as artist, ensure Artist record exists
-            if ($role === 'artist') {
-                $user->update(['is_artist' => true]);
-                \App\Models\Artist::create([
-                    'user_id' => $user->id,
-                    'stage_name' => $user->display_name ?? $user->name ?? 'Artist',
-                    'slug' => \Illuminate\Support\Str::slug($user->display_name ?? $user->name ?? 'artist-'.$user->id),
-                    'status' => 'active',
-                    'is_verified' => false,
+            $user = DB::transaction(function () use ($request, $currentUser) {
+                $user = User::create([
+                    'name' => $request->name,
+                    'email' => $request->email,
+                    'password' => Hash::make($request->password),
+                    'phone' => $request->phone,
+                    'country' => $request->country ?? 'UG',
+                    'is_active' => $request->boolean('is_active', true),
+                    'email_verified_at' => now(),
                 ]);
-            }
+
+                $role = $request->role ?? 'user';
+                $this->applyRole($user, $role, $currentUser->id);
+
+                if ($role === 'artist') {
+                    $user->update(['is_artist' => true]);
+                    \App\Models\Artist::create([
+                        'user_id' => $user->id,
+                        'stage_name' => $user->display_name ?? $user->name ?? 'Artist',
+                        'slug' => $this->generateUniqueArtistSlug(
+                            $user->display_name ?? $user->name ?? 'Artist',
+                            $user->id
+                        ),
+                        'status' => 'active',
+                        'is_verified' => false,
+                    ]);
+                }
+
+                return $user->fresh(['artist']);
+            });
 
             return response()->json([
                 'success' => true,
-                'data' => $user,
+                'data' => $this->buildUserPayload($user),
                 'message' => 'User created successfully.',
             ], 201);
         }, 'Failed to create user.');
@@ -297,60 +442,55 @@ class AdminUsersController extends Controller
                 ], 403);
             }
 
-            // Separate role from mass-assignable fields (role is NOT in $fillable for security)
-            $data = $request->only(['name', 'email', 'username', 'phone', 'country', 'bio', 'city']);
+            $updatedUser = DB::transaction(function () use ($request, $user, $currentUser) {
+                $data = $request->only(['name', 'email', 'username', 'phone', 'country', 'bio', 'city']);
 
-            if ($request->has('is_active')) {
-                $data['is_active'] = $request->boolean('is_active');
-            }
+                if ($request->has('is_active')) {
+                    $data['is_active'] = $request->boolean('is_active');
+                }
 
-            if ($request->filled('password')) {
-                $data['password'] = Hash::make($request->password);
-            }
+                if ($request->filled('password')) {
+                    $data['password'] = Hash::make($request->password);
+                }
 
-            $user->update(array_filter($data, fn ($v) => $v !== null));
+                $user->update(array_filter($data, fn ($v) => $v !== null));
 
-            // Handle role change explicitly (not mass-assignable)
-            if ($request->filled('role')) {
-                $newRole = $request->input('role');
-                $oldRole = $user->role;
+                if ($request->filled('role')) {
+                    $newRole = $request->input('role');
+                    $oldRole = $user->role;
 
-                if ($newRole !== $oldRole) {
-                    // Update the direct 'role' column on users table
-                    \Illuminate\Support\Facades\DB::table('users')
-                        ->where('id', $user->id)
-                        ->update(['role' => $newRole]);
+                    if ($newRole !== $oldRole) {
+                        $this->applyRole($user, $newRole, $currentUser->id);
 
-                    // Sync the user_roles pivot table
-                    $user->assignRole($newRole, $currentUser->id);
+                        if ($newRole === 'artist') {
+                            $user->update(['is_artist' => true]);
+                            $artist = $user->artist;
+                            if (! $artist) {
+                                \App\Models\Artist::create([
+                                    'user_id' => $user->id,
+                                    'stage_name' => $user->display_name ?? $user->name ?? $user->username ?? 'Artist',
+                                    'slug' => $this->generateUniqueArtistSlug(
+                                        $user->display_name ?? $user->name ?? $user->username ?? 'Artist',
+                                        $user->id
+                                    ),
+                                    'status' => 'active',
+                                    'is_verified' => false,
+                                ]);
+                            }
+                        }
 
-                    // If upgrading to artist, ensure Artist record exists and link it
-                    if ($newRole === 'artist') {
-                        $user->update(['is_artist' => true]);
-                        $artist = $user->artist;
-                        if (! $artist) {
-                            \App\Models\Artist::create([
-                                'user_id' => $user->id,
-                                'stage_name' => $user->display_name ?? $user->name ?? $user->username ?? 'Artist',
-                                'slug' => \Illuminate\Support\Str::slug($user->display_name ?? $user->name ?? 'artist-'.$user->id),
-                                'status' => 'active',
-                                'is_verified' => false,
-                            ]);
+                        if ($oldRole === 'artist' && $newRole !== 'artist') {
+                            $user->update(['is_artist' => false]);
                         }
                     }
-
-                    // If downgrading from artist, update is_artist flag
-                    if ($oldRole === 'artist' && $newRole !== 'artist') {
-                        $user->update(['is_artist' => false]);
-                    }
-
-                    $user->clearPermissionCache();
                 }
-            }
+
+                return $user->fresh(['artist']);
+            });
 
             return response()->json([
                 'success' => true,
-                'data' => $user->fresh(),
+                'data' => $this->buildUserPayload($updatedUser),
                 'message' => 'User updated successfully.',
             ]);
         }, 'Failed to update user.');

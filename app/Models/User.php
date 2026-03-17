@@ -486,7 +486,7 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function getRoleAttribute(): ?string
     {
-        $role = $this->roles()->first();
+        $role = $this->activeRoles()->first() ?? $this->roles()->first();
 
         if ($role) {
             return $role->name;
@@ -1969,13 +1969,7 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         $this->securityProfile()->updateOrCreate(
             ['user_id' => $this->id],
-            [
-                'two_factor_enabled' => (bool) $this->two_factor_enabled,
-                'two_factor_secret' => $this->two_factor_secret,
-                'two_factor_recovery_codes' => $this->normalizeRecoveryCodesForStorage($this->two_factor_recovery_codes),
-                'two_factor_confirmed_at' => $this->two_factor_confirmed_at,
-                'last_security_reviewed_at' => now(),
-            ]
+            UserSecurityProfile::payloadFromUser($this)
         );
     }
 
