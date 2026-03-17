@@ -111,7 +111,7 @@ class UserCredit extends Model
         ?string $description = null,
         array $metadata = []
     ): ?CreditTransaction {
-        if (!$this->hasMinimumBalance($amount)) {
+        if (! $this->hasMinimumBalance($amount)) {
             return null;
         }
 

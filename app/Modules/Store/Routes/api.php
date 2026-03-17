@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Support\Facades\Route;
 use App\Modules\Store\Http\Controllers\Api\AnalyticsController;
 use App\Modules\Store\Http\Controllers\Api\CartController;
 use App\Modules\Store\Http\Controllers\Api\NotificationController;
@@ -13,6 +12,7 @@ use App\Modules\Store\Http\Controllers\Api\ReportController;
 use App\Modules\Store\Http\Controllers\Api\ReviewController;
 use App\Modules\Store\Http\Controllers\Api\SellerPromotionController;
 use App\Modules\Store\Http\Controllers\Api\StoreController;
+use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
