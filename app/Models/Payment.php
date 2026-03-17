@@ -568,7 +568,6 @@ class Payment extends Model
         }
 
         return $this->amount ?? null;
-        }
     }
 
     protected function settleLedgerIfApplicable(): void
@@ -647,3 +646,5 @@ class Payment extends Model
             'payment_data' => array_merge($this->payment_data ?? [], $data),
         ])->save();
     }
+
+}
