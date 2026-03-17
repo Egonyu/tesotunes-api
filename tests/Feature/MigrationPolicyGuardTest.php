@@ -9,6 +9,7 @@ class MigrationPolicyGuardTest extends TestCase
 {
     private const ALLOWED_NON_BASELINE_MIGRATIONS = [
         '2026_02_23_090003_create_telescope_entries_table.php',
+        '2026_03_16_120000_create_featured_content_table.php',
     ];
 
     private const BANNED_NAME_FRAGMENTS = [

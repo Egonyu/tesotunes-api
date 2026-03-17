@@ -115,7 +115,8 @@ class SaccoSavingsController extends Controller
             'amount' => 'required|numeric|min:1',
             'description' => 'nullable|string|max:500',
             'reference_number' => 'nullable|string|max:100',
-            'payment_method' => 'nullable|string|in:wallet',
+            'phone_number' => 'nullable|string|max:20',
+            'payment_method' => 'nullable|string|in:wallet,mtn_momo,airtel_money',
         ]);
 
         $account = isset($validated['account_id'])

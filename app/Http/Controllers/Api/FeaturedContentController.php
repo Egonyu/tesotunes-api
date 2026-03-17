@@ -49,7 +49,7 @@ class FeaturedContentController extends Controller
 
     private function loadEditorialItems(Request $request, int $limit): Collection
     {
-        if (! Schema::hasTable('featured_content')) {
+        if (!Schema::hasTable('featured_content')) {
             return collect();
         }
 
@@ -214,7 +214,7 @@ class FeaturedContentController extends Controller
             $derivedSubtitle = $item->subtitle ?: ($item->playlist->description ?: 'Featured playlist');
         }
 
-        if (! $derivedImage && $item->artist) {
+        if (!$derivedImage && $item->artist) {
             $derivedImage = StorageHelper::avatarUrl($item->artist->avatar, $item->artist->stage_name ?? $item->artist->name ?? 'Artist');
         }
 

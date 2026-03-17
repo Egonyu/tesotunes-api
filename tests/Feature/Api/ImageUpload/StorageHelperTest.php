@@ -149,7 +149,12 @@ class StorageHelperTest extends TestCase
 
     public function test_artwork_url_returns_url_when_present(): void
     {
-        $this->assertNotNull(StorageHelper::artworkUrl('songs/cover.jpg'));
+        // Create a test file so pathExists() returns true
+        Storage::disk('public')->put('songs/cover.jpg', 'test image content');
+        
+        $url = StorageHelper::artworkUrl('songs/cover.jpg');
+        $this->assertNotNull($url);
+        $this->assertStringContainsString('songs/cover.jpg', $url);
     }
 
     public function test_artwork_url_returns_default_when_empty(): void

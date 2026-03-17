@@ -85,6 +85,7 @@ class Payment extends Model
     ];
 
     // Payment statuses
+
     const STATUS_PENDING = 'pending';
 
     const STATUS_PROCESSING = 'processing';
