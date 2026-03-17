@@ -151,7 +151,7 @@ class StorageHelperTest extends TestCase
     {
         // Create a test file so pathExists() returns true
         Storage::disk('public')->put('songs/cover.jpg', 'test image content');
-        
+
         $url = StorageHelper::artworkUrl('songs/cover.jpg');
         $this->assertNotNull($url);
         $this->assertStringContainsString('songs/cover.jpg', $url);

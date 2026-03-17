@@ -57,7 +57,8 @@ class SaccoSharesController extends Controller
             'member_id' => 'nullable|integer|exists:sacco_members,id',
             'shares_quantity' => 'nullable|integer|min:1',
             'quantity' => 'nullable|integer|min:1',
-            'payment_method' => 'nullable|string|in:wallet',
+            'phone_number' => 'nullable|string|max:20',
+            'payment_method' => 'nullable|string|in:wallet,mtn_momo,airtel_money',
         ]);
 
         $member = isset($validated['member_id'])

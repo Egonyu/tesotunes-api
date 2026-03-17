@@ -39,7 +39,7 @@ test('authenticated users can join sacco before membership middleware applies', 
 test('member lifecycle supports savings and loan flows end to end', function () {
     config()->set('sacco.enabled', true);
 
-    $user = User::factory()->create();
+    $user = User::factory()->create(['ugx_balance' => 250000]);
     $member = SaccoMember::create([
         'user_id' => $user->id,
         'member_number' => 'MBR'.now()->format('Ymd').rand(10000, 99999),
@@ -102,7 +102,7 @@ test('member lifecycle supports savings and loan flows end to end', function () 
 test('canonical sacco summary endpoints align with frontend expectations', function () {
     config()->set('sacco.enabled', true);
 
-    $user = User::factory()->create();
+    $user = User::factory()->create(['ugx_balance' => 500000]);
     $member = SaccoMember::create([
         'user_id' => $user->id,
         'member_number' => 'MBR'.now()->format('Ymd').rand(10000, 99999),

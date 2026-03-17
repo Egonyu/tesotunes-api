@@ -1,0 +1,322 @@
+
+Γ£ô TEST DB INFO ΓÇö Connection: mysql | Database: music_test | ENV DB_DATABASE: music_test | Config DB: music_test
+
+   PASS  Tests\Feature\Api\AdminArtistModerationSyncTest
+  Γ£ô admin approval syncs user artist profile and kyc state               0.38s  
+  Γ£ô admin suspend syncs user and artist profile state                    0.09s  
+  Γ£ô admin reject records reason and keeps reapply state                  0.10s  
+
+   PASS  Tests\Feature\Api\AdminEventActionsContractTest
+  Γ£ô admin can publish and feature an event                              28.14s  
+  Γ£ô admin can view event attendees and analytics                         0.13s  
+
+   PASS  Tests\Feature\Api\AdminSaccoContractTest
+  Γ£ô admin can fetch member detail transactions and loans                 0.11s  
+  Γ£ô admin loan detail exposes normalized member fields                   0.09s  
+
+   PASS  Tests\Feature\Api\AdminSaccoGovernanceContractTest
+  Γ£ô admin board members endpoint returns normalized member rows          0.11s  
+  Γ£ô admin board meetings endpoint returns standardized list and show shΓÇª 0.09s  
+  Γ£ô admin governance meetings support audit filters                      0.06s  
+  Γ£ô admin governance attendance summary flags repeat absences            0.11s  
+
+   PASS  Tests\Feature\Api\AdminSongContractTest
+  Γ£ô admin can create song with supported form fields                     0.15s  
+  Γ£ô admin can update song supported form fields                          0.15s  
+
+   PASS  Tests\Feature\Api\ArtistAlbumEditingTest
+  Γ£ô artist can create album with type and genre                          0.12s  
+  Γ£ô artist can view album detail for edit flow                           0.11s  
+  Γ£ô artist can update album metadata and cover                           0.11s  
+
+   PASS  Tests\Feature\Api\ArtistApplicationApiTest
+  Γ£ô application status returns none when user has no application         0.08s  
+  Γ£ô application status returns pending for pending artist application    0.07s  
+  Γ£ô submitting artist application creates pending records and syncs norΓÇª 0.12s  
+  Γ£ô rejected artist can reapply and existing application is reopened     0.11s  
+
+   PASS  Tests\Feature\Api\ArtistSongEditingTest
+  Γ£ô artist can update song metadata and cover                            0.14s  
+  Γ£ô artist song detail returns editor fields                             0.07s  
+
+   PASS  Tests\Feature\Api\Auth\LoginTest
+  Γ£ô user can login with valid credentials                                0.17s  
+  Γ£ô login returns user resource with settings                            0.10s  
+  Γ£ô login updates last login at                                          0.11s  
+  Γ£ô login with remember me returns token                                 0.09s  
+  Γ£ô login succeeds when optional profile tables are missing              0.12s  
+  Γ£ô login returns json content type                                      0.10s  
+  Γ£ô login fails with wrong password                                      0.07s  
+  Γ£ô login fails with nonexistent email                                   0.07s  
+  Γ£ô login is rate limited after configured max attempts                  0.08s  
+  Γ£ô login fails with case sensitive password                             0.08s  
+  Γ£ô suspended user cannot login                                          0.08s  
+  Γ£ô login requires email                                                 0.07s  
+  Γ£ô login requires password                                              0.06s  
+  Γ£ô login requires valid email format                                    0.06s  
+  Γ£ô login empty body returns 422                                         0.06s  
+  Γ£ô login validation returns json errors                                 0.06s  
+  Γ£ô login does not return password hash                                  0.10s  
+  Γ£ô login does not redirect returns json                                 0.11s  
+  Γ£ô login error does not redirect                                        0.09s  
+  Γ£ô token from login works for auth endpoints                            0.13s  
+  Γ£ô logout invalidates token                                             0.18s  
+  Γ£ô login endpoint allows json content type                              0.11s  
+  Γ£ô login endpoint accepts options preflight                             0.06s  
+
+   PASS  Tests\Feature\Api\Auth\LogoutTest
+  Γ£ô authenticated user can logout                                        0.12s  
+  Γ£ô logout invalidates token                                             0.12s  
+  Γ£ô logout does not delete other tokens                                  0.14s  
+  Γ£ô unauthenticated user cannot logout                                   0.04s  
+  Γ£ô logout with invalid token returns 401                                0.06s  
+  Γ£ô logout rejects get method                                            0.11s  
+
+   PASS  Tests\Feature\Api\Auth\PasswordResetTest
+  Γ£ô forgot password sends reset link for valid email                     0.30s  
+  Γ£ô forgot password returns 422 for unknown email                        0.28s  
+  Γ£ô forgot password validates email required                             0.08s  
+  Γ£ô forgot password validates email format                               0.05s  
+  Γ£ô reset password with valid token                                      0.08s  
+  Γ£ô reset password revokes all tokens                                    0.09s  
+  Γ£ô reset password with invalid token                                    0.29s  
+  Γ£ô reset password requires confirmation                                 0.06s  
+  Γ£ô reset password validates all fields required                         0.08s  
+  Γ£ô reset password rejects mismatched confirmation                       0.06s  
+  Γ£ô reset password rejects wrong email                                   0.27s  
+
+   PASS  Tests\Feature\Api\Auth\RegisterTest
+  Γ£ô user can register with valid data                                    0.09s  
+  Γ£ô register creates user in database                                    0.08s  
+  Γ£ô register creates user settings                                       0.09s  
+  Γ£ô register is rate limited after three attempts per hour               0.11s  
+  Γ£ô register hashes password                                             0.07s  
+  Γ£ô register defaults country to ug                                      0.08s  
+  Γ£ô register accepts optional phone                                      0.08s  
+  Γ£ô register accepts optional date of birth                              0.09s  
+  Γ£ô register returns json content type                                   0.08s  
+  Γ£ô register returns token that works                                    0.09s  
+  Γ£ô register does not auto verify email                                  0.07s  
+  Γ£ô register requires name                                               0.07s  
+  Γ£ô register requires email                                              0.06s  
+  Γ£ô register requires valid email                                        0.07s  
+  Γ£ô register requires unique email                                       0.07s  
+  Γ£ô register requires password                                           0.07s  
+  Γ£ô register requires password confirmation                              0.05s  
+  Γ£ô register requires minimum password length                            0.06s  
+  Γ£ô register rejects future date of birth                                0.06s  
+  Γ£ô register empty body returns 422                                      0.07s  
+  Γ£ô register validation returns json errors                              0.07s  
+  Γ£ô register does not return password hash                               0.07s  
+  Γ£ô register ignores role field                                          0.09s  
+  Γ£ô register ignores is active field                                     0.08s  
+  Γ£ô register ignores credits field                                       0.08s  
+  Γ£ô register does not redirect returns json                              0.08s  
+  Γ£ô register error returns json not html                                 0.06s  
+  Γ£ô register endpoint accepts options preflight                          0.06s  
+
+   PASS  Tests\Feature\Api\EventInterestContractTest
+  Γ£ô user can toggle event interest                                       0.12s  
+
+   PASS  Tests\Feature\Api\EventModelCanonicalContractTest
+  Γ£ô event register uses existing attendee schema fields                  0.08s  
+  Γ£ô attended status counts as confirmed and checked in for event stats   0.09s  
+
+   PASS  Tests\Feature\Api\EventTicketContractTest
+  Γ£ô authenticated user can validate owned ticket number                  0.08s  
+  Γ£ô wallet purchase uses event tickets table contract                    0.08s  
+
+   PASS  Tests\Feature\Api\EventTicketingWorkflowTest
+  Γ£ô wallet ticket purchase creates order level payment record            0.09s  
+  Γ£ô cancelling event dispatches cancellation notification job            0.06s  
+  Γ£ô reminder job notifies confirmed attendees for matching window        0.06s  
+  Γ£ô zengapay webhook confirms pending event order and settles inventory  0.11s  
+  Γ£ô failed ticket purchase payment releases reservations and cancels peΓÇª 0.09s  
+
+   PASS  Tests\Feature\Api\ImageUpload\AdminArtistImageUploadTest
+  Γ£ô admin can upload artist profile image                                0.08s  
+  Γ£ô admin upload replaces old avatar                                     0.11s  
+  Γ£ô admin can upload artist cover image                                  0.09s  
+  Γ£ô admin can upload webp images                                         0.09s  
+  Γ£ô admin can upload both images with data                               0.09s  
+  Γ£ô admin artist upload validates max size                               0.07s  
+  Γ£ô admin artist upload rejects non image                                0.09s  
+  Γ£ô admin artist upload requires auth                                    0.09s  
+  Γ£ô admin artist upload requires admin role                              0.11s  
+  Γ£ô admin data update preserves existing images                          0.13s  
+
+   PASS  Tests\Feature\Api\ImageUpload\AdminSongImageUploadTest
+  Γ£ô admin can create song with artwork                                   0.13s  
+  Γ£ô admin can update song artwork                                        0.11s  
+  Γ£ô admin song artwork validates max size                                0.08s  
+  Γ£ô admin song artwork rejects non image                                 0.10s  
+  Γ£ô admin song upload requires auth                                      0.09s  
+  Γ£ô admin song upload requires admin role                                0.09s  
+  Γ£ô song artwork alias is accepted for updates                           0.11s  
+
+   PASS  Tests\Feature\Api\ImageUpload\ArtistAlbumImageUploadTest
+  Γ£ô artist can create album with artwork                                 0.09s  
+  Γ£ô artist album creation stores artwork path                            0.09s  
+  Γ£ô album artwork rejects non image                                      0.07s  
+  Γ£ô album upload requires auth                                           0.08s  
+  Γ£ô album upload requires artist role                                    0.08s  
+  Γ£ô album artwork uses expected storage directory                        0.08s  
+
+   PASS  Tests\Feature\Api\ImageUpload\ArtistEventImageUploadTest
+  Γ£ô artist can create event with cover                                   0.10s  
+  Γ£ô event stores cover image path                                        0.10s  
+  Γ£ô artist can update event cover                                        0.10s  
+  Γ£ô event cover validates image type                                     0.06s  
+  Γ£ô event upload requires auth                                           0.09s  
+  Γ£ô event upload requires artist role                                    0.08s  
+  Γ£ô event upload uses storage backed cover directory                     0.10s  
+
+   PASS  Tests\Feature\Api\ImageUpload\FileControllerUploadTest
+  Γ£ô image upload requires authentication                                 0.10s  
+  Γ£ô image upload with valid jpeg                                         0.08s  
+  Γ£ô image upload with valid png                                          0.09s  
+  Γ£ô image upload validates type field                                    0.08s  
+  Γ£ô image upload rejects non image file                                  0.10s  
+  Γ£ô image upload rejects oversized file                                  0.08s  
+  Γ£ô image upload requires image field                                    0.09s  
+  Γ£ô image upload requires type field                                     0.08s  
+  Γ£ô image upload stores in user specific directory                       0.10s  
+  Γ£ô image upload webp without resize succeeds                            0.09s  
+  Γ£ô avatar upload requires authentication                                0.07s  
+  Γ£ô avatar upload succeeds                                               0.09s  
+  Γ£ô avatar upload replaces existing                                      0.13s  
+  Γ£ô avatar upload rejects oversized file                                 0.10s  
+  Γ£ô avatar upload rejects non image                                      0.10s  
+  Γ£ô avatar upload accepts webp                                           0.10s  
+  Γ£ô audio upload requires authentication                                 0.07s  
+  Γ£ô audio upload succeeds                                                0.08s  
+  Γ£ô audio upload rejects non audio                                       0.10s  
+  Γ£ô audio upload rejects oversized file                                  0.09s  
+  Γ£ô uploads work without get real path failures                          0.10s  
+
+   PASS  Tests\Feature\Api\ImageUpload\ImageUploadConsistencyTest
+  Γ£ô public disk is configured                                            0.07s  
+  Γ£ô digitalocean disk is configured                                      0.06s  
+  Γ£ô media disk env has valid value                                       0.06s  
+  Γ£ô storage helper media disk returns known disk                         0.06s  
+  Γ£ô storage helper resolves local and private disks to public            0.06s  
+  Γ£ô file controller disk matches storage helper resolution               0.06s  
+  Γ£ô gd extension is loaded                                               0.06s  
+  Γ£ô gd supports required formats                                         0.06s  
+  Γ£ô webp resize support matches runtime capabilities                     0.06s  
+  Γ£ô avatar upload policy includes webp support                           0.06s  
+  Γ£ô profile uploads map cover image to banner column                     0.06s  
+  Γ£ô exception handler trace serialization fixed                          0.06s  
+
+   PASS  Tests\Feature\Api\ImageUpload\PostMediaUploadTest
+  Γ£ô post with single image upload                                        0.10s  
+  Γ£ô post with multiple images                                            0.11s  
+  Γ£ô post media without content requires media                            0.08s  
+  Γ£ô post media validates file type                                       0.07s  
+  Γ£ô post media validates max count                                       0.10s  
+  Γ£ô post upload requires auth                                            0.09s  
+  Γ£ô post media stores relative path and returns absolute url             0.07s  
+
+   PASS  Tests\Feature\Api\ImageUpload\StorageHelperTest
+  Γ£ô store saves file and returns path                                    0.08s  
+  Γ£ô store generates unique filenames                                     0.10s  
+  Γ£ô store uses custom filename                                           0.07s  
+  Γ£ô store creates subdirectory                                           0.06s  
+  Γ£ô store sanitises special characters                                   0.08s  
+  Γ£ô store handles file without extension                                 0.07s  
+  Γ£ô delete removes file                                                  0.08s  
+  Γ£ô delete ignores null and empty                                        0.09s  
+  Γ£ô delete skips external urls                                           0.05s  
+  Γ£ô url returns null for empty path                                      0.08s  
+  Γ£ô url returns external url as is                                       0.08s  
+  Γ£ô url returns absolute url for local path                              0.06s  
+  Γ£ô artwork url returns url when present                                 0.05s  
+  Γ£ô artwork url returns default when empty                               0.06s  
+  Γ£ô artwork url returns null when both empty                             0.08s  
+  Γ£ô avatar url returns ui avatars fallback                               0.06s  
+  Γ£ô media disk defaults to public                                        0.06s  
+
+   PASS  Tests\Feature\Api\ImageUpload\UserProfileImageUploadTest
+  Γ£ô profile avatar upload succeeds                                       0.11s  
+  Γ£ô profile avatar deletes old file                                      0.09s  
+  Γ£ô profile avatar validates max size                                    0.09s  
+  Γ£ô profile avatar validates image type                                  0.07s  
+  Γ£ô cover image upload updates banner column                             0.10s  
+  Γ£ô profile update with avatar and name                                  0.09s  
+  Γ£ô profile update without images preserves existing                     0.11s  
+  Γ£ô profile update requires authentication                               0.09s  
+
+   PASS  Tests\Feature\Api\Loyalty\LoyaltyAdminApiTest
+  Γ£ô admin can list all cards                                             0.19s  
+  Γ£ô admin can view card detail                                           0.12s  
+  Γ£ô admin can approve card                                               0.12s  
+  Γ£ô admin can suspend card                                               0.12s  
+  Γ£ô admin can view analytics                                             0.13s  
+
+   PASS  Tests\Feature\Api\Loyalty\LoyaltyCardApiTest
+  Γ£ô public can list loyalty cards                                        0.15s  
+  Γ£ô public can view loyalty card by slug                                 0.10s  
+  Γ£ô public cannot view draft card                                        0.15s  
+  Γ£ô fan can join loyalty card                                            0.15s  
+  Γ£ô fan cannot join same card twice                                      0.12s  
+  Γ£ô fan can view available rewards                                       0.14s  
+  Γ£ô fan can redeem reward                                                0.15s  
+  Γ£ô unauthenticated cannot join                                          0.12s  
+  Γ£ô artist can list own cards                                            0.13s  
+  Γ£ô artist can create loyalty card                                       0.10s  
+  Γ£ô artist can update loyalty card                                       0.12s  
+  Γ£ô artist can publish card                                              0.11s  
+  Γ£ô artist can view members                                              0.13s  
+  Γ£ô artist can view analytics                                            0.12s  
+  Γ£ô artist can delete draft card                                         0.10s  
+  Γ£ô artist can create reward                                             0.09s  
+  Γ£ô artist can list rewards                                              0.09s  
+
+   PASS  Tests\Feature\Api\Loyalty\MembershipApiTest
+  Γ£ô fan can list memberships                                             0.13s  
+  Γ£ô fan can view membership detail                                       0.10s  
+  Γ£ô fan cannot view other users membership                               0.13s  
+  Γ£ô fan can toggle auto renew                                            0.10s  
+  Γ£ô fan can cancel membership                                            0.10s  
+  Γ£ô fan can renew membership                                             0.10s  
+  Γ£ô fan can view points balance                                          0.09s  
+  Γ£ô fan can view transaction history                                     0.09s  
+  Γ£ô fan can convert points to credits                                    0.10s  
+  Γ£ô fan cannot convert more points than balance                          0.11s  
+  Γ£ô unauthenticated cannot access points                                 0.11s  
+
+   PASS  Tests\Feature\Api\Payment\CreditsTest
+  Γ£ô credits dashboard requires auth                                      0.05s  
+  Γ£ô credits transactions requires auth                                   0.07s  
+  Γ£ô daily bonus requires auth                                            0.06s  
+  Γ£ô transfer requires auth                                               0.06s  
+  Γ£ô authenticated user can access credit dashboard                       0.09s  
+  Γ£ô authenticated user can view transactions                             0.08s  
+  Γ£ô transfer validates recipient required                                0.07s  
+  Γ£ô transfer prevents self transfer                                      0.09s  
+  Γ£ô transfer validates minimum amount                                    0.08s  
+  Γ£ô transfer validates maximum amount                                    0.09s  
+  Γ£ô transfer validates recipient exists                                  0.09s  
+
+   PASS  Tests\Feature\Api\Payment\PaymentProcessingTest
+  Γ£ô authenticated user can initiate subscription payment                 0.08s  
+  Γ£ô subscription requires authentication                                 0.05s  
+  Γ£ô subscription validates plan exists                                   0.09s  
+  Γ£ô subscription validates payment method                                0.08s  
+  Γ£ô subscription requires phone for mobile money                         0.08s  
+  Γ£ô subscription does not require phone for credits                      0.08s  
+  Γ£ô payment owner can request refund                                     0.09s  
+  Γ£ô non owner cannot refund someone elses payment                        0.09s  
+  Γ£ô refund requires authentication                                       0.06s  
+
+Fatal error: Allowed memory size of 134217728 bytes exhausted (tried to allocate 131072 bytes) in C:\Users\egony\Project\tesotunes-api\routes\api.php on line 529
+
+  [41;1m Pest\Exceptions\FatalException [49;22m
+
+[39;1m  Allowed memory size of 134217728 bytes exhausted (tried to allocate 131072 bytes)[39;22m
+
+  at [32mroutes\api.php[39m:[32m529[39m
+
+Fatal error: Allowed memory size of 134217728 bytes exhausted (tried to allocate 69632 bytes) in C:\Users\egony\Project\tesotunes-api\vendor\nunomaduro\collision\src\Highlighter.php on line 135
+PHP Fatal error:  Allowed memory size of 134217728 bytes exhausted (tried to allocate 131072 bytes) in C:\Users\egony\Project\tesotunes-api\routes\api.php on line 529
+PHP Fatal error:  Allowed memory size of 134217728 bytes exhausted (tried to allocate 69632 bytes) in C:\Users\egony\Project\tesotunes-api\vendor\nunomaduro\collision\src\Highlighter.php on line 135
