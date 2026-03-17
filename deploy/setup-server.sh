@@ -265,6 +265,10 @@ systemctl start tesotunes-queue.service
 
 echo "✓ Queue worker running"
 
+echo ""
+echo "▸ Finalizing Laravel cache state..."
+php artisan optimize:clear
+
 # ── Done ─────────────────────────────────────────────────────────────────────
 echo ""
 echo "╔══════════════════════════════════════════════════╗"

@@ -59,6 +59,9 @@ bash "$SITE_DIR/scripts/security-smoke-test.sh" "https://api.tesotunes.com/api" 
     echo "Check the output above and fix immediately."
 }
 
+echo "▸ Clearing Laravel optimization caches..."
+php artisan optimize:clear
+
 echo ""
 echo "✓ Redeployed! Check:"
 echo "  https://api.tesotunes.com"

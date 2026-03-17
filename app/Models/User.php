@@ -30,6 +30,8 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     protected static $pendingCreditBalances = [];
 
+    protected static ?bool $hasArtistProfilesTable = null;
+
     /**
      * The attributes that are mass assignable.
      *
@@ -2030,6 +2032,10 @@ class User extends Authenticatable implements MustVerifyEmail
 
         $verificationDocuments = $attributes['verification_documents'] ?? [];
 
+        if (! static::hasArtistProfilesTable()) {
+            return;
+        }
+
         $this->artistProfile()->updateOrCreate(
             ['user_id' => $this->id],
             [
@@ -2077,6 +2083,10 @@ class User extends Authenticatable implements MustVerifyEmail
             ])->save();
         }
 
+        if (! static::hasArtistProfilesTable()) {
+            return;
+        }
+
         $this->artistProfile()->updateOrCreate(
             ['user_id' => $this->id],
             [
@@ -2100,6 +2110,15 @@ class User extends Authenticatable implements MustVerifyEmail
                 'is_active' => $attributes['artist_profile_active'] ?? true,
             ]
         );
+    }
+
+    public static function hasArtistProfilesTable(): bool
+    {
+        if (static::$hasArtistProfilesTable === null) {
+            static::$hasArtistProfilesTable = Schema::hasTable('artist_profiles');
+        }
+
+        return static::$hasArtistProfilesTable;
     }
 
     protected function profileValue(string $key, mixed $fallback = null): mixed

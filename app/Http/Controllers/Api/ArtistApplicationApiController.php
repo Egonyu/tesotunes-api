@@ -8,6 +8,7 @@ use App\Models\KYCDocument;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -23,7 +24,7 @@ class ArtistApplicationApiController extends Controller
      */
     public function status()
     {
-        $user = Auth::user()->load(['artist', 'artistProfile']);
+        $user = Auth::user()->load(['artist']);
 
         if ($user->artist && in_array($user->artist->status, ['active', 'verified'], true)) {
             return response()->json([
@@ -112,7 +113,7 @@ class ArtistApplicationApiController extends Controller
                 'secondary_genres.*' => 'exists:genres,id',
                 'full_name' => 'required|string|max:255',
                 'phone' => 'required|string|max:20',
-                'payout_method' => 'required|in:mtn_momo,airtel_money,bank',
+                'payout_method' => 'required|in:mtn_momo,airtel_money,bank,zengapay',
                 'mobile_money_number' => 'required_if:payout_method,mtn_momo,airtel_money',
                 'mobile_money_provider' => 'required_if:payout_method,mtn_momo,airtel_money|in:mtn,airtel',
                 'bank_name' => 'required_if:payout_method,bank',
@@ -196,7 +197,7 @@ class ArtistApplicationApiController extends Controller
                 'city' => $validated['city'] ?? null,
                 'website_url' => $validated['website_url'] ?? null,
                 'social_links' => $validated['social_links'] ?? [],
-                'mobile_money_number' => $validated['mobile_money_number'] ?? null,
+                'mobile_money_number' => $validated['mobile_money_number'] ?? $validated['phone'],
                 'mobile_money_provider' => $validated['mobile_money_provider'] ?? null,
                 'bank_name' => $validated['bank_name'] ?? null,
                 'bank_account' => $validated['bank_account'] ?? null,
@@ -209,7 +210,9 @@ class ArtistApplicationApiController extends Controller
                 'rejection_reason' => null,
             ]);
 
-            $user->artistProfile()->update(['artist_id' => $artist->id]);
+            if (Schema::hasTable('artist_profiles')) {
+                $user->artistProfile()->update(['artist_id' => $artist->id]);
+            }
 
             DB::commit();
 

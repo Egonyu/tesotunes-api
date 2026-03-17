@@ -206,6 +206,39 @@ class ArtistApplicationApiTest extends TestCase
         ]);
     }
 
+    public function test_submitting_application_with_zengapay_defaults_mobile_number_from_phone(): void
+    {
+        Storage::fake('private');
+
+        $user = User::factory()->create([
+            'application_status' => null,
+        ]);
+        $genre = $this->createGenre('zengapay-genre');
+
+        $phone = '+256700000777';
+
+        $response = $this->actingAs($user, 'sanctum')
+            ->post('/api/artist/apply', [
+                'stage_name' => 'Zenga Artist',
+                'bio' => str_repeat('Zenga artist bio ', 6),
+                'primary_genre' => $genre->id,
+                'full_name' => 'Zenga Artist',
+                'phone' => $phone,
+                'payout_method' => 'zengapay',
+                'terms_accepted' => true,
+                'artist_agreement_accepted' => true,
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'mobile_money_number' => $phone,
+            'application_status' => 'pending',
+        ]);
+    }
+
     protected function createGenre(string $slug): Genre
     {
         return Genre::create([
