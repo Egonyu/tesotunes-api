@@ -1,0 +1,21 @@
+<svg width="1200" height="1200" viewBox="0 0 1200 1200" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="1200" height="1200" fill="#F8FAFC"/>
+<rect x="72" y="72" width="1056" height="1056" rx="64" fill="url(#bg)"/>
+<rect x="212" y="160" width="776" height="880" rx="42" fill="#FFFFFF"/>
+<rect x="212" y="160" width="776" height="148" rx="42" fill="#1D4ED8"/>
+<circle cx="324" cy="234" r="26" fill="#DBEAFE"/>
+<circle cx="876" cy="234" r="26" fill="#DBEAFE"/>
+<text x="276" y="434" fill="#0F172A" font-family="Arial, sans-serif" font-size="74" font-weight="700">Festival Planner</text>
+<text x="276" y="500" fill="#475569" font-family="Arial, sans-serif" font-size="34">Trips, merch budgets, and must-see sets in one printable sheet.</text>
+<rect x="276" y="590" width="648" height="72" rx="18" fill="#EFF6FF"/>
+<rect x="276" y="698" width="648" height="72" rx="18" fill="#EFF6FF"/>
+<rect x="276" y="806" width="420" height="72" rx="18" fill="#EFF6FF"/>
+<rect x="744" y="806" width="180" height="72" rx="18" fill="#DBEAFE"/>
+<text x="276" y="998" fill="#1E3A8A" font-family="Arial, sans-serif" font-size="36" font-weight="700">A4 and mobile-friendly PDF layout</text>
+<defs>
+<linearGradient id="bg" x1="72" y1="72" x2="1128" y2="1128" gradientUnits="userSpaceOnUse">
+<stop stop-color="#DBEAFE"/>
+<stop offset="1" stop-color="#E2E8F0"/>
+</linearGradient>
+</defs>
+</svg>

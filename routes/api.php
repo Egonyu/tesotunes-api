@@ -49,6 +49,9 @@ require __DIR__.'/api/loyalty.php';
 // Ojokotau / Crowdfunding Campaign API Routes (public browsing + authenticated actions)
 require __DIR__.'/api/campaigns.php';
 
+// Homepage featured content
+Route::get('/featured', [\App\Http\Controllers\Api\FeaturedContentController::class, 'index'])->name('api.featured');
+
 // Public Events API Routes (no auth required)
 Route::prefix('events')->name('api.events.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Api\PublicEventsController::class, 'index'])->name('index');
@@ -258,6 +261,15 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::get('/analytics', [\App\Http\Controllers\Api\Admin\StoreApiController::class, 'analytics'])->name('analytics');
 });
 
+Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin/featured')->name('admin.featured.api.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Api\Admin\FeaturedContentController::class, 'index'])->name('index');
+    Route::post('/', [\App\Http\Controllers\Api\Admin\FeaturedContentController::class, 'store'])->name('store');
+    Route::post('/reorder', [\App\Http\Controllers\Api\Admin\FeaturedContentController::class, 'reorder'])->name('reorder');
+    Route::post('/{id}/toggle', [\App\Http\Controllers\Api\Admin\FeaturedContentController::class, 'toggle'])->name('toggle');
+    Route::put('/{id}', [\App\Http\Controllers\Api\Admin\FeaturedContentController::class, 'update'])->name('update');
+    Route::delete('/{id}', [\App\Http\Controllers\Api\Admin\FeaturedContentController::class, 'destroy'])->name('destroy');
+});
+
 // Cross-Module Notification API Routes
 Route::middleware('auth:sanctum')->prefix('notifications')->name('api.notifications.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Api\NotificationController::class, 'index'])->name('index');
@@ -451,6 +463,16 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::post('/songs/{id}/toggle-status', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'toggleStatus'])->name('songs.toggle-status');
     Route::post('/songs/{id}/toggle-featured', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'toggleFeatured'])->name('songs.toggle-featured');
     Route::get('/songs/{id}/play-history', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'playHistory'])->name('songs.play-history');
+
+    // Albums API
+    Route::get('/albums/statistics', [\App\Http\Controllers\Api\Admin\AdminAlbumsController::class, 'statistics'])->name('albums.statistics');
+    Route::get('/albums', [\App\Http\Controllers\Api\Admin\AdminAlbumsController::class, 'index'])->name('albums.index');
+    Route::post('/albums', [\App\Http\Controllers\Api\Admin\AdminAlbumsController::class, 'store'])->name('albums.store');
+    Route::get('/albums/{id}', [\App\Http\Controllers\Api\Admin\AdminAlbumsController::class, 'show'])->name('albums.show');
+    Route::put('/albums/{id}', [\App\Http\Controllers\Api\Admin\AdminAlbumsController::class, 'update'])->name('albums.update');
+    Route::post('/albums/{id}', [\App\Http\Controllers\Api\Admin\AdminAlbumsController::class, 'update'])->name('albums.update.post');
+    Route::delete('/albums/{id}', [\App\Http\Controllers\Api\Admin\AdminAlbumsController::class, 'destroy'])->name('albums.destroy');
+    Route::post('/albums/{id}/toggle-status', [\App\Http\Controllers\Api\Admin\AdminAlbumsController::class, 'toggleStatus'])->name('albums.toggle-status');
 
     // Awards API — full CRUD
     Route::get('/awards/stats', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'stats'])->name('awards.stats');
@@ -776,8 +798,11 @@ Route::prefix('feed')->name('api.feed.')->group(function () {
 // USER CREDITS ROUTES
 // ============================================================================
 Route::prefix('credits')->middleware('auth:sanctum')->name('api.credits.')->group(function () {
+    Route::get('/balance', [\App\Http\Controllers\Api\User\CreditController::class, 'balance'])->name('balance');
     Route::get('/dashboard', [\App\Http\Controllers\Api\User\CreditController::class, 'dashboard'])->name('dashboard');
     Route::get('/transactions', [\App\Http\Controllers\Api\User\CreditController::class, 'transactions'])->name('transactions');
+    Route::post('/purchase', [\App\Http\Controllers\Api\User\CreditController::class, 'purchase'])->name('purchase');
+    Route::post('/exchange', [\App\Http\Controllers\Api\User\CreditController::class, 'exchange'])->name('exchange');
     Route::post('/claim-daily-bonus', [\App\Http\Controllers\Api\User\CreditController::class, 'claimDailyBonus'])->name('claim-daily-bonus');
     Route::post('/transfer', [\App\Http\Controllers\Api\User\CreditController::class, 'transfer'])->name('transfer');
     Route::get('/promotions', [\App\Http\Controllers\Api\User\CreditController::class, 'promotions'])->name('promotions');

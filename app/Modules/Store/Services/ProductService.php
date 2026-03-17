@@ -44,31 +44,36 @@ class ProductService
         $this->validateProductCreation($store);
 
         return DB::transaction(function () use ($store, $data) {
+            $slugSeed = $data['slug'] ?? $data['name'];
             $product = Product::create([
                 'uuid' => Str::uuid(),
                 'store_id' => $store->id,
                 'category_id' => $data['category_id'] ?? null,
                 'name' => $data['name'],
-                'slug' => $this->generateUniqueSlug($data['name'], $store->id),
+                'slug' => $this->generateUniqueSlug($slugSeed, $store->id),
                 'description' => $data['description'] ?? null,
                 'short_description' => $data['short_description'] ?? null,
                 'product_type' => $data['product_type'],
+                'type' => $data['product_type'],
                 'price_ugx' => $data['price_ugx'],
-                'price_credits' => $data['price_credits'] ?? null,
-                'allow_credit_payment' => $data['allow_credit_payment'] ?? true,
-                'allow_hybrid_payment' => $data['allow_hybrid_payment'] ?? true,
-                'compare_at_price_ugx' => $data['compare_at_price_ugx'] ?? null,
+                'price' => $data['price_ugx'],
+                'price_credits' => $data['price_credits'] ?? 0,
+                'allow_credit_payment' => $data['allow_credit_payment'] ?? array_key_exists('price_credits', $data),
+                'allow_hybrid_payment' => $data['allow_hybrid_payment'] ?? false,
                 'sku' => $data['sku'] ?? 'SKU-'.strtoupper(Str::random(8)),
                 'inventory_quantity' => $data['inventory_quantity'] ?? 0,
+                'stock_quantity' => $data['inventory_quantity'] ?? 0,
                 'track_inventory' => $data['track_inventory'] ?? true,
-                'requires_shipping' => $data['requires_shipping'] ?? true,
-                'weight' => $data['weight'] ?? null,
-                'dimensions' => $data['dimensions'] ?? null,
+                'allow_backorder' => $data['allow_backorder'] ?? false,
+                'low_stock_threshold' => $data['low_stock_threshold'] ?? 5,
                 'is_digital' => $data['is_digital'] ?? false,
-                'download_limit' => $data['download_limit'] ?? null,
                 'status' => Product::STATUS_DRAFT,
+                'is_active' => false,
                 'metadata' => $data['metadata'] ?? [],
+                'is_featured' => $data['is_featured'] ?? false,
             ]);
+
+            $this->syncLegacyColumns($product);
 
             // Handle images
             if (isset($data['images'])) {
@@ -90,26 +95,58 @@ class ProductService
     public function update(Product $product, array $data): Product
     {
         return DB::transaction(function () use ($product, $data) {
-            $updateData = array_filter([
-                'name' => $data['name'] ?? null,
-                'description' => $data['description'] ?? null,
-                'short_description' => $data['short_description'] ?? null,
-                'category_id' => $data['category_id'] ?? null,
-                'price_ugx' => $data['price_ugx'] ?? null,
-                'price_credits' => $data['price_credits'] ?? null,
-                'compare_at_price_ugx' => $data['compare_at_price_ugx'] ?? null,
-                'inventory_quantity' => $data['inventory_quantity'] ?? null,
-                'weight' => $data['weight'] ?? null,
-                'dimensions' => $data['dimensions'] ?? null,
-                'is_featured' => $data['is_featured'] ?? null,
-            ], fn ($value) => $value !== null);
+            $updateData = [];
+            $fillableFields = [
+                'name',
+                'description',
+                'short_description',
+                'category_id',
+                'product_type',
+                'price_ugx',
+                'price_credits',
+                'allow_credit_payment',
+                'allow_hybrid_payment',
+                'sku',
+                'inventory_quantity',
+                'track_inventory',
+                'allow_backorder',
+                'low_stock_threshold',
+                'is_digital',
+                'is_featured',
+                'status',
+            ];
+
+            foreach ($fillableFields as $field) {
+                if (array_key_exists($field, $data)) {
+                    $updateData[$field] = $data[$field];
+                }
+            }
+
+            if (array_key_exists('inventory_quantity', $updateData)) {
+                $updateData['stock_quantity'] = $updateData['inventory_quantity'];
+            }
+
+            if (array_key_exists('product_type', $updateData)) {
+                $updateData['type'] = $updateData['product_type'];
+            }
+
+            if (array_key_exists('price_ugx', $updateData)) {
+                $updateData['price'] = $updateData['price_ugx'];
+            }
+
+            if (array_key_exists('metadata', $data)) {
+                $updateData['metadata'] = array_replace_recursive($product->metadata ?? [], $data['metadata'] ?? []);
+            }
 
             if (isset($data['name']) && $data['name'] !== $product->name) {
                 $updateData['slug'] = $this->generateUniqueSlug($data['name'], $product->store_id, $product->id);
+            } elseif (isset($data['slug'])) {
+                $updateData['slug'] = $this->generateUniqueSlug($data['slug'], $product->store_id, $product->id);
             }
 
             if (! empty($updateData)) {
                 $product->update($updateData);
+                $this->syncLegacyColumns($product->fresh());
             }
 
             // Handle images
@@ -131,7 +168,17 @@ class ProductService
      */
     public function activate(Product $product): bool
     {
-        return $product->activate();
+        $result = $product->activate();
+
+        if ($result) {
+            $product->update([
+                'is_active' => true,
+                'published_at' => $product->published_at ?? now(),
+            ]);
+            $this->syncLegacyColumns($product->fresh());
+        }
+
+        return $result;
     }
 
     /**
@@ -139,7 +186,16 @@ class ProductService
      */
     public function archive(Product $product): bool
     {
-        return $product->update(['status' => Product::STATUS_ARCHIVED]);
+        $result = $product->update([
+            'status' => Product::STATUS_ARCHIVED,
+            'is_active' => false,
+        ]);
+
+        if ($result) {
+            $this->syncLegacyColumns($product->fresh());
+        }
+
+        return $result;
     }
 
     /**
@@ -243,6 +299,10 @@ class ProductService
      */
     protected function validateProductCreation(Store $store): void
     {
+        if (! in_array($store->status, [Store::STATUS_DRAFT, Store::STATUS_PENDING, Store::STATUS_ACTIVE], true)) {
+            throw new \Exception('Only draft, pending, or active stores can add products.');
+        }
+
         if (! $store->canAddProducts()) {
             throw new \Exception('Product limit reached. Upgrade your subscription to add more products.');
         }
@@ -265,5 +325,17 @@ class ProductService
         }
 
         return $slug;
+    }
+
+    protected function syncLegacyColumns(Product $product): void
+    {
+        DB::table('store_products')
+            ->where('id', $product->id)
+            ->update([
+                'price' => $product->price_ugx ?? 0,
+                'type' => $product->product_type,
+                'stock_quantity' => $product->inventory_quantity ?? 0,
+                'is_active' => $product->status === Product::STATUS_ACTIVE,
+            ]);
     }
 }

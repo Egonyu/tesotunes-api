@@ -93,7 +93,7 @@ class SaccoReportsController extends Controller
         $totalShareholders = SaccoShare::where('total_shares', '>', 0)->count();
         $totalSharesIssued = SaccoShare::sum('total_shares');
         $totalShareValue = SaccoShare::sum('total_value_ugx');
-        $pricePerShare = config('sacco.share_price', 50000);
+        $pricePerShare = (int) config('sacco.share_capital.share_value', 10000);
 
         return response()->json([
             'data' => [

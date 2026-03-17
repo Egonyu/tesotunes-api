@@ -1,0 +1,21 @@
+<svg width="1200" height="1200" viewBox="0 0 1200 1200" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="1200" height="1200" fill="#111827"/>
+<rect x="72" y="72" width="1056" height="1056" rx="64" fill="url(#bg)"/>
+<rect x="170" y="180" width="860" height="840" rx="54" fill="#0B1220"/>
+<path d="M430 314H770V895H430V314Z" fill="#0F172A"/>
+<path d="M490 314L553 230H647L710 314" stroke="#F9FAFB" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M520 431H680" stroke="#F59E0B" stroke-width="20" stroke-linecap="round"/>
+<path d="M520 506H680" stroke="#F59E0B" stroke-width="20" stroke-linecap="round"/>
+<path d="M520 581H680" stroke="#F59E0B" stroke-width="20" stroke-linecap="round"/>
+<circle cx="600" cy="730" r="84" fill="#1E293B" stroke="#FCD34D" stroke-width="14"/>
+<text x="600" y="742" text-anchor="middle" fill="#F9FAFB" font-family="Arial, sans-serif" font-size="34" font-weight="700">TESO</text>
+<rect x="170" y="180" width="260" height="86" rx="30" fill="#F59E0B"/>
+<text x="300" y="234" text-anchor="middle" fill="#111827" font-family="Arial, sans-serif" font-size="34" font-weight="700">Detail View</text>
+<text x="170" y="1070" fill="#F9FAFB" font-family="Arial, sans-serif" font-size="58" font-weight="700">Premium fleece interior and satin drawcord finish.</text>
+<defs>
+<linearGradient id="bg" x1="72" y1="72" x2="1128" y2="1128" gradientUnits="userSpaceOnUse">
+<stop stop-color="#134E4A"/>
+<stop offset="1" stop-color="#111827"/>
+</linearGradient>
+</defs>
+</svg>

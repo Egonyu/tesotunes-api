@@ -1,0 +1,19 @@
+<svg width="1200" height="1200" viewBox="0 0 1200 1200" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="1200" height="1200" fill="#1F2937"/>
+<rect x="72" y="72" width="1056" height="1056" rx="64" fill="url(#bg)"/>
+<rect x="190" y="190" width="820" height="820" rx="54" fill="#0F172A"/>
+<rect x="286" y="262" width="628" height="476" rx="36" fill="#111827" stroke="#F9FAFB" stroke-width="12"/>
+<circle cx="600" cy="460" r="126" fill="#FB7185"/>
+<circle cx="600" cy="436" r="66" fill="#F9FAFB"/>
+<path d="M486 618C523 560 677 560 714 618V680H486V618Z" fill="#F9FAFB"/>
+<rect x="354" y="786" width="492" height="90" rx="45" fill="#F59E0B"/>
+<text x="600" y="844" text-anchor="middle" fill="#111827" font-family="Arial, sans-serif" font-size="38" font-weight="700">Personal shoutout slot</text>
+<text x="158" y="995" fill="#F9FAFB" font-family="Arial, sans-serif" font-size="74" font-weight="700">Backstage Video Shoutout</text>
+<text x="158" y="1060" fill="#E5E7EB" font-family="Arial, sans-serif" font-size="32">A custom thank-you clip recorded from the artist lounge before showtime.</text>
+<defs>
+<linearGradient id="bg" x1="72" y1="72" x2="1128" y2="1128" gradientUnits="userSpaceOnUse">
+<stop stop-color="#7C2D12"/>
+<stop offset="1" stop-color="#111827"/>
+</linearGradient>
+</defs>
+</svg>

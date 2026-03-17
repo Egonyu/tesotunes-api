@@ -600,6 +600,24 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(CreditTransaction::class);
     }
 
+    public function ensureCreditWallet(): UserCredit
+    {
+        return $this->creditWallet()->firstOrCreate(
+            ['user_id' => $this->id],
+            ['balance' => 0, 'currency' => 'credits']
+        );
+    }
+
+    public function addCredits(float $amount, string $source = 'system', string $description = 'Credits added', array $metadata = []): CreditTransaction
+    {
+        return $this->ensureCreditWallet()->addCredits($amount, $source, $description, $metadata);
+    }
+
+    public function spendCredits(float $amount, string $source = 'system', string $description = 'Credits spent', array $metadata = []): ?CreditTransaction
+    {
+        return $this->ensureCreditWallet()->spendCredits($amount, $source, $description, $metadata);
+    }
+
     public function creditActivities(): HasMany
     {
         return $this->hasMany(UserActivityCredit::class);
@@ -657,9 +675,14 @@ class User extends Authenticatable implements MustVerifyEmail
         );
     }
 
+    public function stores(): HasMany
+    {
+        return $this->hasMany(\App\Modules\Store\Models\Store::class, 'user_id');
+    }
+
     public function store(): HasOne
     {
-        return $this->hasOne(\App\Modules\Store\Models\Store::class, 'user_id');
+        return $this->hasOne(\App\Modules\Store\Models\Store::class, 'user_id')->latestOfMany();
     }
 
     public function cart(): HasOne

@@ -35,6 +35,10 @@ class PlaylistController extends Controller
             $query->where('is_collaborative', $request->boolean('collaborative'));
         }
 
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%'.escape_like($request->search).'%');
+        }
+
         // Sorting
         $sortBy = $request->get('sort_by', 'created_at');
         $sortOrder = $request->get('sort_order', 'desc');

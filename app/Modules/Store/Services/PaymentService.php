@@ -27,7 +27,7 @@ class PaymentService
             $paymentBreakdown = $this->calculateHybridPayment(
                 $order->total_ugx,
                 $order->total_credits,
-                $buyer->credits_balance ?? 0,
+                $buyer->credit_balance ?? $buyer->credits,
                 $paymentData['use_credits'] ?? false
             );
 
@@ -102,11 +102,16 @@ class PaymentService
      */
     public function deductCredits(User $user, int $credits): bool
     {
-        if (! isset($user->credits_balance) || $user->credits_balance < $credits) {
+        if (($user->credit_balance ?? $user->credits) < $credits) {
             throw new \Exception('Insufficient credits');
         }
 
-        return $user->decrement('credits_balance', $credits);
+        return (bool) $user->spendCredits(
+            $credits,
+            'store_payment',
+            'Store hybrid payment credits deduction',
+            ['credits_used' => $credits]
+        );
     }
 
     /**

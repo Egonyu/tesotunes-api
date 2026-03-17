@@ -2,8 +2,8 @@
 
 namespace App\Modules\Store\Http\Requests;
 
-use App\Modules\Store\Models\Store;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class CreateStoreRequest extends FormRequest
 {
@@ -12,27 +12,7 @@ class CreateStoreRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        // Check if user can create stores
-        if (! config('store.enabled', false)) {
-            return false;
-        }
-
-        // Check if user already has a store
-        if ($this->user()->store()->exists()) {
-            return false;
-        }
-
-        // Check if email is verified
-        if (! $this->user()->email_verified_at) {
-            return false;
-        }
-
-        // Check if user is artist or if user stores are allowed
-        if (! $this->user()->hasRole('artist') && ! config('store.stores.allow_user_stores', false)) {
-            return false;
-        }
-
-        return true;
+        return (bool) $this->user()?->canCreateStore();
     }
 
     /**
@@ -47,10 +27,45 @@ class CreateStoreRequest extends FormRequest
                 'max:255',
                 'min:3',
             ],
+            'slug' => [
+                'nullable',
+                'string',
+                'max:255',
+                Rule::unique('stores', 'slug'),
+            ],
+            'owner_mode' => [
+                'nullable',
+                Rule::in(['user', 'artist']),
+            ],
             'description' => [
                 'nullable',
                 'string',
                 'max:1000',
+            ],
+            'phone' => [
+                'nullable',
+                'string',
+                'max:50',
+            ],
+            'email' => [
+                'nullable',
+                'email',
+                'max:255',
+            ],
+            'address' => [
+                'nullable',
+                'string',
+                'max:1000',
+            ],
+            'city' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'country' => [
+                'nullable',
+                'string',
+                'max:255',
             ],
             'logo' => [
                 'nullable',
@@ -91,6 +106,19 @@ class CreateStoreRequest extends FormRequest
                 'integer',
                 'min:0',
                 'max:90',
+            ],
+            'offers_local_pickup' => [
+                'nullable',
+                'boolean',
+            ],
+            'pickup_address' => [
+                'nullable',
+                'string',
+                'max:1000',
+            ],
+            'metadata' => [
+                'nullable',
+                'array',
             ],
         ];
     }

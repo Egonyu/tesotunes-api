@@ -310,7 +310,16 @@ class EventTicketingService
         }
 
         if ($paymentMethod === 'credits') {
-            $user->decrement('credits', $totalCredits);
+            $transaction = $user->spendCredits(
+                $totalCredits,
+                'event_ticket_purchase',
+                'Purchased event tickets with credits',
+                ['total_credits' => $totalCredits]
+            );
+
+            if (! $transaction) {
+                $this->failPurchase('Insufficient credits');
+            }
         }
     }
 

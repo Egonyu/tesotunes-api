@@ -26,7 +26,7 @@ class StorePolicy
         }
 
         // Owners and admins can view
-        if ($user->id === $store->user_id) {
+        if ($store->canBeManagedBy($user)) {
             return true;
         }
 
@@ -45,11 +45,6 @@ class StorePolicy
     {
         // Check if module is enabled
         if (! config('store.enabled', false)) {
-            return false;
-        }
-
-        // Check if user already has a store
-        if ($user->store()->exists()) {
             return false;
         }
 
@@ -77,7 +72,7 @@ class StorePolicy
     public function update(User $user, Store $store): bool
     {
         // Owner can update
-        if ($user->id === $store->user_id) {
+        if ($store->canBeManagedBy($user)) {
             return true;
         }
 
@@ -91,7 +86,7 @@ class StorePolicy
     public function delete(User $user, Store $store): bool
     {
         // Only owner can delete (not admins)
-        return $user->id === $store->user_id;
+        return $store->canBeManagedBy($user);
     }
 
     /**
@@ -99,7 +94,7 @@ class StorePolicy
      */
     public function restore(User $user, Store $store): bool
     {
-        return $user->id === $store->user_id ||
+        return $store->canBeManagedBy($user) ||
                $user->hasAnyRole(['admin', 'super_admin']);
     }
 
@@ -125,7 +120,7 @@ class StorePolicy
     public function activate(User $user, Store $store): bool
     {
         // Owner can activate their own store
-        if ($user->id === $store->user_id) {
+        if ($store->canBeManagedBy($user)) {
             return true;
         }
 
@@ -138,7 +133,7 @@ class StorePolicy
      */
     public function manageSubscription(User $user, Store $store): bool
     {
-        return $user->id === $store->user_id;
+        return $store->canBeManagedBy($user);
     }
 
     /**
@@ -146,7 +141,7 @@ class StorePolicy
      */
     public function viewStatistics(User $user, Store $store): bool
     {
-        return $user->id === $store->user_id ||
+        return $store->canBeManagedBy($user) ||
                $user->hasAnyRole(['admin', 'super_admin']);
     }
 
@@ -156,7 +151,7 @@ class StorePolicy
     public function manageOrders(User $user, Store $store): bool
     {
         // Owner can manage orders
-        if ($user->id === $store->user_id) {
+        if ($store->canBeManagedBy($user)) {
             return true;
         }
 

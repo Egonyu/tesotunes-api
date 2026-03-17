@@ -190,7 +190,9 @@ class CreditService
      */
     public function getUserWallet(User $user): UserCredit
     {
-        return $user->creditWallet ?: $user->creditWallet()->create([]);
+        return $user->creditWallet ?: $user->creditWallet()->create([
+            'currency' => 'credits',
+        ]);
     }
 
     /**
@@ -244,17 +246,18 @@ class CreditService
     public function getUserCreditSummary(User $user): array
     {
         $wallet = $this->getUserWallet($user);
+        $totalEarned = $wallet->earned_credits;
 
         return [
             'available_credits' => $wallet->available_credits,
-            'total_earned' => $wallet->earned_credits,
+            'total_earned' => $totalEarned,
             'total_spent' => $wallet->spent_credits,
             'earned_today' => $wallet->credits_earned_today,
             'spent_today' => $wallet->credits_spent_today,
             'earning_potential_remaining' => $this->getRemainingEarningPotential($user),
             'recent_transactions' => $this->getRecentTransactions($user, 5),
             'login_streak' => $this->getLoginStreak($user),
-            'next_milestone' => $this->getNextMilestone($wallet->total_lifetime_credits ?? 0),
+            'next_milestone' => $this->getNextMilestone($totalEarned),
         ];
     }
 
@@ -327,9 +330,9 @@ class CreditService
     private function getTodayEarnings(User $user, string $source): float
     {
         return CreditTransaction::where('user_id', $user->id)
-            ->where('following_type', 'earned')
+            ->whereIn('type', [CreditTransaction::TYPE_EARN, CreditTransaction::TYPE_EARNED, CreditTransaction::TYPE_BONUS])
             ->where('source', $source)
-            ->whereDate('processed_at', today())
+            ->whereDate('created_at', today())
             ->sum('amount');
     }
 
@@ -377,7 +380,7 @@ class CreditService
     private function getRecentTransactions(User $user, int $limit = 10): array
     {
         return CreditTransaction::where('user_id', $user->id)
-            ->latest('processed_at')
+            ->latest()
             ->limit($limit)
             ->get()
             ->map(function ($transaction) {
@@ -386,7 +389,7 @@ class CreditService
                     'amount' => $transaction->formatted_amount,
                     'description' => $transaction->description,
                     'source' => $transaction->source_description,
-                    'date' => $transaction->processed_at->diffForHumans(),
+                    'date' => optional($transaction->created_at)->diffForHumans(),
                     'icon' => $transaction->type_icon,
                 ];
             })

@@ -1,0 +1,18 @@
+<svg width="1200" height="1200" viewBox="0 0 1200 1200" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="1200" height="1200" fill="#0B1220"/>
+<rect x="72" y="72" width="1056" height="1056" rx="64" fill="url(#bg)"/>
+<path d="M401 360H799L858 911H342L401 360Z" fill="#F5F5F4" stroke="#111827" stroke-width="16" stroke-linejoin="round"/>
+<path d="M474 360C474 273 530 218 600 218C670 218 726 273 726 360" stroke="#D6D3D1" stroke-width="22" stroke-linecap="round"/>
+<circle cx="600" cy="587" r="116" fill="#14B8A6"/>
+<text x="600" y="566" text-anchor="middle" fill="#042F2E" font-family="Arial, sans-serif" font-size="30" font-weight="700">TESO</text>
+<text x="600" y="610" text-anchor="middle" fill="#F0FDFA" font-family="Arial, sans-serif" font-size="48" font-weight="700">COMMUNITY</text>
+<text x="600" y="656" text-anchor="middle" fill="#042F2E" font-family="Arial, sans-serif" font-size="28" font-weight="700">CARRY CULTURE</text>
+<text x="130" y="998" fill="#F9FAFB" font-family="Arial, sans-serif" font-size="74" font-weight="700">Teso Community Tote Bag</text>
+<text x="130" y="1060" fill="#E5E7EB" font-family="Arial, sans-serif" font-size="32">Durable everyday canvas bag for merch runs, records, and market days.</text>
+<defs>
+<linearGradient id="bg" x1="72" y1="72" x2="1128" y2="1128" gradientUnits="userSpaceOnUse">
+<stop stop-color="#164E63"/>
+<stop offset="1" stop-color="#111827"/>
+</linearGradient>
+</defs>
+</svg>

@@ -103,8 +103,16 @@ class OrderService
             // Handle credit payment if specified
             $isCreditPayment = in_array($data['payment_method'] ?? '', ['credits', 'credit']) || ($data['use_credits'] ?? false);
             if ($isCreditPayment && $order->total_credits > 0) {
-                // Deduct credits from user
-                $buyer->decrement('credits', $order->total_credits);
+                $transaction = $buyer->spendCredits(
+                    $order->total_credits,
+                    'store_order',
+                    "Store order {$order->order_number}",
+                    ['order_id' => $order->id]
+                );
+
+                if (! $transaction) {
+                    throw new \Exception('Insufficient credits');
+                }
 
                 // Mark order as paid since credits were used
                 $order->update([

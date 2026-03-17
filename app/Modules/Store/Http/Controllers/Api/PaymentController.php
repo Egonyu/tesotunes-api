@@ -46,6 +46,20 @@ class PaymentController extends Controller
                     'payment_provider' => 'zengapay',
                 ]);
 
+                // Mirror the platform wallet flow in local/test so checkout can complete end-to-end.
+                if (app()->environment('local', 'testing')) {
+                    $order->markAsPaid();
+
+                    return response()->json([
+                        'data' => [
+                            'payment_reference' => $paymentReference,
+                            'order_number' => $order->order_number,
+                            'payment_status' => $order->payment_status,
+                        ],
+                        'message' => 'DEV MODE: Payment auto-completed.',
+                    ]);
+                }
+
                 return response()->json([
                     'data' => [
                         'payment_reference' => $paymentReference,
@@ -61,7 +75,19 @@ class PaymentController extends Controller
                     ], 422);
                 }
 
-                $request->user()->decrement('credits', $order->total_credits);
+                $transaction = $request->user()->spendCredits(
+                    $order->total_credits,
+                    'store_payment',
+                    "Store payment for order {$order->order_number}",
+                    ['order_id' => $order->id]
+                );
+
+                if (! $transaction) {
+                    return response()->json([
+                        'message' => 'Insufficient credits.',
+                    ], 422);
+                }
+
                 $order->update([
                     'payment_status' => 'paid',
                     'payment_method' => 'credits',

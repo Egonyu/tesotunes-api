@@ -2,6 +2,7 @@
 
 namespace App\Modules\Store\Services;
 
+use App\Models\Artist;
 use App\Models\User;
 use App\Modules\Store\Models\Store;
 use Illuminate\Support\Facades\DB;
@@ -20,21 +21,37 @@ class StoreService
      */
     public function create(User $user, array $data): Store
     {
-        $this->validateStoreCreation($user);
+        $owner = $this->resolveOwner($user, $data['owner_mode'] ?? null);
+        $this->validateStoreCreation($user, $owner, $data);
 
-        return DB::transaction(function () use ($user, $data) {
+        return DB::transaction(function () use ($user, $data, $owner) {
+            $settings = array_replace_recursive(
+                Store::getDefaultSettings(),
+                $data['settings'] ?? []
+            );
+
             $store = Store::create([
                 'uuid' => Str::uuid(),
                 'user_id' => $user->id,
-                'owner_id' => $user->id,
-                'owner_type' => User::class,
+                'owner_id' => $owner->getKey(),
+                'owner_type' => $owner::class,
                 'name' => $data['name'],
                 'slug' => $data['slug'] ?? $this->generateUniqueSlug($data['name']),
                 'description' => $data['description'] ?? null,
-                'store_type' => $user->hasRole('artist') ? Store::TYPE_ARTIST : Store::TYPE_USER,
-                'status' => 'pending',
+                'phone' => $data['phone'] ?? $user->phone,
+                'email' => $data['email'] ?? $user->email,
+                'address' => $data['address'] ?? null,
+                'city' => $data['city'] ?? $user->city,
+                'country' => $data['country'] ?? $user->country,
+                'store_type' => $owner instanceof Artist ? Store::TYPE_ARTIST : Store::TYPE_USER,
+                'status' => config('store.stores.require_verification', true)
+                    ? Store::STATUS_PENDING
+                    : Store::STATUS_ACTIVE,
                 'subscription_tier' => Store::TIER_FREE,
-                'settings' => Store::getDefaultSettings(),
+                'settings' => $settings,
+                'metadata' => $data['metadata'] ?? null,
+                'offers_local_pickup' => (bool) ($data['offers_local_pickup'] ?? false),
+                'pickup_address' => $data['pickup_address'] ?? null,
             ]);
 
             // Handle media uploads
@@ -57,18 +74,42 @@ class StoreService
     {
         return DB::transaction(function () use ($store, $data) {
             $updateData = [];
+            $scalarFields = [
+                'description',
+                'phone',
+                'email',
+                'address',
+                'city',
+                'country',
+                'pickup_address',
+            ];
 
             if (isset($data['name'])) {
                 $updateData['name'] = $data['name'];
+            }
+
+            if (isset($data['slug'])) {
+                $updateData['slug'] = $this->generateUniqueSlug($data['slug'], $store->id, true);
+            } elseif (isset($data['name'])) {
                 $updateData['slug'] = $this->generateUniqueSlug($data['name'], $store->id);
             }
 
-            if (isset($data['description'])) {
-                $updateData['description'] = $data['description'];
+            foreach ($scalarFields as $field) {
+                if (array_key_exists($field, $data)) {
+                    $updateData[$field] = $data[$field];
+                }
             }
 
             if (isset($data['settings'])) {
-                $updateData['settings'] = array_merge($store->settings ?? [], $data['settings']);
+                $updateData['settings'] = array_replace_recursive($store->settings ?? [], $data['settings']);
+            }
+
+            if (array_key_exists('metadata', $data)) {
+                $updateData['metadata'] = array_replace_recursive($store->metadata ?? [], $data['metadata'] ?? []);
+            }
+
+            if (array_key_exists('offers_local_pickup', $data)) {
+                $updateData['offers_local_pickup'] = (bool) $data['offers_local_pickup'];
             }
 
             if (! empty($updateData)) {
@@ -218,31 +259,36 @@ class StoreService
     /**
      * Validate store creation
      */
-    protected function validateStoreCreation(User $user): void
+    protected function validateStoreCreation(User $user, User|Artist $owner, array $data): void
     {
         if (! config('store.enabled', false)) {
             throw new \Exception('Store module is currently disabled');
-        }
-
-        if ($user->store()->exists()) {
-            throw new \Exception('User already has a store');
         }
 
         if (! $user->email_verified_at) {
             throw new \Exception('Email must be verified to create a store');
         }
 
-        if (! $user->hasRole('artist') && ! config('store.stores.allow_user_stores', false)) {
+        if ($owner instanceof Artist && ! $user->artist) {
+            throw new \Exception('You need an artist profile before creating an artist-owned store');
+        }
+
+        if ($owner instanceof User && ! config('store.stores.allow_user_stores', false)) {
             throw new \Exception('Only artists can create stores');
+        }
+
+        $slug = $data['slug'] ?? null;
+        if ($slug && Store::where('slug', Str::slug($slug))->exists()) {
+            throw new \Exception('A store with that slug already exists');
         }
     }
 
     /**
      * Generate unique slug
      */
-    protected function generateUniqueSlug(string $name, ?int $excludeId = null): string
+    protected function generateUniqueSlug(string $value, ?int $excludeId = null, bool $alreadySlug = false): string
     {
-        $slug = Str::slug($name);
+        $slug = $alreadySlug ? Str::slug($value) : Str::slug($value);
         $originalSlug = $slug;
         $counter = 1;
 
@@ -253,6 +299,24 @@ class StoreService
         }
 
         return $slug;
+    }
+
+    /**
+     * Resolve the intended storefront owner.
+     */
+    protected function resolveOwner(User $user, ?string $ownerMode = null): User|Artist
+    {
+        $mode = $ownerMode ?? ($user->artist ? 'artist' : 'user');
+
+        if ($mode === 'artist') {
+            if (! $user->artist) {
+                throw new \Exception('No artist profile found for this account');
+            }
+
+            return $user->artist;
+        }
+
+        return $user;
     }
 
     /**

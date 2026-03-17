@@ -6,6 +6,7 @@ use App\Modules\Store\Http\Controllers\Api\NotificationController;
 use App\Modules\Store\Http\Controllers\Api\OrderController;
 use App\Modules\Store\Http\Controllers\Api\PaymentController;
 use App\Modules\Store\Http\Controllers\Api\ProductController;
+use App\Modules\Store\Http\Controllers\Api\ProductCategoryController;
 use App\Modules\Store\Http\Controllers\Api\PromotionController;
 use App\Modules\Store\Http\Controllers\Api\ReportController;
 use App\Modules\Store\Http\Controllers\Api\ReviewController;
@@ -50,6 +51,7 @@ Route::prefix('public')->name('public.')->group(function () {
     Route::get('/stores/{identifier}', [StoreController::class, 'show'])->name('stores.show');
 
     // Products
+    Route::get('/categories', [ProductCategoryController::class, 'index'])->name('categories.index');
     Route::get('/products', [ProductController::class, 'index'])->name('products.index');
     Route::get('/products/featured', [ProductController::class, 'featured'])->name('products.featured');
     Route::get('/products/trending', [ProductController::class, 'trending'])->name('products.trending');
@@ -78,7 +80,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::put('/items/{itemId}', [CartController::class, 'updateItem'])->name('items.update');
         Route::delete('/items/{itemId}', [CartController::class, 'removeItem'])->name('items.remove');
         Route::delete('/', [CartController::class, 'clear'])->name('clear');
-        Route::post('/validate', [CartController::class, 'validate'])->name('validate');
+        Route::post('/validate', [CartController::class, 'validateCart'])->name('validate');
     });
 
     // Orders - Buyer View
@@ -128,11 +130,20 @@ Route::middleware(['auth:sanctum'])->prefix('seller')->name('seller.')->group(fu
 
     // Store Management
     Route::prefix('stores')->name('stores.')->group(function () {
+        Route::get('/', [StoreController::class, 'mine'])->name('index');
         Route::post('/', [StoreController::class, 'store'])->name('store');
+        Route::get('/categories', [ProductCategoryController::class, 'index'])->name('categories.index');
         Route::get('/{store}', [StoreController::class, 'show'])->name('show');
         Route::put('/{store}', [StoreController::class, 'update'])->name('update');
         Route::get('/{store}/statistics', [StoreController::class, 'statistics'])->name('statistics');
         Route::post('/{store}/activate', [StoreController::class, 'activate'])->name('activate');
+        Route::get('/{store}/products', [ProductController::class, 'sellerIndex'])->name('products.index');
+        Route::post('/{store}/products', [ProductController::class, 'sellerStore'])->name('products.store');
+        Route::get('/{store}/products/{product}', [ProductController::class, 'sellerShow'])->name('products.show');
+        Route::put('/{store}/products/{product}', [ProductController::class, 'sellerUpdate'])->name('products.update');
+        Route::post('/{store}/products/{product}/activate', [ProductController::class, 'activate'])->name('products.activate');
+        Route::post('/{store}/products/{product}/archive', [ProductController::class, 'archive'])->name('products.archive');
+        Route::delete('/{store}/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
     });
 
     // Seller Orders

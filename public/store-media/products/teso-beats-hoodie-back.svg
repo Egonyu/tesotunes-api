@@ -1,0 +1,21 @@
+<svg width="1200" height="1200" viewBox="0 0 1200 1200" fill="none" xmlns="http://www.w3.org/2000/svg">
+<rect width="1200" height="1200" fill="#09090B"/>
+<rect x="72" y="72" width="1056" height="1056" rx="64" fill="url(#bg)"/>
+<path d="M452 307L521 244H679L748 307L837 391L779 470L714 431V863H486V431L421 470L363 391L452 307Z" fill="#101828" stroke="#E5E7EB" stroke-width="18" stroke-linejoin="round"/>
+<path d="M535 305H665" stroke="#111827" stroke-width="12" stroke-linecap="round"/>
+<circle cx="600" cy="575" r="170" fill="#111827" stroke="#F59E0B" stroke-width="18"/>
+<path d="M517 587L570 641L687 523" stroke="#FDE68A" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="600" y="570" text-anchor="middle" fill="#F9FAFB" font-family="Arial, sans-serif" font-size="40" font-weight="700">SOROTI</text>
+<text x="600" y="619" text-anchor="middle" fill="#F59E0B" font-family="Arial, sans-serif" font-size="34" font-weight="700">LIVE SET 2026</text>
+<rect x="857" y="130" width="215" height="215" rx="36" fill="#111827" fill-opacity="0.88"/>
+<text x="964" y="210" text-anchor="middle" fill="#F9FAFB" font-family="Arial, sans-serif" font-size="40" font-weight="700">Back</text>
+<text x="964" y="265" text-anchor="middle" fill="#F59E0B" font-family="Arial, sans-serif" font-size="28">Stage crest print</text>
+<text x="128" y="1000" fill="#F9FAFB" font-family="Arial, sans-serif" font-size="68" font-weight="700">Rear Graphic</text>
+<text x="128" y="1060" fill="#D1D5DB" font-family="Arial, sans-serif" font-size="32">Large back print commemorating the Soroti live set launch.</text>
+<defs>
+<linearGradient id="bg" x1="72" y1="72" x2="1128" y2="1128" gradientUnits="userSpaceOnUse">
+<stop stop-color="#312E81"/>
+<stop offset="1" stop-color="#111827"/>
+</linearGradient>
+</defs>
+</svg>

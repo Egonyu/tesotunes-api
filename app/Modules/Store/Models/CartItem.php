@@ -11,6 +11,8 @@ class CartItem extends Model
 {
     use HasFactory;
 
+    protected $table = 'store_cart_items';
+
     protected static function newFactory()
     {
         return CartItemFactory::new();
@@ -21,6 +23,11 @@ class CartItem extends Model
         'product_id',
         'variant_id',
         'quantity',
+        'price_ugx',
+        'price_credits',
+        'payment_method',
+        'hybrid_ugx',
+        'hybrid_credits',
         'payment_preference',
         'custom_options',
         'notes',
@@ -64,7 +71,7 @@ class CartItem extends Model
             return $this->variant->getFinalPrice();
         }
 
-        return $this->product->pricing?->price_ugx ?? 0;
+        return (float) ($this->product->price_ugx ?? $this->product->pricing?->price_ugx ?? 0);
     }
 
     /**
@@ -72,7 +79,7 @@ class CartItem extends Model
      */
     public function getPriceCredits(): int
     {
-        return $this->product->pricing?->price_credits ?? 0;
+        return (int) ($this->product->price_credits ?? $this->product->pricing?->price_credits ?? 0);
     }
 
     /**

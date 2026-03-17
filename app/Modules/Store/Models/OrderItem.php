@@ -16,6 +16,8 @@ class OrderItem extends Model
 {
     use HasFactory;
 
+    protected $table = 'store_order_items';
+
     protected static function newFactory()
     {
         return \Database\Factories\OrderItemFactory::new();
@@ -33,6 +35,9 @@ class OrderItem extends Model
         'product_sku',
         'product_variant',
         'quantity',
+        'price_ugx',
+        'price_credits',
+        'payment_method',
         'unit_price',
         'subtotal',
         'tax_amount',

@@ -20,7 +20,7 @@ class StoreOwner
     {
         $store = $request->route('store');
 
-        if (! $store || $store->user_id !== auth()->id()) {
+        if (! $store || ! $store->canBeManagedBy($request->user())) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'success' => false,

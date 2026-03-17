@@ -3,8 +3,11 @@
 namespace App\Modules\Store\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Store\Http\Requests\CreateProductRequest;
+use App\Modules\Store\Http\Requests\UpdateProductRequest;
 use App\Modules\Store\Models\Product;
 use App\Modules\Store\Models\Store;
+use App\Modules\Store\Services\ProductService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -13,6 +16,10 @@ use Illuminate\Http\Request;
  */
 class ProductController extends Controller
 {
+    public function __construct(
+        protected ProductService $productService
+    ) {}
+
     /**
      * List products.
      */
@@ -94,7 +101,7 @@ class ProductController extends Controller
             ])
             ->firstOrFail();
 
-        $product->increment('views_count');
+        $product->increment('view_count');
 
         return response()->json([
             'data' => $product,
@@ -177,5 +184,153 @@ class ProductController extends Controller
                 'allow_backorder' => $product->allow_backorder,
             ],
         ]);
+    }
+
+    /**
+     * List seller products for a specific store.
+     */
+    public function sellerIndex(Store $store, Request $request): JsonResponse
+    {
+        $this->authorize('update', $store);
+
+        $query = $store->products()
+            ->with('category:id,name')
+            ->orderByDesc('created_at');
+
+        if ($search = $request->search) {
+            $escaped = escape_like($search);
+            $query->where(function ($productQuery) use ($escaped) {
+                $productQuery->where('name', 'like', "%{$escaped}%")
+                    ->orWhere('description', 'like', "%{$escaped}%");
+            });
+        }
+
+        if ($status = $request->status) {
+            $query->where('status', $status);
+        }
+
+        if ($categoryId = $request->category_id) {
+            $query->where('category_id', $categoryId);
+        }
+
+        $products = $query->paginate($this->getPerPage($request));
+
+        return response()->json([
+            'data' => $products->items(),
+            'meta' => [
+                'current_page' => $products->currentPage(),
+                'total' => $products->total(),
+                'per_page' => $products->perPage(),
+                'last_page' => $products->lastPage(),
+            ],
+        ]);
+    }
+
+    /**
+     * Create a seller product inside a specific store.
+     */
+    public function sellerStore(CreateProductRequest $request, Store $store): JsonResponse
+    {
+        try {
+            $product = $this->productService->create($store, $request->validated());
+
+            return response()->json([
+                'data' => $product->load('store:id,name,slug,uuid', 'category:id,name'),
+                'message' => 'Product created successfully',
+            ], 201);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
+     * Show a seller product inside a specific store.
+     */
+    public function sellerShow(Store $store, Product $product): JsonResponse
+    {
+        $this->authorize('update', $store);
+        $this->ensureProductBelongsToStore($store, $product);
+
+        return response()->json([
+            'data' => $product->load('store:id,name,slug,uuid', 'category:id,name'),
+        ]);
+    }
+
+    /**
+     * Update a seller product inside a specific store.
+     */
+    public function sellerUpdate(UpdateProductRequest $request, Store $store, Product $product): JsonResponse
+    {
+        $this->authorize('update', $store);
+        $this->ensureProductBelongsToStore($store, $product);
+
+        try {
+            $updated = $this->productService->update($product, $request->validated());
+
+            return response()->json([
+                'data' => $updated->load('store:id,name,slug,uuid', 'category:id,name'),
+                'message' => 'Product updated successfully',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+    }
+
+    /**
+     * Activate a seller product.
+     */
+    public function activate(Store $store, Product $product): JsonResponse
+    {
+        $this->authorize('update', $store);
+        $this->ensureProductBelongsToStore($store, $product);
+
+        $this->productService->activate($product);
+
+        return response()->json([
+            'data' => $product->fresh()->load('store:id,name,slug,uuid', 'category:id,name'),
+            'message' => 'Product activated successfully',
+        ]);
+    }
+
+    /**
+     * Archive a seller product.
+     */
+    public function archive(Store $store, Product $product): JsonResponse
+    {
+        $this->authorize('update', $store);
+        $this->ensureProductBelongsToStore($store, $product);
+
+        $this->productService->archive($product);
+
+        return response()->json([
+            'data' => $product->fresh()->load('store:id,name,slug,uuid', 'category:id,name'),
+            'message' => 'Product archived successfully',
+        ]);
+    }
+
+    /**
+     * Delete a seller product.
+     */
+    public function destroy(Store $store, Product $product): JsonResponse
+    {
+        $this->authorize('delete', $product);
+        $this->ensureProductBelongsToStore($store, $product);
+
+        $product->delete();
+
+        return response()->json([
+            'message' => 'Product deleted successfully',
+        ]);
+    }
+
+    protected function ensureProductBelongsToStore(Store $store, Product $product): void
+    {
+        if ((int) $product->store_id !== (int) $store->id) {
+            abort(404);
+        }
     }
 }

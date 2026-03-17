@@ -4,6 +4,7 @@ namespace App\Modules\Store\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Store\Models\Order;
+use App\Modules\Store\Models\Store;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -152,7 +153,15 @@ class OrderController extends Controller
                 if ($request->user()->credits < $order->total_credits) {
                     throw new \Exception('Insufficient credits');
                 }
-                $request->user()->decrement('credits', $order->total_credits);
+                $transaction = $request->user()->spendCredits(
+                    $order->total_credits,
+                    'store_order',
+                    "Store order {$order->order_number}",
+                    ['order_id' => $order->id]
+                );
+                if (! $transaction) {
+                    throw new \Exception('Insufficient credits');
+                }
                 $order->update(['payment_status' => 'paid']);
             }
 
@@ -237,7 +246,15 @@ class OrderController extends Controller
             if ($request->user()->credits < $order->total_credits) {
                 throw new \Exception('Insufficient credits');
             }
-            $request->user()->decrement('credits', $order->total_credits);
+            $transaction = $request->user()->spendCredits(
+                $order->total_credits,
+                'store_order',
+                "Store order {$order->order_number}",
+                ['order_id' => $order->id]
+            );
+            if (! $transaction) {
+                throw new \Exception('Insufficient credits');
+            }
             $order->update(['payment_status' => 'paid']);
         }
 
@@ -301,18 +318,31 @@ class OrderController extends Controller
      */
     public function sellerOrders(Request $request): JsonResponse
     {
-        $store = $request->user()->store;
+        $stores = Store::query()->managedByUser($request->user());
 
-        if (! $store) {
+        if ($request->filled('store')) {
+            $storeIdentifier = (string) $request->string('store');
+
+            $stores->where(function ($query) use ($storeIdentifier) {
+                $query->where('slug', $storeIdentifier)
+                    ->orWhere('uuid', $storeIdentifier);
+            });
+        }
+
+        $storeIds = $stores->pluck('id');
+
+        if ($storeIds->isEmpty()) {
             return response()->json([
                 'message' => 'No store found.',
             ], 404);
         }
 
-        $query = $store->orders()
+        $query = Order::query()
+            ->whereIn('store_id', $storeIds)
             ->with([
                 'items.product',
                 'user:id,display_name,email',
+                'store:id,name,slug,status',
             ])
             ->orderByDesc('created_at');
 
@@ -345,8 +375,11 @@ class OrderController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $store = $request->user()->store;
-        $order = $store->orders()->where('order_number', $orderNumber)->firstOrFail();
+        $order = Order::query()
+            ->where('order_number', $orderNumber)
+            ->whereHas('store', fn ($query) => $query->managedByUser($request->user()))
+            ->with('store')
+            ->firstOrFail();
 
         $order->update(['status' => $validated['status']]);
 

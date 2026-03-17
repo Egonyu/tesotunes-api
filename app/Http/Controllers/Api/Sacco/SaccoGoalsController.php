@@ -9,6 +9,7 @@ use App\Models\Sacco\SaccoMember;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SaccoGoalsController extends Controller
 {
@@ -159,8 +160,7 @@ class SaccoGoalsController extends Controller
     {
         $validated = $request->validate([
             'amount' => 'required|numeric|min:1',
-            'phone_number' => 'nullable|string|max:20',
-            'payment_method' => 'nullable|string|in:mtn_momo,airtel_money,bank,credits',
+            'payment_method' => 'nullable|string|in:wallet',
         ]);
 
         $member = $this->getMember($request);
@@ -169,7 +169,16 @@ class SaccoGoalsController extends Controller
             ->where('status', 'active')
             ->findOrFail($id);
 
-        return DB::transaction(function () use ($goal, $member, $validated) {
+        return DB::transaction(function () use ($goal, $member, $validated, $request) {
+            $user = $request->user();
+            if (($user->ugx_balance ?? 0) < $validated['amount']) {
+                throw ValidationException::withMessages([
+                    'amount' => ['Insufficient wallet balance.'],
+                ]);
+            }
+
+            $user->decrement('ugx_balance', $validated['amount']);
+
             $balanceBefore = $goal->current_amount;
             $goal->increment('current_amount', $validated['amount']);
             $balanceAfter = $goal->fresh()->current_amount;
@@ -183,7 +192,7 @@ class SaccoGoalsController extends Controller
                 'amount' => $validated['amount'],
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
-                'payment_method' => $validated['payment_method'] ?? 'mtn_momo',
+                'payment_method' => $validated['payment_method'] ?? 'wallet',
                 'transaction_reference' => $reference,
                 'status' => 'completed',
             ]);
@@ -220,10 +229,29 @@ class SaccoGoalsController extends Controller
             ->where('status', 'active')
             ->findOrFail($id);
 
-        // Credit conversion rate (1 credit = 100 UGX)
-        $ugxValue = $validated['amount'] * 100;
+        $user = $request->user();
+        if ((int) $user->credits < (int) $validated['amount']) {
+            return response()->json([
+                'message' => 'Insufficient credits balance.',
+            ], 422);
+        }
 
-        return DB::transaction(function () use ($goal, $member, $validated, $ugxValue) {
+        $ugxValue = credits_to_ugx($validated['amount']);
+
+        return DB::transaction(function () use ($goal, $member, $validated, $ugxValue, $user) {
+            $transaction = $user->spendCredits(
+                (int) $validated['amount'],
+                'goal_conversion',
+                "Converted credits into savings goal {$goal->title}",
+                ['goal_id' => $goal->id]
+            );
+
+            if (! $transaction) {
+                throw ValidationException::withMessages([
+                    'amount' => ['Insufficient credits balance.'],
+                ]);
+            }
+
             $balanceBefore = $goal->current_amount;
             $goal->increment('current_amount', $ugxValue);
             $balanceAfter = $goal->fresh()->current_amount;
@@ -357,6 +385,9 @@ class SaccoGoalsController extends Controller
                 'remaining_amount' => $goal->remaining_amount,
                 'days_remaining' => $goal->days_remaining,
                 'is_completed' => $goal->is_completed,
+                'on_track' => $goal->days_remaining === null
+                    ? true
+                    : $goal->progress_percentage >= $this->expectedProgressForGoal($goal),
             ],
             'funding_options' => [
                 'loan_eligible' => $goal->remaining_amount >= 50000,
@@ -369,5 +400,17 @@ class SaccoGoalsController extends Controller
             'created_at' => $goal->created_at?->toISOString(),
             'updated_at' => $goal->updated_at?->toISOString(),
         ];
+    }
+
+    private function expectedProgressForGoal(SaccoGoal $goal): float
+    {
+        if (! $goal->deadline || ! $goal->created_at || $goal->deadline->lessThanOrEqualTo($goal->created_at)) {
+            return 0;
+        }
+
+        $totalWindow = max(1, $goal->created_at->diffInDays($goal->deadline));
+        $elapsed = max(0, $goal->created_at->diffInDays(now(), false));
+
+        return min(100, round(($elapsed / $totalWindow) * 100, 2));
     }
 }

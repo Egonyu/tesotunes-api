@@ -3,6 +3,7 @@
 namespace App\Modules\Store\Traits;
 
 use App\Modules\Store\Models\Store;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
@@ -14,11 +15,19 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 trait HasStore
 {
     /**
-     * Get the user's store
+     * Get all stores managed by the user.
+     */
+    public function stores(): HasMany
+    {
+        return $this->hasMany(Store::class, 'user_id');
+    }
+
+    /**
+     * Get the user's primary store for legacy call sites.
      */
     public function store(): HasOne
     {
-        return $this->hasOne(Store::class);
+        return $this->hasOne(Store::class, 'user_id')->latestOfMany();
     }
 
     /**
@@ -30,7 +39,7 @@ trait HasStore
             return false;
         }
 
-        return $this->store()->exists();
+        return $this->stores()->exists();
     }
 
     /**
@@ -40,11 +49,6 @@ trait HasStore
     {
         // Module must be enabled
         if (! config('store.enabled', false)) {
-            return false;
-        }
-
-        // Cannot have existing store
-        if ($this->hasStore()) {
             return false;
         }
 
@@ -79,7 +83,7 @@ trait HasStore
      */
     public function isStoreSeller(): bool
     {
-        return $this->hasStore() && $this->store->status === 'active';
+        return $this->stores()->where('status', Store::STATUS_ACTIVE)->exists();
     }
 
     /**
@@ -91,7 +95,7 @@ trait HasStore
             return config('store.fees.free_tier', 7.0);
         }
 
-        return match ($this->store->subscription_tier) {
+        return match ($this->store?->subscription_tier) {
             'premium' => config('store.fees.premium_tier', 5.0),
             'business' => config('store.fees.business_tier', 3.0),
             default => config('store.fees.free_tier', 7.0),

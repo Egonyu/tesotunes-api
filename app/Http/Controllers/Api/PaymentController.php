@@ -274,6 +274,82 @@ class PaymentController extends Controller
     }
 
     /**
+     * GET /api/payments/methods — lightweight payment options for the client.
+     */
+    public function methods(): JsonResponse
+    {
+        return response()->json([
+            'data' => [
+                'mobile_money' => [
+                    [
+                        'id' => 'mtn_momo',
+                        'name' => 'ZengaPay • MTN Mobile Money',
+                        'icon' => 'smartphone',
+                        'min_amount' => 1000,
+                        'max_amount' => 5000000,
+                        'currency' => 'UGX',
+                        'enabled' => true,
+                    ],
+                    [
+                        'id' => 'airtel_money',
+                        'name' => 'ZengaPay • Airtel Money',
+                        'icon' => 'smartphone',
+                        'min_amount' => 1000,
+                        'max_amount' => 5000000,
+                        'currency' => 'UGX',
+                        'enabled' => true,
+                    ],
+                ],
+                'other' => [
+                    [
+                        'id' => 'wallet',
+                        'name' => 'Wallet',
+                        'icon' => 'wallet',
+                        'min_amount' => 1,
+                        'max_amount' => 5000000,
+                        'currency' => 'UGX',
+                        'enabled' => true,
+                    ],
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * POST /api/payments/mobile-money/validate-phone
+     */
+    public function validatePhone(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'phone' => 'required|string|min:9',
+        ]);
+
+        $normalized = preg_replace('/\D+/', '', $validated['phone']) ?? '';
+        if (str_starts_with($normalized, '0')) {
+            $normalized = '256'.substr($normalized, 1);
+        }
+        if (! str_starts_with($normalized, '256')) {
+            $normalized = '256'.$normalized;
+        }
+
+        $provider = 'unknown';
+        if (preg_match('/^256(77|78|76|39)/', $normalized) === 1) {
+            $provider = 'mtn_momo';
+        } elseif (preg_match('/^256(70|75|74)/', $normalized) === 1) {
+            $provider = 'airtel_money';
+        }
+
+        return response()->json([
+            'data' => [
+                'valid' => strlen($normalized) === 12 && $provider !== 'unknown',
+                'phone' => $normalized,
+                'provider' => $provider,
+                'formatted' => '+'.substr($normalized, 0, 3).' '.substr($normalized, 3, 3).' '.substr($normalized, 6),
+            ],
+        ]);
+    }
+
+    /**
      * POST /api/payments/mobile-money/initiate — initiate mobile money deposit (wallet topup)
      */
     public function initiateMobileMoneyDeposit(Request $request): JsonResponse
@@ -322,12 +398,13 @@ class PaymentController extends Controller
 
                 // In local dev, auto-complete the payment after a short delay
                 if (app()->environment('local', 'testing')) {
-                    $payment->update([
-                        'status' => Payment::STATUS_COMPLETED,
-                        'paid_at' => now(),
+                    $payment->markAsCompleted([
+                        'external_transaction_id' => $payment->provider_transaction_id,
+                        'provider_reference' => $reference,
                     ]);
-                    $user->increment('ugx_balance', $amount);
                 }
+
+                $payment->refresh();
 
                 return response()->json([
                     'data' => [
@@ -433,29 +510,16 @@ class PaymentController extends Controller
                     $zgStatus = strtolower($statusResult['status']);
 
                     if (in_array($zgStatus, ['succeeded', 'successful', 'completed', 'success'])) {
-                        $payment->forceFill([
-                            'status' => Payment::STATUS_COMPLETED,
-                            'completed_at' => now(),
-                        ])->save();
-
-                        // Credit the user's wallet
-                        $user = $payment->user;
-                        if ($user) {
-                            $user->increment('ugx_balance', $payment->amount);
-                            Log::info('Wallet topped up via mobile money', [
-                                'user_id' => $user->id,
-                                'amount' => $payment->amount,
-                                'reference' => $reference,
-                            ]);
-                        }
-                    } elseif (in_array($zgStatus, ['failed', 'failure', 'declined', 'rejected'])) {
-                        $payment->forceFill([
-                            'status' => Payment::STATUS_FAILED,
-                            'failed_at' => now(),
-                        ])->save();
-                        $payment->update([
-                            'failure_reason' => $statusResult['reason'] ?? 'Payment was declined',
+                        $payment->markAsCompleted([
+                            'external_transaction_id' => $payment->provider_transaction_id,
+                            'provider_reference' => $reference,
+                            'payment_data' => ['status_polled_at' => now()->toIso8601String()],
                         ]);
+                    } elseif (in_array($zgStatus, ['failed', 'failure', 'declined', 'rejected'])) {
+                        $payment->markAsFailed(
+                            $statusResult['reason'] ?? 'Payment was declined',
+                            ['payment_data' => ['status_polled_at' => now()->toIso8601String()]]
+                        );
                     }
                 }
             } catch (\Exception $e) {
@@ -502,7 +566,7 @@ class PaymentController extends Controller
     public function walletTransactions(Request $request): JsonResponse
     {
         $payments = Payment::where('user_id', $request->user()->id)
-            ->whereIn('payment_type', ['wallet_topup', 'credits_purchase', 'withdrawal'])
+            ->whereIn('payment_type', ['wallet_topup', 'credits_purchase', 'credits_sale', 'withdrawal'])
             ->orderBy('created_at', 'desc')
             ->paginate($this->getPerPage($request));
 

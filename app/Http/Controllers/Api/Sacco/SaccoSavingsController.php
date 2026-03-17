@@ -115,8 +115,7 @@ class SaccoSavingsController extends Controller
             'amount' => 'required|numeric|min:1',
             'description' => 'nullable|string|max:500',
             'reference_number' => 'nullable|string|max:100',
-            'phone_number' => 'nullable|string|max:20',
-            'payment_method' => 'nullable|string|max:50',
+            'payment_method' => 'nullable|string|in:wallet',
         ]);
 
         $account = isset($validated['account_id'])
@@ -129,8 +128,20 @@ class SaccoSavingsController extends Controller
 
         $balanceBefore = $account->balance_ugx;
 
-        DB::transaction(function () use ($account, $validated, $balanceBefore) {
+        DB::transaction(function () use ($account, $validated, $balanceBefore, $request) {
+            if (($validated['payment_method'] ?? 'wallet') === 'wallet') {
+                $user = $request->user();
+                if (($user->ugx_balance ?? 0) < $validated['amount']) {
+                    throw ValidationException::withMessages([
+                        'amount' => ['Insufficient wallet balance.'],
+                    ]);
+                }
+
+                $user->decrement('ugx_balance', $validated['amount']);
+            }
+
             $account->increment('balance_ugx', $validated['amount']);
+            $account->member()->increment('total_savings', $validated['amount']);
 
             SaccoSavingsTransaction::create([
                 'account_id' => $account->id,
@@ -163,8 +174,7 @@ class SaccoSavingsController extends Controller
             'amount' => 'required|numeric|min:1',
             'description' => 'nullable|string|max:500',
             'reference_number' => 'nullable|string|max:100',
-            'phone_number' => 'nullable|string|max:20',
-            'payment_method' => 'nullable|string|max:50',
+            'payment_method' => 'nullable|string|in:wallet',
         ]);
 
         $account = isset($validated['account_id'])
@@ -180,8 +190,13 @@ class SaccoSavingsController extends Controller
 
         $balanceBefore = $account->balance_ugx;
 
-        DB::transaction(function () use ($account, $validated, $balanceBefore) {
+        DB::transaction(function () use ($account, $validated, $balanceBefore, $request) {
             $account->decrement('balance_ugx', $validated['amount']);
+            $account->member()->decrement('total_savings', $validated['amount']);
+
+            if (($validated['payment_method'] ?? 'wallet') === 'wallet') {
+                $request->user()->increment('ugx_balance', $validated['amount']);
+            }
 
             SaccoSavingsTransaction::create([
                 'account_id' => $account->id,

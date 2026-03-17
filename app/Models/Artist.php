@@ -3,12 +3,14 @@
 namespace App\Models;
 
 use App\Models\Traits\Featurable;
+use App\Modules\Store\Models\Store;
 use App\Traits\HasComments;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\MediaLibrary\InteractsWithMedia;
@@ -155,6 +157,11 @@ class Artist extends Model implements HasMedia
     public function profile(): HasOne
     {
         return $this->hasOne(ArtistProfile::class);
+    }
+
+    public function stores(): MorphMany
+    {
+        return $this->morphMany(Store::class, 'owner');
     }
 
     /**

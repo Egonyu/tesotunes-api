@@ -3,6 +3,8 @@
 namespace App\Modules\Store\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Store\Http\Requests\CreateStoreRequest;
+use App\Modules\Store\Http\Requests\UpdateStoreRequest;
 use App\Modules\Store\Models\Store;
 use App\Modules\Store\Services\StoreService;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +26,7 @@ class StoreController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Store::with('owner:id,display_name,email')
+        $query = Store::with(['owner', 'user:id,display_name,email'])
             ->active()
             ->withCount('products', 'activeProducts');
 
@@ -60,16 +62,25 @@ class StoreController extends Controller
     /**
      * Get store details
      */
-    public function show(string $identifier): JsonResponse
+    public function show(Request $request, string $identifier): JsonResponse
     {
         $store = Store::where('slug', $identifier)
             ->orWhere('uuid', $identifier)
             ->with([
-                'owner:id,display_name,email',
+                'owner',
+                'user:id,display_name,email',
                 'activeProducts' => fn ($q) => $q->take(8),
             ])
             ->withCount('products', 'activeProducts', 'reviews')
             ->firstOrFail();
+
+        if ($store->status !== Store::STATUS_ACTIVE) {
+            $viewer = $request->user();
+
+            if (! $viewer || (! $store->canBeManagedBy($viewer) && ! $viewer->hasAnyRole(['admin', 'super_admin']))) {
+                abort(404);
+            }
+        }
 
         return response()->json([
             'data' => $store,
@@ -77,22 +88,32 @@ class StoreController extends Controller
     }
 
     /**
+     * List stores managed by the authenticated seller.
+     */
+    public function mine(Request $request): JsonResponse
+    {
+        $stores = Store::query()
+            ->managedByUser($request->user())
+            ->with(['owner', 'user:id,display_name,email'])
+            ->withCount('products', 'activeProducts', 'orders')
+            ->orderByDesc('created_at')
+            ->get();
+
+        return response()->json([
+            'data' => $stores,
+        ]);
+    }
+
+    /**
      * Create a new store
      */
-    public function store(Request $request): JsonResponse
+    public function store(CreateStoreRequest $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string|max:1000',
-            'logo' => 'nullable|image|max:2048',
-            'banner' => 'nullable|image|max:5120',
-        ]);
-
         try {
-            $store = $this->storeService->create($request->user(), $validated);
+            $store = $this->storeService->create($request->user(), $request->validated());
 
             return response()->json([
-                'data' => $store->load('owner:id,display_name,email'),
+                'data' => $store->load(['owner', 'user:id,display_name,email']),
                 'message' => 'Store created successfully',
             ], 201);
         } catch (\Exception $e) {
@@ -105,23 +126,15 @@ class StoreController extends Controller
     /**
      * Update store
      */
-    public function update(Request $request, Store $store): JsonResponse
+    public function update(UpdateStoreRequest $request, Store $store): JsonResponse
     {
         $this->authorize('update', $store);
 
-        $validated = $request->validate([
-            'name' => 'sometimes|required|string|max:255',
-            'description' => 'nullable|string|max:1000',
-            'logo' => 'nullable|image|max:2048',
-            'banner' => 'nullable|image|max:5120',
-            'settings' => 'nullable|array',
-        ]);
-
         try {
-            $updated = $this->storeService->update($store, $validated);
+            $updated = $this->storeService->update($store, $request->validated());
 
             return response()->json([
-                'data' => $updated->load('owner:id,display_name,email'),
+                'data' => $updated->load(['owner', 'user:id,display_name,email']),
                 'message' => 'Store updated successfully',
             ]);
         } catch (\Exception $e) {
@@ -136,7 +149,7 @@ class StoreController extends Controller
      */
     public function statistics(Store $store): JsonResponse
     {
-        $this->authorize('view', $store);
+        $this->authorize('viewStatistics', $store);
 
         $stats = $this->storeService->getStatistics($store);
 
@@ -151,12 +164,46 @@ class StoreController extends Controller
     public function featured(Request $request): JsonResponse
     {
         $stores = Store::featured()
-            ->with('owner:id,display_name,email')
+            ->with(['owner', 'user:id,display_name,email'])
             ->take($request->get('limit', 10))
             ->get();
 
         return response()->json([
             'data' => $stores,
+        ]);
+    }
+
+    /**
+     * Activate a seller store.
+     */
+    public function activate(Store $store): JsonResponse
+    {
+        $this->authorize('activate', $store);
+
+        $this->storeService->activate($store);
+
+        return response()->json([
+            'data' => $store->fresh(['owner', 'user:id,display_name,email']),
+            'message' => 'Store activated successfully',
+        ]);
+    }
+
+    /**
+     * Suspend a store.
+     */
+    public function suspend(Request $request, Store $store): JsonResponse
+    {
+        $this->authorize('suspend', $store);
+
+        $validated = $request->validate([
+            'reason' => 'required|string|max:1000',
+        ]);
+
+        $this->storeService->suspend($store, $validated['reason']);
+
+        return response()->json([
+            'data' => $store->fresh(['owner', 'user:id,display_name,email']),
+            'message' => 'Store suspended successfully',
         ]);
     }
 }

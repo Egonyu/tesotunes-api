@@ -3,11 +3,15 @@
 namespace App\Http\Controllers\Api\User;
 
 use App\Http\Controllers\Controller;
-use App\Models\Promotion;
+use App\Models\Payment;
+use App\Models\Setting;
+use App\Modules\Store\Models\Promotion;
 use App\Services\CreditService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class CreditController extends Controller
 {
@@ -55,11 +59,11 @@ class CreditController extends Controller
             $user = $request->user();
             $perPage = min($request->get('per_page', 20), 50);
 
-            $query = $user->creditTransactions()->latest('processed_at');
+            $query = $user->creditTransactions()->latest();
 
             // Apply filters
             if ($request->filled('type')) {
-                $query->where('following_type', $request->type);
+                $query->where('type', $request->type);
             }
 
             if ($request->filled('source')) {
@@ -67,11 +71,11 @@ class CreditController extends Controller
             }
 
             if ($request->filled('date_from')) {
-                $query->whereDate('processed_at', '>=', $request->date_from);
+                $query->whereDate('created_at', '>=', $request->date_from);
             }
 
             if ($request->filled('date_to')) {
-                $query->whereDate('processed_at', '<=', $request->date_to);
+                $query->whereDate('created_at', '<=', $request->date_to);
             }
 
             $transactions = $query->paginate($perPage);
@@ -85,8 +89,8 @@ class CreditController extends Controller
                     'description' => $transaction->description,
                     'source' => $transaction->source_description,
                     'balance_after' => number_format($transaction->balance_after, 0).' credits',
-                    'date' => $transaction->processed_at->format('M j, Y g:i A'),
-                    'relative_date' => $transaction->processed_at->diffForHumans(),
+                    'date' => optional($transaction->created_at)->format('M j, Y g:i A'),
+                    'relative_date' => optional($transaction->created_at)->diffForHumans(),
                     'icon' => $transaction->type_icon,
                     'related_user' => $transaction->relatedUser ? [
                         'id' => $transaction->relatedUser->id,
@@ -227,7 +231,7 @@ class CreditController extends Controller
                         'rating' => $promotion->rating_average,
                         'reviews' => $promotion->rating_count,
                         'delivery' => $promotion->delivery_display,
-                        'can_afford' => $wallet->balance >= $promotion->price_credits,
+                        'can_afford' => $wallet->available_credits >= $promotion->price_credits,
                         'promoter' => [
                             'name' => $promotion->promoter_name ?? $promotion->user->name,
                             'avatar_url' => $promotion->promoter_avatar_url,
@@ -294,7 +298,7 @@ class CreditController extends Controller
             // Process payment
             $transaction = $this->creditService->spendCreditsForPromotion(
                 $user,
-                $promotion->credit_cost,
+                (float) ($promotion->credit_cost ?? $promotion->price_credits ?? 0),
                 $promotion->type,
                 ['promotion_id' => $promotion->id]
             );
@@ -331,6 +335,207 @@ class CreditController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Get a lightweight credit + wallet balance summary for payment screens.
+     */
+    public function balance(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $wallet = $this->creditService->getUserWallet($user);
+        $rate = $this->getCreditsPerUgx();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'credits' => (int) round($wallet->available_credits),
+                'wallet_balance' => (float) ($user->ugx_balance ?? 0),
+                'currency' => 'UGX',
+                'exchange_rate' => [
+                    'credits_per_ugx' => $rate,
+                    'ugx_per_credit' => round(1 / $rate, 4),
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * Buy credits from the user's UGX wallet.
+     */
+    public function purchase(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'credits_amount' => 'nullable|integer|min:1',
+            'ugx_amount' => 'nullable|numeric|min:1',
+        ]);
+
+        $user = $request->user();
+        $rate = $this->getCreditsPerUgx();
+
+        $creditsAmount = (int) ($validated['credits_amount'] ?? 0);
+        $ugxAmount = (float) ($validated['ugx_amount'] ?? 0);
+
+        if ($creditsAmount <= 0 && $ugxAmount <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Provide either credits_amount or ugx_amount.',
+            ], 422);
+        }
+
+        if ($creditsAmount <= 0) {
+            $creditsAmount = $this->convertUgxToCredits($ugxAmount, $rate);
+        }
+
+        if ($ugxAmount <= 0) {
+            $ugxAmount = $this->convertCreditsToUgx($creditsAmount, $rate);
+        }
+
+        if (($user->ugx_balance ?? 0) < $ugxAmount) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Insufficient wallet balance.',
+            ], 422);
+        }
+
+        $wallet = $this->creditService->getUserWallet($user);
+
+        DB::transaction(function () use ($user, $wallet, $creditsAmount, $ugxAmount, $rate) {
+            $user->decrement('ugx_balance', $ugxAmount);
+            $wallet->addCredits(
+                $creditsAmount,
+                'wallet_purchase',
+                "Purchased {$creditsAmount} credits from wallet",
+                ['reference' => 'CRP-'.Str::upper(Str::random(10))]
+            );
+
+            $payment = new Payment([
+                'user_id' => $user->id,
+                'payment_type' => 'credits_purchase',
+                'payment_method' => 'wallet',
+                'provider' => 'wallet',
+                'payment_provider' => 'wallet',
+                'currency' => 'UGX',
+                'description' => "Wallet purchase of {$creditsAmount} credits",
+                'transaction_reference' => 'CRP-'.Str::upper(Str::random(10)),
+                'payment_reference' => 'CRP-'.Str::upper(Str::random(10)),
+                'metadata' => [
+                    'credits_amount' => $creditsAmount,
+                    'ugx_amount' => $ugxAmount,
+                    'credits_per_ugx' => $rate,
+                    'settled_via' => 'wallet_exchange',
+                ],
+            ]);
+            $payment->forceFill([
+                'amount' => $ugxAmount,
+                'status' => Payment::STATUS_COMPLETED,
+                'completed_at' => now(),
+            ])->save();
+        });
+
+        $user->refresh();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Credits purchased successfully.',
+            'data' => [
+                'credits_purchased' => $creditsAmount,
+                'ugx_spent' => $ugxAmount,
+                'wallet_balance' => (float) ($user->ugx_balance ?? 0),
+                'credits_balance' => (int) round($this->creditService->getBalance($user)),
+            ],
+        ], 201);
+    }
+
+    /**
+     * Convert between wallet UGX and credits.
+     */
+    public function exchange(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'direction' => 'required|string|in:wallet_to_credits,credits_to_wallet',
+            'credits_amount' => 'nullable|integer|min:1',
+            'ugx_amount' => 'nullable|numeric|min:1',
+        ]);
+
+        if ($validated['direction'] === 'wallet_to_credits') {
+            return $this->purchase($request);
+        }
+
+        $user = $request->user();
+        $wallet = $this->creditService->getUserWallet($user);
+        $rate = $this->getCreditsPerUgx();
+
+        $creditsAmount = (int) ($validated['credits_amount'] ?? 0);
+        $ugxAmount = (float) ($validated['ugx_amount'] ?? 0);
+
+        if ($creditsAmount <= 0 && $ugxAmount <= 0) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Provide either credits_amount or ugx_amount.',
+            ], 422);
+        }
+
+        if ($creditsAmount <= 0) {
+            $creditsAmount = $this->convertUgxToCredits($ugxAmount, $rate);
+        }
+
+        if ($ugxAmount <= 0) {
+            $ugxAmount = $this->convertCreditsToUgx($creditsAmount, $rate);
+        }
+
+        if (! $wallet->hasMinimumBalance($creditsAmount)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Insufficient credits balance.',
+            ], 422);
+        }
+
+        DB::transaction(function () use ($user, $wallet, $creditsAmount, $ugxAmount, $rate) {
+            $wallet->spendCredits(
+                $creditsAmount,
+                'wallet_cashout',
+                "Converted {$creditsAmount} credits to wallet balance",
+                ['reference' => 'CRX-'.Str::upper(Str::random(10))]
+            );
+            $user->increment('ugx_balance', $ugxAmount);
+
+            $payment = new Payment([
+                'user_id' => $user->id,
+                'payment_type' => 'credits_sale',
+                'payment_method' => 'wallet',
+                'provider' => 'wallet',
+                'payment_provider' => 'wallet',
+                'currency' => 'UGX',
+                'description' => "Converted {$creditsAmount} credits to wallet",
+                'transaction_reference' => 'CRX-'.Str::upper(Str::random(10)),
+                'payment_reference' => 'CRX-'.Str::upper(Str::random(10)),
+                'metadata' => [
+                    'credits_amount' => $creditsAmount,
+                    'ugx_amount' => $ugxAmount,
+                    'credits_per_ugx' => $rate,
+                    'settled_via' => 'wallet_exchange',
+                ],
+            ]);
+            $payment->forceFill([
+                'amount' => $ugxAmount,
+                'status' => Payment::STATUS_COMPLETED,
+                'completed_at' => now(),
+            ])->save();
+        });
+
+        $user->refresh();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Credits converted to wallet balance successfully.',
+            'data' => [
+                'credits_spent' => $creditsAmount,
+                'ugx_received' => $ugxAmount,
+                'wallet_balance' => (float) ($user->ugx_balance ?? 0),
+                'credits_balance' => (int) round($this->creditService->getBalance($user)),
+            ],
+        ]);
     }
 
     // Private helper methods
@@ -426,5 +631,23 @@ class CreditController extends Controller
                 'completed' => $newFollows >= 2,
             ],
         ];
+    }
+
+    private function getCreditsPerUgx(): float
+    {
+        return max(
+            1,
+            (float) Setting::get('credits_per_ugx', config('store.currencies.credits.conversion_rate', 1))
+        );
+    }
+
+    private function convertUgxToCredits(float $ugxAmount, float $rate): int
+    {
+        return max(1, (int) round($ugxAmount * $rate));
+    }
+
+    private function convertCreditsToUgx(int $creditsAmount, float $rate): float
+    {
+        return max(1, round($creditsAmount / $rate, 2));
     }
 }

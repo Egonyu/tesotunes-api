@@ -21,7 +21,7 @@ class ProductPolicy
     public function view(User $user, Product $product): bool
     {
         // Store owner can view
-        if ($user->id === $product->store->user_id) {
+        if ($product->store->canBeManagedBy($user)) {
             return true;
         }
 
@@ -39,19 +39,10 @@ class ProductPolicy
      */
     public function create(User $user): bool
     {
-        $store = $user->store;
-
-        if (! $store) {
-            return false;
-        }
-
-        // Check if store is active
-        if ($store->status !== 'active' && $store->status !== 'draft') {
-            return false;
-        }
-
-        // Check product limit
-        return $store->canAddProducts();
+        return $user->stores()
+            ->whereIn('status', ['active', 'draft', 'pending'])
+            ->get()
+            ->contains(fn ($store) => $store->canAddProducts());
     }
 
     /**
@@ -60,7 +51,7 @@ class ProductPolicy
     public function update(User $user, Product $product): bool
     {
         // Store owner can update
-        if ($user->id === $product->store->user_id) {
+        if ($product->store->canBeManagedBy($user)) {
             return true;
         }
 
@@ -74,7 +65,7 @@ class ProductPolicy
     public function delete(User $user, Product $product): bool
     {
         // Store owner can delete
-        if ($user->id === $product->store->user_id) {
+        if ($product->store->canBeManagedBy($user)) {
             return true;
         }
 
@@ -87,7 +78,7 @@ class ProductPolicy
      */
     public function restore(User $user, Product $product): bool
     {
-        return $user->id === $product->store->user_id ||
+        return $product->store->canBeManagedBy($user) ||
                $user->hasAnyRole(['admin', 'super_admin']);
     }
 
@@ -104,7 +95,7 @@ class ProductPolicy
      */
     public function manageInventory(User $user, Product $product): bool
     {
-        return $user->id === $product->store->user_id;
+        return $product->store->canBeManagedBy($user);
     }
 
     /**
@@ -113,7 +104,7 @@ class ProductPolicy
     public function feature(User $user, Product $product): bool
     {
         // Store owner can feature if premium
-        if ($user->id === $product->store->user_id && $product->store->is_premium) {
+        if ($product->store->canBeManagedBy($user) && $product->store->is_premium) {
             return true;
         }
 

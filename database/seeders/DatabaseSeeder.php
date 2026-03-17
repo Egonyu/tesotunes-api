@@ -33,5 +33,9 @@ class DatabaseSeeder extends Seeder
 
         // Comprehensive data for full-featured testing
         $this->call([ComprehensiveTestDataSeeder::class]);
+
+        if (app()->environment(['local', 'testing'])) {
+            $this->call([LocalStoreCatalogSeeder::class]);
+        }
     }
 }

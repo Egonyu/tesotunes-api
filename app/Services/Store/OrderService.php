@@ -40,7 +40,15 @@ class OrderService
 
             if ($useCredits && $user->credits >= $totalAmount) {
                 $paidCredits = (int) $totalAmount;
-                $user->decrement('credits', $paidCredits);
+                $transaction = $user->spendCredits(
+                    $paidCredits,
+                    'store_order',
+                    'Store order paid with credits',
+                    ['paid_credits' => $paidCredits]
+                );
+                if (! $transaction) {
+                    throw new \Exception('Insufficient credits');
+                }
                 $totalAmount = 0;
             }
 
@@ -144,7 +152,12 @@ class OrderService
 
             // Refund credits if used
             if ($order->paid_credits > 0) {
-                $order->user->increment('credits', $order->paid_credits);
+                $order->user->addCredits(
+                    $order->paid_credits,
+                    'store_refund',
+                    "Refund for order {$order->order_number}",
+                    ['order_id' => $order->id]
+                );
             }
 
             // Update order status

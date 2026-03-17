@@ -27,7 +27,7 @@ class ProductPolicy
 
         // Owner and admins can view any product
         return $user && (
-            $product->store->owner_id === $user->id ||
+            $product->store->canBeManagedBy($user) ||
             $user->hasAnyRole(['admin', 'super_admin'])
         );
     }
@@ -37,8 +37,7 @@ class ProductPolicy
      */
     public function create(User $user): bool
     {
-        // Must have an active store to create products
-        return $user->stores()->where('status', 'active')->exists();
+        return $user->stores()->whereIn('status', ['active', 'draft', 'pending'])->exists();
     }
 
     /**
@@ -46,7 +45,7 @@ class ProductPolicy
      */
     public function update(User $user, Product $product): bool
     {
-        return $product->store->owner_id === $user->id ||
+        return $product->store->canBeManagedBy($user) ||
                $user->hasAnyRole(['admin', 'super_admin']);
     }
 
@@ -55,7 +54,7 @@ class ProductPolicy
      */
     public function delete(User $user, Product $product): bool
     {
-        return $product->store->owner_id === $user->id ||
+        return $product->store->canBeManagedBy($user) ||
                $user->hasAnyRole(['admin', 'super_admin']);
     }
 
@@ -64,7 +63,7 @@ class ProductPolicy
      */
     public function restore(User $user, Product $product): bool
     {
-        return $product->store->owner_id === $user->id ||
+        return $product->store->canBeManagedBy($user) ||
                $user->hasAnyRole(['admin', 'super_admin']);
     }
 

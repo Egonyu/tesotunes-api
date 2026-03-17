@@ -8,8 +8,12 @@ use App\Models\Sacco\SaccoLoan;
 use App\Models\Sacco\SaccoMember;
 use App\Models\Sacco\SaccoSavingsAccount;
 use App\Models\Sacco\SaccoSavingsTransaction;
+use App\Models\Sacco\SaccoShare;
+use App\Models\Sacco\SaccoShareTransaction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SaccoMembershipController extends Controller
 {
@@ -162,16 +166,84 @@ class SaccoMembershipController extends Controller
         $validated = $request->validate([
             'initial_deposit' => 'nullable|numeric|min:0',
             'initial_shares' => 'nullable|integer|min:0',
-            'phone_number' => 'required|string|max:20',
-            'payment_method' => 'nullable|string|in:mtn_momo,airtel_money',
+            'payment_method' => 'nullable|string|in:wallet',
         ]);
 
-        $member = SaccoMember::create([
-            'user_id' => $user->id,
-            'status' => 'active',
-            'joined_at' => now(),
-            'member_number' => 'MBR'.now()->format('Ymd').rand(10000, 99999),
-        ]);
+        $initialDeposit = (float) ($validated['initial_deposit'] ?? 0);
+        $initialShares = (int) ($validated['initial_shares'] ?? 0);
+        $shareValue = (int) config('sacco.share_capital.share_value', 10000);
+        $shareAmount = $initialShares * $shareValue;
+        $totalAmount = $initialDeposit + $shareAmount;
+
+        if ($totalAmount > 0 && ($user->ugx_balance ?? 0) < $totalAmount) {
+            throw ValidationException::withMessages([
+                'initial_deposit' => ['Insufficient wallet balance for the opening contribution.'],
+            ]);
+        }
+
+        $member = DB::transaction(function () use ($user, $initialDeposit, $initialShares, $shareValue, $shareAmount, $totalAmount) {
+            if ($totalAmount > 0) {
+                $user->decrement('ugx_balance', $totalAmount);
+            }
+
+            $member = SaccoMember::create([
+                'user_id' => $user->id,
+                'status' => 'active',
+                'joined_at' => now(),
+                'member_number' => 'MBR'.now()->format('Ymd').rand(10000, 99999),
+            ]);
+
+            if ($initialDeposit > 0) {
+                $account = SaccoSavingsAccount::create([
+                    'member_id' => $member->id,
+                    'account_type' => 'regular',
+                    'account_name' => 'Main Savings',
+                    'interest_rate' => 0,
+                    'minimum_balance_ugx' => 0,
+                    'status' => 'active',
+                    'balance_ugx' => $initialDeposit,
+                ]);
+
+                $member->increment('total_savings', $initialDeposit);
+
+                SaccoSavingsTransaction::create([
+                    'account_id' => $account->id,
+                    'member_id' => $member->id,
+                    'type' => 'deposit',
+                    'amount_ugx' => $initialDeposit,
+                    'balance_before_ugx' => 0,
+                    'balance_after_ugx' => $initialDeposit,
+                    'description' => 'Opening savings deposit',
+                    'status' => 'completed',
+                    'payment_method' => 'wallet',
+                ]);
+            }
+
+            if ($initialShares > 0) {
+                $share = SaccoShare::create([
+                    'member_id' => $member->id,
+                    'total_shares' => $initialShares,
+                    'share_value_ugx' => $shareValue,
+                    'total_value_ugx' => $shareAmount,
+                    'last_purchase_at' => now(),
+                ]);
+
+                $member->increment('total_shares', $shareAmount);
+
+                SaccoShareTransaction::create([
+                    'member_id' => $member->id,
+                    'share_id' => $share->id,
+                    'type' => 'purchase',
+                    'shares_quantity' => $initialShares,
+                    'price_per_share_ugx' => $shareValue,
+                    'total_amount_ugx' => $shareAmount,
+                    'status' => 'completed',
+                    'notes' => 'Opening share purchase',
+                ]);
+            }
+
+            return $member;
+        });
 
         $member->load('user:id,username,email');
 

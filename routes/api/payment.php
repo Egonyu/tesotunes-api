@@ -16,6 +16,16 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::middleware('auth:sanctum')->prefix('payments')->name('api.payments.')->group(function () {
+    Route::get(
+        '/methods',
+        [\App\Http\Controllers\Api\PaymentController::class, 'methods']
+    )->name('methods');
+
+    Route::post(
+        '/mobile-money/validate-phone',
+        [\App\Http\Controllers\Api\PaymentController::class, 'validatePhone']
+    )->name('mobile-money.validate-phone');
+
     // Initiate mobile money deposit (wallet topup)
     Route::post(
         '/mobile-money/initiate',

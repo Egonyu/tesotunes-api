@@ -195,7 +195,7 @@ class StorageHelper
      */
     public static function artworkUrl(?string $artwork, ?string $default = null): ?string
     {
-        if (! empty($artwork)) {
+        if (! empty($artwork) && static::pathExists($artwork)) {
             return static::url($artwork);
         }
 
@@ -222,5 +222,34 @@ class StorageHelper
         $encodedName = urlencode($name);
 
         return "https://ui-avatars.com/api/?name={$encodedName}&background=random&size=200";
+    }
+
+    /**
+     * Check whether a relative media path exists on the configured disk.
+     * External URLs are treated as opaque and returned as available.
+     */
+    public static function pathExists(?string $path): bool
+    {
+        if (empty($path)) {
+            return false;
+        }
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return true;
+        }
+
+        $disks = array_unique([static::resolvedMediaDisk(), 'public']);
+
+        foreach ($disks as $disk) {
+            try {
+                if (Storage::disk($disk)->exists($path)) {
+                    return true;
+                }
+            } catch (\Exception $e) {
+                // Ignore disk errors and continue checking fallbacks.
+            }
+        }
+
+        return false;
     }
 }

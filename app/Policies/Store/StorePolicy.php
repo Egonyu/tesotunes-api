@@ -21,7 +21,7 @@ class StorePolicy
     public function view(?User $user, Store $store): bool
     {
         return $store->status === 'active' ||
-               ($user && ($user->id === $store->user_id || $user->hasAnyRole(['admin', 'super_admin'])));
+               ($user && ($store->canBeManagedBy($user) || $user->hasAnyRole(['admin', 'super_admin'])));
     }
 
     /**
@@ -31,11 +31,6 @@ class StorePolicy
     {
         // Check if store module is enabled
         if (! config('store.enabled', false)) {
-            return false;
-        }
-
-        // Check if user already has a store
-        if ($user->store()->exists()) {
             return false;
         }
 
@@ -49,6 +44,10 @@ class StorePolicy
             return $user->hasRole('artist');
         }
 
+        if (! $user->hasRole('artist') && ! config('store.stores.allow_user_stores', false)) {
+            return false;
+        }
+
         return true;
     }
 
@@ -57,7 +56,7 @@ class StorePolicy
      */
     public function update(User $user, Store $store): bool
     {
-        return $user->id === $store->user_id ||
+        return $store->canBeManagedBy($user) ||
                $user->hasAnyRole(['admin', 'super_admin']);
     }
 
@@ -66,7 +65,7 @@ class StorePolicy
      */
     public function delete(User $user, Store $store): bool
     {
-        return $user->id === $store->user_id ||
+        return $store->canBeManagedBy($user) ||
                $user->hasAnyRole(['admin', 'super_admin']);
     }
 
@@ -75,7 +74,7 @@ class StorePolicy
      */
     public function manageOrders(User $user, Store $store): bool
     {
-        return $user->id === $store->user_id ||
+        return $store->canBeManagedBy($user) ||
                $user->hasAnyRole(['admin', 'super_admin']);
     }
 
@@ -84,7 +83,7 @@ class StorePolicy
      */
     public function viewAnalytics(User $user, Store $store): bool
     {
-        return $user->id === $store->user_id ||
+        return $store->canBeManagedBy($user) ||
                $user->hasAnyRole(['admin', 'super_admin', 'finance']);
     }
 }

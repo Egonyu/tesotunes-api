@@ -14,6 +14,8 @@ class Cart extends Model
 {
     use HasFactory;
 
+    protected $table = 'store_carts';
+
     protected static function newFactory()
     {
         return CartFactory::new();

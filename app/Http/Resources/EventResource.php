@@ -24,8 +24,8 @@ class EventResource extends JsonResource
             'status' => $this->status,
 
             // Media
-            'artwork' => StorageHelper::url($this->artwork),
-            'banner' => StorageHelper::url($this->banner),
+            'artwork' => StorageHelper::artworkUrl($this->artwork),
+            'banner' => StorageHelper::artworkUrl($this->banner),
 
             // Schedule
             'starts_at' => $this->starts_at?->toIso8601String(),

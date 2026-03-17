@@ -28,6 +28,7 @@ class Order extends Model
     }
 
     protected $fillable = [
+        'uuid',
         'order_number',
         'store_id',
         'user_id',
@@ -36,6 +37,7 @@ class Order extends Model
         'fulfillment_status',
         'payment_method',
         'payment_provider',
+        'payment_reference',
         'transaction_id',
         // Totals (legacy single-currency columns kept for compatibility)
         'subtotal',
@@ -177,27 +179,57 @@ class Order extends Model
 
     public function pricing()
     {
-        return $this->hasOne(OrderPricing::class);
+        $class = 'App\\Modules\\Store\\Models\\OrderPricing';
+
+        if (! class_exists($class)) {
+            return $this->hasOne(self::class, 'id', 'id')->whereRaw('1 = 0');
+        }
+
+        return $this->hasOne($class);
     }
 
     public function addresses(): HasMany
     {
-        return $this->hasMany(OrderAddress::class);
+        $class = 'App\\Modules\\Store\\Models\\OrderAddress';
+
+        if (! class_exists($class)) {
+            return $this->hasMany(self::class, 'id', 'id')->whereRaw('1 = 0');
+        }
+
+        return $this->hasMany($class);
     }
 
     public function shippingAddress()
     {
-        return $this->hasOne(OrderAddress::class)->where('address_type', 'shipping');
+        $class = 'App\\Modules\\Store\\Models\\OrderAddress';
+
+        if (! class_exists($class)) {
+            return $this->hasOne(self::class, 'id', 'id')->whereRaw('1 = 0');
+        }
+
+        return $this->hasOne($class)->where('address_type', 'shipping');
     }
 
     public function billingAddress()
     {
-        return $this->hasOne(OrderAddress::class)->where('address_type', 'billing');
+        $class = 'App\\Modules\\Store\\Models\\OrderAddress';
+
+        if (! class_exists($class)) {
+            return $this->hasOne(self::class, 'id', 'id')->whereRaw('1 = 0');
+        }
+
+        return $this->hasOne($class)->where('address_type', 'billing');
     }
 
     public function fulfillment()
     {
-        return $this->hasOne(OrderFulfillment::class);
+        $class = 'App\\Modules\\Store\\Models\\OrderFulfillment';
+
+        if (! class_exists($class)) {
+            return $this->hasOne(self::class, 'id', 'id')->whereRaw('1 = 0');
+        }
+
+        return $this->hasOne($class);
     }
 
     // Placeholder for future promotion redemptions feature
@@ -372,8 +404,13 @@ class Order extends Model
         }
 
         // Refund credits if the order was paid with credits
-        if ($this->payment_method === 'credit' && $this->total_credits > 0 && $this->user) {
-            $this->user->increment('credits', $this->total_credits);
+        if (in_array($this->payment_method, ['credit', 'credits'], true) && $this->total_credits > 0 && $this->user) {
+            $this->user->addCredits(
+                $this->total_credits,
+                'store_refund',
+                "Refund for order {$this->order_number}",
+                ['order_id' => $this->id]
+            );
         }
 
         return $this->update($updates);
@@ -441,6 +478,10 @@ class Order extends Model
         parent::boot();
 
         static::creating(function ($order) {
+            if (! $order->uuid) {
+                $order->uuid = (string) \Str::uuid();
+            }
+
             if (! $order->order_number) {
                 $order->order_number = self::generateOrderNumber();
             }

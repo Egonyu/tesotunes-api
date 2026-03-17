@@ -21,6 +21,11 @@ class Product extends Model
 
     protected $table = 'store_products';
 
+    protected $appends = [
+        'featured_image_url',
+        'image_urls',
+    ];
+
     protected $fillable = [
         'uuid',
         'store_id',
@@ -32,6 +37,8 @@ class Product extends Model
         'short_description',
         'images',
         'featured_image',
+        'price',
+        'type',
         'product_type',
         'status',
         'is_featured',
@@ -51,7 +58,10 @@ class Product extends Model
         'stock_quantity',
         'inventory_quantity',
         'track_inventory',
+        'allow_backorder',
         'low_stock_threshold', // For stock tracking
+        'is_digital',
+        'digital_file_path',
         // Rating/review stats
         'average_rating',
         'review_count',
@@ -63,8 +73,11 @@ class Product extends Model
         'is_featured' => 'boolean',
         'is_taxable' => 'boolean',
         'has_variants' => 'boolean',
+        'track_inventory' => 'boolean',
+        'allow_backorder' => 'boolean',
         'allow_credit_payment' => 'boolean',
         'allow_hybrid_payment' => 'boolean',
+        'is_digital' => 'boolean',
         'price_ugx' => 'decimal:2',
         'price_credits' => 'integer',
         'published_at' => 'datetime',
@@ -115,32 +128,68 @@ class Product extends Model
     // NEW: Normalized relationships
     public function pricing()
     {
-        return $this->hasOne(ProductPricing::class);
+        $class = 'App\\Modules\\Store\\Models\\ProductPricing';
+
+        if (! class_exists($class)) {
+            return $this->hasOne(self::class, 'id', 'id')->whereRaw('1 = 0');
+        }
+
+        return $this->hasOne($class);
     }
 
     public function inventory()
     {
-        return $this->hasOne(ProductInventory::class);
+        $class = 'App\\Modules\\Store\\Models\\ProductInventory';
+
+        if (! class_exists($class)) {
+            return $this->hasOne(self::class, 'id', 'id')->whereRaw('1 = 0');
+        }
+
+        return $this->hasOne($class);
     }
 
     public function physicalSpecs()
     {
-        return $this->hasOne(ProductPhysicalSpecs::class);
+        $class = 'App\\Modules\\Store\\Models\\ProductPhysicalSpecs';
+
+        if (! class_exists($class)) {
+            return $this->hasOne(self::class, 'id', 'id')->whereRaw('1 = 0');
+        }
+
+        return $this->hasOne($class);
     }
 
     public function seo()
     {
-        return $this->hasOne(ProductSeo::class);
+        $class = 'App\\Modules\\Store\\Models\\ProductSeo';
+
+        if (! class_exists($class)) {
+            return $this->hasOne(self::class, 'id', 'id')->whereRaw('1 = 0');
+        }
+
+        return $this->hasOne($class);
     }
 
     public function variants(): HasMany
     {
-        return $this->hasMany(ProductVariant::class);
+        $class = 'App\\Modules\\Store\\Models\\ProductVariant';
+
+        if (! class_exists($class)) {
+            return $this->hasMany(self::class, 'id', 'id')->whereRaw('1 = 0');
+        }
+
+        return $this->hasMany($class);
     }
 
     public function digitalAssets(): HasMany
     {
-        return $this->hasMany(ProductDigitalAsset::class);
+        $class = 'App\\Modules\\Store\\Models\\ProductDigitalAsset';
+
+        if (! class_exists($class)) {
+            return $this->hasMany(self::class, 'id', 'id')->whereRaw('1 = 0');
+        }
+
+        return $this->hasMany($class);
     }
 
     public function orderItems(): HasMany
@@ -231,6 +280,10 @@ class Product extends Model
             return null;
         }
 
+        if ($url = $this->resolveMediaUrl($this->featured_image)) {
+            return $url;
+        }
+
         try {
             $disk = config('store.storage.disk', 'public');
 
@@ -252,6 +305,15 @@ class Product extends Model
     {
         if (! $this->images) {
             return [];
+        }
+
+        $resolvedImages = array_values(array_filter(array_map(
+            fn ($image) => $this->resolveMediaUrl($image),
+            $this->images
+        )));
+
+        if ($resolvedImages !== []) {
+            return $resolvedImages;
         }
 
         try {
@@ -618,8 +680,7 @@ class Product extends Model
 
     public function incrementSales(int $quantity = 1): void
     {
-        // Store statistics would be updated here in a real implementation
-        // For now, we don't have a total_sales column
+        $this->increment('total_sales', $quantity);
     }
 
     public function incrementViews(): void
@@ -806,6 +867,27 @@ class Product extends Model
     public function getReviewsCountAttribute()
     {
         return $this->review_count;
+    }
+
+    protected function resolveMediaUrl(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        if (filter_var($path, FILTER_VALIDATE_URL)) {
+            return $path;
+        }
+
+        if (str_starts_with($path, '/')) {
+            return url(ltrim($path, '/'));
+        }
+
+        if (str_starts_with($path, 'store-media/')) {
+            return url($path);
+        }
+
+        return null;
     }
 
     // Note: average_rating column is now a real column, no accessor needed

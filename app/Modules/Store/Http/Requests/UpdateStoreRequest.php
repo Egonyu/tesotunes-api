@@ -3,6 +3,7 @@
 namespace App\Modules\Store\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateStoreRequest extends FormRequest
 {
@@ -21,7 +22,8 @@ class UpdateStoreRequest extends FormRequest
      */
     public function rules(): array
     {
-        $storeId = $this->route('store')?->id;
+        $store = $this->route('store');
+        $storeId = is_object($store) ? $store->id : null;
 
         return [
             'name' => [
@@ -31,10 +33,42 @@ class UpdateStoreRequest extends FormRequest
                 'max:255',
                 'min:3',
             ],
+            'slug' => [
+                'sometimes',
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('stores', 'slug')->ignore($storeId),
+            ],
             'description' => [
                 'nullable',
                 'string',
                 'max:1000',
+            ],
+            'phone' => [
+                'nullable',
+                'string',
+                'max:50',
+            ],
+            'email' => [
+                'nullable',
+                'email',
+                'max:255',
+            ],
+            'address' => [
+                'nullable',
+                'string',
+                'max:1000',
+            ],
+            'city' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'country' => [
+                'nullable',
+                'string',
+                'max:255',
             ],
             'logo' => [
                 'nullable',
@@ -49,6 +83,19 @@ class UpdateStoreRequest extends FormRequest
                 'max:5120',
             ],
             'settings' => [
+                'nullable',
+                'array',
+            ],
+            'offers_local_pickup' => [
+                'nullable',
+                'boolean',
+            ],
+            'pickup_address' => [
+                'nullable',
+                'string',
+                'max:1000',
+            ],
+            'metadata' => [
                 'nullable',
                 'array',
             ],

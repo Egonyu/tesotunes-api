@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Str;
 
 /**
  * CreditTransaction Model
@@ -20,7 +21,17 @@ class CreditTransaction extends Model
 {
     use HasFactory;
 
+    protected static function booted(): void
+    {
+        static::creating(function (self $transaction) {
+            if (empty($transaction->uuid)) {
+                $transaction->uuid = (string) Str::uuid();
+            }
+        });
+    }
+
     protected $fillable = [
+        'uuid',
         'user_id',
         'type',
         'amount',
@@ -28,6 +39,8 @@ class CreditTransaction extends Model
         'source',
         'description',
         'reference',
+        'referenceable_type',
+        'referenceable_id',
         'reference_type',
         'reference_id',
         'creditable_type',
@@ -76,9 +89,14 @@ class CreditTransaction extends Model
         return $this->belongsTo(User::class, 'related_user_id');
     }
 
-    public function creditable(): MorphTo
+    public function referenceable(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    public function creditable(): MorphTo
+    {
+        return $this->referenceable();
     }
 
     // Scopes
@@ -141,7 +159,7 @@ class CreditTransaction extends Model
     {
         $prefix = $this->type === 'spend' || $this->amount < 0 ? '-' : '+';
 
-        return $prefix.'UGX '.number_format(abs($this->amount), 0);
+        return $prefix.number_format(abs($this->amount), 0).' credits';
     }
 
     public function getTypeIconAttribute(): string
@@ -206,9 +224,8 @@ class CreditTransaction extends Model
             'balance_after' => $balanceAfter,
             'description' => $description,
             'reference' => 'stream_'.uniqid(),
-            'creditable_type' => $creditableType ?? 'App\\Models\\Song',
-            'creditable_id' => $creditableId ?? 0,
-            'metadata' => $metadata,
+            'referenceable_type' => $creditableType ?? 'App\\Models\\Song',
+            'referenceable_id' => $creditableId ?? 0,
         ]);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Modules\Store\Http\Requests;
 
 use App\Modules\Store\Models\Product;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class CreateProductRequest extends FormRequest
 {
@@ -12,9 +13,9 @@ class CreateProductRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        $store = $this->user()->store;
+        $store = $this->route('store');
 
-        if (! $store) {
+        if (! $store || ! $store->canBeManagedBy($this->user())) {
             return false;
         }
 
@@ -30,6 +31,11 @@ class CreateProductRequest extends FormRequest
         return [
             'name' => [
                 'required',
+                'string',
+                'max:255',
+            ],
+            'slug' => [
+                'nullable',
                 'string',
                 'max:255',
             ],
@@ -85,7 +91,7 @@ class CreateProductRequest extends FormRequest
                 'nullable',
                 'string',
                 'max:100',
-                'unique:products,sku',
+                Rule::unique('store_products', 'sku'),
             ],
             'inventory_quantity' => [
                 'required_if:track_inventory,true',
@@ -100,32 +106,9 @@ class CreateProductRequest extends FormRequest
                 'nullable',
                 'boolean',
             ],
-            'requires_shipping' => [
+            'low_stock_threshold' => [
                 'nullable',
-                'boolean',
-            ],
-            'weight' => [
-                'nullable',
-                'numeric',
-                'min:0',
-            ],
-            'dimensions' => [
-                'nullable',
-                'array',
-            ],
-            'dimensions.length' => [
-                'nullable',
-                'numeric',
-                'min:0',
-            ],
-            'dimensions.width' => [
-                'nullable',
-                'numeric',
-                'min:0',
-            ],
-            'dimensions.height' => [
-                'nullable',
-                'numeric',
+                'integer',
                 'min:0',
             ],
             'is_digital' => [
@@ -136,11 +119,6 @@ class CreateProductRequest extends FormRequest
                 'required_if:is_digital,true',
                 'file',
                 'max:51200', // 50MB
-            ],
-            'download_limit' => [
-                'nullable',
-                'integer',
-                'min:1',
             ],
             'images' => [
                 'nullable',
@@ -161,15 +139,9 @@ class CreateProductRequest extends FormRequest
                 'nullable',
                 'boolean',
             ],
-            'meta_title' => [
+            'metadata' => [
                 'nullable',
-                'string',
-                'max:60',
-            ],
-            'meta_description' => [
-                'nullable',
-                'string',
-                'max:160',
+                'array',
             ],
         ];
     }

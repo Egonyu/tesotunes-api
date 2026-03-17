@@ -10,6 +10,7 @@ use App\Models\Sacco\SaccoShareTransaction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SaccoSharesController extends Controller
 {
@@ -19,7 +20,7 @@ class SaccoSharesController extends Controller
     public function myShares(Request $request): JsonResponse
     {
         $member = $this->getAuthenticatedMember($request);
-        $pricePerShare = config('sacco.share_price', 50000);
+        $pricePerShare = $this->getShareValue();
 
         $share = SaccoShare::with(['transactions' => function ($query) {
             $query->latest()->limit(20);
@@ -56,8 +57,7 @@ class SaccoSharesController extends Controller
             'member_id' => 'nullable|integer|exists:sacco_members,id',
             'shares_quantity' => 'nullable|integer|min:1',
             'quantity' => 'nullable|integer|min:1',
-            'phone_number' => 'nullable|string|max:20',
-            'payment_method' => 'nullable|string|in:mtn_momo,airtel_money,bank,manual',
+            'payment_method' => 'nullable|string|in:wallet',
         ]);
 
         $member = isset($validated['member_id'])
@@ -71,11 +71,19 @@ class SaccoSharesController extends Controller
             ], 422);
         }
 
-        $pricePerShare = config('sacco.share_price', 50000);
+        $pricePerShare = $this->getShareValue();
 
         $totalAmount = $quantity * $pricePerShare;
 
-        DB::transaction(function () use ($member, $quantity, $pricePerShare, $totalAmount) {
+        if (($request->user()->ugx_balance ?? 0) < $totalAmount) {
+            throw ValidationException::withMessages([
+                'quantity' => ['Insufficient wallet balance.'],
+            ]);
+        }
+
+        DB::transaction(function () use ($member, $quantity, $pricePerShare, $totalAmount, $request) {
+            $request->user()->decrement('ugx_balance', $totalAmount);
+
             $share = SaccoShare::firstOrCreate(
                 ['member_id' => $member->id],
                 ['total_shares' => 0, 'share_value_ugx' => $pricePerShare, 'total_value_ugx' => 0]
@@ -87,6 +95,8 @@ class SaccoSharesController extends Controller
                 'share_value_ugx' => $pricePerShare,
                 'last_purchase_at' => now(),
             ]);
+
+            $member->increment('total_shares', $totalAmount);
 
             SaccoShareTransaction::create([
                 'member_id' => $member->id,
@@ -131,9 +141,13 @@ class SaccoSharesController extends Controller
         $totalAmount = $validated['shares_quantity'] * $pricePerShare;
 
         DB::transaction(function () use ($fromShare, $validated, $pricePerShare, $totalAmount) {
+            $fromMember = SaccoMember::findOrFail($validated['from_member_id']);
+            $toMember = SaccoMember::findOrFail($validated['to_member_id']);
+
             // Deduct from sender
             $fromShare->decrement('total_shares', $validated['shares_quantity']);
             $fromShare->decrement('total_value_ugx', $totalAmount);
+            $fromMember->decrement('total_shares', $totalAmount);
 
             SaccoShareTransaction::create([
                 'member_id' => $validated['from_member_id'],
@@ -154,6 +168,7 @@ class SaccoSharesController extends Controller
 
             $toShare->increment('total_shares', $validated['shares_quantity']);
             $toShare->increment('total_value_ugx', $totalAmount);
+            $toMember->increment('total_shares', $totalAmount);
 
             SaccoShareTransaction::create([
                 'member_id' => $validated['to_member_id'],
@@ -193,7 +208,7 @@ class SaccoSharesController extends Controller
      */
     public function currentValue(): JsonResponse
     {
-        $pricePerShare = config('sacco.share_price', 50000);
+        $pricePerShare = $this->getShareValue();
         $totalSharesIssued = SaccoShare::sum('total_shares');
         $totalValue = SaccoShare::sum('total_value_ugx');
 
@@ -212,5 +227,10 @@ class SaccoSharesController extends Controller
             ->where('user_id', $request->user()->id)
             ->where('status', 'active')
             ->firstOrFail();
+    }
+
+    private function getShareValue(): int
+    {
+        return (int) config('sacco.share_capital.share_value', 10000);
     }
 }

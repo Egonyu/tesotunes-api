@@ -2,6 +2,7 @@
 
 namespace App\Modules\Store\Models;
 
+use App\Models\Artist;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,6 +21,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Store extends Model
 {
     use HasFactory, SoftDeletes;
+
+    protected $table = 'stores';
 
     protected static function newFactory()
     {
@@ -122,7 +125,7 @@ class Store extends Model
     */
 
     /**
-     * Get the store owner (user)
+     * Get the managing user account for the store.
      */
     public function user(): BelongsTo
     {
@@ -193,7 +196,7 @@ class Store extends Model
     public function categories()
     {
         return $this->belongsToMany(
-            \App\Modules\Store\Models\StoreCategory::class,
+            ProductCategory::class,
             'store_category_pivot',
             'store_id',
             'category_id'
@@ -236,6 +239,29 @@ class Store extends Model
     public function scopePremium($query)
     {
         return $query->whereIn('subscription_tier', [self::TIER_PREMIUM, self::TIER_BUSINESS]);
+    }
+
+    /**
+     * Scope: Stores manageable by the given user.
+     */
+    public function scopeManagedByUser($query, User $user)
+    {
+        $artistId = $user->artist?->id;
+
+        return $query->where(function ($storeQuery) use ($user, $artistId) {
+            $storeQuery->where('user_id', $user->id)
+                ->orWhere(function ($ownerQuery) use ($user) {
+                    $ownerQuery->where('owner_type', User::class)
+                        ->where('owner_id', $user->id);
+                });
+
+            if ($artistId) {
+                $storeQuery->orWhere(function ($ownerQuery) use ($artistId) {
+                    $ownerQuery->where('owner_type', Artist::class)
+                        ->where('owner_id', $artistId);
+                });
+            }
+        });
     }
 
     /**
@@ -331,6 +357,30 @@ class Store extends Model
     public function getUrlAttribute(): string
     {
         return route('store.shop.store', $this->slug);
+    }
+
+    /**
+     * Get a human-friendly owner label for storefront presentation.
+     */
+    public function getOwnerNameAttribute(): ?string
+    {
+        if (! $this->relationLoaded('owner')) {
+            $this->loadMissing('owner');
+        }
+
+        if (! $this->owner) {
+            return $this->user?->display_name;
+        }
+
+        if ($this->owner instanceof Artist) {
+            return $this->owner->stage_name;
+        }
+
+        if ($this->owner instanceof User) {
+            return $this->owner->display_name;
+        }
+
+        return null;
     }
 
     /**
@@ -529,6 +579,23 @@ class Store extends Model
             'status' => self::STATUS_CLOSED,
             'metadata' => $metadata,
         ]);
+    }
+
+    /**
+     * Check whether a user can manage this storefront.
+     */
+    public function canBeManagedBy(User $user): bool
+    {
+        if ($this->user_id === $user->id) {
+            return true;
+        }
+
+        if ($this->owner_type === User::class && (int) $this->owner_id === $user->id) {
+            return true;
+        }
+
+        return $this->owner_type === Artist::class
+            && (int) $this->owner_id === (int) $user->artist?->id;
     }
 
     /*

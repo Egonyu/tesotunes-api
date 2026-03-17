@@ -258,23 +258,24 @@ class SaccoMember extends Model
 
     public function getTotalSavingsAttribute(): float
     {
-        if (array_key_exists('total_savings', $this->attributes) && $this->attributes['total_savings'] !== null) {
-            return (float) $this->attributes['total_savings'];
-        }
+        $stored = array_key_exists('total_savings', $this->attributes) && $this->attributes['total_savings'] !== null
+            ? (float) $this->attributes['total_savings']
+            : 0.0;
+        $legacyAccounts = (float) $this->accounts()->where('account_type', SaccoAccount::TYPE_SAVINGS)->sum('balance');
+        $savingsAccounts = (float) $this->savingsAccounts()->sum('balance_ugx');
 
-        return (float) $this->accounts()->where('account_type', SaccoAccount::TYPE_SAVINGS)->sum('balance');
+        return max($stored, $legacyAccounts, $savingsAccounts);
     }
 
     public function getTotalSharesAttribute(): float
     {
-        if (array_key_exists('total_shares', $this->attributes) && $this->attributes['total_shares'] !== null) {
-            return (float) $this->attributes['total_shares'];
-        }
-
+        $stored = array_key_exists('total_shares', $this->attributes) && $this->attributes['total_shares'] !== null
+            ? (float) $this->attributes['total_shares']
+            : 0.0;
         $accountShares = (float) $this->accounts()->where('account_type', SaccoAccount::TYPE_SHARES)->sum('balance');
         $shareCapital = (float) optional($this->shares)->total_value_ugx;
 
-        return max($accountShares, $shareCapital);
+        return max($stored, $accountShares, $shareCapital);
     }
 
     public function getMaxLoanAmountAttribute(): float

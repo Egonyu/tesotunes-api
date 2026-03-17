@@ -299,6 +299,7 @@ class Payment extends Model
         }
 
         $this->forceFill($updateData)->save();
+        $this->settleLedgerIfApplicable();
 
         // Auto-confirm attendee if this is an event payment
         if ($this->payable_type === EventAttendee::class && $this->payable) {
@@ -326,6 +327,7 @@ class Payment extends Model
         }
 
         $this->forceFill($updateData)->save();
+        $this->refundWithdrawalIfApplicable();
 
         if ($this->payment_type === 'ticket_purchase') {
             app(\App\Services\Events\EventTicketingService::class)->failPendingOrderPayment($this, $reason);
@@ -341,6 +343,7 @@ class Payment extends Model
             'status' => self::STATUS_CANCELLED,
             'failed_at' => now(),
         ])->save();
+        $this->refundWithdrawalIfApplicable();
 
         if ($this->payment_type === 'ticket_purchase') {
             app(\App\Services\Events\EventTicketingService::class)->failPendingOrderPayment($this, 'Payment cancelled');
@@ -565,5 +568,82 @@ class Payment extends Model
         }
 
         return $this->amount ?? null;
+        }
     }
-}
+
+    protected function settleLedgerIfApplicable(): void
+    {
+        $paymentData = $this->payment_data ?? [];
+        if (! empty($paymentData['ledger_settled_at'])) {
+            return;
+        }
+
+        $user = $this->user;
+        if (! $user) {
+            return;
+        }
+
+        if ($this->payment_type === 'wallet_topup') {
+            $user->increment('ugx_balance', (float) $this->amount);
+            $this->stampPaymentData([
+                'ledger_settled_at' => now()->toIso8601String(),
+                'wallet_credited' => true,
+            ]);
+
+            return;
+        }
+
+        if ($this->payment_type === 'credits_purchase') {
+            $creditsAmount = (int) data_get(
+                $this->metadata,
+                'credits_amount',
+                round((float) $this->amount * max(1, (float) Setting::get('credits_per_ugx', config('store.currencies.credits.conversion_rate', 1))))
+            );
+
+            $wallet = $user->creditWallet()->firstOrCreate(
+                ['user_id' => $user->id],
+                ['balance' => 0, 'currency' => 'credits']
+            );
+
+            $wallet->addCredits(
+                $creditsAmount,
+                'mobile_money_purchase',
+                "Purchased {$creditsAmount} credits via ZengaPay",
+                ['reference' => $this->payment_reference]
+            );
+
+            $this->stampPaymentData([
+                'ledger_settled_at' => now()->toIso8601String(),
+                'credits_settled' => $creditsAmount,
+            ]);
+        }
+    }
+
+    protected function refundWithdrawalIfApplicable(): void
+    {
+        if ($this->payment_type !== 'withdrawal') {
+            return;
+        }
+
+        $paymentData = $this->payment_data ?? [];
+        if (! empty($paymentData['withdrawal_refunded_at'])) {
+            return;
+        }
+
+        $user = $this->user;
+        if (! $user) {
+            return;
+        }
+
+        $user->increment('ugx_balance', (float) $this->amount);
+        $this->stampPaymentData([
+            'withdrawal_refunded_at' => now()->toIso8601String(),
+        ]);
+    }
+
+    protected function stampPaymentData(array $data): void
+    {
+        $this->forceFill([
+            'payment_data' => array_merge($this->payment_data ?? [], $data),
+        ])->save();
+    }
