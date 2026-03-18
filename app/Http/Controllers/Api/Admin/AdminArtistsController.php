@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Album;
 use App\Models\Artist;
 use App\Models\KYCDocument;
+use App\Models\Role;
 use App\Models\Song;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\JsonResponse;
@@ -588,6 +589,8 @@ class AdminArtistsController extends Controller
         }
 
         $user = $artist->user;
+        $artistRole = Role::where('name', Role::ARTIST)->first();
+        $userRole = Role::where('name', Role::USER)->first();
         $verificationStatus = match ($state) {
             'approved' => 'verified',
             'rejected' => 'rejected',
@@ -608,14 +611,38 @@ class AdminArtistsController extends Controller
         ]);
 
         if ($state === 'approved') {
+            if ($artistRole) {
+                $user->roles()->syncWithoutDetaching([
+                    $artistRole->id => [
+                        'assigned_at' => now(),
+                        'assigned_by' => auth()->id(),
+                        'is_active' => true,
+                    ],
+                ]);
+
+                $user->roles()->updateExistingPivot($artistRole->id, [
+                    'is_active' => true,
+                    'assigned_at' => now(),
+                    'assigned_by' => auth()->id(),
+                ]);
+            }
+
+            if ($userRole) {
+                $user->roles()->updateExistingPivot($userRole->id, [
+                    'is_active' => false,
+                ]);
+            }
+
             $user->forceFill([
                 'role' => 'artist',
                 'status' => 'active',
             ])->save();
 
-            if (! $user->hasRole('artist')) {
+            if (! $artistRole && ! $user->hasRole('artist')) {
                 $user->assignRole('artist', auth()->id());
             }
+
+            $user->clearPermissionCache();
 
             KYCDocument::where('user_id', $user->id)
                 ->whereIn('status', [KYCDocument::STATUS_PENDING, KYCDocument::STATUS_REJECTED])
@@ -636,6 +663,37 @@ class AdminArtistsController extends Controller
                     'verified_by' => auth()->id(),
                     'rejection_reason' => $artist->rejection_reason ?? 'Application rejected',
                 ]);
+        }
+
+        if (in_array($state, ['rejected', 'suspended'], true)) {
+            if ($artistRole) {
+                $user->roles()->updateExistingPivot($artistRole->id, [
+                    'is_active' => false,
+                ]);
+            }
+
+            if ($userRole) {
+                $user->roles()->syncWithoutDetaching([
+                    $userRole->id => [
+                        'assigned_at' => now(),
+                        'assigned_by' => auth()->id(),
+                        'is_active' => true,
+                    ],
+                ]);
+
+                $user->roles()->updateExistingPivot($userRole->id, [
+                    'is_active' => true,
+                    'assigned_at' => now(),
+                    'assigned_by' => auth()->id(),
+                ]);
+            }
+
+            $user->forceFill([
+                'role' => Role::USER,
+                'status' => $state === 'suspended' ? 'suspended' : 'active',
+            ])->save();
+
+            $user->clearPermissionCache();
         }
     }
 }

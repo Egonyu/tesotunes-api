@@ -96,6 +96,18 @@ class ArtistApplicationApiController extends Controller
     {
         $user = Auth::user();
 
+        // Frontend compatibility: legacy clients may send payment_option instead of payout_method.
+        if (! $request->filled('payout_method') && $request->filled('payment_option')) {
+            $request->merge(['payout_method' => $request->input('payment_option')]);
+        }
+
+        if ($request->input('payout_method') === 'zengapay') {
+            $request->merge([
+                'mobile_money_provider' => null,
+                'mobile_money_number' => $request->input('mobile_money_number') ?: $request->input('phone'),
+            ]);
+        }
+
         if ($user->artist && $user->artist->status !== 'rejected') {
             return response()->json([
                 'success' => false,
@@ -113,11 +125,11 @@ class ArtistApplicationApiController extends Controller
                 'secondary_genres.*' => 'exists:genres,id',
                 'full_name' => 'required|string|max:255',
                 'phone' => 'required|string|max:20',
-                'payout_method' => 'required|in:mtn_momo,airtel_money,bank,zengapay',
-                'mobile_money_number' => 'required_if:payout_method,mtn_momo,airtel_money',
-                'mobile_money_provider' => 'required_if:payout_method,mtn_momo,airtel_money|in:mtn,airtel',
-                'bank_name' => 'required_if:payout_method,bank',
-                'bank_account' => 'required_if:payout_method,bank',
+                'payout_method' => 'nullable|in:mtn_momo,airtel_money,bank,zengapay',
+                'mobile_money_number' => 'nullable|string|max:20|required_if:payout_method,mtn_momo,airtel_money',
+                'mobile_money_provider' => 'nullable|required_if:payout_method,mtn_momo,airtel_money|in:mtn,airtel',
+                'bank_name' => 'nullable|required_if:payout_method,bank',
+                'bank_account' => 'nullable|required_if:payout_method,bank',
                 'country' => 'nullable|string|max:2',
                 'city' => 'nullable|string|max:255',
                 'website_url' => 'nullable|url|max:255',
@@ -138,6 +150,13 @@ class ArtistApplicationApiController extends Controller
                 'message' => 'Validation failed',
                 'errors' => $e->errors(),
             ], 422);
+        }
+
+        $validated['payout_method'] = $validated['payout_method'] ?? 'zengapay';
+
+        if ($validated['payout_method'] === 'zengapay') {
+            $validated['mobile_money_provider'] = 'zengapay';
+            $validated['mobile_money_number'] = $validated['mobile_money_number'] ?? $validated['phone'];
         }
 
         DB::beginTransaction();

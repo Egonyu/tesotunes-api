@@ -239,6 +239,75 @@ class ArtistApplicationApiTest extends TestCase
         ]);
     }
 
+    public function test_submitting_application_with_zengapay_provider_payload_succeeds(): void
+    {
+        Storage::fake('private');
+
+        $user = User::factory()->create([
+            'application_status' => null,
+        ]);
+        $genre = $this->createGenre('zengapay-provider-genre');
+
+        $phone = '+256700000778';
+
+        $response = $this->actingAs($user, 'sanctum')
+            ->post('/api/artist/apply', [
+                'stage_name' => 'Zenga Provider Artist',
+                'bio' => str_repeat('Zenga provider artist bio ', 6),
+                'primary_genre' => $genre->id,
+                'full_name' => 'Zenga Provider Artist',
+                'phone' => $phone,
+                'payout_method' => 'zengapay',
+                'mobile_money_provider' => 'zengapay',
+                'terms_accepted' => true,
+                'artist_agreement_accepted' => true,
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'mobile_money_provider' => 'zengapay',
+            'mobile_money_number' => $phone,
+            'application_status' => 'pending',
+        ]);
+    }
+
+    public function test_submitting_application_with_payment_option_fallback_defaults_to_zengapay(): void
+    {
+        Storage::fake('private');
+
+        $user = User::factory()->create([
+            'application_status' => null,
+        ]);
+        $genre = $this->createGenre('payment-option-fallback-genre');
+
+        $phone = '+256700000779';
+
+        $response = $this->actingAs($user, 'sanctum')
+            ->post('/api/artist/apply', [
+                'stage_name' => 'Payment Option Artist',
+                'bio' => str_repeat('Payment option artist bio ', 6),
+                'primary_genre' => $genre->id,
+                'full_name' => 'Payment Option Artist',
+                'phone' => $phone,
+                'payment_option' => 'zengapay',
+                'terms_accepted' => true,
+                'artist_agreement_accepted' => true,
+            ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'mobile_money_provider' => 'zengapay',
+            'mobile_money_number' => $phone,
+            'application_status' => 'pending',
+        ]);
+    }
+
     protected function createGenre(string $slug): Genre
     {
         return Genre::create([

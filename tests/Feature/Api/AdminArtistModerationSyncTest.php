@@ -45,6 +45,11 @@ class AdminArtistModerationSyncTest extends TestCase
             ['name' => 'artist'],
             ['display_name' => 'Artist', 'description' => 'Artist role', 'is_active' => true, 'priority' => 50]
         );
+
+        Role::firstOrCreate(
+            ['name' => 'user'],
+            ['display_name' => 'User', 'description' => 'User role', 'is_active' => true, 'priority' => 1]
+        );
     }
 
     public function test_admin_approval_syncs_user_artist_profile_and_kyc_state(): void
@@ -128,6 +133,8 @@ class AdminArtistModerationSyncTest extends TestCase
             'is_artist' => true,
         ]);
 
+        $user->assignRole('artist', $admin->id);
+
         $artist = Artist::factory()->create([
             'user_id' => $user->id,
             'status' => 'active',
@@ -161,6 +168,24 @@ class AdminArtistModerationSyncTest extends TestCase
             'application_status' => 'suspended',
             'is_artist' => false,
         ]);
+
+        $artistRole = Role::where('name', 'artist')->firstOrFail();
+        $userRole = Role::where('name', 'user')->firstOrFail();
+
+        $this->assertDatabaseHas('user_roles', [
+            'user_id' => $user->id,
+            'role_id' => $artistRole->id,
+            'is_active' => 0,
+        ]);
+
+        $this->assertDatabaseHas('user_roles', [
+            'user_id' => $user->id,
+            'role_id' => $userRole->id,
+            'is_active' => 1,
+        ]);
+
+        $user->refresh();
+        $this->assertSame('user', $user->role);
 
         $this->assertDatabaseHas('artist_profiles', [
             'user_id' => $user->id,
@@ -223,6 +248,24 @@ class AdminArtistModerationSyncTest extends TestCase
             'is_artist' => false,
         ]);
 
+        $artistRole = Role::where('name', 'artist')->firstOrFail();
+        $userRole = Role::where('name', 'user')->firstOrFail();
+
+        $this->assertDatabaseMissing('user_roles', [
+            'user_id' => $user->id,
+            'role_id' => $artistRole->id,
+            'is_active' => 1,
+        ]);
+
+        $this->assertDatabaseHas('user_roles', [
+            'user_id' => $user->id,
+            'role_id' => $userRole->id,
+            'is_active' => 1,
+        ]);
+
+        $user->refresh();
+        $this->assertSame('user', $user->role);
+
         $this->assertDatabaseHas('artist_profiles', [
             'user_id' => $user->id,
             'artist_id' => $artist->id,
@@ -234,6 +277,55 @@ class AdminArtistModerationSyncTest extends TestCase
             'document_type' => KYCDocument::TYPE_NATIONAL_ID_FRONT,
             'status' => KYCDocument::STATUS_REJECTED,
             'rejection_reason' => 'Incomplete KYC documents',
+        ]);
+    }
+
+    public function test_admin_approval_promotes_primary_role_to_artist_when_user_role_already_exists(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin', $admin->id);
+
+        $user = User::factory()->create([
+            'application_status' => 'pending',
+        ]);
+
+        $userRole = Role::where('name', 'user')->firstOrFail();
+        $artistRole = Role::where('name', 'artist')->firstOrFail();
+
+        $user->roles()->syncWithoutDetaching([
+            $userRole->id => [
+                'assigned_at' => now(),
+                'assigned_by' => $admin->id,
+                'is_active' => true,
+            ],
+        ]);
+
+        $artist = Artist::factory()->create([
+            'user_id' => $user->id,
+            'status' => 'pending',
+            'is_verified' => false,
+            'verification_status' => 'pending',
+            'can_upload' => false,
+        ]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/admin/artists/{$artist->id}/approve")
+            ->assertOk();
+
+        $user->refresh();
+
+        $this->assertSame('artist', $user->role);
+
+        $this->assertDatabaseHas('user_roles', [
+            'user_id' => $user->id,
+            'role_id' => $artistRole->id,
+            'is_active' => 1,
+        ]);
+
+        $this->assertDatabaseHas('user_roles', [
+            'user_id' => $user->id,
+            'role_id' => $userRole->id,
+            'is_active' => 0,
         ]);
     }
 }

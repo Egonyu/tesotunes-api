@@ -488,14 +488,18 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     public function getRoleAttribute(): ?string
     {
-        $role = $this->activeRoles()->first() ?? $this->roles()->first();
+        $role = $this->activeRoles()->orderByDesc('priority')->first();
 
         if ($role) {
             return $role->name;
         }
 
-        // Fallback: read the direct 'role' column from the users table
-        return $this->attributes['role'] ?? null;
+        // Fallback: prefer direct column to avoid surfacing inactive pivot roles.
+        if (! empty($this->attributes['role'])) {
+            return $this->attributes['role'];
+        }
+
+        return $this->roles()->orderByDesc('priority')->value('name');
     }
 
     public function activeRoles(): BelongsToMany
