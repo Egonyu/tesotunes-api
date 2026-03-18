@@ -13,6 +13,12 @@ class SongResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $resolvedArtworkUrl = $this->artwork_url
+            ?? StorageHelper::url($this->artwork)
+            ?? (($this->relationLoaded('album') && $this->album)
+                ? StorageHelper::url($this->album->artwork)
+                : null);
+
         return [
             'id' => $this->id,
             'uuid' => $this->uuid,
@@ -20,28 +26,21 @@ class SongResource extends JsonResource
             'slug' => $this->slug,
 
             // Media
-            'artwork_url' => $this->artwork_url ?? StorageHelper::url($this->artwork),
+            'artwork_url' => $resolvedArtworkUrl,
+            'cover_url' => $resolvedArtworkUrl,
 
             // stream_url: pre-signed CDN URL valid for 15 minutes (Spotify-style).
             // Only included when the user has streaming access.  The client hits
             // this URL directly — no Laravel proxy, no extra round-trip.
             'stream_url' => $this->when(
                 $this->canStreamFor($request->user()),
-                fn () => StorageHelper::streamingUrl(
-                    $this->audio_file_320,
-                    $this->audio_file_128,
-                    $this->audio_file_original
-                )
+                fn () => $this->streamingUrlFor($request->user())
             ),
 
             // audio_url kept for backward compatibility — same value as stream_url.
             'audio_url' => $this->when(
                 $this->canStreamFor($request->user()),
-                fn () => StorageHelper::streamingUrl(
-                    $this->audio_file_320,
-                    $this->audio_file_128,
-                    $this->audio_file_original
-                )
+                fn () => $this->streamingUrlFor($request->user())
             ),
 
             // preview_url: 30-second preview clip, no auth required for free tracks.
@@ -138,7 +137,11 @@ class SongResource extends JsonResource
 
         $title = "{$this->title} — {$artistName}";
         $description = "Listen to {$this->title} by {$artistName} on TesoTunes";
-        $ogImage = $this->artwork_url ?? StorageHelper::url($this->artwork);
+        $ogImage = $this->artwork_url
+            ?? StorageHelper::url($this->artwork)
+            ?? (($this->relationLoaded('album') && $this->album)
+                ? StorageHelper::url($this->album->artwork)
+                : null);
 
         $encoded = urlencode($shareUrl);
         $encodedTitle = urlencode($title);
@@ -169,14 +172,32 @@ class SongResource extends JsonResource
             return true;
         }
 
+        // Current platform policy allows streaming for all users while plan
+        // limits gate quality/entitlements elsewhere.
         if (! $user) {
-            return false;
-        }
-
-        if (isset($user->subscription_tier) && $user->subscription_tier === 'premium') {
             return true;
         }
 
-        return false;
+        if (method_exists($user, 'canStream')) {
+            return (bool) $user->canStream();
+        }
+
+        return true;
+    }
+
+    /**
+     * Resolve stream URL based on user quality entitlement.
+     */
+    protected function streamingUrlFor(?object $user): ?string
+    {
+        $maxQuality = method_exists($user, 'getMaxAudioQuality')
+            ? (int) $user->getMaxAudioQuality()
+            : 128;
+
+        return StorageHelper::streamingUrl(
+            $maxQuality >= 320 ? $this->audio_file_320 : null,
+            $this->audio_file_128,
+            $this->audio_file_original
+        );
     }
 }

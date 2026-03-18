@@ -13,6 +13,8 @@ class AlbumResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $resolvedArtworkUrl = $this->artwork_url ?? StorageHelper::url($this->artwork);
+
         return [
             'id' => $this->id,
             'uuid' => $this->uuid,
@@ -21,7 +23,8 @@ class AlbumResource extends JsonResource
             'description' => $this->description,
 
             // Media
-            'artwork_url' => $this->artwork_url ?? StorageHelper::url($this->artwork),
+            'artwork_url' => $resolvedArtworkUrl,
+            'cover_url' => $resolvedArtworkUrl,
 
             // Metadata
             'album_type' => $this->album_type,
