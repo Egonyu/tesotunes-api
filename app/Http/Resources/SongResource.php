@@ -178,7 +178,7 @@ class SongResource extends JsonResource
             return true;
         }
 
-        if (method_exists($user, 'canStream')) {
+        if (is_object($user) && method_exists($user, 'canStream')) {
             return (bool) $user->canStream();
         }
 
@@ -190,7 +190,7 @@ class SongResource extends JsonResource
      */
     protected function streamingUrlFor(?object $user): ?string
     {
-        $maxQuality = method_exists($user, 'getMaxAudioQuality')
+        $maxQuality = (is_object($user) && method_exists($user, 'getMaxAudioQuality'))
             ? (int) $user->getMaxAudioQuality()
             : 128;
 
