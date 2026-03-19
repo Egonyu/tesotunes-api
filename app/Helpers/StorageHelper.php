@@ -137,6 +137,10 @@ class StorageHelper
         $disk = static::resolvedMediaDisk();
 
         if ($disk !== 'public') {
+            if (static::shouldUsePublicCloudUrl($disk)) {
+                return static::url($path);
+            }
+
             try {
                 return Storage::disk($disk)->temporaryUrl($path, now()->addMinutes($minutes));
             } catch (\Exception $e) {
@@ -145,6 +149,18 @@ class StorageHelper
         }
 
         return static::url($path);
+    }
+
+    /**
+     * Public cloud buckets should use stable object URLs instead of signed URLs.
+     * This avoids signature drift issues in production while preserving direct CDN access.
+     */
+    private static function shouldUsePublicCloudUrl(string $disk): bool
+    {
+        $driver = config("filesystems.disks.{$disk}.driver");
+        $visibility = config("filesystems.disks.{$disk}.visibility");
+
+        return $driver === 's3' && $visibility === 'public';
     }
 
     /**

@@ -5,6 +5,7 @@ namespace Tests\Feature\Api\ImageUpload;
 use App\Helpers\StorageHelper;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Mockery;
 use Tests\TestCase;
 
 /**
@@ -177,5 +178,57 @@ class StorageHelperTest extends TestCase
     public function test_media_disk_defaults_to_public(): void
     {
         $this->assertEquals('public', StorageHelper::mediaDisk());
+    }
+
+    public function test_temporary_url_uses_stable_url_for_public_cloud_disks(): void
+    {
+        config([
+            'filesystems.media_disk' => 'digitalocean',
+            'filesystems.disks.digitalocean.driver' => 's3',
+            'filesystems.disks.digitalocean.visibility' => 'public',
+        ]);
+
+        $disk = Mockery::mock();
+        $disk->shouldReceive('url')
+            ->once()
+            ->with('songs/audio/test.mp3')
+            ->andReturn('https://emuria.syd1.digitaloceanspaces.com/songs/audio/test.mp3');
+        $disk->shouldNotReceive('temporaryUrl');
+
+        Storage::shouldReceive('disk')
+            ->once()
+            ->with('digitalocean')
+            ->andReturn($disk);
+
+        $this->assertSame(
+            'https://emuria.syd1.digitaloceanspaces.com/songs/audio/test.mp3',
+            StorageHelper::temporaryUrl('songs/audio/test.mp3')
+        );
+    }
+
+    public function test_temporary_url_keeps_signed_urls_for_private_cloud_disks(): void
+    {
+        config([
+            'filesystems.media_disk' => 's3',
+            'filesystems.disks.s3.driver' => 's3',
+            'filesystems.disks.s3.visibility' => 'private',
+        ]);
+
+        $disk = Mockery::mock();
+        $disk->shouldReceive('temporaryUrl')
+            ->once()
+            ->with('songs/audio/test.mp3', Mockery::type(\DateTimeInterface::class))
+            ->andReturn('https://signed.example.test/audio');
+        $disk->shouldNotReceive('url');
+
+        Storage::shouldReceive('disk')
+            ->once()
+            ->with('s3')
+            ->andReturn($disk);
+
+        $this->assertSame(
+            'https://signed.example.test/audio',
+            StorageHelper::temporaryUrl('songs/audio/test.mp3')
+        );
     }
 }
