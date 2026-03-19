@@ -12,6 +12,10 @@ env:
   PHP_VERSION: '8.4'
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
+concurrency:
+  group: production-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Deploy API
@@ -137,7 +141,12 @@ jobs:
               exit 1
             fi
 
+            rm -f .env
             ln -sfn $SHARED_PATH/.env .env
+            if [ ! -L ".env" ]; then
+              echo "❌ Failed to create shared .env symlink"
+              exit 1
+            fi
 
             rm -rf storage
             ln -sfn $SHARED_PATH/storage storage
@@ -176,25 +185,44 @@ jobs:
             RESET_PRODUCTION_DB="${{ secrets.PRODUCTION_DB_RESET_ONCE }}"
             RESET_CONFIRM="${{ secrets.PRODUCTION_DB_RESET_CONFIRM }}"
 
-            step "Checking Laravel migration status"
-            set +e
-            php -d display_errors=1 artisan migrate:status --no-ansi
-            MIGRATION_STATUS_EXIT=$?
-            set -e
-            echo "Migration status exit code: ${MIGRATION_STATUS_EXIT}"
+                step "Checking Laravel migration status"
+                set +e
+                php -d display_errors=1 artisan migrate:status --no-ansi
+                MIGRATION_STATUS_EXIT=$?
+                set -e
+                echo "Migration status exit code: ${MIGRATION_STATUS_EXIT}"
 
-            if [ "$RESET_PRODUCTION_DB" = "true" ]; then
-              if [ "$RESET_CONFIRM" != "WIPE_PRODUCTION_DB" ]; then
-                echo "❌ Refusing production reset: set PRODUCTION_DB_RESET_CONFIRM=WIPE_PRODUCTION_DB"
-                exit 1
-              fi
+                run_migrations() {
+                  local migrate_exit_code=0
 
-              echo "⚠️ Running one-time production database reset..."
-              php -d display_errors=1 artisan migrate:fresh --force -v
-              php artisan db:seed --class='Database\\Seeders\\GenreSeeder' --force
-            else
-              php -d display_errors=1 artisan migrate --force -v
-            fi
+                  set +e
+                  "$@"
+                  migrate_exit_code=$?
+                  set -e
+
+                  if [ "$migrate_exit_code" -ne 0 ]; then
+                    echo "❌ Migration command failed with exit code ${migrate_exit_code}"
+                    echo "⚠️ Retrying with --no-ansi for clearer logs..."
+                    set +e
+                    "$@" --no-ansi
+                    migrate_exit_code=$?
+                    set -e
+                    exit "$migrate_exit_code"
+                  fi
+                }
+
+                if [ "$RESET_PRODUCTION_DB" = "true" ]; then
+                  if [ "$RESET_CONFIRM" != "WIPE_PRODUCTION_DB" ]; then
+                    echo "❌ Refusing production reset: set PRODUCTION_DB_RESET_CONFIRM=WIPE_PRODUCTION_DB"
+                    exit 1
+                  fi
+
+                  echo "⚠️ Running one-time production database reset..."
+                  run_migrations php -d display_errors=1 artisan migrate:fresh --force -v
+                  php artisan db:seed --class='Database\\Seeders\\GenreSeeder' --force
+                else
+                  run_migrations php -d display_errors=1 artisan migrate --force -v
+                fi
 
             # ------------------------------------------------
             # Maintenance mode just before switching live release
