@@ -17,6 +17,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -493,10 +494,35 @@ class ArtistApiController extends Controller
         if ($status === 'pending') {
             $request->user()->notify(new SongModerationNotification($song, SongModerationNotification::PENDING_REVIEW));
 
-            // Notify admin/super_admin users about the pending song
-            $admins = User::whereIn('role', ['admin', 'super_admin'])->get();
+            // Notify admin/super_admin users about the pending song.
+            // Production schemas may not include users.role; prefer pivot roles when needed.
+            $admins = collect();
+
+            try {
+                if (Schema::hasColumn('users', 'role')) {
+                    $admins = User::whereIn('role', ['admin', 'super_admin'])->get();
+                } elseif (Schema::hasTable('roles') && Schema::hasTable('user_roles')) {
+                    $admins = User::whereHas('roles', function ($query): void {
+                        $query->whereIn('name', ['admin', 'super_admin']);
+                    })->get();
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Admin recipient resolution failed for pending song notification', [
+                    'song_id' => $song->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
             foreach ($admins as $admin) {
-                $admin->notify(new AdminSongPendingNotification($song, $request->user()));
+                try {
+                    $admin->notify(new AdminSongPendingNotification($song, $request->user()));
+                } catch (\Throwable $e) {
+                    Log::warning('Admin pending-song notification failed', [
+                        'song_id' => $song->id,
+                        'admin_id' => $admin->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
             }
         }
 
