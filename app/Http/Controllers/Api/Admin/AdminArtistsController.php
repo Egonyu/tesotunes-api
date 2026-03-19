@@ -9,6 +9,7 @@ use App\Models\Artist;
 use App\Models\KYCDocument;
 use App\Models\Role;
 use App\Models\Song;
+use App\Notifications\ArtistApplicationNotification;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -695,5 +696,14 @@ class AdminArtistsController extends Controller
 
             $user->clearPermissionCache();
         }
+
+        $notificationState = match ($state) {
+            'approved' => ArtistApplicationNotification::APPROVED,
+            'rejected' => ArtistApplicationNotification::REJECTED,
+            'suspended' => ArtistApplicationNotification::SUSPENDED,
+            default => ArtistApplicationNotification::SUBMITTED,
+        };
+
+        $user->notify(new ArtistApplicationNotification($notificationState, $artist->rejection_reason));
     }
 }

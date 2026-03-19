@@ -24,11 +24,16 @@ class ArtistController extends Controller
 
         $artists = Artist::with('primaryGenre')
             ->where('status', 'active')
+            ->when($request->boolean('claimable_only'), fn ($q) => $q->where('is_placeholder', true)->where('claim_status', 'unclaimed'))
             ->when($request->filled('verified_only'), fn ($q) => $q->where('is_verified', $request->boolean('verified_only')))
             ->when($request->filled('country'), fn ($q) => $q->where('country', $request->country))
             ->when($request->filled('genre'), fn ($q) => $q->where('primary_genre_id', $request->genre))
             ->when($request->filled('search'), function ($q) use ($request) {
-                $q->where('stage_name', 'like', '%'.escape_like($request->search).'%');
+                $search = '%'.escape_like($request->search).'%';
+                $q->where(function ($artistQuery) use ($search) {
+                    $artistQuery->where('stage_name', 'like', $search)
+                        ->orWhere('name', 'like', $search);
+                });
             })
             ->orderByDesc('followers_count')
             ->paginate($perPage);

@@ -40,6 +40,7 @@ class Artist extends Model implements HasMedia
     protected $fillable = [
         'uuid',
         'user_id',
+        'name',
         'stage_name',
         'slug',
         'bio',
@@ -50,6 +51,10 @@ class Artist extends Model implements HasMedia
         'status',
         'is_verified',
         'is_trusted',
+        'is_placeholder',
+        'claim_status',
+        'claimed_user_id',
+        'catalog_manager_user_id',
         'verification_status',
         'verified_at',
         'verified_by',
@@ -81,6 +86,7 @@ class Artist extends Model implements HasMedia
         'influences' => 'array',
         'is_verified' => 'boolean',
         'is_trusted' => 'boolean',
+        'is_placeholder' => 'boolean',
         'can_upload' => 'boolean',
         'auto_publish' => 'boolean',
         'require_approval' => 'boolean',
@@ -132,6 +138,16 @@ class Artist extends Model implements HasMedia
     public function verifiedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'verified_by');
+    }
+
+    public function claimedUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'claimed_user_id');
+    }
+
+    public function catalogManager(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'catalog_manager_user_id');
     }
 
     public function songs(): HasMany
@@ -188,12 +204,12 @@ class Artist extends Model implements HasMedia
 
     public function claimRequests()
     {
-        return $this->morphMany(ClaimRequest::class, 'claimable');
+        return $this->hasMany(CatalogClaimRequest::class);
     }
 
     public function pendingClaimRequests()
     {
-        return $this->morphMany(ClaimRequest::class, 'claimable')
+        return $this->hasMany(CatalogClaimRequest::class)
             ->whereIn('status', ['pending', 'under_review']);
     }
 

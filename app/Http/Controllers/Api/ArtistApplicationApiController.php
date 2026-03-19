@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Artist;
 use App\Models\KYCDocument;
+use App\Notifications\AdminArtistApplicationPendingNotification;
+use App\Notifications\ArtistApplicationNotification;
+use App\Services\NotificationRoutingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -14,8 +17,9 @@ use Illuminate\Support\Str;
 
 class ArtistApplicationApiController extends Controller
 {
-    public function __construct()
-    {
+    public function __construct(
+        private readonly NotificationRoutingService $notificationRoutingService
+    ) {
         $this->middleware('auth:sanctum');
     }
 
@@ -234,6 +238,14 @@ class ArtistApplicationApiController extends Controller
             }
 
             DB::commit();
+
+            $artist->loadMissing('user');
+
+            $user->notify(new ArtistApplicationNotification(ArtistApplicationNotification::SUBMITTED));
+
+            foreach ($this->notificationRoutingService->artistApplicationReviewers() as $reviewer) {
+                $reviewer->notify(new AdminArtistApplicationPendingNotification($user, $artist));
+            }
 
             return response()->json([
                 'success' => true,

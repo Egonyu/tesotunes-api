@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Helpers\StorageHelper;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -20,6 +21,7 @@ class NotificationResource extends JsonResource
             'message' => $this->message ?? $this->data['message'] ?? null,
             'icon' => $this->icon ?? 'bell',
             'image' => $this->image ?? null,
+            'link' => $this->action_url ?? $this->data['action_url'] ?? null,
             'action_url' => $this->action_url ?? $this->data['action_url'] ?? null,
             'action_text' => $this->action_text ?? null,
             'priority' => $this->priority ?? 'normal',
@@ -29,6 +31,7 @@ class NotificationResource extends JsonResource
             'actor' => $this->when($this->relationLoaded('actor') && $this->actor, [
                 'id' => $this->actor?->id,
                 'name' => $this->actor?->name,
+                'avatar_url' => $this->actor ? StorageHelper::avatarUrl($this->actor->avatar ?? null, $this->actor->name ?? null) : null,
             ]),
             'created_at' => $this->created_at?->toIso8601String(),
         ];

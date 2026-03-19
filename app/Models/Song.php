@@ -60,6 +60,9 @@ class Song extends Model
 
         // Status & visibility - use canonical DB column names
         'status',
+        'source_type',
+        'source_submission_item_id',
+        'is_claimable',
         'visibility',
         'is_featured',
         'is_downloadable',
@@ -176,6 +179,7 @@ class Song extends Model
 
         // Booleans - use canonical DB column names
         'contains_local_language' => 'boolean',
+        'is_claimable' => 'boolean',
         'is_downloadable' => 'boolean',
         'is_streamable' => 'boolean',
         'allow_comments' => 'boolean',
@@ -214,6 +218,11 @@ class Song extends Model
     public function genres(): BelongsToMany
     {
         return $this->belongsToMany(Genre::class, 'song_genres');
+    }
+
+    public function catalogSubmissionItem(): BelongsTo
+    {
+        return $this->belongsTo(CatalogSubmissionItem::class, 'source_submission_item_id');
     }
 
     // Singular relationship for backward compatibility

@@ -41,6 +41,11 @@ class RolePermissionSeeder extends Seeder
             ['name' => 'Manage Settings', 'slug' => 'manage-settings', 'group' => 'system'],
             ['name' => 'View Analytics', 'slug' => 'view-analytics', 'group' => 'system'],
             ['name' => 'Manage Roles', 'slug' => 'manage-roles', 'group' => 'system'],
+
+            ['name' => 'catalog.upload', 'slug' => 'catalog.upload', 'group' => 'catalog'],
+            ['name' => 'catalog.view', 'slug' => 'catalog.view', 'group' => 'catalog'],
+            ['name' => 'catalog.manage_own', 'slug' => 'catalog.manage_own', 'group' => 'catalog'],
+            ['name' => 'catalog.claim.review', 'slug' => 'catalog.claim.review', 'group' => 'catalog'],
         ];
 
         $permissionIds = [];
@@ -88,6 +93,10 @@ class RolePermissionSeeder extends Seeder
             $permissionIds['manage-reports'],
             $permissionIds['view-analytics'],
             $permissionIds['view-reports'],
+            $permissionIds['catalog.upload'],
+            $permissionIds['catalog.view'],
+            $permissionIds['catalog.manage_own'],
+            $permissionIds['catalog.claim.review'],
         ]);
 
         $moderator = Role::firstOrCreate(
@@ -195,6 +204,21 @@ class RolePermissionSeeder extends Seeder
         );
         $dj->permissions()->sync([
             $permissionIds['upload-music'],
+        ]);
+
+        $catalogManager = Role::firstOrCreate(
+            ['name' => 'catalog_manager'],
+            [
+                'display_name' => 'Catalog Manager',
+                'description' => 'Uploads and manages claimable catalog music for offline artists',
+                'priority' => 42,
+                'is_active' => true,
+            ]
+        );
+        $catalogManager->permissions()->sync([
+            $permissionIds['catalog.upload'],
+            $permissionIds['catalog.view'],
+            $permissionIds['catalog.manage_own'],
         ]);
     }
 }

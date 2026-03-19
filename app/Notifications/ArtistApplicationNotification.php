@@ -20,6 +20,8 @@ class ArtistApplicationNotification extends Notification implements ShouldQueue
 
     public const SUBMITTED = 'submitted';
 
+    public const SUSPENDED = 'suspended';
+
     public function __construct(
         protected string $status,
         protected ?string $reason = null
@@ -53,6 +55,14 @@ class ArtistApplicationNotification extends Notification implements ShouldQueue
                 ->line('You may re-apply after addressing the feedback above.')
                 ->action('Re-apply', url('/become-artist'))
                 ->line('Thank you for your interest in sharing your music!'),
+
+            self::SUSPENDED => (new MailMessage)
+                ->subject('Artist Account Suspended — TesoTunes')
+                ->greeting("Hi {$notifiable->display_name},")
+                ->line('Your artist account has been suspended.')
+                ->line('**Reason:** '.($this->reason ?? 'Please contact support for more information.'))
+                ->action('View Account Settings', url('/settings'))
+                ->line('Reach out to support if you need help resolving this.'),
 
             default => (new MailMessage)
                 ->subject('Artist Application Received — TesoTunes')
@@ -100,6 +110,7 @@ class ArtistApplicationNotification extends Notification implements ShouldQueue
         return match ($this->status) {
             self::APPROVED => 'Artist Application Approved!',
             self::REJECTED => 'Artist Application Declined',
+            self::SUSPENDED => 'Artist Account Suspended',
             self::SUBMITTED => 'Application Received',
             default => 'Artist Application Update',
         };
@@ -110,6 +121,7 @@ class ArtistApplicationNotification extends Notification implements ShouldQueue
         return match ($this->status) {
             self::APPROVED => 'Your artist application has been approved! Start uploading your music.',
             self::REJECTED => 'Your artist application was declined. '.($this->reason ?? 'Please review and re-apply.'),
+            self::SUSPENDED => 'Your artist account was suspended. '.($this->reason ?? 'Please contact support.'),
             self::SUBMITTED => 'Your artist application has been received. We will review it shortly.',
             default => 'Your artist application status has been updated.',
         };
@@ -120,6 +132,7 @@ class ArtistApplicationNotification extends Notification implements ShouldQueue
         return match ($this->status) {
             self::APPROVED => 'check-circle',
             self::REJECTED => 'x-circle',
+            self::SUSPENDED => 'alert-triangle',
             default => 'clock',
         };
     }
@@ -129,6 +142,7 @@ class ArtistApplicationNotification extends Notification implements ShouldQueue
         return match ($this->status) {
             self::APPROVED => 'green',
             self::REJECTED => 'red',
+            self::SUSPENDED => 'orange',
             default => 'yellow',
         };
     }

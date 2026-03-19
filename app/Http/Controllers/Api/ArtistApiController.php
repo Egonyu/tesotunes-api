@@ -12,7 +12,9 @@ use App\Models\Song;
 use App\Models\User;
 use App\Notifications\AdminSongPendingNotification;
 use App\Notifications\SongModerationNotification;
+use App\Services\NotificationRoutingService;
 use App\Services\PayoutService;
+use App\Services\SongSlugService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -24,6 +26,11 @@ use Illuminate\Support\Str;
 
 class ArtistApiController extends Controller
 {
+    public function __construct(
+        private readonly NotificationRoutingService $notificationRoutingService
+    ) {
+    }
+
     // ========================================================================
     // Helpers
     // ========================================================================
@@ -419,12 +426,7 @@ class ArtistApiController extends Controller
         }
 
         // Generate slug
-        $slug = Str::slug($validated['title']);
-        $originalSlug = $slug;
-        $counter = 1;
-        while (Song::withTrashed()->where('slug', $slug)->exists()) {
-            $slug = $originalSlug.'-'.$counter++;
-        }
+        $slug = app(SongSlugService::class)->generateUniqueSlug($validated['title']);
 
         // Resolve genre_id
         $genreId = null;
@@ -496,26 +498,7 @@ class ArtistApiController extends Controller
         if ($status === 'pending') {
             $request->user()->notify(new SongModerationNotification($song, SongModerationNotification::PENDING_REVIEW));
 
-            // Notify admin/super_admin users about the pending song.
-            // Production schemas may not include users.role; prefer pivot roles when needed.
-            $admins = collect();
-
-            try {
-                if (Schema::hasColumn('users', 'role')) {
-                    $admins = User::whereIn('role', ['admin', 'super_admin'])->get();
-                } elseif (Schema::hasTable('roles') && Schema::hasTable('user_roles')) {
-                    $admins = User::whereHas('roles', function ($query): void {
-                        $query->whereIn('name', ['admin', 'super_admin']);
-                    })->get();
-                }
-            } catch (\Throwable $e) {
-                Log::warning('Admin recipient resolution failed for pending song notification', [
-                    'song_id' => $song->id,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-
-            foreach ($admins as $admin) {
+            foreach ($this->notificationRoutingService->moderationRecipients() as $admin) {
                 try {
                     $admin->notify(new AdminSongPendingNotification($song, $request->user()));
                 } catch (\Throwable $e) {
@@ -662,6 +645,7 @@ class ArtistApiController extends Controller
         $artist = $result;
 
         $song = Song::where('artist_id', $artist->id)->findOrFail($id);
+        app(SongSlugService::class)->releaseForSoftDelete($song);
         $song->delete();
 
         $artist->decrement('total_songs_count');
@@ -687,9 +671,16 @@ class ArtistApiController extends Controller
             'song_ids.*' => 'integer',
         ]);
 
-        $count = Song::where('artist_id', $artist->id)
+        $songs = Song::where('artist_id', $artist->id)
             ->whereIn('id', $validated['song_ids'])
-            ->delete();
+            ->get();
+
+        foreach ($songs as $song) {
+            app(SongSlugService::class)->releaseForSoftDelete($song);
+            $song->delete();
+        }
+
+        $count = $songs->count();
 
         $artist->decrement('total_songs_count', $count);
 

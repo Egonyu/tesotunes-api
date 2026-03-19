@@ -35,6 +35,8 @@ class ArtistResource extends JsonResource
 
             // Verification
             'is_verified' => (bool) $this->is_verified,
+            'is_placeholder' => (bool) ($this->is_placeholder ?? false),
+            'claim_status' => $this->claim_status,
             'verification_badge' => $this->is_verified ? 'verified' : null,
             'verification_status' => $this->verification_status ?? 'pending',
 

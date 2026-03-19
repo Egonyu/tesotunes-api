@@ -4,6 +4,7 @@ namespace App\Traits;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 trait HandlesApiErrors
 {
@@ -19,6 +20,8 @@ trait HandlesApiErrors
             return $callback();
         } catch (ValidationException $e) {
             // Let Laravel handle this — returns 422 with { message, errors }
+            throw $e;
+        } catch (HttpExceptionInterface $e) {
             throw $e;
         } catch (\Throwable $e) {
             \Log::error(class_basename($this).' error', [

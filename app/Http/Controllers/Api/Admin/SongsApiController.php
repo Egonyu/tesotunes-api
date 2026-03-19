@@ -6,7 +6,9 @@ use App\Helpers\StorageHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SongResource;
 use App\Models\Song;
+use App\Notifications\AdminSongPendingNotification;
 use App\Notifications\SongModerationNotification;
+use App\Services\NotificationRoutingService;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,6 +23,11 @@ class SongsApiController extends Controller
     use HandlesApiErrors;
 
     private static ?array $songTableColumns = null;
+
+    public function __construct(
+        private readonly NotificationRoutingService $notificationRoutingService
+    ) {
+    }
 
     private function storeUploadedFile(UploadedFile $file, string $directory): string
     {
@@ -62,6 +69,52 @@ class SongsApiController extends Controller
         throw ValidationException::withMessages([
             $field => ['Uploaded file is invalid. Please reselect the file and try again.'],
         ]);
+    }
+
+    private function notifyArtistForSongStatus(Song $song, string $status, ?string $reason = null): void
+    {
+        $song->loadMissing('artist.user');
+
+        $recipient = $song->artist?->user;
+        if (! $recipient) {
+            return;
+        }
+
+        $recipient->notify(new SongModerationNotification($song, $status, $reason));
+    }
+
+    private function notifyModeratorsSongPending(Song $song): void
+    {
+        $song->loadMissing('artist.user');
+        $artistUser = $song->artist?->user;
+
+        if (! $artistUser) {
+            return;
+        }
+
+        foreach ($this->notificationRoutingService->moderationRecipients() as $reviewer) {
+            $reviewer->notify(new AdminSongPendingNotification($song, $artistUser));
+        }
+    }
+
+    private function notifySongStatusTransition(Song $song, ?string $previousStatus, ?string $reason = null): void
+    {
+        if ($previousStatus === $song->status) {
+            return;
+        }
+
+        if ($song->status === 'pending') {
+            $this->notifyArtistForSongStatus($song, SongModerationNotification::PENDING_REVIEW, $reason);
+            $this->notifyModeratorsSongPending($song);
+        }
+
+        if ($song->status === 'published') {
+            $this->notifyArtistForSongStatus($song, SongModerationNotification::APPROVED, $reason);
+        }
+
+        if ($song->status === 'rejected') {
+            $this->notifyArtistForSongStatus($song, SongModerationNotification::REJECTED, $reason ?? $song->rejection_reason);
+        }
     }
 
     /**
@@ -317,6 +370,7 @@ class SongsApiController extends Controller
             }
 
             $song->load(['artist', 'album', 'primaryGenre']);
+            $this->notifySongStatusTransition($song, null);
 
             return response()->json([
                 'success' => true,
@@ -333,6 +387,7 @@ class SongsApiController extends Controller
     {
         return $this->handleApiAction(function () use ($request, $id) {
             $song = Song::findOrFail($id);
+            $previousStatus = $song->status;
 
             $validated = $request->validate([
                 'title' => 'sometimes|required|string|max:255',
@@ -492,6 +547,7 @@ class SongsApiController extends Controller
 
             $song->update($this->persistableSongAttributes($updateData));
             $song->load(['artist', 'album', 'primaryGenre', 'genres']);
+            $this->notifySongStatusTransition($song, $previousStatus, $updateData['rejection_reason'] ?? null);
 
             return response()->json([
                 'success' => true,
@@ -536,12 +592,15 @@ class SongsApiController extends Controller
     {
         return $this->handleApiAction(function () use ($id) {
             $song = Song::findOrFail($id);
+            $previousStatus = $song->status;
 
             $newStatus = $song->status === 'published' ? 'draft' : 'published';
             $song->update([
                 'status' => $newStatus,
                 'published_at' => $newStatus === 'published' ? now() : null,
             ]);
+            $song->refresh();
+            $this->notifySongStatusTransition($song, $previousStatus);
 
             return response()->json([
                 'success' => true,
@@ -592,10 +651,8 @@ class SongsApiController extends Controller
 
             // Notify each artist that their song was approved
             foreach ($songs as $song) {
-                $user = $song->artist?->user;
-                if ($user) {
-                    $user->notify(new SongModerationNotification($song, SongModerationNotification::APPROVED));
-                }
+                $song->status = 'published';
+                $this->notifySongStatusTransition($song, 'pending');
             }
 
             return response()->json([
@@ -631,10 +688,9 @@ class SongsApiController extends Controller
 
             // Notify each artist that their song was rejected
             foreach ($songs as $song) {
-                $user = $song->artist?->user;
-                if ($user) {
-                    $user->notify(new SongModerationNotification($song, SongModerationNotification::REJECTED, $reason));
-                }
+                $song->status = 'rejected';
+                $song->rejection_reason = $reason;
+                $this->notifySongStatusTransition($song, 'pending', $reason);
             }
 
             return response()->json([

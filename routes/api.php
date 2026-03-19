@@ -131,6 +131,22 @@ Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('ar
     Route::post('/referrals/share', [\App\Http\Controllers\Api\ArtistApiController::class, 'trackShare'])->name('referrals.share');
 });
 
+Route::middleware('auth:sanctum')->prefix('catalog')->name('api.catalog.')->group(function () {
+    Route::post('/submissions', [\App\Http\Controllers\Api\CatalogSubmissionController::class, 'store'])->name('submissions.store');
+    Route::get('/submissions', [\App\Http\Controllers\Api\CatalogSubmissionController::class, 'index'])->name('submissions.index');
+    Route::get('/submissions/{submission}', [\App\Http\Controllers\Api\CatalogSubmissionController::class, 'show'])->name('submissions.show');
+    Route::get('/claim-requests', [\App\Http\Controllers\Api\CatalogClaimRequestController::class, 'index'])->name('claims.index');
+    Route::post('/claim-requests', [\App\Http\Controllers\Api\CatalogClaimRequestController::class, 'store'])->name('claims.store');
+});
+
+Route::get('/catalog/claimable-artists', [\App\Http\Controllers\Api\Music\ArtistController::class, 'index'])->name('api.catalog.claimable-artists');
+
+Route::middleware('auth:sanctum')->prefix('admin/catalog')->name('api.admin.catalog.')->group(function () {
+    Route::get('/claim-requests', [\App\Http\Controllers\Api\Admin\CatalogClaimRequestAdminController::class, 'index'])->name('claims.index');
+    Route::post('/claim-requests/{claim}/approve', [\App\Http\Controllers\Api\Admin\CatalogClaimRequestAdminController::class, 'approve'])->name('claims.approve');
+    Route::post('/claim-requests/{claim}/reject', [\App\Http\Controllers\Api\Admin\CatalogClaimRequestAdminController::class, 'reject'])->name('claims.reject');
+});
+
 // Ad tracking endpoints (no auth required for impressions)
 Route::middleware('throttle:ad-tracking')->group(function () {
     Route::post('/ads/impression', [\App\Http\Controllers\Api\AdTrackingController::class, 'recordImpression']);
