@@ -19,8 +19,7 @@ class CatalogClaimRequestController extends Controller
 
     public function __construct(
         private readonly NotificationRoutingService $notificationRoutingService
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): JsonResponse
     {

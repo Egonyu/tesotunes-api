@@ -303,6 +303,7 @@ Route::middleware('auth:sanctum')->prefix('notifications')->name('api.notificati
     Route::middleware('role:admin,super_admin')->group(function () {
         // Removed send-test route - use proper notification testing
         Route::get('/analytics', [\App\Http\Controllers\Api\NotificationController::class, 'analytics'])->name('analytics');
+        Route::get('/health', [\App\Http\Controllers\Api\NotificationController::class, 'health'])->name('health');
         Route::post('/preview', [\App\Http\Controllers\Api\NotificationController::class, 'preview'])->name('preview');
     });
 });

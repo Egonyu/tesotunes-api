@@ -15,8 +15,7 @@ class CatalogSubmissionController extends Controller
 
     public function __construct(
         private readonly CatalogIntakeService $catalogIntakeService,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): JsonResponse
     {

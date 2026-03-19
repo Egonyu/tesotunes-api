@@ -15,8 +15,7 @@ class CatalogClaimRequestAdminController extends Controller
 
     public function __construct(
         private readonly CatalogClaimService $catalogClaimService,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): JsonResponse
     {

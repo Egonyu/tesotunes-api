@@ -26,8 +26,7 @@ class SongsApiController extends Controller
 
     public function __construct(
         private readonly NotificationRoutingService $notificationRoutingService
-    ) {
-    }
+    ) {}
 
     private function storeUploadedFile(UploadedFile $file, string $directory): string
     {

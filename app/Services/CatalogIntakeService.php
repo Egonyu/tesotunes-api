@@ -25,8 +25,7 @@ class CatalogIntakeService
     public function __construct(
         private readonly PlaceholderArtistService $placeholderArtistService,
         private readonly SongSlugService $songSlugService,
-    ) {
-    }
+    ) {}
 
     public function createSubmission(
         User $uploader,
@@ -84,6 +83,7 @@ class CatalogIntakeService
                     'validation_errors' => $errors,
                 ]);
                 $failedCount++;
+
                 continue;
             }
 

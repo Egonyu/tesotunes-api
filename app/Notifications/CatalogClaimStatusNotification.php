@@ -16,7 +16,9 @@ class CatalogClaimStatusNotification extends Notification implements ShouldQueue
     use ChecksNotificationPreferences, Queueable;
 
     public const SUBMITTED = 'submitted';
+
     public const APPROVED = 'approved';
+
     public const REJECTED = 'rejected';
 
     public function __construct(
