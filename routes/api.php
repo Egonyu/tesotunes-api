@@ -141,7 +141,7 @@ Route::middleware('auth:sanctum')->prefix('catalog')->name('api.catalog.')->grou
 
 Route::get('/catalog/claimable-artists', [\App\Http\Controllers\Api\Music\ArtistController::class, 'index'])->name('api.catalog.claimable-artists');
 
-Route::middleware('auth:sanctum')->prefix('admin/catalog')->name('api.admin.catalog.')->group(function () {
+Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin/catalog')->name('api.admin.catalog.')->group(function () {
     Route::get('/claim-requests', [\App\Http\Controllers\Api\Admin\CatalogClaimRequestAdminController::class, 'index'])->name('claims.index');
     Route::post('/claim-requests/{claim}/approve', [\App\Http\Controllers\Api\Admin\CatalogClaimRequestAdminController::class, 'approve'])->name('claims.approve');
     Route::post('/claim-requests/{claim}/reject', [\App\Http\Controllers\Api\Admin\CatalogClaimRequestAdminController::class, 'reject'])->name('claims.reject');
