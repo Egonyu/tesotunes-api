@@ -916,7 +916,7 @@ class Song extends Model
                 // Ensure uniqueness
                 $originalSlug = $song->slug;
                 $count = 1;
-                while (static::where('slug', $song->slug)->where('artist_id', $song->artist_id)->exists()) {
+                while (static::withTrashed()->where('slug', $song->slug)->exists()) {
                     $song->slug = $originalSlug.'-'.$count++;
                 }
             }

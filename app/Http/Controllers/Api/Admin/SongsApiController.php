@@ -246,7 +246,7 @@ class SongsApiController extends Controller
             $slug = $validated['slug'] ?? Str::slug($validated['title']);
             $originalSlug = $slug;
             $counter = 1;
-            while (Song::where('slug', $slug)->exists()) {
+            while (Song::withTrashed()->where('slug', $slug)->exists()) {
                 $slug = $originalSlug.'-'.$counter++;
             }
 
@@ -437,7 +437,7 @@ class SongsApiController extends Controller
 
             if (isset($validated['slug'])) {
                 $slug = $validated['slug'];
-                $existing = Song::where('slug', $slug)->where('id', '!=', $id)->exists();
+                $existing = Song::withTrashed()->where('slug', $slug)->where('id', '!=', $id)->exists();
                 if (! $existing) {
                     $updateData['slug'] = $slug;
                 }

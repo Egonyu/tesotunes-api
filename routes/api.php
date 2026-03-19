@@ -107,6 +107,8 @@ Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('ar
     // Profile
     Route::get('/profile', [\App\Http\Controllers\Api\ArtistApiController::class, 'profile'])->name('profile.show');
     Route::put('/profile', [\App\Http\Controllers\Api\ArtistApiController::class, 'updateProfile'])->name('profile.update');
+    Route::post('/profile/avatar', [\App\Http\Controllers\Api\ArtistApiController::class, 'uploadProfileAvatar'])->name('profile.avatar');
+    Route::post('/profile/banner', [\App\Http\Controllers\Api\ArtistApiController::class, 'uploadProfileBanner'])->name('profile.banner');
 
     // Earnings
     Route::get('/earnings', [\App\Http\Controllers\Api\ArtistApiController::class, 'earnings'])->name('earnings.index');

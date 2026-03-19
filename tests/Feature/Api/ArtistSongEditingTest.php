@@ -124,4 +124,54 @@ class ArtistSongEditingTest extends TestCase
             ->assertJsonPath('data.producer', 'Producer Name')
             ->assertJsonPath('data.is_downloadable', false);
     }
+
+    public function test_artist_can_upload_song_when_soft_deleted_slug_already_exists(): void
+    {
+        $existing = Song::factory()->create([
+            'artist_id' => $this->artist->id,
+            'user_id' => $this->artistUser->id,
+            'title' => 'Teete',
+            'slug' => 'teete',
+            'status' => 'draft',
+        ]);
+        $existing->delete();
+
+        $audio = UploadedFile::fake()->create('teete.mp3', 1024, 'audio/mpeg');
+
+        $response = $this->actingAs($this->artistUser)->post('/api/artist/songs', [
+            'title' => 'Teete',
+            'audio' => $audio,
+            'is_free' => '1',
+            'is_downloadable' => '1',
+        ], ['Accept' => 'application/json']);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.title', 'Teete');
+
+        $this->assertDatabaseHas('songs', [
+            'title' => 'Teete',
+            'slug' => 'teete-1',
+            'artist_id' => $this->artist->id,
+            'deleted_at' => null,
+        ]);
+    }
+
+    public function test_artist_can_upload_profile_avatar_via_dedicated_route(): void
+    {
+        $avatar = UploadedFile::fake()->image('artist-avatar.jpg', 400, 400);
+
+        $response = $this->actingAs($this->artistUser)->post('/api/artist/profile/avatar', [
+            'avatar' => $avatar,
+        ], ['Accept' => 'application/json']);
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('message', 'Avatar uploaded successfully.');
+
+        $this->artist->refresh();
+
+        $this->assertNotNull($this->artist->avatar);
+        Storage::disk('public')->assertExists($this->artist->avatar);
+        $this->assertStringContainsString($this->artist->avatar, (string) $response->json('data.url'));
+    }
 }

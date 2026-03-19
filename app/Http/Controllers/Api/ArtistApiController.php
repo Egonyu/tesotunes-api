@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Helpers\StorageHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Album;
 use App\Models\Artist;
@@ -101,7 +102,7 @@ class ArtistApiController extends Controller
             ->map(fn ($song) => [
                 'id' => $song->id,
                 'title' => $song->title,
-                'artwork' => $song->artwork ? url('storage/'.$song->artwork) : null,
+                'artwork' => StorageHelper::url($song->artwork),
                 'plays' => (int) ($song->play_count ?? 0),
                 'downloads' => (int) ($song->download_count ?? 0),
                 'trend' => 0,
@@ -174,7 +175,7 @@ class ArtistApiController extends Controller
                 'artist' => [
                     'id' => $artist->id,
                     'name' => $artist->stage_name,
-                    'avatar' => $artist->avatar ? url('storage/'.$artist->avatar) : null,
+                    'avatar' => StorageHelper::url($artist->avatar),
                     'is_verified' => (bool) $artist->is_verified,
                 ],
                 'stats' => $stats,
@@ -234,7 +235,8 @@ class ArtistApiController extends Controller
             'data' => $songs->map(fn ($song) => [
                 'id' => $song->id,
                 'title' => $song->title,
-                'cover' => $song->artwork ? url('storage/'.$song->artwork) : null,
+                'cover' => StorageHelper::url($song->artwork),
+                'artwork_url' => StorageHelper::url($song->artwork),
                 'album' => $song->album ? $song->album->title : null,
                 'plays' => (int) ($song->play_count ?? 0),
                 'downloads' => (int) ($song->download_count ?? 0),
@@ -271,8 +273,8 @@ class ArtistApiController extends Controller
             'data' => [
                 'id' => $song->id,
                 'title' => $song->title,
-                'cover' => $song->artwork ? url('storage/'.$song->artwork) : null,
-                'artwork_url' => $song->artwork ? url('storage/'.$song->artwork) : null,
+                'cover' => StorageHelper::url($song->artwork),
+                'artwork_url' => StorageHelper::url($song->artwork),
                 'album' => $song->album ? $song->album->title : null,
                 'album_id' => $song->album_id,
                 'plays' => (int) ($song->play_count ?? 0),
@@ -420,7 +422,7 @@ class ArtistApiController extends Controller
         $slug = Str::slug($validated['title']);
         $originalSlug = $slug;
         $counter = 1;
-        while (Song::where('slug', $slug)->exists()) {
+        while (Song::withTrashed()->where('slug', $slug)->exists()) {
             $slug = $originalSlug.'-'.$counter++;
         }
 
@@ -967,8 +969,8 @@ class ArtistApiController extends Controller
                 'id' => $artist->id,
                 'stage_name' => $artist->stage_name,
                 'bio' => $artist->bio,
-                'avatar' => $artist->avatar ? url('storage/'.$artist->avatar) : null,
-                'banner' => $artist->cover_image ? url('storage/'.$artist->cover_image) : null,
+                'avatar' => StorageHelper::url($artist->avatar),
+                'banner' => StorageHelper::url($artist->cover_image),
                 'country' => null,
                 'city' => null,
                 'website_url' => $artist->website_url,
@@ -1006,6 +1008,80 @@ class ArtistApiController extends Controller
 
         return response()->json([
             'message' => 'Profile updated successfully.',
+        ]);
+    }
+
+    /**
+     * POST /api/artist/profile/avatar
+     */
+    public function uploadProfileAvatar(Request $request): JsonResponse
+    {
+        $result = $this->requireArtist($request);
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
+        $artist = $result;
+
+        $validated = $request->validate([
+            'avatar' => 'required|image|mimes:jpeg,jpg,png,webp|max:2048',
+        ]);
+
+        if ($artist->avatar) {
+            StorageHelper::delete($artist->avatar);
+        }
+
+        $path = StorageHelper::store(
+            $validated['avatar'],
+            'artists/avatars',
+            'artist_avatar_'.Str::uuid().'.'.$validated['avatar']->getClientOriginalExtension()
+        );
+
+        $artist->update(['avatar' => $path]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Avatar uploaded successfully.',
+            'data' => [
+                'path' => $path,
+                'url' => StorageHelper::url($path),
+            ],
+        ]);
+    }
+
+    /**
+     * POST /api/artist/profile/banner
+     */
+    public function uploadProfileBanner(Request $request): JsonResponse
+    {
+        $result = $this->requireArtist($request);
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
+        $artist = $result;
+
+        $validated = $request->validate([
+            'banner' => 'required|image|mimes:jpeg,jpg,png,webp|max:10240',
+        ]);
+
+        if ($artist->cover_image) {
+            StorageHelper::delete($artist->cover_image);
+        }
+
+        $path = StorageHelper::store(
+            $validated['banner'],
+            'artists/banners',
+            'artist_banner_'.Str::uuid().'.'.$validated['banner']->getClientOriginalExtension()
+        );
+
+        $artist->update(['cover_image' => $path]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Banner uploaded successfully.',
+            'data' => [
+                'path' => $path,
+                'url' => StorageHelper::url($path),
+            ],
         ]);
     }
 
@@ -1250,7 +1326,7 @@ class ArtistApiController extends Controller
             return [
                 'song_id' => $song->id,
                 'title' => $song->title,
-                'artwork_url' => $song->artwork ? url('storage/'.$song->artwork) : null,
+                'artwork_url' => StorageHelper::url($song->artwork),
                 'streams_revenue' => $streamRevenue,
                 'downloads_revenue' => $purchaseRevenue,
                 'tips_revenue' => $tipRevenue,
@@ -1356,7 +1432,7 @@ class ArtistApiController extends Controller
             ->map(fn ($song) => [
                 'id' => $song->id,
                 'title' => $song->title,
-                'artwork' => $song->artwork ? url('storage/'.$song->artwork) : null,
+                'artwork' => StorageHelper::url($song->artwork),
                 'play_count' => (int) ($song->play_count ?? 0),
                 'download_count' => (int) ($song->download_count ?? 0),
             ]);
