@@ -41,49 +41,62 @@ class SystemMonitoringService
      */
     public function getBackupStatus(): array
     {
-        $backupPath = storage_path('app/backups');
         $lastBackup = null;
+        $lastBackupFile = null;
         $totalBackups = 0;
         $totalSize = 0;
         $healthy = false;
+        $disk = config('backup.disk', 'local');
+        $basePath = trim(config('backup.path', 'backups/tesotunes'), '/');
+        $storage = Storage::disk($disk);
 
-        if (File::exists($backupPath)) {
-            $files = glob($backupPath.'/*.{sql,sql.gz,zip}', GLOB_BRACE);
+        try {
+            $files = $storage->allFiles($basePath);
+            $files = array_values(array_filter($files, fn (string $file): bool => preg_match('/\.(sql|sql\.gz|zip)$/', $file) === 1));
             $totalBackups = count($files);
 
-            // Get most recent backup
             $latestTime = 0;
             foreach ($files as $file) {
-                $totalSize += filesize($file);
-                $mtime = filemtime($file);
+                $totalSize += (int) $storage->size($file);
+                $mtime = (int) $storage->lastModified($file);
+
                 if ($mtime > $latestTime) {
                     $latestTime = $mtime;
                     $lastBackup = date('Y-m-d H:i:s', $mtime);
+                    $lastBackupFile = $file;
                 }
             }
+        } catch (Exception $e) {
+            Log::warning('Unable to inspect backup storage', [
+                'disk' => $disk,
+                'path' => $basePath,
+                'error' => $e->getMessage(),
+            ]);
+        }
 
-            // Determine health based on schedule
-            if ($lastBackup) {
-                $daysSince = now()->diffInDays(\Carbon\Carbon::parse($lastBackup));
-                $schedule = config('backup.schedule', 'daily');
-                $maxDays = match ($schedule) {
-                    'hourly' => 1,
-                    'daily' => 2,
-                    'weekly' => 8,
-                    'monthly' => 32,
-                    default => 2,
-                };
-                $healthy = $daysSince < $maxDays;
-            }
+        if ($lastBackup) {
+            $daysSince = now()->diffInDays(\Carbon\Carbon::parse($lastBackup));
+            $schedule = config('backup.schedule', 'daily');
+            $maxDays = match ($schedule) {
+                'hourly' => 1,
+                'daily' => 2,
+                'weekly' => 8,
+                'monthly' => 32,
+                default => 2,
+            };
+            $healthy = $daysSince < $maxDays;
         }
 
         return [
             'total_backups' => $totalBackups,
             'total_size' => $this->formatBytes($totalSize),
             'last_backup' => $lastBackup,
+            'last_backup_file' => $lastBackupFile,
             'auto_enabled' => config('backup.auto_enabled', true),
             'schedule' => config('backup.schedule', 'daily'),
             'retention_days' => config('backup.retention_days', 30),
+            'disk' => $disk,
+            'path' => $basePath,
             'healthy' => $healthy,
         ];
     }
@@ -586,6 +599,17 @@ class SystemMonitoringService
                 // Count pending jobs
                 $pendingJobs = DB::table('jobs')->count();
                 $metrics['pending_jobs'] = $pendingJobs;
+                $metrics['queue_breakdown'] = DB::table('jobs')
+                    ->selectRaw('queue, COUNT(*) as total')
+                    ->groupBy('queue')
+                    ->orderByDesc('total')
+                    ->get()
+                    ->map(fn ($row) => [
+                        'queue' => $row->queue,
+                        'total' => (int) $row->total,
+                    ])
+                    ->values()
+                    ->all();
 
                 // Count failed jobs
                 $failedJobs = DB::table('failed_jobs')->count();
@@ -851,6 +875,18 @@ class SystemMonitoringService
                     return [
                         'success' => true,
                         'message' => '✅ Queue workers restarted',
+                        'output' => Artisan::output(),
+                    ];
+
+                case 'backup:run-db':
+                    Artisan::call('backup:run', [
+                        '--type' => 'database',
+                        '--clean' => true,
+                    ]);
+
+                    return [
+                        'success' => true,
+                        'message' => '✅ Database backup completed',
                         'output' => Artisan::output(),
                     ];
 

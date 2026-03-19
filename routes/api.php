@@ -533,6 +533,9 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::put('/genres/{id}', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'update'])->name('genres.update');
     Route::delete('/genres/{id}', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'destroy'])->name('genres.destroy');
     Route::post('/genres/{id}/toggle-active', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'toggleActive'])->name('genres.toggle-active');
+    Route::get('/system/health', [\App\Http\Controllers\Api\Admin\AdminSystemController::class, 'health'])->name('system.health');
+    Route::get('/system/tests', [\App\Http\Controllers\Api\Admin\AdminSystemController::class, 'tests'])->name('system.tests');
+    Route::post('/system/actions', [\App\Http\Controllers\Api\Admin\AdminSystemController::class, 'action'])->name('system.actions');
 });
 
 // Payment Webhooks (Public - no auth required, rate limited)
