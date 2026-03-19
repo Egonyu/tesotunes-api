@@ -7,11 +7,14 @@ use App\Models\Genre;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class AdminGenreController extends Controller
 {
     use HandlesApiErrors;
+
+    private ?array $genreColumns = null;
 
     /**
      * List all genres for admin (includes inactive).
@@ -36,24 +39,7 @@ class AdminGenreController extends Controller
                 ->orderBy('name')
                 ->paginate($perPage);
 
-            $data = $genres->through(function (Genre $genre) {
-                return [
-                    'id' => $genre->id,
-                    'uuid' => $genre->uuid,
-                    'name' => $genre->name,
-                    'slug' => $genre->slug,
-                    'description' => $genre->description,
-                    'color' => $genre->color,
-                    'icon' => $genre->icon,
-                    'emoji' => $genre->emoji ?? null,
-                    'is_active' => $genre->is_active,
-                    'sort_order' => $genre->sort_order,
-                    'songs_count' => $genre->songs_count,
-                    'artwork_url' => $genre->artwork_url,
-                    'created_at' => $genre->created_at,
-                    'updated_at' => $genre->updated_at,
-                ];
-            });
+            $data = $genres->through(fn (Genre $genre) => $this->serializeGenre($genre));
 
             return response()->json([
                 'success' => true,
@@ -80,25 +66,7 @@ class AdminGenreController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'id' => $genre->id,
-                    'uuid' => $genre->uuid,
-                    'name' => $genre->name,
-                    'slug' => $genre->slug,
-                    'description' => $genre->description,
-                    'color' => $genre->color,
-                    'icon' => $genre->icon,
-                    'emoji' => $genre->emoji ?? null,
-                    'is_active' => $genre->is_active,
-                    'sort_order' => $genre->sort_order,
-                    'songs_count' => $genre->songs_count,
-                    'artwork_url' => $genre->artwork_url,
-                    'meta_title' => $genre->meta_title,
-                    'meta_description' => $genre->meta_description,
-                    'meta_keywords' => $genre->meta_keywords,
-                    'created_at' => $genre->created_at,
-                    'updated_at' => $genre->updated_at,
-                ],
+                'data' => $this->serializeGenre($genre),
             ]);
         }, 'Failed to load genre.');
     }
@@ -115,6 +83,7 @@ class AdminGenreController extends Controller
                 'description' => 'nullable|string|max:1000',
                 'color' => 'nullable|string|max:20',
                 'icon' => 'nullable|string|max:50',
+                'emoji' => 'nullable|string|max:50',
                 'is_active' => 'boolean',
                 'sort_order' => 'nullable|integer|min:0',
                 'meta_title' => 'nullable|string|max:255',
@@ -128,6 +97,7 @@ class AdminGenreController extends Controller
 
             $validated['uuid'] = (string) Str::uuid();
             $validated['is_active'] = $validated['is_active'] ?? true;
+            $validated = $this->normalizeGenreInput($validated);
 
             $genre = Genre::create($validated);
 
@@ -157,6 +127,7 @@ class AdminGenreController extends Controller
                 'description' => 'nullable|string|max:1000',
                 'color' => 'nullable|string|max:20',
                 'icon' => 'nullable|string|max:50',
+                'emoji' => 'nullable|string|max:50',
                 'is_active' => 'boolean',
                 'sort_order' => 'nullable|integer|min:0',
                 'meta_title' => 'nullable|string|max:255',
@@ -168,6 +139,7 @@ class AdminGenreController extends Controller
                 $validated['slug'] = Str::slug($validated['name']);
             }
 
+            $validated = $this->normalizeGenreInput($validated);
             $genre->update($validated);
 
             return response()->json([
@@ -218,5 +190,82 @@ class AdminGenreController extends Controller
                 'is_active' => $genre->is_active,
             ]);
         }, 'Failed to toggle genre status.');
+    }
+
+    private function serializeGenre(Genre $genre): array
+    {
+        $icon = $this->resolveGenreIcon($genre);
+
+        return [
+            'id' => $genre->id,
+            'uuid' => $genre->uuid,
+            'name' => $genre->name,
+            'slug' => $genre->slug,
+            'description' => $genre->description,
+            'color' => $genre->color,
+            'icon' => $icon,
+            'emoji' => $icon,
+            'is_active' => $genre->is_active,
+            'sort_order' => $genre->sort_order,
+            'songs_count' => $genre->songs_count,
+            'artwork_url' => $genre->artwork_url,
+            'meta_title' => $this->getGenreAttribute($genre, 'meta_title'),
+            'meta_description' => $this->getGenreAttribute($genre, 'meta_description'),
+            'meta_keywords' => $this->getGenreAttribute($genre, 'meta_keywords'),
+            'created_at' => $genre->created_at,
+            'updated_at' => $genre->updated_at,
+        ];
+    }
+
+    private function normalizeGenreInput(array $validated): array
+    {
+        $icon = $validated['icon'] ?? $validated['emoji'] ?? null;
+
+        unset($validated['icon'], $validated['emoji']);
+
+        if ($icon !== null) {
+            if ($this->genreTableHasColumn('icon')) {
+                $validated['icon'] = $icon;
+            } elseif ($this->genreTableHasColumn('emoji')) {
+                $validated['emoji'] = $icon;
+            }
+        }
+
+        return array_filter(
+            $validated,
+            fn (string $column): bool => $this->genreTableHasColumn($column),
+            ARRAY_FILTER_USE_KEY
+        );
+    }
+
+    private function resolveGenreIcon(Genre $genre): ?string
+    {
+        foreach (['icon', 'emoji'] as $column) {
+            $value = $this->getGenreAttribute($genre, $column);
+            if ($value) {
+                return $value;
+            }
+        }
+
+        return null;
+    }
+
+    private function getGenreAttribute(Genre $genre, string $column): mixed
+    {
+        if (! $this->genreTableHasColumn($column)) {
+            return null;
+        }
+
+        return $genre->getAttribute($column);
+    }
+
+    private function genreTableHasColumn(string $column): bool
+    {
+        return in_array($column, $this->getGenreColumns(), true);
+    }
+
+    private function getGenreColumns(): array
+    {
+        return $this->genreColumns ??= Schema::getColumnListing('genres');
     }
 }

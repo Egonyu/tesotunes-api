@@ -21,6 +21,7 @@ class Genre extends Model implements HasMedia
         'description',
         'color',
         'icon',
+        'emoji',
         'is_active',
         'sort_order',
         'meta_title',
