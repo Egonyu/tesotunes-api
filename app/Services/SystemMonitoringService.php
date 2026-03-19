@@ -30,6 +30,11 @@ class SystemMonitoringService
             ],
             'statistics' => $this->getSystemStatistics(),
             'backup' => $this->getBackupStatus(),
+            'integrations' => [
+                'mail' => $this->getMailStatus(),
+                'broadcasting' => $this->getBroadcastingStatus(),
+                'sentry' => $this->getSentryStatus(),
+            ],
             'alerts' => $this->getSystemAlerts(),
             'recommendations' => $this->getRecommendations(),
             'timestamp' => now()->toIso8601String(),
@@ -740,6 +745,52 @@ class SystemMonitoringService
         }
 
         return $recommendations;
+    }
+
+    private function getMailStatus(): array
+    {
+        $mailer = config('mail.default');
+        $host = config('mail.mailers.smtp.host');
+        $port = config('mail.mailers.smtp.port');
+        $from = config('mail.from.address');
+
+        return [
+            'status' => $mailer === 'smtp' && ! empty($host) && ! empty($from) ? 'healthy' : 'warning',
+            'mailer' => $mailer,
+            'host' => $host,
+            'port' => $port,
+            'from_address' => $from,
+            'configured' => ! empty($mailer) && ! empty($from),
+        ];
+    }
+
+    private function getBroadcastingStatus(): array
+    {
+        $connection = config('broadcasting.default');
+        $pusher = config('broadcasting.connections.pusher', []);
+
+        return [
+            'status' => $connection === 'pusher' && ! empty($pusher['key']) && ! empty($pusher['app_id']) ? 'healthy' : 'warning',
+            'connection' => $connection,
+            'host' => data_get($pusher, 'options.host'),
+            'port' => data_get($pusher, 'options.port'),
+            'app_id_present' => ! empty($pusher['app_id']),
+            'key_present' => ! empty($pusher['key']),
+        ];
+    }
+
+    private function getSentryStatus(): array
+    {
+        $dsn = config('sentry.dsn');
+
+        return [
+            'status' => $dsn ? 'healthy' : 'warning',
+            'enabled' => ! empty($dsn),
+            'environment' => config('sentry.environment', config('app.env')),
+            'release' => config('sentry.release'),
+            'traces_sample_rate' => config('sentry.traces_sample_rate'),
+            'profiles_sample_rate' => config('sentry.profiles_sample_rate'),
+        ];
     }
 
     /**
