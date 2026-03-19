@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Storage;
 
 class SystemMonitoringService
@@ -629,6 +630,28 @@ class SystemMonitoringService
                 }
 
                 $issues[] = '💡 Using database queue - Redis recommended for production';
+            } elseif ($driver === 'redis') {
+                $queues = $this->getMonitoredQueues();
+                $prefix = config('database.redis.options.prefix', '');
+                $breakdown = [];
+                $pendingJobs = 0;
+
+                foreach ($queues as $queue) {
+                    $total = (int) Redis::connection(config('queue.connections.redis.connection', 'default'))
+                        ->llen($prefix.'queues:'.$queue);
+                    $pendingJobs += $total;
+                    $breakdown[] = [
+                        'queue' => $queue,
+                        'total' => $total,
+                    ];
+                }
+
+                $metrics['pending_jobs'] = $pendingJobs;
+                $metrics['queue_breakdown'] = $breakdown;
+
+                if ($pendingJobs > 100) {
+                    $issues[] = '⚠️ High number of pending Redis jobs ('.$pendingJobs.') - Workers may be overloaded';
+                }
             }
 
             $status = count($issues) > 2 ? 'warning' : 'healthy';
@@ -745,6 +768,14 @@ class SystemMonitoringService
         }
 
         return $recommendations;
+    }
+
+    private function getMonitoredQueues(): array
+    {
+        return array_values(array_filter(array_unique(array_map(
+            fn (string $queue): string => trim($queue),
+            explode(',', env('SYSTEM_MONITORED_QUEUES', 'high,default,stats,revenue,feed,counters,loan-payments,low'))
+        ))));
     }
 
     private function getMailStatus(): array
