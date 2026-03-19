@@ -91,6 +91,19 @@ return [
             'visibility' => 'public',
         ],
 
+        'backup_spaces' => [
+            'driver' => 's3',
+            'key' => env('BACKUP_DO_SPACES_ACCESS_KEY_ID', env('DO_SPACES_ACCESS_KEY_ID')),
+            'secret' => env('BACKUP_DO_SPACES_SECRET_ACCESS_KEY', env('DO_SPACES_SECRET_ACCESS_KEY')),
+            'endpoint' => env('BACKUP_DO_SPACES_ENDPOINT', env('DO_SPACES_ENDPOINT', 'https://syd1.digitaloceanspaces.com')),
+            'region' => env('BACKUP_DO_SPACES_REGION', env('DO_SPACES_REGION', 'syd1')),
+            'bucket' => env('BACKUP_DO_SPACES_BUCKET', env('DO_SPACES_BUCKET')),
+            'use_path_style_endpoint' => false,
+            'throw' => false,
+            'report' => false,
+            'visibility' => 'private',
+        ],
+
         // AWS S3 (original configuration)
         's3' => [
             'driver' => 's3',
