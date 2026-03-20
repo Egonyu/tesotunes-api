@@ -185,44 +185,47 @@ jobs:
             RESET_PRODUCTION_DB="${{ secrets.PRODUCTION_DB_RESET_ONCE }}"
             RESET_CONFIRM="${{ secrets.PRODUCTION_DB_RESET_CONFIRM }}"
 
-                step "Checking Laravel migration status"
+            step "Checking Laravel migration status"
+            set +e
+            php -d display_errors=1 artisan migrate:status --no-ansi
+            MIGRATION_STATUS_EXIT=$?
+            set -e
+            echo "Migration status exit code: ${MIGRATION_STATUS_EXIT}"
+            if [ "$MIGRATION_STATUS_EXIT" -ne 0 ]; then
+              echo "⚠️ migrate:status failed, but deployment will continue to the real migration step"
+            fi
+
+            run_migrations() {
+              local migrate_exit_code=0
+
+              set +e
+              "$@"
+              migrate_exit_code=$?
+              set -e
+
+              if [ "$migrate_exit_code" -ne 0 ]; then
+                echo "❌ Migration command failed with exit code ${migrate_exit_code}"
+                echo "⚠️ Retrying with --no-ansi for clearer logs..."
                 set +e
-                php -d display_errors=1 artisan migrate:status --no-ansi
-                MIGRATION_STATUS_EXIT=$?
+                "$@" --no-ansi
+                migrate_exit_code=$?
                 set -e
-                echo "Migration status exit code: ${MIGRATION_STATUS_EXIT}"
+                exit "$migrate_exit_code"
+              fi
+            }
 
-                run_migrations() {
-                  local migrate_exit_code=0
+            if [ "$RESET_PRODUCTION_DB" = "true" ]; then
+              if [ "$RESET_CONFIRM" != "WIPE_PRODUCTION_DB" ]; then
+                echo "❌ Refusing production reset: set PRODUCTION_DB_RESET_CONFIRM=WIPE_PRODUCTION_DB"
+                exit 1
+              fi
 
-                  set +e
-                  "$@"
-                  migrate_exit_code=$?
-                  set -e
-
-                  if [ "$migrate_exit_code" -ne 0 ]; then
-                    echo "❌ Migration command failed with exit code ${migrate_exit_code}"
-                    echo "⚠️ Retrying with --no-ansi for clearer logs..."
-                    set +e
-                    "$@" --no-ansi
-                    migrate_exit_code=$?
-                    set -e
-                    exit "$migrate_exit_code"
-                  fi
-                }
-
-                if [ "$RESET_PRODUCTION_DB" = "true" ]; then
-                  if [ "$RESET_CONFIRM" != "WIPE_PRODUCTION_DB" ]; then
-                    echo "❌ Refusing production reset: set PRODUCTION_DB_RESET_CONFIRM=WIPE_PRODUCTION_DB"
-                    exit 1
-                  fi
-
-                  echo "⚠️ Running one-time production database reset..."
-                  run_migrations php -d display_errors=1 artisan migrate:fresh --force -v
-                  php artisan db:seed --class='Database\\Seeders\\GenreSeeder' --force
-                else
-                  run_migrations php -d display_errors=1 artisan migrate --force -v
-                fi
+              echo "⚠️ Running one-time production database reset..."
+              run_migrations php -d display_errors=1 artisan migrate:fresh --force -v
+              php artisan db:seed --class='Database\\Seeders\\GenreSeeder' --force
+            else
+              run_migrations php -d display_errors=1 artisan migrate --force -v
+            fi
 
             # ------------------------------------------------
             # Maintenance mode just before switching live release
