@@ -212,6 +212,8 @@ jobs:
                 set -e
                 exit "$migrate_exit_code"
               fi
+
+              return 0
             }
 
             if [ "$RESET_PRODUCTION_DB" = "true" ]; then
