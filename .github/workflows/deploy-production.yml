@@ -85,6 +85,7 @@ jobs:
             RELEASES_PATH="/var/www/tesotunes-releases"
             TIMESTAMP=$(date +%Y%m%d_%H%M%S)
             NEW_RELEASE="$RELEASES_PATH/$TIMESTAMP"
+            MIGRATION_LOG="/tmp/tesotunes-migrate-$TIMESTAMP.log"
 
             step() {
               echo ""
@@ -103,6 +104,10 @@ jobs:
               local exit_code=$?
               echo "❌ Deployment failed at command: ${BASH_COMMAND}"
               echo "❌ Exit code: ${exit_code}"
+              if [ -f "$MIGRATION_LOG" ]; then
+                echo "⚠️ Last migration log output:"
+                tail -n 200 "$MIGRATION_LOG" || true
+              fi
               echo "⚠️ Deployment failed — ensuring app is brought back up..."
               sudo rm -f $SHARED_PATH/storage/framework/down 2>/dev/null || true
               if [ -L "$APP_PATH" ] || [ -d "$APP_PATH" ]; then
@@ -192,11 +197,13 @@ jobs:
               fi
 
               echo "⚠️ Running one-time production database reset..."
-              php -d display_errors=1 artisan migrate:fresh --force -v --no-ansi 2>&1
+              echo "Migration log file: $MIGRATION_LOG"
+              php -d display_errors=1 artisan migrate:fresh --force -v --no-ansi 2>&1 | tee "$MIGRATION_LOG"
               php artisan db:seed --class='Database\\Seeders\\GenreSeeder' --force
             else
               echo "About to run production migrations..."
-              php -d display_errors=1 artisan migrate --force -v --no-ansi 2>&1
+              echo "Migration log file: $MIGRATION_LOG"
+              php -d display_errors=1 artisan migrate --force -v --no-ansi 2>&1 | tee "$MIGRATION_LOG"
             fi
 
             # ------------------------------------------------
