@@ -185,38 +185,35 @@ jobs:
             RESET_PRODUCTION_DB="${{ secrets.PRODUCTION_DB_RESET_ONCE }}"
             RESET_CONFIRM="${{ secrets.PRODUCTION_DB_RESET_CONFIRM }}"
 
-            case "${RESET_PRODUCTION_DB:-}" in
-              true)
-                if [ "${RESET_CONFIRM:-}" != "WIPE_PRODUCTION_DB" ]; then
-                  echo "❌ Refusing production reset: set PRODUCTION_DB_RESET_CONFIRM=WIPE_PRODUCTION_DB"
-                  exit 1
-                fi
+            if [ "${RESET_PRODUCTION_DB:-}" = "true" ]; then
+              if [ "${RESET_CONFIRM:-}" != "WIPE_PRODUCTION_DB" ]; then
+                echo "❌ Refusing production reset: set PRODUCTION_DB_RESET_CONFIRM=WIPE_PRODUCTION_DB"
+                exit 1
+              fi
 
-                echo "⚠️ Running one-time production database reset..."
-                set +e
-                php -d display_errors=1 artisan migrate:fresh --force -v
-                MIGRATE_EXIT_CODE=$?
-                set -e
-                if [ "$MIGRATE_EXIT_CODE" -ne 0 ]; then
-                  echo "❌ Migration command failed with exit code ${MIGRATE_EXIT_CODE}"
-                  echo "⚠️ Retrying with --no-ansi for clearer logs..."
-                  php -d display_errors=1 artisan migrate:fresh --force -v --no-ansi
-                fi
-                php artisan db:seed --class='Database\\Seeders\\GenreSeeder' --force
-                ;;
-              *)
-                echo "About to run production migrations..."
-                set +e
-                php -d display_errors=1 artisan migrate --force -v
-                MIGRATE_EXIT_CODE=$?
-                set -e
-                if [ "$MIGRATE_EXIT_CODE" -ne 0 ]; then
-                  echo "❌ Migration command failed with exit code ${MIGRATE_EXIT_CODE}"
-                  echo "⚠️ Retrying with --no-ansi for clearer logs..."
-                  php -d display_errors=1 artisan migrate --force -v --no-ansi
-                fi
-                ;;
-            esac
+              echo "⚠️ Running one-time production database reset..."
+              set +e
+              php -d display_errors=1 artisan migrate:fresh --force -v
+              MIGRATE_EXIT_CODE=$?
+              set -e
+              if [ "$MIGRATE_EXIT_CODE" -ne 0 ]; then
+                echo "❌ Migration command failed with exit code ${MIGRATE_EXIT_CODE}"
+                echo "⚠️ Retrying with --no-ansi for clearer logs..."
+                php -d display_errors=1 artisan migrate:fresh --force -v --no-ansi
+              fi
+              php artisan db:seed --class='Database\\Seeders\\GenreSeeder' --force
+            else
+              echo "About to run production migrations..."
+              set +e
+              php -d display_errors=1 artisan migrate --force -v
+              MIGRATE_EXIT_CODE=$?
+              set -e
+              if [ "$MIGRATE_EXIT_CODE" -ne 0 ]; then
+                echo "❌ Migration command failed with exit code ${MIGRATE_EXIT_CODE}"
+                echo "⚠️ Retrying with --no-ansi for clearer logs..."
+                php -d display_errors=1 artisan migrate --force -v --no-ansi
+              fi
+            fi
 
             # ------------------------------------------------
             # Maintenance mode just before switching live release
