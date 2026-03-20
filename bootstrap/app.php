@@ -86,7 +86,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // ── Report: send alerts for server errors ────────────────────
         $exceptions->report(function (\Throwable $e) {
-            $request = request();
+            $request = app()->bound('request') ? app('request') : null;
 
             if ($request && ($request->is('api/*') || $request->expectsJson())) {
                 if ($e instanceof AuthenticationException) {
@@ -147,10 +147,10 @@ return Application::configure(basePath: dirname(__DIR__))
                     'exception' => get_class($e),
                     'message' => mb_substr($e->getMessage(), 0, 500),
                     'file' => $e->getFile().':'.$e->getLine(),
-                    'url' => request()?->fullUrl(),
-                    'method' => request()?->method(),
+                    'url' => $request?->fullUrl(),
+                    'method' => $request?->method(),
                     'user_id' => auth()->id(),
-                    'ip' => request()?->ip(),
+                    'ip' => $request?->ip(),
                     'trace' => mb_substr($e->getTraceAsString(), 0, 1500),
                 ];
 
