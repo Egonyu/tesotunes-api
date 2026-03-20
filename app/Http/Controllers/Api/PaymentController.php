@@ -57,18 +57,22 @@ class PaymentController extends Controller
     {
         $validated = $request->validate([
             'plan_id' => 'required|integer|exists:subscription_plans,id',
-            'payment_method' => 'required|string|in:mobile_money,card,credits',
-            'phone_number' => 'required_if:payment_method,mobile_money|string',
+            'payment_method' => 'required|string|in:mobile_money,card,mtn_momo,airtel_money,zengapay',
+            'phone_number' => 'required_if:payment_method,mobile_money,mtn_momo,airtel_money,zengapay|string',
         ]);
 
         $plan = SubscriptionPlan::findOrFail($validated['plan_id']);
         $user = $request->user();
+        $paymentMethod = $this->canonicalSubscriptionPaymentMethod($validated['payment_method']);
 
         $result = $this->paymentService->processSubscriptionPayment(
             $user,
             $plan,
-            $validated['payment_method'],
-            $request->only(['phone_number', 'email', 'card_token'])
+            $paymentMethod,
+            array_merge(
+                $request->only(['phone_number', 'email', 'card_token']),
+                ['requested_payment_method' => $validated['payment_method']]
+            )
         );
 
         $statusCode = ($result['success'] ?? false) ? 201 : 422;
@@ -76,6 +80,14 @@ class PaymentController extends Controller
         return response()->json([
             'data' => $result,
         ], $statusCode);
+    }
+
+    protected function canonicalSubscriptionPaymentMethod(string $paymentMethod): string
+    {
+        return match ($paymentMethod) {
+            'mtn_momo', 'airtel_money', 'zengapay' => 'mobile_money',
+            default => $paymentMethod,
+        };
     }
 
     /**
