@@ -94,37 +94,34 @@ class PaymentService
                 'currency' => $plan->currency ?? 'UGX',
                 'payment_method' => $paymentMethod,
                 'description' => "Subscription: {$plan->name}",
-                'metadata' => $paymentData,
+                'metadata' => array_merge($paymentData, [
+                    'subscription_plan_id' => $plan->id,
+                    'activation_pending' => true,
+                ]),
             ]);
 
             // Process payment based on method
             $paymentResult = $this->processPayment($payment, $paymentData);
 
             if ($paymentResult['success']) {
-                // Update payment status to completed (use forceFill for guarded fields)
-                $payment->forceFill([
-                    'status' => self::STATUS_COMPLETED,
-                    'completed_at' => now(),
-                    'transaction_id' => $paymentResult['transaction_id'] ?? $payment->transaction_id,
-                ])->save();
+                if ($payment->isPending()) {
+                    $payment->markAsProcessing();
+                }
 
-                // Update fillable fields separately
+                // Payment initiation succeeded, but access is granted only after webhook/status confirmation.
                 $payment->update([
+                    'transaction_id' => $paymentResult['transaction_id'] ?? $payment->transaction_id,
                     'provider_reference' => $paymentResult['reference'] ?? null,
                 ]);
-
-                // Create or update subscription
-                $subscription = $this->createSubscription($user, $plan, $payment);
 
                 DB::commit();
 
                 return [
                     'success' => true,
                     'payment_id' => $payment->id,
-                    'subscription_id' => $subscription->id,
-                    'message' => 'Subscription payment processed successfully',
-                    'payment_status' => $payment->status,
-                    'subscription_ends_at' => $subscription->ends_at,
+                    'message' => $paymentResult['message'] ?? 'Payment initiated. Awaiting confirmation.',
+                    'payment_status' => $payment->fresh()->status,
+                    'activation_pending' => true,
                 ];
             } else {
                 // Update payment status to failed before throwing exception
@@ -511,6 +508,7 @@ class PaymentService
 
         // Handle subscription plan polymorphic relationship
         if (isset($paymentData['subscription_plan_id'])) {
+            $data['subscription_plan_id'] = $paymentData['subscription_plan_id'];
             $data['payable_type'] = 'App\Models\SubscriptionPlan';
             $data['payable_id'] = $paymentData['subscription_plan_id'];
             $data['payment_type'] = 'subscription';
@@ -538,10 +536,22 @@ class PaymentService
     }
 
     /**
-     * Create subscription after successful payment
+     * Create subscription after confirmed payment completion.
      */
-    protected function createSubscription(User $user, SubscriptionPlan $plan, Payment $payment): UserSubscription
+    public function activateSubscriptionFromPayment(Payment $payment): UserSubscription
     {
+        $user = $payment->user;
+        $plan = $payment->subscriptionPlan;
+
+        if (! $user || ! $plan) {
+            throw new Exception('Cannot activate subscription without a user and subscription plan.');
+        }
+
+        $existing = $payment->userSubscription;
+        if ($existing) {
+            return $existing;
+        }
+
         // Cancel ALL existing active subscriptions (handle concurrent requests)
         UserSubscription::where('user_id', $user->id)
             ->where('status', self::SUBSCRIPTION_ACTIVE)

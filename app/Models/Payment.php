@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Str;
 
 class Payment extends Model
@@ -300,6 +301,7 @@ class Payment extends Model
 
         $this->forceFill($updateData)->save();
         $this->settleLedgerIfApplicable();
+        $this->activateSubscriptionIfApplicable();
 
         // Auto-confirm attendee if this is an event payment
         if ($this->payable_type === EventAttendee::class && $this->payable) {
@@ -616,6 +618,23 @@ class Payment extends Model
                 'credits_settled' => $creditsAmount,
             ]);
         }
+    }
+
+    protected function activateSubscriptionIfApplicable(): void
+    {
+        if ($this->payment_type !== 'subscription') {
+            return;
+        }
+
+        if ($this->userSubscription) {
+            return;
+        }
+
+        if (! $this->subscriptionPlan || ! $this->user) {
+            return;
+        }
+
+        App::make(\App\Services\PaymentService::class)->activateSubscriptionFromPayment($this);
     }
 
     protected function refundWithdrawalIfApplicable(): void
