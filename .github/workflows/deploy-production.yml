@@ -96,6 +96,23 @@ jobs:
               echo "==> $1"
             }
 
+            run_and_capture() {
+              local logfile="$1"
+              shift
+
+              set +e
+              "$@" >"$logfile" 2>&1
+              local exit_code=$?
+              set -e
+
+              cat "$logfile"
+
+              if [ "$exit_code" -ne 0 ]; then
+                echo "❌ Command failed with exit code: $exit_code"
+                return "$exit_code"
+              fi
+            }
+
             current_release_target() {
               if [ -L "$APP_PATH" ]; then
                 readlink -f "$APP_PATH"
@@ -239,12 +256,12 @@ jobs:
 
               echo "⚠️ Running one-time production database reset..."
               echo "Migration log file: $MIGRATION_LOG"
-              php -d display_errors=1 artisan migrate:fresh --force -v --no-ansi 2>&1 | tee "$MIGRATION_LOG"
+              run_and_capture "$MIGRATION_LOG" php -d display_errors=1 artisan migrate:fresh --force -v --no-ansi
               php artisan db:seed --class='Database\\Seeders\\GenreSeeder' --force
             else
               echo "About to run production migrations..."
               echo "Migration log file: $MIGRATION_LOG"
-              php -d display_errors=1 artisan migrate --force -v --no-ansi 2>&1 | tee "$MIGRATION_LOG"
+              run_and_capture "$MIGRATION_LOG" php -d display_errors=1 artisan migrate --force -v --no-ansi
             fi
 
             # ------------------------------------------------

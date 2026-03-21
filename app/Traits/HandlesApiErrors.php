@@ -2,8 +2,8 @@
 
 namespace App\Traits;
 
-use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 trait HandlesApiErrors
@@ -14,7 +14,7 @@ trait HandlesApiErrors
      * ValidationException is re-thrown so Laravel's exception handler returns
      * a proper 422 with per-field errors — never wrap it as a generic 500.
      */
-    protected function handleApiAction(callable $callback, string $errorMessage = 'An error occurred.'): JsonResponse
+    protected function handleApiAction(callable $callback, string $errorMessage = 'An error occurred.'): Response
     {
         try {
             return $callback();

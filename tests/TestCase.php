@@ -2,14 +2,13 @@
 
 namespace Tests;
 
-use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 abstract class TestCase extends BaseTestCase
 {
-    use CreatesApplication, DatabaseTransactions;
+    use CreatesApplication;
 
     protected function setUp(): void
     {

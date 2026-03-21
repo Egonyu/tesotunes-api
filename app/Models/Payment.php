@@ -315,6 +315,7 @@ class Payment extends Model
 
         if ($this->payment_type === 'ticket_purchase') {
             app(\App\Services\Events\EventTicketingService::class)->settlePendingOrderPayment($this);
+            app(\App\Services\Events\EventPayoutLedgerService::class)->markPaymentReady($this);
         }
 
         // Complete auto-renewal if this is a subscription renewal payment
@@ -338,6 +339,7 @@ class Payment extends Model
 
         if ($this->payment_type === 'ticket_purchase') {
             app(\App\Services\Events\EventTicketingService::class)->failPendingOrderPayment($this, $reason);
+            app(\App\Services\Events\EventPayoutLedgerService::class)->markPaymentFailed($this, $reason);
         }
 
         // Expire subscription if auto-renewal payment failed
@@ -354,6 +356,7 @@ class Payment extends Model
 
         if ($this->payment_type === 'ticket_purchase') {
             app(\App\Services\Events\EventTicketingService::class)->failPendingOrderPayment($this, 'Payment cancelled');
+            app(\App\Services\Events\EventPayoutLedgerService::class)->markPaymentFailed($this, 'Payment cancelled');
         }
     }
 

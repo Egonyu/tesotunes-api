@@ -81,10 +81,12 @@
             "@php artisan migrate:fresh --env=testing --database=mysql --force --ansi"
         ],
         "test": [
+            "Composer\\Config::disableProcessTimeout",
             "@test:prepare",
             "@php vendor/bin/pest"
         ],
         "test:fast": [
+            "Composer\\Config::disableProcessTimeout",
             "@php vendor/bin/pest"
         ],
         "migrations:verify": [

@@ -14,6 +14,12 @@ class MigrationPolicyGuardTest extends TestCase
         '2026_03_19_180000_add_catalog_claim_fields_to_artists_and_songs.php',
         '2026_03_19_181000_create_catalog_intake_tables.php',
         '2026_03_20_000100_create_moderation_reports_table.php',
+        '2026_03_21_160000_add_ticketing_mode_to_events_table.php',
+        '2026_03_21_190000_create_event_payout_ledger_entries_table.php',
+        '2026_03_21_220000_create_event_staff_members_table.php',
+        '2026_03_21_230000_add_marketing_settings_to_events_table.php',
+        '2026_03_21_233000_create_event_waitlist_entries_table.php',
+        '2026_03_21_234500_create_event_discount_codes_table.php',
     ];
 
     private const BANNED_NAME_FRAGMENTS = [

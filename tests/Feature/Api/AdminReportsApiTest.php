@@ -8,8 +8,7 @@ use App\Models\ModerationReport;
 use App\Models\Setting;
 use App\Models\Song;
 use App\Models\User;
-use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Schema;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 use Tests\Feature\Api\ImageUpload\CreatesUsersWithRoles;
 use Tests\TestCase;
@@ -17,19 +16,13 @@ use Tests\TestCase;
 class AdminReportsApiTest extends TestCase
 {
     use CreatesUsersWithRoles;
+    use RefreshDatabase;
 
     private User $admin;
 
     protected function setUp(): void
     {
         parent::setUp();
-
-        if (! Schema::hasTable('moderation_reports')) {
-            Artisan::call('migrate', [
-                '--path' => 'database/migrations/2026_03_20_000100_create_moderation_reports_table.php',
-                '--force' => true,
-            ]);
-        }
 
         ModerationReport::query()->delete();
 

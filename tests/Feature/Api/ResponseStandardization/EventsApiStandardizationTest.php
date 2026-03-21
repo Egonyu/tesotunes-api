@@ -45,6 +45,7 @@ class EventsApiStandardizationTest extends TestCase
             'artist_id' => $artist->id,
             'title' => 'Standardized Event',
             'category' => 'music',
+            'ticketing_mode' => Event::TICKETING_MODE_HYBRID,
             'venue_name' => 'National Theatre',
             'city' => 'Kampala',
             'country' => 'Uganda',
@@ -89,7 +90,7 @@ class EventsApiStandardizationTest extends TestCase
             ->assertHeader('Content-Type', 'application/json')
             ->assertJsonStructure([
                 'data' => [
-                    '*' => ['id', 'title', 'slug', 'status', 'starts_at', 'venue_name', 'city', 'links'],
+                    '*' => ['id', 'title', 'slug', 'status', 'starts_at', 'venue_name', 'city', 'ticketing_mode', 'waitlist_count', 'waitlist_joined', 'links'],
                 ],
                 'meta' => ['current_page', 'last_page', 'per_page', 'total'],
                 'links',
@@ -108,6 +109,9 @@ class EventsApiStandardizationTest extends TestCase
                     'id',
                     'title',
                     'slug',
+                    'ticketing_mode',
+                    'waitlist_count',
+                    'waitlist_joined',
                     'ticket_tiers' => [
                         '*' => ['id', 'name', 'price', 'price_credits', 'available', 'max_per_order'],
                     ],
@@ -134,13 +138,21 @@ class EventsApiStandardizationTest extends TestCase
         $response->assertOk()
             ->assertJsonStructure([
                 'data' => [
-                    '*' => ['id', 'title', 'slug', 'status', 'starts_at', 'links'],
+                    '*' => ['id', 'title', 'slug', 'status', 'starts_at', 'ticketing_mode', 'waitlist_count', 'waitlist_joined', 'links'],
                 ],
                 'meta' => ['current_page', 'last_page', 'per_page', 'total'],
                 'links',
             ]);
 
         $this->assertArrayNotHasKey('success', $response->json());
+    }
+
+    public function test_public_event_detail_includes_explicit_ticketing_mode_value(): void
+    {
+        $response = $this->getJson("/api/events/{$this->event->id}");
+
+        $response->assertOk()
+            ->assertJsonPath('data.ticketing_mode', Event::TICKETING_MODE_HYBRID);
     }
 
     public function test_artist_event_analytics_returns_data_wrapper_without_success_key(): void

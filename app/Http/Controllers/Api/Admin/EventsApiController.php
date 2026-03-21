@@ -8,15 +8,21 @@ use App\Http\Resources\EventResource;
 use App\Models\Event;
 use App\Models\EventLocation;
 use App\Models\EventTicket;
+use App\Services\Events\EventPayoutLedgerService;
+use App\Services\Events\EventRevenueAnalyticsService;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class EventsApiController extends Controller
 {
     use HandlesApiErrors;
+
+    public function __construct(
+        private readonly EventRevenueAnalyticsService $eventRevenueAnalyticsService,
+        private readonly EventPayoutLedgerService $eventPayoutLedgerService,
+    ) {}
 
     /**
      * GET /api/admin/events/stats
@@ -101,7 +107,7 @@ class EventsApiController extends Controller
     public function show(int $id)
     {
         return $this->handleApiAction(function () use ($id) {
-            $event = Event::with(['organizer', 'location', 'tickets'])->findOrFail($id);
+            $event = Event::with(['organizer.artist', 'user.artist', 'artist.user', 'location', 'tickets'])->findOrFail($id);
 
             return response()->json([
                 'success' => true,
@@ -138,6 +144,7 @@ class EventsApiController extends Controller
                 'is_virtual' => 'nullable|boolean',
                 'virtual_link' => 'nullable|url',
                 'is_free' => 'nullable|boolean',
+                'ticketing_mode' => 'nullable|in:tesotunes_managed,hybrid,external_only,free_rsvp',
                 'currency' => 'nullable|string|max:10',
                 'attendee_limit' => 'nullable|integer|min:1',
                 'is_featured' => 'nullable|boolean',
@@ -173,9 +180,12 @@ class EventsApiController extends Controller
             // Only set user_id if authenticated (legacy field)
             if (auth()->check()) {
                 $validated['user_id'] = auth()->id();
+                $validated['artist_id'] = auth()->user()?->artist?->id;
             }
             $validated['status'] = $validated['status'] ?? 'draft';
             $validated['timezone'] = $validated['timezone'] ?? 'Africa/Nairobi';
+            $validated['ticketing_mode'] = $validated['ticketing_mode']
+                ?? (($validated['is_free'] ?? false) ? Event::TICKETING_MODE_FREE_RSVP : Event::TICKETING_MODE_TESOTUNES_MANAGED);
 
             $event = Event::create($validated);
 
@@ -230,7 +240,7 @@ class EventsApiController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Event created successfully.',
-                'data' => new EventResource($event->load(['organizer'])),
+                'data' => new EventResource($event->load(['organizer.artist', 'user.artist', 'artist.user'])),
             ], 201);
         }, 'Failed to create event.');
     }
@@ -269,6 +279,7 @@ class EventsApiController extends Controller
                 'latitude' => 'nullable|numeric',
                 'longitude' => 'nullable|numeric',
                 'is_free' => 'nullable|boolean',
+                'ticketing_mode' => 'nullable|in:tesotunes_managed,hybrid,external_only,free_rsvp',
                 'is_featured' => 'nullable|boolean',
                 'event_type' => 'nullable|string',
                 'currency' => 'nullable|string|max:10',
@@ -298,6 +309,12 @@ class EventsApiController extends Controller
 
             if (isset($validated['title']) && ! isset($validated['slug'])) {
                 $validated['slug'] = Str::slug($validated['title']).'-'.Str::random(6);
+            }
+
+            if (! array_key_exists('ticketing_mode', $validated) && array_key_exists('is_free', $validated)) {
+                $validated['ticketing_mode'] = $validated['is_free']
+                    ? Event::TICKETING_MODE_FREE_RSVP
+                    : Event::TICKETING_MODE_TESOTUNES_MANAGED;
             }
 
             $event->update($validated);
@@ -351,7 +368,7 @@ class EventsApiController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Event updated successfully.',
-                'data' => new EventResource($event->fresh()->load(['organizer', 'location', 'tickets'])),
+                'data' => new EventResource($event->fresh()->load(['organizer.artist', 'user.artist', 'artist.user', 'location', 'tickets'])),
             ]);
         }, 'Failed to update event.');
     }
@@ -383,7 +400,7 @@ class EventsApiController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Event published successfully.',
-                'data' => new EventResource($event->fresh()->load(['organizer', 'location', 'tickets'])),
+                'data' => new EventResource($event->fresh()->load(['organizer.artist', 'user.artist', 'artist.user', 'location', 'tickets'])),
             ]);
         }, 'Failed to publish event.');
     }
@@ -403,7 +420,7 @@ class EventsApiController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => $event->is_featured ? 'Event featured successfully.' : 'Event unfeatured successfully.',
-                'data' => new EventResource($event->fresh()->load(['organizer', 'location', 'tickets'])),
+                'data' => new EventResource($event->fresh()->load(['organizer.artist', 'user.artist', 'artist.user', 'location', 'tickets'])),
             ]);
         }, 'Failed to update event featured state.');
     }
@@ -414,63 +431,73 @@ class EventsApiController extends Controller
     public function analytics(int $id)
     {
         return $this->handleApiAction(function () use ($id) {
-            $event = Event::with(['tickets', 'attendees.ticket', 'interestedUsers'])
+            $event = Event::with(['tickets', 'attendees.ticket', 'interestedUsers', 'payoutLedgerEntries'])
                 ->findOrFail($id);
-
-            $confirmedAttendees = $event->attendees->whereIn('status', ['confirmed', 'attended']);
-            $ticketsSold = (int) $event->tickets->sum('quantity_sold');
-            $interestedCount = (int) $event->interestedUsers->count();
-            $revenue = (float) $confirmedAttendees->sum(fn ($attendee) => $attendee->price_paid_ugx ?? $attendee->amount_paid ?? 0);
-            $revenueCredits = (float) $confirmedAttendees->sum('price_paid_credits');
-            $checkIns = (int) $event->attendees->whereNotNull('checked_in_at')->count();
-
-            $byTier = $event->tickets->map(function ($ticket) {
-                return [
-                    'id' => $ticket->id,
-                    'name' => $ticket->name,
-                    'sold' => (int) $ticket->quantity_sold,
-                    'total' => $ticket->quantity_total,
-                    'revenue' => (float) ($ticket->quantity_sold * ($ticket->price_ugx ?? 0)),
-                    'available' => (int) ($ticket->quantity_available ?? 0),
-                ];
-            })->values();
-
-            $byDate = $event->attendees()
-                ->where(function ($query) {
-                    $query->whereIn('status', ['confirmed', 'attended'])
-                        ->orWhereNotNull('checked_in_at');
-                })
-                ->selectRaw('DATE(created_at) as date, COUNT(*) as tickets_sold, SUM(COALESCE(price_paid_ugx, amount_paid, 0)) as revenue')
-                ->groupBy(DB::raw('DATE(created_at)'))
-                ->orderBy(DB::raw('DATE(created_at)'))
-                ->get()
-                ->map(fn ($row) => [
-                    'date' => $row->date,
-                    'tickets_sold' => (int) $row->tickets_sold,
-                    'revenue' => (float) $row->revenue,
-                ])
-                ->values();
 
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'event_id' => $event->id,
-                    'status' => $event->status,
-                    'tickets_sold' => $ticketsSold,
-                    'total_attendees' => (int) $confirmedAttendees->count(),
-                    'interested_count' => $interestedCount,
-                    'check_ins' => $checkIns,
-                    'revenue' => $revenue,
-                    'revenue_credits' => $revenueCredits,
-                    'conversion_rate' => $interestedCount > 0 ? round(($ticketsSold / $interestedCount) * 100, 2) : 0.0,
-                    'sell_through_rate' => $event->tickets->sum('quantity_total') > 0
-                        ? round(($ticketsSold / max(1, $event->tickets->sum('quantity_total'))) * 100, 2)
-                        : 0.0,
-                    'by_tier' => $byTier,
-                    'by_date' => $byDate,
-                ],
+                'data' => $this->eventRevenueAnalyticsService->summarize($event),
             ]);
         }, 'Failed to retrieve event analytics.');
+    }
+
+    public function exportAnalytics(int $id)
+    {
+        return $this->handleApiAction(function () use ($id) {
+            $event = Event::with(['attendees', 'payoutLedgerEntries'])->findOrFail($id);
+            $rows = $this->eventPayoutLedgerService->exportRowsForEvent($event);
+            $filename = 'admin_event_payouts_'.$event->id.'.csv';
+            $csv = fopen('php://temp', 'r+');
+            fputcsv($csv, ['Tesotunes Admin Event Payout Export']);
+            fputcsv($csv, ['Event', $event->title]);
+            fputcsv($csv, []);
+            fputcsv($csv, [
+                'Order ID',
+                'Payment Reference',
+                'Payout Status',
+                'Ticket Quantity',
+                'Gross Revenue',
+                'Customer Paid Total',
+                'Tesotunes Fee Revenue',
+                'Platform Commission',
+                'Processing Fee',
+                'Organizer Net Amount',
+                'Fee Source',
+                'Attribution Label',
+                'Occurred At',
+                'Payout Ready At',
+                'Paid Out At',
+            ]);
+
+            foreach ($rows as $row) {
+                fputcsv($csv, [
+                    $row['order_id'] ?? '',
+                    $row['payment_reference'] ?? '',
+                    $row['payout_status'] ?? '',
+                    $row['ticket_quantity'] ?? 0,
+                    $row['gross_revenue'] ?? 0,
+                    $row['customer_paid_total'] ?? 0,
+                    $row['tesotunes_fee_revenue'] ?? 0,
+                    $row['platform_commission_amount'] ?? 0,
+                    $row['processing_fee_amount'] ?? 0,
+                    $row['organizer_net_amount'] ?? 0,
+                    $row['fee_source'] ?? '',
+                    $row['attribution_label'] ?? '',
+                    $row['occurred_at'] ?? '',
+                    $row['payout_ready_at'] ?? '',
+                    $row['paid_out_at'] ?? '',
+                ]);
+            }
+
+            rewind($csv);
+            $contents = stream_get_contents($csv) ?: '';
+            fclose($csv);
+
+            return response($contents, 200, [
+                'Content-Type' => 'text/csv; charset=UTF-8',
+                'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+            ]);
+        }, 'Failed to export event analytics.');
     }
 
     /**

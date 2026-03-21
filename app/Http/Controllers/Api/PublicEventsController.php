@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\EventResource;
 use App\Models\Event;
+use App\Models\EventWaitlistEntry;
 use Illuminate\Http\Request;
 
 class PublicEventsController extends Controller
@@ -90,34 +91,50 @@ class PublicEventsController extends Controller
      */
     public function show($id)
     {
-        $event = Event::with(['organizer', 'location', 'tickets'])
+        $event = Event::with(['organizer.artist', 'user.artist', 'artist.user', 'location', 'tickets', 'waitlistEntries'])
             ->where('status', 'published')
             ->findOrFail($id);
 
-        $resource = (new EventResource($event))->toArray(request());
+        return response()->json(['data' => new EventResource($event)]);
+    }
 
-        // Add ticket tiers for public view
-        $resource['ticket_tiers'] = $event->tickets
-            ->where('is_active', true)
-            ->map(function ($ticket) {
-                return [
-                    'id' => $ticket->id,
-                    'name' => $ticket->name,
-                    'description' => $ticket->description,
-                    'price' => (float) $ticket->price_ugx,
-                    'price_credits' => (float) $ticket->price_credits,
-                    'is_free' => (bool) $ticket->is_free,
-                    'quantity' => $ticket->quantity_total,
-                    'available' => $ticket->quantity_available,
-                    'max_per_order' => $ticket->max_per_order,
-                    'sale_starts_at' => $ticket->sale_starts_at?->toIso8601String(),
-                    'sale_ends_at' => $ticket->sale_ends_at?->toIso8601String(),
-                    'is_sold_out' => $ticket->isSoldOut(),
-                    'is_on_sale' => $ticket->isOnSale(),
-                    'required_loyalty_tier' => $ticket->required_loyalty_tier,
-                ];
-            })->values();
+    public function joinWaitlist(Request $request, int $id)
+    {
+        $user = $request->user();
+        $event = Event::with('tickets')->where('status', 'published')->findOrFail($id);
 
-        return response()->json(['data' => $resource]);
+        abort_if($event->ticketing_mode === Event::TICKETING_MODE_EXTERNAL_ONLY, 422, 'Waitlist is not available for organizer-managed external ticketing events.');
+        abort_if($event->tickets->isEmpty(), 422, 'Waitlist is only available for ticketed events.');
+
+        $hasAvailableTickets = $event->tickets->contains(fn ($ticket) => (int) ($ticket->quantity_available ?? 0) > 0);
+        abort_if($hasAvailableTickets, 422, 'Tickets are still available for this event.');
+
+        $validated = $request->validate([
+            'email' => 'nullable|email|max:150',
+            'phone' => 'nullable|string|max:20',
+        ]);
+
+        $entry = EventWaitlistEntry::updateOrCreate(
+            [
+                'event_id' => $event->id,
+                'user_id' => $user->id,
+            ],
+            [
+                'email' => $validated['email'] ?? $user->email,
+                'phone' => $validated['phone'] ?? $user->phone,
+                'status' => EventWaitlistEntry::STATUS_ACTIVE,
+                'joined_at' => now(),
+            ],
+        );
+
+        return response()->json([
+            'message' => 'Joined the event waitlist successfully.',
+            'data' => [
+                'event_id' => $event->id,
+                'waitlist_count' => $event->waitlistEntries()->where('status', EventWaitlistEntry::STATUS_ACTIVE)->count(),
+                'waitlist_joined' => true,
+                'entry_id' => $entry->id,
+            ],
+        ], 201);
     }
 }

@@ -61,10 +61,22 @@ Route::prefix('events')->name('api.events.')->group(function () {
     Route::get('/{id}', [\App\Http\Controllers\Api\PublicEventsController::class, 'show'])->name('show');
 });
 
-// Ticket API Routes (auth required)
-Route::middleware('auth:sanctum')->prefix('tickets')->name('api.tickets.')->group(function () {
+Route::middleware('auth:sanctum')->post('/events/{id}/waitlist', [\App\Http\Controllers\Api\PublicEventsController::class, 'joinWaitlist'])
+    ->name('api.events.waitlist');
+
+// Ticket checkout API Routes
+Route::prefix('tickets')->name('api.tickets.')->group(function () {
+    Route::post('/quote', [\App\Http\Controllers\Api\TicketController::class, 'quote'])->name('quote');
+    Route::post('/discounts/validate', [\App\Http\Controllers\Api\TicketController::class, 'validateDiscountCode'])->name('discounts.validate');
     Route::post('/purchase', [\App\Http\Controllers\Api\TicketController::class, 'purchase'])->name('purchase');
+});
+
+// Ticket account and operations API Routes (auth required)
+Route::middleware('auth:sanctum')->prefix('tickets')->name('api.tickets.account.')->group(function () {
+    Route::get('/attendee-profiles', [\App\Http\Controllers\Api\TicketController::class, 'attendeeProfiles'])->name('attendee-profiles');
     Route::get('/my', [\App\Http\Controllers\Api\TicketController::class, 'myTickets'])->name('my');
+    Route::post('/{id}/resend', [\App\Http\Controllers\Api\TicketController::class, 'resend'])->name('resend');
+    Route::post('/{id}/transfer', [\App\Http\Controllers\Api\TicketController::class, 'transfer'])->name('transfer');
     Route::get('/validate/{ticketNumber}', [\App\Http\Controllers\Api\TicketController::class, 'validateTicket'])->name('validate');
     Route::post('/check-in', [\App\Http\Controllers\Api\TicketController::class, 'checkIn'])->name('check-in');
     Route::get('/{id}', [\App\Http\Controllers\Api\TicketController::class, 'show'])->name('show');
@@ -79,6 +91,16 @@ Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('ar
     Route::post('/{id}', [\App\Http\Controllers\Api\ArtistEventsController::class, 'update'])->name('update.post');
     Route::delete('/{id}', [\App\Http\Controllers\Api\ArtistEventsController::class, 'destroy'])->name('destroy');
     Route::get('/{id}/analytics', [\App\Http\Controllers\Api\ArtistEventsController::class, 'analytics'])->name('analytics');
+    Route::get('/{id}/analytics/export', [\App\Http\Controllers\Api\ArtistEventsController::class, 'exportAnalytics'])->name('analytics.export');
+    Route::post('/{id}/discount-codes', [\App\Http\Controllers\Api\ArtistEventsController::class, 'storeDiscountCode'])->name('discount-codes.store');
+    Route::delete('/{id}/discount-codes/{discountId}', [\App\Http\Controllers\Api\ArtistEventsController::class, 'deleteDiscountCode'])->name('discount-codes.destroy');
+    Route::post('/{id}/staff', [\App\Http\Controllers\Api\ArtistEventsController::class, 'addStaff'])->name('staff.store');
+    Route::delete('/{id}/staff/{staffId}', [\App\Http\Controllers\Api\ArtistEventsController::class, 'removeStaff'])->name('staff.destroy');
+});
+
+Route::middleware(['auth:sanctum'])->prefix('artist/events')->name('api.artist.events.ops.')->group(function () {
+    Route::get('/{id}/check-in/lookup', [\App\Http\Controllers\Api\ArtistEventsController::class, 'checkInLookup'])->name('checkin.lookup');
+    Route::post('/{id}/check-in', [\App\Http\Controllers\Api\ArtistEventsController::class, 'checkInAttendee'])->name('checkin.store');
 });
 
 // ============================================================================
@@ -415,6 +437,7 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::post('/events/{id}/publish', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'publish'])->name('events.publish');
     Route::post('/events/{id}/toggle-featured', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'toggleFeatured'])->name('events.toggle-featured');
     Route::get('/events/{id}/analytics', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'analytics'])->name('events.analytics');
+    Route::get('/events/{id}/analytics/export', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'exportAnalytics'])->name('events.analytics.export');
     Route::get('/events/{id}/attendees', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'attendees'])->name('events.attendees');
     Route::get('/events/{id}/registrations', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'registrations'])->name('events.registrations');
 

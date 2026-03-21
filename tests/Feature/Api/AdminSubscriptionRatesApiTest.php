@@ -32,6 +32,8 @@ class AdminSubscriptionRatesApiTest extends TestCase
             'metadata' => [
                 'stream_rate_ugx' => '5.00',
                 'credit_to_ugx_rate' => '1.25',
+                'event_platform_commission_percent' => '7.50',
+                'event_processing_fee_percent' => '2.00',
             ],
         ]);
 
@@ -50,6 +52,8 @@ class AdminSubscriptionRatesApiTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.records.0.rates.stream_rate_ugx', '5.00')
             ->assertJsonPath('data.records.0.rates.credit_to_ugx_rate', '1.25')
+            ->assertJsonPath('data.records.0.rates.event_platform_commission_percent', '7.50')
+            ->assertJsonPath('data.records.0.rates.event_processing_fee_percent', '2.00')
             ->assertJsonPath('data.plans.0.rates.stream_rate_ugx', '5.00')
             ->assertJsonPath('data.platform_commissions.streaming_percent', '18.00')
             ->assertJsonPath('data.platform_commissions.subscription_percent', '7.50')
@@ -66,6 +70,8 @@ class AdminSubscriptionRatesApiTest extends TestCase
             'metadata' => [
                 'stream_rate_ugx' => '5.00',
                 'credit_to_ugx_rate' => '1.25',
+                'event_platform_commission_percent' => '7.50',
+                'event_processing_fee_percent' => '2.00',
             ],
         ]);
 
@@ -91,6 +97,8 @@ class AdminSubscriptionRatesApiTest extends TestCase
         $this->assertStringContainsString('Starter', $content);
         $this->assertStringContainsString('5.00', $content);
         $this->assertStringContainsString('1.25', $content);
+        $this->assertStringContainsString('7.50', $content);
+        $this->assertStringContainsString('2.00', $content);
     }
 
     public function test_admin_can_fetch_main_subscription_list_with_filters_and_export_metadata(): void
@@ -180,6 +188,8 @@ class AdminSubscriptionRatesApiTest extends TestCase
             'metadata' => [
                 'stream_rate_ugx' => '10.00',
                 'credit_to_ugx_rate' => '1.5000',
+                'event_platform_commission_percent' => '8.50',
+                'event_processing_fee_percent' => '1.75',
             ],
         ]);
 
@@ -189,6 +199,8 @@ class AdminSubscriptionRatesApiTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.records.0.rates.stream_rate_ugx', '10.00')
             ->assertJsonPath('data.records.0.rates.credit_to_ugx_rate', '1.5000')
+            ->assertJsonPath('data.records.0.rates.event_platform_commission_percent', '8.50')
+            ->assertJsonPath('data.records.0.rates.event_processing_fee_percent', '1.75')
             ->assertJsonPath('data.export.format', 'csv');
 
         $this->assertStringContainsString('/api/admin/subscription-plans/export', (string) $response->json('data.export.url'));
@@ -205,6 +217,8 @@ class AdminSubscriptionRatesApiTest extends TestCase
             'metadata' => [
                 'stream_rate_ugx' => '10.00',
                 'credit_to_ugx_rate' => '1.5000',
+                'event_platform_commission_percent' => '8.50',
+                'event_processing_fee_percent' => '1.75',
             ],
         ]);
 
@@ -221,6 +235,8 @@ class AdminSubscriptionRatesApiTest extends TestCase
         $this->assertStringContainsString('premium-starter', $content);
         $this->assertStringContainsString('10.00', $content);
         $this->assertStringContainsString('1.5000', $content);
+        $this->assertStringContainsString('8.50', $content);
+        $this->assertStringContainsString('1.75', $content);
     }
 
     public function test_admin_can_bulk_update_subscription_rates_and_platform_commissions(): void
@@ -234,11 +250,15 @@ class AdminSubscriptionRatesApiTest extends TestCase
                     'id' => $basicPlan->id,
                     'stream_rate_ugx' => 4.5,
                     'credit_to_ugx_rate' => 1.1,
+                    'event_platform_commission_percent' => 6,
+                    'event_processing_fee_percent' => 2.25,
                 ],
                 [
                     'id' => $premiumPlan->id,
                     'stream_rate_ugx' => 12,
                     'credit_to_ugx_rate' => 1.75,
+                    'event_platform_commission_percent' => 3.5,
+                    'event_processing_fee_percent' => 1.5,
                 ],
             ],
             'platform_commissions' => [
@@ -262,8 +282,12 @@ class AdminSubscriptionRatesApiTest extends TestCase
 
         $this->assertSame('4.50', $basicPlan->metadata['stream_rate_ugx']);
         $this->assertSame('1.1000', $basicPlan->metadata['credit_to_ugx_rate']);
+        $this->assertSame('6.00', $basicPlan->metadata['event_platform_commission_percent']);
+        $this->assertSame('2.25', $basicPlan->metadata['event_processing_fee_percent']);
         $this->assertSame('12.00', $premiumPlan->metadata['stream_rate_ugx']);
         $this->assertSame('1.7500', $premiumPlan->metadata['credit_to_ugx_rate']);
+        $this->assertSame('3.50', $premiumPlan->metadata['event_platform_commission_percent']);
+        $this->assertSame('1.50', $premiumPlan->metadata['event_processing_fee_percent']);
         $this->assertSame([
             'streaming_percent' => '15.00',
             'subscription_percent' => '5.00',
@@ -280,6 +304,8 @@ class AdminSubscriptionRatesApiTest extends TestCase
             'metadata' => [
                 'stream_rate_ugx' => '8.00',
                 'credit_to_ugx_rate' => '1.2000',
+                'event_platform_commission_percent' => '5.00',
+                'event_processing_fee_percent' => '1.00',
             ],
         ]);
 
@@ -289,6 +315,8 @@ class AdminSubscriptionRatesApiTest extends TestCase
             'rates' => [
                 'stream_rate_ugx' => 11.5,
                 'credit_to_ugx_rate' => 1.65,
+                'event_platform_commission_percent' => 4.25,
+                'event_processing_fee_percent' => 1.75,
             ],
         ]);
 
@@ -298,6 +326,8 @@ class AdminSubscriptionRatesApiTest extends TestCase
             ->assertJsonPath('data.price_monthly', '55000.00')
             ->assertJsonPath('data.rates.stream_rate_ugx', '11.50')
             ->assertJsonPath('data.rates.credit_to_ugx_rate', '1.6500')
+            ->assertJsonPath('data.rates.event_platform_commission_percent', '4.25')
+            ->assertJsonPath('data.rates.event_processing_fee_percent', '1.75')
             ->assertJsonPath('data.rates.effective.effective_stream_rate_ugx', '11.50')
             ->assertJsonPath('data.rates.effective.estimated_net_per_stream_ugx', '9.78');
 
@@ -306,6 +336,8 @@ class AdminSubscriptionRatesApiTest extends TestCase
         $this->assertSame('Premium Plus', $plan->name);
         $this->assertSame('11.50', $plan->metadata['stream_rate_ugx']);
         $this->assertSame('1.6500', $plan->metadata['credit_to_ugx_rate']);
+        $this->assertSame('4.25', $plan->metadata['event_platform_commission_percent']);
+        $this->assertSame('1.75', $plan->metadata['event_processing_fee_percent']);
     }
 
     public function test_admin_can_create_a_subscription_plan_with_entitlement_fields(): void
@@ -339,6 +371,8 @@ class AdminSubscriptionRatesApiTest extends TestCase
             'rates' => [
                 'stream_rate_ugx' => 9.5,
                 'credit_to_ugx_rate' => 1.35,
+                'event_platform_commission_percent' => 6.5,
+                'event_processing_fee_percent' => 1.75,
             ],
         ]);
 
@@ -350,7 +384,9 @@ class AdminSubscriptionRatesApiTest extends TestCase
             ->assertJsonPath('data.has_ads', false)
             ->assertJsonPath('data.offline_mode', true)
             ->assertJsonPath('data.rates.stream_rate_ugx', '9.50')
-            ->assertJsonPath('data.rates.credit_to_ugx_rate', '1.3500');
+            ->assertJsonPath('data.rates.credit_to_ugx_rate', '1.3500')
+            ->assertJsonPath('data.rates.event_platform_commission_percent', '6.50')
+            ->assertJsonPath('data.rates.event_processing_fee_percent', '1.75');
 
         $plan = SubscriptionPlan::query()->where('slug', 'starter-plus')->firstOrFail();
 
@@ -360,5 +396,7 @@ class AdminSubscriptionRatesApiTest extends TestCase
         $this->assertTrue($plan->ad_free);
         $this->assertSame('9.50', $plan->metadata['stream_rate_ugx']);
         $this->assertSame('1.3500', $plan->metadata['credit_to_ugx_rate']);
+        $this->assertSame('6.50', $plan->metadata['event_platform_commission_percent']);
+        $this->assertSame('1.75', $plan->metadata['event_processing_fee_percent']);
     }
 }

@@ -3,14 +3,22 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\TicketResource;
 use App\Models\EventAttendee;
+use App\Models\EventTicket;
+use App\Notifications\EventTicketConfirmationNotification;
+use App\Services\Events\EventDiscountCodeService;
+use App\Services\Events\EventFeeCalculatorService;
 use App\Services\Events\EventTicketingService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Notification;
 
 class TicketController extends Controller
 {
     public function __construct(
         private readonly EventTicketingService $eventTicketingService,
+        private readonly EventFeeCalculatorService $eventFeeCalculatorService,
+        private readonly EventDiscountCodeService $eventDiscountCodeService,
     ) {}
 
     /**
@@ -20,18 +28,179 @@ class TicketController extends Controller
     {
         $validated = $request->validate([
             'event_id' => 'required|integer|exists:events,id',
-            'ticket_tier_id' => 'required|integer|exists:event_tickets,id',
-            'quantity' => 'required|integer|min:1|max:10',
+            'ticket_tier_id' => 'nullable|integer|exists:event_tickets,id',
+            'quantity' => 'nullable|integer|min:1|max:10',
+            'tickets' => 'nullable|array|min:1|max:10',
+            'tickets.*.ticket_tier_id' => 'required_with:tickets|integer|exists:event_tickets,id',
+            'tickets.*.quantity' => 'required_with:tickets|integer|min:1|max:10',
             'payment_method' => 'required|in:wallet,mtn_momo,airtel_money,card,credits',
+            'discount_code' => 'nullable|string|max:80',
             'phone' => 'nullable|string',
             'holder_name' => 'nullable|string|max:150',
             'holder_email' => 'nullable|email|max:150',
             'holder_phone' => 'nullable|string|max:20',
+            'attendee_assignments' => 'nullable|array|max:10',
+            'attendee_assignments.*.ticket_tier_id' => 'required_with:attendee_assignments|integer|exists:event_tickets,id',
+            'attendee_assignments.*.attendees' => 'nullable|array|max:20',
+            'attendee_assignments.*.attendees.*.name' => 'nullable|string|max:150',
+            'attendee_assignments.*.attendees.*.email' => 'nullable|email|max:150',
+            'attendee_assignments.*.attendees.*.phone' => 'nullable|string|max:20',
+            'attendee_assignments.*.attendees.*.save_profile' => 'nullable|boolean',
+            'attribution' => 'nullable|array',
+            'attribution.source' => 'nullable|string|max:80',
+            'attribution.channel' => 'nullable|string|max:80',
+            'attribution.campaign_code' => 'nullable|string|max:120',
+            'attribution.referral_code' => 'nullable|string|max:120',
+            'attribution.promoter_code' => 'nullable|string|max:120',
+            'attribution.utm_source' => 'nullable|string|max:120',
+            'attribution.utm_medium' => 'nullable|string|max:120',
+            'attribution.utm_campaign' => 'nullable|string|max:150',
+            'attribution.utm_term' => 'nullable|string|max:150',
+            'attribution.utm_content' => 'nullable|string|max:150',
+            'attribution.landing_page' => 'nullable|string|max:500',
         ]);
 
+        $validated['tickets'] = $this->normalizeTicketSelections($validated);
+        $validated['attendee_assignments'] = $this->normalizeAttendeeAssignments($validated['attendee_assignments'] ?? null);
         $result = $this->eventTicketingService->purchase(auth()->user(), $validated);
 
         return response()->json($result, 201);
+    }
+
+    /**
+     * POST /api/tickets/quote
+     */
+    public function quote(Request $request)
+    {
+        $validated = $request->validate([
+            'event_id' => 'required|integer|exists:events,id',
+            'ticket_tier_id' => 'nullable|integer|exists:event_tickets,id',
+            'quantity' => 'nullable|integer|min:1|max:10',
+            'tickets' => 'nullable|array|min:1|max:10',
+            'tickets.*.ticket_tier_id' => 'required_with:tickets|integer|exists:event_tickets,id',
+            'tickets.*.quantity' => 'required_with:tickets|integer|min:1|max:10',
+            'discount_code' => 'nullable|string|max:80',
+        ]);
+
+        $selections = $this->normalizeTicketSelections($validated);
+        $tickets = EventTicket::with('event.organizer.artist', 'event.user.artist')
+            ->where('event_id', $validated['event_id'])
+            ->whereIn('id', collect($selections)->pluck('ticket_tier_id')->all())
+            ->get()
+            ->keyBy('id');
+
+        abort_if($tickets->count() !== count($selections), 404, 'One or more ticket tiers were not found for this event.');
+
+        $event = $tickets->first()?->event;
+        $discountCode = null;
+        if (! empty($validated['discount_code']) && $event) {
+            $discountCode = $this->eventDiscountCodeService
+                ->validateForQuote($event, $tickets->values(), $selections, $validated['discount_code'])['discount_code'];
+        }
+
+        $quote = $this->eventFeeCalculatorService->calculateForSelections(
+            $tickets,
+            $selections,
+            $discountCode,
+        );
+
+        return response()->json([
+            'data' => $quote + [
+                'event_id' => (int) $validated['event_id'],
+            ],
+        ]);
+    }
+
+    public function validateDiscountCode(Request $request)
+    {
+        $validated = $request->validate([
+            'event_id' => 'required|integer|exists:events,id',
+            'ticket_tier_id' => 'nullable|integer|exists:event_tickets,id',
+            'quantity' => 'nullable|integer|min:1|max:10',
+            'tickets' => 'nullable|array|min:1|max:10',
+            'tickets.*.ticket_tier_id' => 'required_with:tickets|integer|exists:event_tickets,id',
+            'tickets.*.quantity' => 'required_with:tickets|integer|min:1|max:10',
+            'code' => 'required|string|max:80',
+        ]);
+
+        $selections = $this->normalizeTicketSelections($validated);
+        $tickets = EventTicket::with('event.organizer.artist', 'event.user.artist')
+            ->where('event_id', $validated['event_id'])
+            ->whereIn('id', collect($selections)->pluck('ticket_tier_id')->all())
+            ->get()
+            ->keyBy('id');
+
+        abort_if($tickets->count() !== count($selections), 404, 'One or more ticket tiers were not found for this event.');
+
+        $event = $tickets->first()?->event;
+        $resolved = $this->eventDiscountCodeService->validateForQuote($event, $tickets->values(), $selections, $validated['code']);
+        $quote = $this->eventFeeCalculatorService->calculateForSelections(
+            $tickets,
+            $selections,
+            $resolved['discount_code'],
+        );
+
+        return response()->json([
+            'valid' => true,
+            'message' => $resolved['message'],
+            'data' => [
+                'code' => $resolved['discount_code']->code,
+                'discount_amount' => (float) $quote['discount_amount'],
+                'quote' => $quote + [
+                    'event_id' => (int) $validated['event_id'],
+                ],
+            ],
+        ]);
+    }
+
+    private function normalizeTicketSelections(array $validated): array
+    {
+        if (! empty($validated['tickets']) && is_array($validated['tickets'])) {
+            return array_values(array_map(static fn (array $ticket) => [
+                'ticket_tier_id' => (int) $ticket['ticket_tier_id'],
+                'quantity' => (int) $ticket['quantity'],
+            ], $validated['tickets']));
+        }
+
+        return [[
+            'ticket_tier_id' => (int) $validated['ticket_tier_id'],
+            'quantity' => (int) $validated['quantity'],
+        ]];
+    }
+
+    private function normalizeAttendeeAssignments(mixed $assignments): array
+    {
+        if (! is_array($assignments)) {
+            return [];
+        }
+
+        return array_values(array_map(static function (array $assignment) {
+            $attendees = array_values(array_filter(array_map(static function ($attendee) {
+                if (! is_array($attendee)) {
+                    return null;
+                }
+
+                $name = trim((string) ($attendee['name'] ?? ''));
+                $email = trim((string) ($attendee['email'] ?? ''));
+                $phone = trim((string) ($attendee['phone'] ?? ''));
+
+                if ($name === '' && $email === '' && $phone === '') {
+                    return null;
+                }
+
+                return [
+                    'name' => $name !== '' ? $name : null,
+                    'email' => $email !== '' ? $email : null,
+                    'phone' => $phone !== '' ? $phone : null,
+                    'save_profile' => (bool) ($attendee['save_profile'] ?? false),
+                ];
+            }, $assignment['attendees'] ?? [])));
+
+            return [
+                'ticket_tier_id' => (int) $assignment['ticket_tier_id'],
+                'attendees' => $attendees,
+            ];
+        }, $assignments));
     }
 
     /**
@@ -42,7 +211,7 @@ class TicketController extends Controller
         $perPage = min((int) $request->get('per_page', 10), 100);
         $user = auth()->user();
 
-        $registrations = EventAttendee::with(['event.organizer', 'event.location'])
+        $registrations = EventAttendee::with(['event.organizer.artist', 'event.location', 'ticket'])
             ->where('user_id', $user->id)
             ->when($request->filled('status'), function ($q) use ($request) {
                 $q->where('status', $request->status);
@@ -50,29 +219,7 @@ class TicketController extends Controller
             ->orderByDesc('created_at')
             ->paginate($perPage);
 
-        $data = $registrations->getCollection()->map(function ($r) {
-            return [
-                'id' => $r->id,
-                'ticket_number' => $r->confirmation_code,
-                'qr_code' => $r->qr_code,
-                'status' => $r->status,
-                'holder_name' => $r->attendee_name,
-                'holder_email' => $r->attendee_email,
-                'price_paid' => (float) $r->price_paid_ugx,
-                'price_paid_credits' => (float) $r->price_paid_credits,
-                'payment_method' => $r->payment_method,
-                'checked_in_at' => $r->checked_in_at,
-                'event' => $r->event ? [
-                    'id' => $r->event->id,
-                    'title' => $r->event->title,
-                    'starts_at' => $r->event->starts_at?->toIso8601String(),
-                    'artwork' => $r->event->artwork ? url('storage/'.$r->event->artwork) : null,
-                    'venue_name' => $r->event->venue_name,
-                    'city' => $r->event->city,
-                ] : null,
-                'created_at' => $r->created_at?->toIso8601String(),
-            ];
-        });
+        $data = TicketResource::collection($registrations->getCollection())->resolve();
 
         return response()->json([
             'data' => $data,
@@ -85,41 +232,156 @@ class TicketController extends Controller
         ]);
     }
 
+    public function attendeeProfiles(Request $request)
+    {
+        $user = auth()->user();
+        $limit = min((int) $request->integer('limit', 10), 20);
+
+        $profiles = EventAttendee::query()
+            ->where('user_id', $user->id)
+            ->where(function ($query) {
+                $query->whereNotNull('attendee_name')
+                    ->orWhereNotNull('attendee_email')
+                    ->orWhereNotNull('attendee_phone');
+            })
+            ->orderByDesc('created_at')
+            ->get(['attendee_name', 'attendee_email', 'attendee_phone', 'created_at'])
+            ->map(function (EventAttendee $attendee) {
+                $name = trim((string) ($attendee->attendee_name ?? ''));
+                $email = trim((string) ($attendee->attendee_email ?? ''));
+                $phone = trim((string) ($attendee->attendee_phone ?? ''));
+
+                return [
+                    'name' => $name,
+                    'email' => $email !== '' ? $email : null,
+                    'phone' => $phone !== '' ? $phone : null,
+                    'last_used_at' => $attendee->created_at?->toIso8601String(),
+                    'key' => strtolower(implode('|', [$name, $email, $phone])),
+                ];
+            })
+            ->filter(fn (array $profile) => $profile['name'] !== '' || $profile['email'] !== null || $profile['phone'] !== null)
+            ->unique('key')
+            ->take($limit)
+            ->values()
+            ->map(fn (array $profile) => [
+                'name' => $profile['name'],
+                'email' => $profile['email'],
+                'phone' => $profile['phone'],
+                'last_used_at' => $profile['last_used_at'],
+            ]);
+
+        return response()->json([
+            'data' => $profiles,
+        ]);
+    }
+
     /**
      * GET /api/tickets/{id}
      */
     public function show(int $id)
     {
         $user = auth()->user();
-        $registration = EventAttendee::with(['event.organizer', 'event.location'])
+        $registration = EventAttendee::with(['event.organizer.artist', 'event.location', 'ticket'])
             ->where('user_id', $user->id)
             ->findOrFail($id);
 
         return response()->json([
-            'data' => [
-                'id' => $registration->id,
-                'ticket_number' => $registration->confirmation_code,
-                'qr_code' => $registration->qr_code,
-                'status' => $registration->status,
-                'holder_name' => $registration->attendee_name,
-                'holder_email' => $registration->attendee_email,
-                'holder_phone' => $registration->attendee_phone,
-                'price_paid' => (float) $registration->price_paid_ugx,
-                'price_paid_credits' => (float) $registration->price_paid_credits,
-                'payment_method' => $registration->payment_method,
-                'checked_in_at' => $registration->checked_in_at,
-                'confirmed_at' => $registration->confirmed_at,
-                'event' => $registration->event ? [
-                    'id' => $registration->event->id,
-                    'title' => $registration->event->title,
-                    'starts_at' => $registration->event->starts_at?->toIso8601String(),
-                    'ends_at' => $registration->event->ends_at?->toIso8601String(),
-                    'venue_name' => $registration->event->venue_name,
-                    'city' => $registration->event->city,
-                    'artwork' => $registration->event->artwork ? url('storage/'.$registration->event->artwork) : null,
-                ] : null,
-                'created_at' => $registration->created_at?->toIso8601String(),
+            'data' => new TicketResource($registration),
+        ]);
+    }
+
+    public function resend(int $id)
+    {
+        $user = auth()->user();
+        $registration = EventAttendee::with(['event.organizer.artist', 'event.location', 'ticket'])
+            ->where('user_id', $user->id)
+            ->findOrFail($id);
+
+        if ($registration->status === EventAttendee::STATUS_CANCELLED) {
+            return response()->json(['message' => 'Cancelled tickets cannot be resent'], 422);
+        }
+
+        $recipientEmail = $registration->attendee_email ?: $user->email;
+        if (blank($recipientEmail)) {
+            return response()->json(['message' => 'This ticket does not have a delivery email yet'], 422);
+        }
+
+        Notification::route('mail', $recipientEmail)
+            ->notify(new EventTicketConfirmationNotification($registration, $registration->ticket, $registration->event));
+
+        $metadata = $registration->attendee_metadata ?? [];
+        $resendCount = (int) data_get($metadata, 'wallet_actions.resend_count', 0) + 1;
+        data_set($metadata, 'wallet_actions.resend_count', $resendCount);
+        data_set($metadata, 'wallet_actions.last_resent_at', now()->toIso8601String());
+        data_set($metadata, 'wallet_actions.last_resent_to', $recipientEmail);
+
+        $registration->update([
+            'attendee_metadata' => $metadata,
+        ]);
+
+        return response()->json([
+            'message' => 'Ticket confirmation resent successfully',
+            'data' => new TicketResource($registration->fresh(['event.organizer.artist', 'event.location', 'ticket'])),
+        ]);
+    }
+
+    public function transfer(Request $request, int $id)
+    {
+        $validated = $request->validate([
+            'holder_name' => 'required|string|max:150',
+            'holder_email' => 'nullable|email|max:150',
+            'holder_phone' => 'nullable|string|max:20',
+            'message' => 'nullable|string|max:500',
+        ]);
+
+        $user = auth()->user();
+        $registration = EventAttendee::with(['event.organizer.artist', 'event.location', 'ticket'])
+            ->where('user_id', $user->id)
+            ->findOrFail($id);
+
+        if ($registration->status === EventAttendee::STATUS_CANCELLED || $registration->hasAttended()) {
+            return response()->json(['message' => 'This ticket can no longer be transferred'], 422);
+        }
+
+        $metadata = $registration->attendee_metadata ?? [];
+        $history = collect(data_get($metadata, 'wallet_actions.transfer_history', []))
+            ->filter(fn ($entry) => is_array($entry))
+            ->values()
+            ->all();
+
+        $history[] = [
+            'transferred_at' => now()->toIso8601String(),
+            'from' => [
+                'name' => $registration->attendee_name,
+                'email' => $registration->attendee_email,
+                'phone' => $registration->attendee_phone,
             ],
+            'to' => [
+                'name' => $validated['holder_name'],
+                'email' => $validated['holder_email'] ?? null,
+                'phone' => $validated['holder_phone'] ?? null,
+            ],
+            'message' => $validated['message'] ?? null,
+        ];
+
+        data_set($metadata, 'wallet_actions.transfer_history', $history);
+        data_set($metadata, 'wallet_actions.last_transferred_at', now()->toIso8601String());
+
+        $registration->update([
+            'attendee_name' => $validated['holder_name'],
+            'attendee_email' => $validated['holder_email'] ?? null,
+            'attendee_phone' => $validated['holder_phone'] ?? null,
+            'attendee_metadata' => $metadata,
+        ]);
+
+        if (! empty($validated['holder_email'])) {
+            Notification::route('mail', $validated['holder_email'])
+                ->notify(new EventTicketConfirmationNotification($registration->fresh(['event', 'ticket']), $registration->ticket, $registration->event));
+        }
+
+        return response()->json([
+            'message' => 'Ticket holder updated successfully',
+            'data' => new TicketResource($registration->fresh(['event.organizer.artist', 'event.location', 'ticket'])),
         ]);
     }
 

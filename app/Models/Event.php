@@ -16,6 +16,14 @@ class Event extends Model
 {
     use HasComments, HasFactory, HasReviews, SoftDeletes;
 
+    public const TICKETING_MODE_TESOTUNES_MANAGED = 'tesotunes_managed';
+
+    public const TICKETING_MODE_HYBRID = 'hybrid';
+
+    public const TICKETING_MODE_EXTERNAL_ONLY = 'external_only';
+
+    public const TICKETING_MODE_FREE_RSVP = 'free_rsvp';
+
     protected $fillable = [
         'uuid',
         'organizer_id',
@@ -59,6 +67,7 @@ class Event extends Model
         'tickets_sold',
         'attendee_count',
         'is_free',
+        'ticketing_mode',
         'ticket_price',
         'currency',
         'cover_image',
@@ -68,6 +77,7 @@ class Event extends Model
         'contact_info',
         'website',
         'social_links',
+        'marketing_settings',
         'is_featured',
         'is_published',
         'published_at',
@@ -99,6 +109,7 @@ class Event extends Model
         'requirements' => 'array',
         'contact_info' => 'array',
         'social_links' => 'array',
+        'marketing_settings' => 'array',
         'latitude' => 'decimal:7',
         'longitude' => 'decimal:7',
     ];
@@ -111,6 +122,18 @@ class Event extends Model
             if (empty($model->uuid)) {
                 $model->uuid = (string) \Str::uuid();
             }
+
+            if (empty($model->ticketing_mode)) {
+                $model->ticketing_mode = $model->is_free
+                    ? self::TICKETING_MODE_FREE_RSVP
+                    : self::TICKETING_MODE_TESOTUNES_MANAGED;
+            }
+
+            $model->normalizeOrganizerIdentity();
+        });
+
+        static::saving(function ($model) {
+            $model->normalizeOrganizerIdentity();
         });
     }
 
@@ -123,6 +146,11 @@ class Event extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function artist(): BelongsTo
+    {
+        return $this->belongsTo(Artist::class, 'artist_id');
     }
 
     public function location()
@@ -138,6 +166,26 @@ class Event extends Model
     public function attendees(): HasMany
     {
         return $this->hasMany(EventAttendee::class);
+    }
+
+    public function staffMembers(): HasMany
+    {
+        return $this->hasMany(EventStaffMember::class)->where('is_active', true);
+    }
+
+    public function payoutLedgerEntries(): HasMany
+    {
+        return $this->hasMany(EventPayoutLedgerEntry::class);
+    }
+
+    public function waitlistEntries(): HasMany
+    {
+        return $this->hasMany(EventWaitlistEntry::class);
+    }
+
+    public function discountCodes(): HasMany
+    {
+        return $this->hasMany(EventDiscountCode::class);
     }
 
     public function interestedUsers(): BelongsToMany
@@ -165,6 +213,17 @@ class Event extends Model
     public function scopeFeatured($query)
     {
         return $query->where('is_featured', true);
+    }
+
+    public function scopeOwnedByUser($query, User $user)
+    {
+        return $query->where(function ($builder) use ($user) {
+            $builder->where('organizer_id', $user->id)
+                ->orWhere('user_id', $user->id)
+                ->orWhereHas('artist', function ($artistQuery) use ($user) {
+                    $artistQuery->where('user_id', $user->id);
+                });
+        });
     }
 
     public function scopeByCategory($query, $category)
@@ -549,5 +608,56 @@ class Event extends Model
         }
 
         return ! $this->userMeetsTierRequirement($user);
+    }
+
+    public function resolveOrganizerUser(): ?User
+    {
+        if ($this->relationLoaded('organizer') && $this->organizer) {
+            return $this->organizer;
+        }
+
+        if ($this->organizer_id) {
+            return $this->organizer()->first();
+        }
+
+        if ($this->user_id) {
+            return $this->user()->first();
+        }
+
+        if ($this->artist_id) {
+            return $this->artist()->with('user')->first()?->user;
+        }
+
+        return null;
+    }
+
+    public function canonicalOrganizerId(): ?int
+    {
+        return $this->organizer_id
+            ?? $this->user_id
+            ?? $this->artist?->user_id
+            ?? null;
+    }
+
+    protected function normalizeOrganizerIdentity(): void
+    {
+        if (! $this->organizer_id && $this->user_id) {
+            $this->organizer_id = $this->user_id;
+        }
+
+        if (! $this->user_id && $this->organizer_id) {
+            $this->user_id = $this->organizer_id;
+        }
+
+        if (! $this->organizer_type) {
+            $this->organizer_type = 'user';
+        }
+
+        if ($this->organizer_id && ! $this->artist_id) {
+            $organizer = User::query()->with('artist')->find($this->organizer_id);
+            if ($organizer?->artist?->id) {
+                $this->artist_id = $organizer->artist->id;
+            }
+        }
     }
 }

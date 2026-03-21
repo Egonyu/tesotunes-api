@@ -227,6 +227,8 @@ class AdminSubscriptionsController extends Controller
                 'Is Active',
                 'Stream Rate UGX',
                 'Credit To UGX Rate',
+                'Event Commission Percent',
+                'Event Processing Fee Percent',
                 'Effective Stream Rate UGX',
                 'Streaming Commission Percent',
                 'Estimated Platform Fee UGX',
@@ -246,6 +248,8 @@ class AdminSubscriptionsController extends Controller
                     $plan['is_active'] ? 'Yes' : 'No',
                     $plan['rates']['stream_rate_ugx'],
                     $plan['rates']['credit_to_ugx_rate'],
+                    $plan['rates']['event_platform_commission_percent'] ?? '',
+                    $plan['rates']['event_processing_fee_percent'] ?? '',
                     $plan['rates']['effective']['effective_stream_rate_ugx'] ?? '',
                     $plan['rates']['effective']['streaming_commission_percent'] ?? '',
                     $plan['rates']['effective']['estimated_platform_fee_ugx'] ?? '',
@@ -285,6 +289,8 @@ class AdminSubscriptionsController extends Controller
                 'plans.*.id' => 'required_with:plans|integer|exists:subscription_plans,id',
                 'plans.*.stream_rate_ugx' => 'nullable|numeric|min:0',
                 'plans.*.credit_to_ugx_rate' => 'nullable|numeric|gt:0',
+                'plans.*.event_platform_commission_percent' => 'nullable|numeric|min:0|max:100',
+                'plans.*.event_processing_fee_percent' => 'nullable|numeric|min:0|max:100',
                 'platform_commissions' => 'sometimes|array',
                 'platform_commissions.streaming_percent' => 'sometimes|numeric|min:0|max:100',
                 'platform_commissions.subscription_percent' => 'sometimes|numeric|min:0|max:100',
@@ -305,6 +311,14 @@ class AdminSubscriptionsController extends Controller
                 $metadata['credit_to_ugx_rate'] = array_key_exists('credit_to_ugx_rate', $planData)
                     ? $this->normalizeDecimal($planData['credit_to_ugx_rate'], 4)
                     : Arr::get($metadata, 'credit_to_ugx_rate');
+
+                $metadata['event_platform_commission_percent'] = array_key_exists('event_platform_commission_percent', $planData)
+                    ? $this->normalizeDecimal($planData['event_platform_commission_percent'])
+                    : Arr::get($metadata, 'event_platform_commission_percent');
+
+                $metadata['event_processing_fee_percent'] = array_key_exists('event_processing_fee_percent', $planData)
+                    ? $this->normalizeDecimal($planData['event_processing_fee_percent'])
+                    : Arr::get($metadata, 'event_processing_fee_percent');
 
                 $plan->update(['metadata' => $metadata]);
             }
@@ -509,7 +523,7 @@ class AdminSubscriptionsController extends Controller
             fputcsv($csv, ['Subscription Plans']);
             fputcsv($csv, ['Generated At', now()->toDateTimeString()]);
             fputcsv($csv, []);
-            fputcsv($csv, ['ID', 'Name', 'Slug', 'Tier', 'Is Active', 'Price Monthly', 'Price Yearly', 'Stream Rate UGX', 'Credit To UGX Rate', 'Effective Stream Rate UGX', 'Estimated Net Per Stream UGX', 'Rate Source']);
+            fputcsv($csv, ['ID', 'Name', 'Slug', 'Tier', 'Is Active', 'Price Monthly', 'Price Yearly', 'Stream Rate UGX', 'Credit To UGX Rate', 'Event Commission Percent', 'Event Processing Fee Percent', 'Effective Stream Rate UGX', 'Estimated Net Per Stream UGX', 'Rate Source']);
 
             foreach ($records as $plan) {
                 fputcsv($csv, [
@@ -522,6 +536,8 @@ class AdminSubscriptionsController extends Controller
                     $plan['price_yearly'] ?? '',
                     $plan['rates']['stream_rate_ugx'] ?? '',
                     $plan['rates']['credit_to_ugx_rate'] ?? '',
+                    $plan['rates']['event_platform_commission_percent'] ?? '',
+                    $plan['rates']['event_processing_fee_percent'] ?? '',
                     $plan['rates']['effective']['effective_stream_rate_ugx'] ?? '',
                     $plan['rates']['effective']['estimated_net_per_stream_ugx'] ?? '',
                     $plan['rates']['effective']['rate_source'] ?? '',
@@ -648,6 +664,8 @@ class AdminSubscriptionsController extends Controller
             'rates' => 'sometimes|array',
             'rates.stream_rate_ugx' => 'nullable|numeric|min:0',
             'rates.credit_to_ugx_rate' => 'nullable|numeric|gt:0',
+            'rates.event_platform_commission_percent' => 'nullable|numeric|min:0|max:100',
+            'rates.event_processing_fee_percent' => 'nullable|numeric|min:0|max:100',
         ]);
     }
 
@@ -951,6 +969,8 @@ class AdminSubscriptionsController extends Controller
         return [
             'stream_rate_ugx' => Arr::get($metadata, 'stream_rate_ugx'),
             'credit_to_ugx_rate' => Arr::get($metadata, 'credit_to_ugx_rate'),
+            'event_platform_commission_percent' => Arr::get($metadata, 'event_platform_commission_percent'),
+            'event_processing_fee_percent' => Arr::get($metadata, 'event_processing_fee_percent'),
         ];
     }
 
@@ -964,6 +984,14 @@ class AdminSubscriptionsController extends Controller
 
         if (array_key_exists('credit_to_ugx_rate', $rates)) {
             $metadata['credit_to_ugx_rate'] = $this->normalizeDecimal($rates['credit_to_ugx_rate'], 4);
+        }
+
+        if (array_key_exists('event_platform_commission_percent', $rates)) {
+            $metadata['event_platform_commission_percent'] = $this->normalizeDecimal($rates['event_platform_commission_percent']);
+        }
+
+        if (array_key_exists('event_processing_fee_percent', $rates)) {
+            $metadata['event_processing_fee_percent'] = $this->normalizeDecimal($rates['event_processing_fee_percent']);
         }
 
         return $metadata;

@@ -34,10 +34,14 @@ class EventTicketConfirmationNotification extends Notification implements Should
         $eventName = $this->event->title ?? $this->event->name ?? 'Event';
         $ticketType = $this->ticket->name ?? $this->ticket->ticket_type ?? 'General';
         $eventDate = $this->event->starts_at?->format('M j, Y g:i A') ?? 'TBD';
+        $displayName = $notifiable->display_name
+            ?? $notifiable->name
+            ?? $this->attendee->attendee_name
+            ?? 'there';
 
         return (new MailMessage)
             ->subject("Ticket Confirmed — {$eventName}")
-            ->greeting("Hey {$notifiable->display_name}!")
+            ->greeting("Hey {$displayName}!")
             ->line("Your ticket for **{$eventName}** has been confirmed!")
             ->line("**Ticket Type**: {$ticketType}")
             ->line("**Event Date**: {$eventDate}")
