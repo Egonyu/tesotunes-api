@@ -850,13 +850,3 @@ Route::middleware('auth:sanctum')->prefix('uploads')->name('api.uploads.')->grou
     Route::post('/image', [\App\Http\Controllers\Api\Upload\FileController::class, 'uploadImage'])->name('image');
     Route::post('/avatar', [\App\Http\Controllers\Api\Upload\FileController::class, 'uploadAvatar'])->name('avatar');
 });
-
-
-
-
-
-
-
-
-
-

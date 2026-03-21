@@ -852,5 +852,3 @@ class AdminSubscriptionsController extends Controller
         return number_format((float) $value, $precision, '.', '');
     }
 }
-
-

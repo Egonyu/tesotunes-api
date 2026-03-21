@@ -289,4 +289,3 @@ class AdminReportsApiTest extends TestCase
         return [$artist, $songOne];
     }
 }
-

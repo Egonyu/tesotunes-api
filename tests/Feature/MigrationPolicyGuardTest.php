@@ -13,6 +13,7 @@ class MigrationPolicyGuardTest extends TestCase
         '2026_03_16_120000_create_featured_content_table.php',
         '2026_03_19_180000_add_catalog_claim_fields_to_artists_and_songs.php',
         '2026_03_19_181000_create_catalog_intake_tables.php',
+        '2026_03_20_000100_create_moderation_reports_table.php',
     ];
 
     private const BANNED_NAME_FRAGMENTS = [

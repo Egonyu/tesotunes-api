@@ -115,4 +115,3 @@ class ArtistEarningsRevenueApiTest extends TestCase
             ->assertJsonPath('data.0.play_count', 999);
     }
 }
-

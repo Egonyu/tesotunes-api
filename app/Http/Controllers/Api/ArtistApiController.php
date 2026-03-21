@@ -1744,15 +1744,3 @@ class ArtistApiController extends Controller
         return sprintf('%d:%02d', $mins, $secs);
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-

@@ -12,19 +12,29 @@ class ModerationReport extends Model
     use HasFactory;
 
     public const TYPE_CONTENT = 'content';
+
     public const TYPE_USER = 'user';
+
     public const TYPE_COMMENT = 'comment';
+
     public const TYPE_SONG = 'song';
+
     public const TYPE_BUG = 'bug';
 
     public const STATUS_PENDING = 'pending';
+
     public const STATUS_REVIEWING = 'reviewing';
+
     public const STATUS_RESOLVED = 'resolved';
+
     public const STATUS_DISMISSED = 'dismissed';
 
     public const PRIORITY_LOW = 'low';
+
     public const PRIORITY_MEDIUM = 'medium';
+
     public const PRIORITY_HIGH = 'high';
+
     public const PRIORITY_CRITICAL = 'critical';
 
     protected $fillable = [
