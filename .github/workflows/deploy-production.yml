@@ -245,7 +245,16 @@ jobs:
             step "Running database migrations"
             echo "About to run production migrations..."
             echo "Migration log file: $MIGRATION_LOG"
-            if ! run_and_capture "$MIGRATION_LOG" php -d display_errors=1 artisan migrate --force -v --no-ansi; then
+            set +e
+            php -d display_errors=1 artisan migrate --force -v --no-ansi >"$MIGRATION_LOG" 2>&1
+            MIGRATION_EXIT_CODE=$?
+            set -e
+            cat "$MIGRATION_LOG"
+            if [ "$MIGRATION_EXIT_CODE" -ne 0 ] && grep -q "Nothing to migrate." "$MIGRATION_LOG"; then
+              echo "⚠️ Migration command returned a non-zero exit code during a no-op migrate; treating as success."
+              MIGRATION_EXIT_CODE=0
+            fi
+            if [ "$MIGRATION_EXIT_CODE" -ne 0 ]; then
               echo "⚠️ Production migrate failed. Full migration log:"
               cat "$MIGRATION_LOG" || true
               exit 1
