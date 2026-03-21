@@ -5,9 +5,13 @@ namespace Tests\Feature\Api;
 use App\Models\ApiUsageHourly;
 use App\Models\ApiUsageLog;
 use App\Models\AuditLog;
+use App\Models\Download;
+use App\Models\PlayHistory;
 use App\Models\Role;
+use App\Models\Song;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Tests\Feature\Api\ImageUpload\CreatesUsersWithRoles;
 use Tests\TestCase;
@@ -102,6 +106,42 @@ class AdminAdminOperationsApiTest extends TestCase
 
         $this->assertNotNull($consumerEntry);
         $this->assertSame(1, $consumerEntry['request_count']);
+    }
+
+    public function test_admin_dashboard_stats_uses_schema_specific_timestamp_columns(): void
+    {
+        Cache::flush();
+
+        $song = Song::factory()->create([
+            'status' => 'published',
+        ]);
+
+        PlayHistory::query()->create([
+            'user_id' => $this->admin->id,
+            'song_id' => $song->id,
+            'artist_id' => $song->artist_id,
+            'played_at' => now(),
+            'duration_played_seconds' => 180,
+            'duration_played' => 180,
+            'completed' => true,
+            'skipped' => false,
+            'completion_percentage' => 100,
+        ]);
+
+        Download::query()->create([
+            'user_id' => $this->admin->id,
+            'downloadable_type' => Song::class,
+            'downloadable_id' => $song->id,
+            'quality' => '320',
+            'downloaded_at' => now(),
+        ]);
+
+        $this->actingAs($this->admin)
+            ->getJson('/api/admin/dashboard/stats')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.activity.plays_today', 1)
+            ->assertJsonPath('data.activity.downloads_today', 1);
     }
 
     public function test_admin_can_list_audit_logs_using_frontend_shape(): void

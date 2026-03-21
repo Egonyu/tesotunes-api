@@ -85,7 +85,8 @@ jobs:
             RELEASES_PATH="/var/www/tesotunes-releases"
             TIMESTAMP=$(date +%Y%m%d_%H%M%S)
             NEW_RELEASE="$RELEASES_PATH/$TIMESTAMP"
-            MIGRATION_LOG="/tmp/tesotunes-migrate-$TIMESTAMP.log"
+            DEPLOY_LOG_PATH="$SHARED_PATH/deploy-logs"
+            MIGRATION_LOG="$DEPLOY_LOG_PATH/tesotunes-migrate-$TIMESTAMP.log"
             LIVE_HEALTH_URL="https://api.tesotunes.com/api/health"
             PREVIOUS_RELEASE=""
             SYMLINK_SWITCHED="false"
@@ -160,6 +161,7 @@ jobs:
             step "Preparing directories"
             mkdir -p $SHARED_PATH
             mkdir -p $SHARED_PATH/storage
+            mkdir -p $DEPLOY_LOG_PATH
             mkdir -p $RELEASES_PATH
             mkdir -p $NEW_RELEASE
 
@@ -218,6 +220,9 @@ jobs:
 
             step "Validating release can boot in CLI"
             php artisan about --only=environment
+
+            step "Verifying candidate analytics routes exist before promotion"
+            php artisan route:list --path=admin/analytics --no-ansi | tee "$DEPLOY_LOG_PATH/tesotunes-routes-$TIMESTAMP.log"
 
             # ------------------------------------------------
             # Run migrations
@@ -305,6 +310,9 @@ jobs:
               echo "❌ Live health check failed after symlink switch"
               exit 1
             fi
+
+            step "Verifying promoted analytics routes"
+            php artisan route:list --path=admin/analytics --no-ansi | tee -a "$DEPLOY_LOG_PATH/tesotunes-routes-$TIMESTAMP.log"
 
             # ------------------------------------------------
             # Cleanup old releases (keep 5)

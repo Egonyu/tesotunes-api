@@ -14,6 +14,7 @@ use App\Models\UserSubscription;
 use App\Traits\HandlesApiErrors;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 
 class DashboardController extends Controller
 {
@@ -30,6 +31,8 @@ class DashboardController extends Controller
                 $thisWeek = Carbon::now()->startOfWeek();
                 $thisMonth = Carbon::now()->startOfMonth();
                 $lastMonthStart = Carbon::now()->subMonth()->startOfMonth();
+                $playHistoryTimestampColumn = $this->resolvePlayHistoryTimestampColumn();
+                $downloadTimestampColumn = $this->resolveDownloadTimestampColumn();
 
                 // Users stats
                 $totalUsers = User::count();
@@ -52,7 +55,7 @@ class DashboardController extends Controller
                 $draftSongs = Song::where('status', 'draft')->count();
 
                 $totalPlays = PlayHistory::count();
-                $playsToday = PlayHistory::whereDate('created_at', $today)->count();
+                $playsToday = PlayHistory::whereDate($playHistoryTimestampColumn, $today)->count();
 
                 $newSongsThisWeek = Song::where('created_at', '>=', $thisWeek)->count();
                 $lastWeekSongs = Song::where('created_at', '>=', Carbon::now()->subWeek()->startOfWeek())
@@ -86,10 +89,10 @@ class DashboardController extends Controller
                     : 0;
 
                 // Activity stats
-                $playsThisWeek = PlayHistory::where('created_at', '>=', $thisWeek)->count();
+                $playsThisWeek = PlayHistory::where($playHistoryTimestampColumn, '>=', $thisWeek)->count();
                 $totalDownloads = Download::count();
-                $downloadsToday = Download::whereDate('created_at', $today)->count();
-                $downloadsThisWeek = Download::where('created_at', '>=', $thisWeek)->count();
+                $downloadsToday = Download::whereDate($downloadTimestampColumn, $today)->count();
+                $downloadsThisWeek = Download::where($downloadTimestampColumn, '>=', $thisWeek)->count();
 
                 return [
                     'users' => [
@@ -192,5 +195,15 @@ class DashboardController extends Controller
                 'data' => $data,
             ]);
         }, 'Failed to load recent activity.');
+    }
+
+    private function resolvePlayHistoryTimestampColumn(): string
+    {
+        return Schema::hasColumn('play_histories', 'played_at') ? 'played_at' : 'created_at';
+    }
+
+    private function resolveDownloadTimestampColumn(): string
+    {
+        return Schema::hasColumn('downloads', 'downloaded_at') ? 'downloaded_at' : 'created_at';
     }
 }

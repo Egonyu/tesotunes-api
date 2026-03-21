@@ -23,6 +23,7 @@ class AdminAnalyticsController extends Controller
     {
         return $this->handleApiAction(function () use ($request) {
             [$start, $end] = $this->resolveRange($request->query('range', $request->query('period', '30d')));
+            $streamTimestampColumn = $this->resolvePlayHistoryTimestampColumn();
 
             $userCount = User::count();
             $songCount = Song::count();
@@ -30,7 +31,7 @@ class AdminAnalyticsController extends Controller
                 ->where('status', 'completed')
                 ->sum('amount');
             $streamCount = PlayHistory::query()
-                ->whereBetween('created_at', [$start, $end])
+                ->whereBetween($streamTimestampColumn, [$start, $end])
                 ->count();
 
             $previousStart = $this->shiftWindow($start, $end);
@@ -60,7 +61,7 @@ class AdminAnalyticsController extends Controller
                 ->sum('amount');
 
             $previousStreams = PlayHistory::query()
-                ->whereBetween('created_at', [$previousStart, $previousEnd])
+                ->whereBetween($streamTimestampColumn, [$previousStart, $previousEnd])
                 ->count();
 
             return response()->json([
@@ -197,9 +198,10 @@ class AdminAnalyticsController extends Controller
 
     private function streamsChart(Carbon $start, Carbon $end): array
     {
+        $streamTimestampColumn = $this->resolvePlayHistoryTimestampColumn();
         $rows = PlayHistory::query()
-            ->selectRaw('DATE(created_at) as day, COUNT(*) as total')
-            ->whereBetween('created_at', [$start, $end])
+            ->selectRaw(sprintf('DATE(%s) as day, COUNT(*) as total', $streamTimestampColumn))
+            ->whereBetween($streamTimestampColumn, [$start, $end])
             ->groupBy('day')
             ->orderBy('day')
             ->get()
@@ -226,9 +228,10 @@ class AdminAnalyticsController extends Controller
 
     private function peakHours(Carbon $start, Carbon $end): array
     {
+        $streamTimestampColumn = $this->resolvePlayHistoryTimestampColumn();
         $rows = PlayHistory::query()
-            ->selectRaw('HOUR(created_at) as hour_of_day, COUNT(*) as total')
-            ->whereBetween('created_at', [$start, $end])
+            ->selectRaw(sprintf('HOUR(%s) as hour_of_day, COUNT(*) as total', $streamTimestampColumn))
+            ->whereBetween($streamTimestampColumn, [$start, $end])
             ->groupBy('hour_of_day')
             ->orderBy('hour_of_day')
             ->get()
@@ -240,5 +243,10 @@ class AdminAnalyticsController extends Controller
             'hour' => $hour,
             'intensity' => round(((int) ($rows->get($hour)?->total ?? 0)) / $max, 2),
         ])->all();
+    }
+
+    private function resolvePlayHistoryTimestampColumn(): string
+    {
+        return Schema::hasColumn('play_histories', 'played_at') ? 'played_at' : 'created_at';
     }
 }
