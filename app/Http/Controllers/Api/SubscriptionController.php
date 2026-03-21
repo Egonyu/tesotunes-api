@@ -80,6 +80,11 @@ class SubscriptionController extends Controller
         }
 
         $plan = $sub->subscriptionPlan;
+        $downloadLimit = $this->resolveCurrentDownloadsLimit($plan);
+        $audioQuality = $this->resolveAudioQualityLimit($plan);
+        $uploadLimit = $this->resolveUploadsLimit($plan);
+        $adFree = $this->resolveAdFree($plan);
+        $offlineAccess = $this->resolveOfflineAccess($plan);
 
         return response()->json([
             'success' => true,
@@ -94,10 +99,12 @@ class SubscriptionController extends Controller
                 'expires_at' => $sub->expires_at?->toIso8601String(),
                 'days_remaining' => $sub->daysUntilExpiry(),
                 'auto_renew' => (bool) $sub->auto_renew,
+                'ad_free' => $adFree,
+                'offline_access' => $offlineAccess,
                 'limits' => [
-                    'downloads_per_day' => $plan?->max_downloads_per_day ?? $plan?->downloads_per_day ?? 3,
-                    'audio_quality_kbps' => $plan?->max_audio_quality_kbps ?? 128,
-                    'uploads_per_month' => $plan?->max_uploads_per_month ?? 0,
+                    'downloads_per_day' => $downloadLimit,
+                    'audio_quality_kbps' => $audioQuality,
+                    'uploads_per_month' => $uploadLimit,
                 ],
             ],
         ]);
@@ -424,5 +431,58 @@ class SubscriptionController extends Controller
                 'total' => $subscriptions->total(),
             ],
         ]);
+    }
+
+    private function resolveCurrentDownloadsLimit(?SubscriptionPlan $plan): int
+    {
+        $limit = $plan?->max_downloads_per_day ?? $plan?->downloads_per_day;
+
+        if ($limit === null || (int) $limit < 0) {
+            return 0;
+        }
+
+        return (int) $limit;
+    }
+
+    private function resolveAudioQualityLimit(?SubscriptionPlan $plan): int
+    {
+        return (int) ($plan?->max_audio_quality_kbps ?? 128);
+    }
+
+    private function resolveUploadsLimit(?SubscriptionPlan $plan): int
+    {
+        $limit = $plan?->max_uploads_per_month;
+
+        if ($limit === null || (int) $limit < 0) {
+            return 0;
+        }
+
+        return (int) $limit;
+    }
+
+    private function resolveAdFree(?SubscriptionPlan $plan): bool
+    {
+        if ($plan === null) {
+            return false;
+        }
+
+        if ($plan->ad_free !== null) {
+            return (bool) $plan->ad_free;
+        }
+
+        return ! (bool) $plan->has_ads;
+    }
+
+    private function resolveOfflineAccess(?SubscriptionPlan $plan): bool
+    {
+        if ($plan === null) {
+            return false;
+        }
+
+        if ($plan->allows_offline !== null) {
+            return (bool) $plan->allows_offline;
+        }
+
+        return (bool) $plan->offline_mode;
     }
 }

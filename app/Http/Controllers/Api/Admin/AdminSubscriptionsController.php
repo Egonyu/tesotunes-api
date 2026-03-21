@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class AdminSubscriptionsController extends Controller
 {
@@ -544,6 +545,27 @@ class AdminSubscriptionsController extends Controller
     }
 
     /**
+     * POST /api/admin/subscription-plans — create plan
+     */
+    public function storePlan(Request $request): JsonResponse
+    {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
+        return $this->handleApiAction(function () use ($request) {
+            $validated = $this->validatePlanPayload($request, true);
+            $plan = SubscriptionPlan::create($this->buildPlanPayload($validated));
+
+            return response()->json([
+                'success' => true,
+                'data' => $this->transformPlan($plan->fresh()),
+                'message' => "Plan \"{$plan->name}\" created successfully.",
+            ], 201);
+        });
+    }
+
+    /**
      * PUT /api/admin/subscription-plans/{id} — update plan
      */
     public function updatePlan(Request $request, int $id): JsonResponse
@@ -554,39 +576,8 @@ class AdminSubscriptionsController extends Controller
 
         return $this->handleApiAction(function () use ($request, $id) {
             $plan = SubscriptionPlan::findOrFail($id);
-
-            $validated = $request->validate([
-                'name' => 'sometimes|string|max:100',
-                'description' => 'sometimes|string|max:1000',
-                'price' => 'sometimes|numeric|min:0',
-                'price_monthly' => 'sometimes|numeric|min:0',
-                'price_yearly' => 'sometimes|numeric|min:0',
-                'price_local' => 'sometimes|numeric|min:0',
-                'trial_days' => 'sometimes|integer|min:0',
-                'duration_days' => 'sometimes|integer|min:1|max:365',
-                'features' => 'sometimes|array',
-                'max_downloads_per_day' => 'sometimes|nullable|integer',
-                'max_uploads_per_month' => 'sometimes|nullable|integer',
-                'max_audio_quality_kbps' => 'sometimes|integer|in:128,192,256,320',
-                'has_ads' => 'sometimes|boolean',
-                'offline_mode' => 'sometimes|boolean',
-                'is_active' => 'sometimes|boolean',
-                'is_visible' => 'sometimes|boolean',
-                'is_featured' => 'sometimes|boolean',
-                'is_popular' => 'sometimes|boolean',
-                'sort_order' => 'sometimes|integer|min:0',
-                'rates' => 'sometimes|array',
-                'rates.stream_rate_ugx' => 'nullable|numeric|min:0',
-                'rates.credit_to_ugx_rate' => 'nullable|numeric|gt:0',
-            ]);
-
-            $planData = Arr::except($validated, ['rates']);
-
-            if (array_key_exists('rates', $validated)) {
-                $planData['metadata'] = $this->mergePlanRatesIntoMetadata($plan, $validated['rates']);
-            }
-
-            $plan->update($planData);
+            $validated = $this->validatePlanPayload($request, false, $plan);
+            $plan->update($this->buildPlanPayload($validated, $plan));
 
             return response()->json([
                 'success' => true,
@@ -609,6 +600,173 @@ class AdminSubscriptionsController extends Controller
             'page' => 'nullable|integer|min:1',
             'per_page' => 'nullable|integer|min:1|max:100',
         ]);
+    }
+
+    private function validatePlanPayload(Request $request, bool $isCreate, ?SubscriptionPlan $plan = null): array
+    {
+        $nameRule = $isCreate ? 'required' : 'sometimes';
+        $descriptionRule = $isCreate ? 'required' : 'sometimes';
+        $tierRule = $isCreate ? 'required' : 'sometimes';
+        $typeRule = $isCreate ? 'required' : 'sometimes';
+
+        return $request->validate([
+            'name' => "{$nameRule}|string|max:100",
+            'slug' => [
+                'sometimes',
+                'nullable',
+                'string',
+                'max:120',
+                'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/',
+                'unique:subscription_plans,slug'.($plan ? ','.$plan->id : ''),
+            ],
+            'description' => "{$descriptionRule}|string|max:1000",
+            'tier' => "{$tierRule}|string|max:50",
+            'type' => "{$typeRule}|string|max:50",
+            'price' => 'sometimes|numeric|min:0',
+            'price_monthly' => 'sometimes|numeric|min:0',
+            'price_yearly' => 'sometimes|numeric|min:0',
+            'price_local' => 'sometimes|numeric|min:0',
+            'price_usd' => 'sometimes|numeric|min:0',
+            'currency' => 'sometimes|string|size:3',
+            'interval' => 'sometimes|string|max:20',
+            'interval_count' => 'sometimes|integer|min:1|max:24',
+            'trial_days' => 'sometimes|integer|min:0|max:365',
+            'duration_days' => 'sometimes|integer|min:1|max:365',
+            'region' => 'sometimes|nullable|string|max:20',
+            'features' => 'sometimes|array',
+            'features.*' => 'string|max:255',
+            'max_downloads_per_day' => 'sometimes|nullable|integer|min:0',
+            'max_uploads_per_month' => 'sometimes|nullable|integer|min:0',
+            'max_audio_quality_kbps' => 'sometimes|integer|in:128,192,256,320',
+            'has_ads' => 'sometimes|boolean',
+            'offline_mode' => 'sometimes|boolean',
+            'is_active' => 'sometimes|boolean',
+            'is_visible' => 'sometimes|boolean',
+            'is_featured' => 'sometimes|boolean',
+            'is_popular' => 'sometimes|boolean',
+            'sort_order' => 'sometimes|integer|min:0',
+            'rates' => 'sometimes|array',
+            'rates.stream_rate_ugx' => 'nullable|numeric|min:0',
+            'rates.credit_to_ugx_rate' => 'nullable|numeric|gt:0',
+        ]);
+    }
+
+    private function buildPlanPayload(array $validated, ?SubscriptionPlan $plan = null): array
+    {
+        $payload = Arr::except($validated, ['rates']);
+
+        if (array_key_exists('name', $validated) && ! array_key_exists('slug', $validated) && ! $plan) {
+            $payload['slug'] = $this->generateUniqueSlug($validated['name']);
+        }
+
+        if (array_key_exists('slug', $validated)) {
+            $payload['slug'] = $validated['slug'] ?: $this->generateUniqueSlug($validated['name'] ?? $plan?->name ?? 'plan', $plan?->id);
+        }
+
+        if (! $plan) {
+            $payload['uuid'] = (string) Str::uuid();
+        }
+
+        $monthly = array_key_exists('price_monthly', $validated)
+            ? (float) $validated['price_monthly']
+            : (float) ($plan?->price_monthly ?? 0);
+        $local = array_key_exists('price_local', $validated)
+            ? (float) $validated['price_local']
+            : (float) ($plan?->price_local ?? $monthly);
+        $basePrice = array_key_exists('price', $validated)
+            ? (float) $validated['price']
+            : (array_key_exists('price_local', $validated) ? $local : ($plan?->price ?? $local ?: $monthly));
+
+        $payload['price'] = $basePrice ?: ($local ?: $monthly);
+
+        if (array_key_exists('features', $validated)) {
+            $payload['features'] = collect($validated['features'])
+                ->map(fn ($feature) => trim((string) $feature))
+                ->filter()
+                ->values()
+                ->all();
+        }
+
+        $downloadLimitProvided = array_key_exists('max_downloads_per_day', $validated);
+        $uploadLimitProvided = array_key_exists('max_uploads_per_month', $validated);
+        $qualityProvided = array_key_exists('max_audio_quality_kbps', $validated);
+
+        if ($downloadLimitProvided) {
+            $payload['downloads_per_day'] = $validated['max_downloads_per_day'];
+            $payload['download_limit'] = $validated['max_downloads_per_day'];
+        }
+
+        if (array_key_exists('offline_mode', $validated)) {
+            $payload['allows_offline'] = (bool) $validated['offline_mode'];
+        }
+
+        if (array_key_exists('has_ads', $validated)) {
+            $payload['ad_free'] = ! (bool) $validated['has_ads'];
+        }
+
+        if (
+            $downloadLimitProvided
+            || $uploadLimitProvided
+            || $qualityProvided
+            || array_key_exists('offline_mode', $validated)
+            || array_key_exists('has_ads', $validated)
+        ) {
+            $payload['limits'] = array_merge($plan?->limits ?? [], [
+                'downloads_per_day' => $downloadLimitProvided
+                    ? $validated['max_downloads_per_day']
+                    : Arr::get($plan?->limits ?? [], 'downloads_per_day'),
+                'max_downloads_per_day' => $downloadLimitProvided
+                    ? $validated['max_downloads_per_day']
+                    : Arr::get($plan?->limits ?? [], 'max_downloads_per_day'),
+                'uploads_per_month' => $uploadLimitProvided
+                    ? $validated['max_uploads_per_month']
+                    : Arr::get($plan?->limits ?? [], 'uploads_per_month'),
+                'max_uploads_per_month' => $uploadLimitProvided
+                    ? $validated['max_uploads_per_month']
+                    : Arr::get($plan?->limits ?? [], 'max_uploads_per_month'),
+                'audio_quality_kbps' => $qualityProvided
+                    ? $validated['max_audio_quality_kbps']
+                    : Arr::get($plan?->limits ?? [], 'audio_quality_kbps'),
+                'max_audio_quality_kbps' => $qualityProvided
+                    ? $validated['max_audio_quality_kbps']
+                    : Arr::get($plan?->limits ?? [], 'max_audio_quality_kbps'),
+                'offline_mode' => array_key_exists('offline_mode', $validated)
+                    ? (bool) $validated['offline_mode']
+                    : Arr::get($plan?->limits ?? [], 'offline_mode'),
+                'has_ads' => array_key_exists('has_ads', $validated)
+                    ? (bool) $validated['has_ads']
+                    : Arr::get($plan?->limits ?? [], 'has_ads'),
+                'ad_free' => array_key_exists('has_ads', $validated)
+                    ? ! (bool) $validated['has_ads']
+                    : Arr::get($plan?->limits ?? [], 'ad_free'),
+            ]);
+        }
+
+        if (array_key_exists('rates', $validated)) {
+            $payload['metadata'] = $this->mergePlanRatesIntoMetadata($plan ?? new SubscriptionPlan(), $validated['rates']);
+        }
+
+        return $payload;
+    }
+
+    private function generateUniqueSlug(string $value, ?int $ignoreId = null): string
+    {
+        $baseSlug = Str::slug($value);
+        $rootSlug = $baseSlug !== '' ? $baseSlug : 'plan';
+        $slug = $rootSlug;
+        $suffix = 2;
+
+        while (
+            SubscriptionPlan::query()
+                ->when($ignoreId, fn ($query) => $query->where('id', '!=', $ignoreId))
+                ->where('slug', $slug)
+                ->exists()
+        ) {
+            $slug = "{$rootSlug}-{$suffix}";
+            $suffix++;
+        }
+
+        return $slug;
     }
 
     private function buildSubscriptionsQuery(array $filters)

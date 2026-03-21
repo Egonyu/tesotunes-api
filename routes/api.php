@@ -550,6 +550,7 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::post('/subscriptions/{id}/revoke', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'revoke'])->name('subscriptions.revoke');
     Route::get('/subscription-plans', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'plansList'])->name('subscription-plans.index');
     Route::get('/subscription-plans/export', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'exportPlans'])->name('subscription-plans.export');
+    Route::post('/subscription-plans', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'storePlan'])->name('subscription-plans.store');
     Route::put('/subscription-plans/{id}', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'updatePlan'])->name('subscription-plans.update');
 
     // Podcasts API — full CRUD + moderation

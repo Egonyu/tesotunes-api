@@ -307,4 +307,58 @@ class AdminSubscriptionRatesApiTest extends TestCase
         $this->assertSame('11.50', $plan->metadata['stream_rate_ugx']);
         $this->assertSame('1.6500', $plan->metadata['credit_to_ugx_rate']);
     }
+
+    public function test_admin_can_create_a_subscription_plan_with_entitlement_fields(): void
+    {
+        $response = $this->actingAs($this->admin)->postJson('/api/admin/subscription-plans', [
+            'name' => 'Starter Plus',
+            'description' => 'Perfect for first-time paid listeners who want a safe trial.',
+            'tier' => 'premium',
+            'type' => 'standard',
+            'price_monthly' => 18000,
+            'price_yearly' => 180000,
+            'price_local' => 18000,
+            'currency' => 'UGX',
+            'trial_days' => 10,
+            'duration_days' => 30,
+            'features' => [
+                '10-day risk-free trial',
+                'Ad-free listening',
+                'Offline downloads',
+            ],
+            'max_downloads_per_day' => null,
+            'max_uploads_per_month' => 0,
+            'max_audio_quality_kbps' => 320,
+            'has_ads' => false,
+            'offline_mode' => true,
+            'is_active' => true,
+            'is_visible' => true,
+            'is_featured' => true,
+            'is_popular' => true,
+            'sort_order' => 5,
+            'rates' => [
+                'stream_rate_ugx' => 9.5,
+                'credit_to_ugx_rate' => 1.35,
+            ],
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.name', 'Starter Plus')
+            ->assertJsonPath('data.slug', 'starter-plus')
+            ->assertJsonPath('data.max_audio_quality_kbps', 320)
+            ->assertJsonPath('data.has_ads', false)
+            ->assertJsonPath('data.offline_mode', true)
+            ->assertJsonPath('data.rates.stream_rate_ugx', '9.50')
+            ->assertJsonPath('data.rates.credit_to_ugx_rate', '1.3500');
+
+        $plan = SubscriptionPlan::query()->where('slug', 'starter-plus')->firstOrFail();
+
+        $this->assertSame('18000.00', $plan->price);
+        $this->assertNull($plan->max_downloads_per_day);
+        $this->assertTrue($plan->allows_offline);
+        $this->assertTrue($plan->ad_free);
+        $this->assertSame('9.50', $plan->metadata['stream_rate_ugx']);
+        $this->assertSame('1.3500', $plan->metadata['credit_to_ugx_rate']);
+    }
 }
