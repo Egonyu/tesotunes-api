@@ -248,7 +248,9 @@ jobs:
             step "Putting current app into maintenance mode"
             if [ -L "$APP_PATH" ] || [ -d "$APP_PATH" ]; then
               cd $APP_PATH
-              php artisan down --retry=60
+              if ! php artisan down --retry=60 2>/dev/null; then
+                echo "⚠️ Current live release could not enter maintenance mode; continuing with atomic symlink switch"
+              fi
             fi
 
             # ------------------------------------------------
