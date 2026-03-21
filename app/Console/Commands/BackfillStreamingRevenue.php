@@ -5,14 +5,16 @@ namespace App\Console\Commands;
 use App\Models\Artist;
 use App\Models\ArtistRevenue;
 use App\Models\Song;
+use App\Services\Revenue\StreamingRateService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class BackfillStreamingRevenue extends Command
 {
     protected $signature = 'revenue:backfill
                             {--artist= : Specific artist ID to backfill}
-                            {--rate=5 : UGX per stream (default: 5 for free-tier)}
+                            {--rate= : UGX per stream override}
                             {--dry-run : Show what would be created without making changes}';
 
     protected $description = 'Generate ArtistRevenue records for existing song play_counts that have no revenue records';
@@ -20,8 +22,10 @@ class BackfillStreamingRevenue extends Command
     public function handle(): int
     {
         $artistId = $this->option('artist');
-        $ratePerStream = (float) $this->option('rate');
+        $rateOverride = $this->option('rate');
         $dryRun = $this->option('dry-run');
+        $rateService = app(StreamingRateService::class);
+        $defaultPayout = $rateService->calculateStreamPayout();
 
         $query = Song::where('play_count', '>', 0)->where('status', 'published');
 
@@ -43,43 +47,56 @@ class BackfillStreamingRevenue extends Command
         $totalRecords = 0;
 
         foreach ($songs as $song) {
-            // Check if streaming revenue already exists for this song
             $existingCount = ArtistRevenue::where('artist_id', $song->artist_id)
-                ->where('song_id', $song->id)
-                ->where('revenue_type', 'stream')
+                ->where('sourceable_type', Song::class)
+                ->where('sourceable_id', $song->id)
+                ->where('revenue_type', ArtistRevenue::TYPE_STREAM)
                 ->count();
 
             if ($existingCount >= $song->play_count) {
-                $this->line("  SKIP: {$song->title} — already has {$existingCount} revenue records for {$song->play_count} plays");
+                $this->line("  SKIP: {$song->title} - already has {$existingCount} revenue records for {$song->play_count} plays");
 
                 continue;
             }
 
             $playsToBackfill = $song->play_count - $existingCount;
             $artist = $song->artist;
-            $commissionRate = $artist->commission_rate ?? 15;
-            $platformFee = ($ratePerStream * $commissionRate / 100) * $playsToBackfill;
-            $grossAmount = $ratePerStream * $playsToBackfill;
-            $netAmount = $grossAmount - $platformFee;
+            $ratePerStream = $rateOverride !== $null ? round((float) $rateOverride, 2) : $defaultPayout['rate_per_stream'];
+            $commissionPercent = $defaultPayout['commission_percent'];
+            $platformFeePerStream = round($ratePerStream * ($commissionPercent / 100), 2);
+            $grossAmount = round($ratePerStream * $playsToBackfill, 2);
+            $platformFee = round($platformFeePerStream * $playsToBackfill, 2);
+            $netAmount = round($grossAmount - $platformFee, 2);
+            $auditNote = $rateService->encodeAuditPayload($rateService->buildStreamAuditPayload(
+                context: [
+                    'audit_type' => 'stream_backfill',
+                    'song_id' => $song->id,
+                    'artist_id' => $artist->id,
+                    'backfill_play_count' => $playsToBackfill,
+                    'gross_amount_ugx' => number_format($grossAmount, 2, '.', ''),
+                    'platform_fee_ugx' => number_format($platformFee, 2, '.', ''),
+                    'net_amount_ugx' => number_format($netAmount, 2, '.', ''),
+                    'rate_override_ugx' => $rateOverride !== $null ? number_format((float) $rateOverride, 2, '.', '') : null,
+                ]
+            ));
 
-            $this->line("  {$song->title}: {$playsToBackfill} plays × UGX {$ratePerStream} = UGX {$grossAmount} (fee: {$platformFee}, net: {$netAmount})");
+            $this->line("  {$song->title}: {$playsToBackfill} plays x UGX {$ratePerStream} = UGX {$grossAmount} (fee: {$platformFee}, net: {$netAmount})");
 
             if (! $dryRun) {
-                DB::transaction(function () use ($artist, $song, $grossAmount, $platformFee, $netAmount, $playsToBackfill, $ratePerStream) {
+                DB::transaction(function () use ($artist, $song, $grossAmount, $platformFee, $netAmount, $auditNote) {
                     ArtistRevenue::create([
+                        'uuid' => (string) Str::uuid(),
                         'artist_id' => $artist->id,
-                        'song_id' => $song->id,
                         'sourceable_type' => Song::class,
                         'sourceable_id' => $song->id,
-                        'revenue_type' => 'stream',
+                        'revenue_type' => ArtistRevenue::TYPE_STREAM,
                         'amount_ugx' => $grossAmount,
                         'amount_usd' => 0,
                         'platform_fee' => $platformFee,
                         'net_amount' => $netAmount,
-                        'status' => 'confirmed',
+                        'status' => ArtistRevenue::STATUS_CONFIRMED,
                         'revenue_date' => now(),
-                        'notes' => "Backfill: {$playsToBackfill} streams at UGX {$ratePerStream}/play",
-                        'transaction_count' => $playsToBackfill,
+                        'notes' => $auditNote,
                     ]);
 
                     $artist->increment('earnings_balance', $netAmount);

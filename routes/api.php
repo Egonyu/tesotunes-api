@@ -525,6 +525,10 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     // Subscription Management API
     Route::get('/subscriptions/stats', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'stats'])->name('subscriptions.stats');
     Route::get('/subscriptions', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'index'])->name('subscriptions.index');
+    Route::get('/subscriptions/export', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'exportIndex'])->name('subscriptions.export');
+    Route::get('/subscriptions/rates', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'rates'])->name('subscriptions.rates');
+    Route::get('/subscriptions/rates/export', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'exportRates'])->name('subscriptions.rates.export');
+    Route::put('/subscriptions/rates', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'updateRates'])->name('subscriptions.rates.update');
     Route::get('/subscriptions/{id}', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'show'])->name('subscriptions.show');
     Route::post('/subscriptions/grant', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'grant'])->name('subscriptions.grant');
     Route::post('/subscriptions/{id}/revoke', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'revoke'])->name('subscriptions.revoke');
@@ -551,6 +555,9 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::delete('/genres/{id}', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'destroy'])->name('genres.destroy');
     Route::post('/genres/{id}/toggle-active', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'toggleActive'])->name('genres.toggle-active');
     Route::get('/reports/stats', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'stats'])->name('reports.stats');
+    Route::get('/reports/export', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'exportReports'])->name('reports.export');
+    Route::get('/reports/streaming-payouts', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'streamingPayouts'])->name('reports.streaming-payouts');
+    Route::get('/reports/streaming-payouts/export', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'exportStreamingPayouts'])->name('reports.streaming-payouts.export');
     Route::get('/reports', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'index'])->name('reports.index');
     Route::post('/reports/{report}/status', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'updateStatus'])->name('reports.status');
     Route::get('/system/health', [\App\Http\Controllers\Api\Admin\AdminSystemController::class, 'health'])->name('system.health');
@@ -842,4 +849,12 @@ Route::middleware('auth:sanctum')->prefix('uploads')->name('api.uploads.')->grou
     Route::post('/image', [\App\Http\Controllers\Api\Upload\FileController::class, 'uploadImage'])->name('image');
     Route::post('/avatar', [\App\Http\Controllers\Api\Upload\FileController::class, 'uploadAvatar'])->name('avatar');
 });
+
+
+
+
+
+
+
+
 

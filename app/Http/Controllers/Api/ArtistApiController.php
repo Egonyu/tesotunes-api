@@ -6,6 +6,7 @@ use App\Helpers\StorageHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Album;
 use App\Models\Artist;
+use App\Models\ArtistRevenue;
 use App\Models\Payment;
 use App\Models\PlayHistory;
 use App\Models\Song;
@@ -14,6 +15,7 @@ use App\Notifications\AdminSongPendingNotification;
 use App\Notifications\SongModerationNotification;
 use App\Services\NotificationRoutingService;
 use App\Services\PayoutService;
+use App\Services\Revenue\StreamingRateService;
 use App\Services\SongSlugService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -1100,12 +1102,11 @@ class ArtistApiController extends Controller
         $lastMonthRevenue = 0;
 
         if ($songIds->isNotEmpty()) {
-            // Streaming revenue: plays * per-play rate (UGX 10 per play)
-            $perPlayRate = 10;
-            $totalPlays = (int) ($artist->total_plays_count ?? 0);
-            $streamingRevenue = $totalPlays * $perPlayRate;
+            $streamingRevenue = (float) ArtistRevenue::forArtist($artist->id)
+                ->streaming()
+                ->confirmed()
+                ->sum('net_amount');
 
-            // Revenue from completed payments for this artist's songs
             $paymentsByType = Payment::whereIn('song_id', $songIds)
                 ->where('status', 'completed')
                 ->selectRaw('payment_type, SUM(amount) as total')
@@ -1116,29 +1117,29 @@ class ArtistApiController extends Controller
             $tipsRevenue = (float) ($paymentsByType['tip'] ?? 0);
             $storeRevenue = (float) ($paymentsByType['store_purchase'] ?? 0);
 
-            // This month's revenue
             $thisMonthPayments = Payment::whereIn('song_id', $songIds)
                 ->where('status', 'completed')
                 ->whereMonth('completed_at', now()->month)
                 ->whereYear('completed_at', now()->year)
                 ->sum('amount');
-            $thisMonthPlays = PlayHistory::whereIn('song_id', $songIds)
-                ->whereMonth('played_at', now()->month)
-                ->whereYear('played_at', now()->year)
-                ->count();
-            $thisMonthRevenue = (float) $thisMonthPayments + ($thisMonthPlays * $perPlayRate);
+            $thisMonthStreamingRevenue = (float) ArtistRevenue::forArtist($artist->id)
+                ->streaming()
+                ->confirmed()
+                ->thisMonth()
+                ->sum('net_amount');
+            $thisMonthRevenue = (float) $thisMonthPayments + $thisMonthStreamingRevenue;
 
-            // Last month's revenue for comparison
             $lastMonthPayments = Payment::whereIn('song_id', $songIds)
                 ->where('status', 'completed')
                 ->whereMonth('completed_at', now()->subMonth()->month)
                 ->whereYear('completed_at', now()->subMonth()->year)
                 ->sum('amount');
-            $lastMonthPlays = PlayHistory::whereIn('song_id', $songIds)
-                ->whereMonth('played_at', now()->subMonth()->month)
-                ->whereYear('played_at', now()->subMonth()->year)
-                ->count();
-            $lastMonthRevenue = (float) $lastMonthPayments + ($lastMonthPlays * $perPlayRate);
+            $lastMonthStreamingRevenue = (float) ArtistRevenue::forArtist($artist->id)
+                ->streaming()
+                ->confirmed()
+                ->lastMonth()
+                ->sum('net_amount');
+            $lastMonthRevenue = (float) $lastMonthPayments + $lastMonthStreamingRevenue;
         }
 
         $totalRevenue = $streamingRevenue + $downloadRevenue + $tipsRevenue + $storeRevenue;
@@ -1161,7 +1162,7 @@ class ArtistApiController extends Controller
             ];
         }
 
-        // Get real transactions (payments for this artist's songs + withdrawals)
+        // Build a mixed transaction feed from completed payments and recorded stream revenue.
         $transactions = [];
         if ($songIds->isNotEmpty()) {
             $recentPayments = Payment::whereIn('song_id', $songIds)
@@ -1169,15 +1170,29 @@ class ArtistApiController extends Controller
                 ->orderByDesc('completed_at')
                 ->limit(20)
                 ->get()
-                ->map(fn ($p) => [
-                    'id' => $p->id,
-                    'type' => 'earning',
-                    'description' => ucfirst($p->payment_type).' - '.($p->description ?: 'Song payment'),
-                    'amount' => (float) $p->amount,
-                    'date' => ($p->completed_at ?? $p->created_at)->toIso8601String(),
-                    'status' => $p->status,
-                ]);
-            $transactions = $recentPayments->toArray();
+                ->map(fn (Payment $payment) => $this->formatPaymentTransaction($payment));
+
+            $recentStreamRevenue = ArtistRevenue::forArtist($artist->id)
+                ->streaming()
+                ->confirmed()
+                ->where('sourceable_type', Song::class)
+                ->with('revenueSource')
+                ->orderByDesc('created_at')
+                ->limit(20)
+                ->get()
+                ->map(fn (ArtistRevenue $revenue) => $this->formatArtistRevenueTransaction($revenue));
+
+            $transactions = $recentPayments
+                ->concat($recentStreamRevenue)
+                ->sortByDesc('sort_timestamp')
+                ->take(20)
+                ->values()
+                ->map(function (array $transaction) {
+                    unset($transaction['sort_timestamp']);
+
+                    return $transaction;
+                })
+                ->all();
         }
 
         // Monthly chart data (last 6 months)
@@ -1192,11 +1207,12 @@ class ArtistApiController extends Controller
                     ->whereMonth('completed_at', $month->month)
                     ->whereYear('completed_at', $month->year)
                     ->sum('amount');
-                $monthPlaysCount = PlayHistory::whereIn('song_id', $songIds)
-                    ->whereMonth('played_at', $month->month)
-                    ->whereYear('played_at', $month->year)
-                    ->count();
-                $monthPlaysRevenue = $monthPlaysCount * 10;
+                $monthPlaysRevenue = (float) ArtistRevenue::forArtist($artist->id)
+                    ->streaming()
+                    ->confirmed()
+                    ->whereMonth('revenue_date', $month->month)
+                    ->whereYear('revenue_date', $month->year)
+                    ->sum('net_amount');
             }
             $monthlyChart[] = [
                 'month' => $month->format('M Y'),
@@ -1215,6 +1231,7 @@ class ArtistApiController extends Controller
                     'monthly_change' => $monthlyChange,
                 ],
                 'earnings_sources' => $sources,
+                'streaming_configuration' => app(StreamingRateService::class)->getStreamingConfigurationSummary(),
                 'transactions' => $transactions,
                 'monthly_chart' => $monthlyChart,
             ],
@@ -1292,11 +1309,10 @@ class ArtistApiController extends Controller
             ->where('status', 'published')
             ->get();
 
-        $perPlayRate = 10;
         $songIds = $songs->pluck('id');
 
-        // Get payment totals per song grouped by type
         $paymentsBySong = [];
+        $streamRevenueBySong = collect();
         if ($songIds->isNotEmpty()) {
             $paymentsBySong = Payment::whereIn('song_id', $songIds)
                 ->where('status', 'completed')
@@ -1304,13 +1320,22 @@ class ArtistApiController extends Controller
                 ->groupBy('song_id', 'payment_type')
                 ->get()
                 ->groupBy('song_id');
+
+            $streamRevenueBySong = ArtistRevenue::forArtist($artist->id)
+                ->streaming()
+                ->confirmed()
+                ->where('sourceable_type', Song::class)
+                ->whereIn('sourceable_id', $songIds)
+                ->selectRaw('sourceable_id, SUM(net_amount) as total')
+                ->groupBy('sourceable_id')
+                ->pluck('total', 'sourceable_id');
         }
 
-        $songEarnings = $songs->map(function ($song) use ($paymentsBySong, $perPlayRate) {
+        $songEarnings = $songs->map(function ($song) use ($paymentsBySong, $streamRevenueBySong) {
             $payments = $paymentsBySong[$song->id] ?? collect();
             $purchaseRevenue = (float) $payments->where('payment_type', 'purchase')->sum('total');
             $tipRevenue = (float) $payments->where('payment_type', 'tip')->sum('total');
-            $streamRevenue = (int) ($song->play_count ?? 0) * $perPlayRate;
+            $streamRevenue = (float) ($streamRevenueBySong[$song->id] ?? 0);
 
             return [
                 'song_id' => $song->id,
@@ -1647,6 +1672,67 @@ class ArtistApiController extends Controller
     // Helpers
     // ========================================================================
 
+    private function formatPaymentTransaction(Payment $payment): array
+    {
+        $date = $payment->completed_at ?? $payment->created_at;
+
+        return [
+            'id' => $payment->id,
+            'type' => 'earning',
+            'description' => ucfirst($payment->payment_type).' - '.($payment->description ?: 'Song payment'),
+            'amount' => (float) $payment->amount,
+            'date' => $date?->toIso8601String(),
+            'status' => $payment->status,
+            'sort_timestamp' => $date?->timestamp ?? 0,
+        ];
+    }
+
+    private function formatArtistRevenueTransaction(ArtistRevenue $revenue): array
+    {
+        $date = $revenue->created_at ?? $revenue->revenue_date;
+        $details = $this->decodeRevenueNotes($revenue->notes);
+
+        if (is_array($details)) {
+            $details['revenue_type'] = $revenue->revenue_type;
+            $details['source_song_id'] = $revenue->sourceable_type === Song::class ? $revenue->sourceable_id : null;
+        }
+
+        $sourceTitle = $revenue->revenueSource?->title;
+        if (! $sourceTitle && $revenue->sourceable_type === Song::class && $revenue->sourceable_id) {
+            $sourceTitle = Song::query()->whereKey($revenue->sourceable_id)->value('title');
+        }
+
+        return [
+            'id' => $revenue->id,
+            'type' => 'stream',
+            'description' => 'Streaming - '.($sourceTitle ?: 'Song stream'),
+            'amount' => (float) $revenue->net_amount,
+            'gross_amount' => (float) $revenue->amount_ugx,
+            'platform_fee' => (float) $revenue->platform_fee,
+            'date' => $date?->toIso8601String(),
+            'status' => $revenue->status,
+            'details' => $details,
+            'sort_timestamp' => $date?->timestamp ?? 0,
+        ];
+    }
+
+    private function decodeRevenueNotes(?string $notes): ?array
+    {
+        if (! $notes) {
+            return null;
+        }
+
+        $decoded = json_decode($notes, true);
+
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            return $decoded;
+        }
+
+        return [
+            'note' => $notes,
+        ];
+    }
+
     private function formatDuration(?int $seconds): string
     {
         if (! $seconds) {
@@ -1658,3 +1744,15 @@ class ArtistApiController extends Controller
         return sprintf('%d:%02d', $mins, $secs);
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+

@@ -6,6 +6,7 @@ use App\Models\Artist;
 use App\Models\ArtistRevenue;
 use App\Models\RoyaltySplit;
 use App\Models\Song;
+use App\Services\Revenue\StreamingRateService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -13,6 +14,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class ProcessStreamingRevenue implements ShouldQueue
 {
@@ -45,40 +47,54 @@ class ProcessStreamingRevenue implements ShouldQueue
                 return;
             }
 
-            // Calculate revenue per stream based on user type
-            $ratePerStream = $this->isPremiumUser ? 15.0 : 5.0; // UGX per stream
+            $rateService = app(StreamingRateService::class);
+            $payout = $rateService->calculateStreamPayout(
+                userId: $this->userId,
+                fallbackPremium: $this->isPremiumUser
+            );
+            $auditPayload = $rateService->buildStreamAuditPayload(
+                userId: $this->userId,
+                fallbackPremium: $this->isPremiumUser,
+                context: [
+                    'song_id' => $song->id,
+                    'artist_id' => $artist->id,
+                    'country' => $this->country,
+                    'gross_amount_ugx' => number_format($payout['rate_per_stream'], 2, '.', ''),
+                    'platform_fee_ugx' => number_format($payout['platform_fee'], 2, '.', ''),
+                    'net_amount_ugx' => number_format($payout['net_amount'], 2, '.', ''),
+                ]
+            );
+            $auditNote = $rateService->encodeAuditPayload($auditPayload);
 
-            $platformFeeRate = ($artist->commission_rate ?? 15) / 100;
-            $platformFee = round($ratePerStream * $platformFeeRate, 2);
-            $netAmount = round($ratePerStream - $platformFee, 2);
-
-            DB::transaction(function () use ($song, $artist, $ratePerStream, $platformFee, $netAmount) {
-                // Create the revenue record
+            DB::transaction(function () use ($song, $artist, $payout, $auditNote, $auditPayload) {
                 $revenue = ArtistRevenue::create([
+                    'uuid' => (string) Str::uuid(),
                     'artist_id' => $artist->id,
                     'revenue_type' => ArtistRevenue::TYPE_STREAM,
                     'sourceable_type' => Song::class,
                     'sourceable_id' => $song->id,
-                    'song_id' => $song->id,
-                    'amount_ugx' => $ratePerStream,
-                    'amount_usd' => round($ratePerStream / 3700, 6),
-                    'platform_fee' => $platformFee,
-                    'net_amount' => $netAmount,
+                    'amount_ugx' => $payout['rate_per_stream'],
+                    'amount_usd' => round($payout['rate_per_stream'] / 3700, 6),
+                    'platform_fee' => $payout['platform_fee'],
+                    'net_amount' => $payout['net_amount'],
                     'revenue_date' => now()->toDateString(),
                     'status' => ArtistRevenue::STATUS_CONFIRMED,
+                    'notes' => $auditNote,
                 ]);
 
-                // Add net earnings to artist balance
-                $artist->increment('earnings_balance', $netAmount);
+                $artist->increment('earnings_balance', $payout['net_amount']);
 
-                // Process royalty splits if any exist for this song
-                $this->processRoyaltySplits($song, $netAmount);
+                $this->processRoyaltySplits($song, $payout['net_amount'], $auditPayload);
 
                 Log::info('Streaming revenue processed', [
                     'revenue_id' => $revenue->id,
                     'song_id' => $song->id,
                     'artist_id' => $artist->id,
-                    'net_amount' => $netAmount,
+                    'rate_per_stream' => $payout['rate_per_stream'],
+                    'platform_fee' => $payout['platform_fee'],
+                    'net_amount' => $payout['net_amount'],
+                    'rate_source' => $auditPayload['rate_source'] ?? null,
+                    'listener_plan_slug' => $auditPayload['listener_plan_slug'] ?? null,
                 ]);
             });
         } catch (\Exception $e) {
@@ -92,7 +108,7 @@ class ProcessStreamingRevenue implements ShouldQueue
         }
     }
 
-    private function processRoyaltySplits(Song $song, float $netAmount): void
+    private function processRoyaltySplits(Song $song, float $netAmount, array $auditPayload): void
     {
         $splits = RoyaltySplit::where('song_id', $song->id)
             ->where('applies_to_streaming', true)
@@ -103,6 +119,8 @@ class ProcessStreamingRevenue implements ShouldQueue
             return;
         }
 
+        $rateService = app(StreamingRateService::class);
+
         foreach ($splits as $split) {
             $splitPercentage = ($split->split_percentage ?? $split->percentage ?? 0) / 100;
             if ($splitPercentage <= 0) {
@@ -110,22 +128,28 @@ class ProcessStreamingRevenue implements ShouldQueue
             }
 
             $splitAmount = round($netAmount * $splitPercentage, 2);
+            $splitAuditNote = $rateService->encodeAuditPayload(array_merge($auditPayload, [
+                'audit_type' => 'stream_split_payout',
+                'split_percentage' => number_format($splitPercentage * 100, 2, '.', ''),
+                'split_amount_ugx' => number_format($splitAmount, 2, '.', ''),
+                'recipient_user_id' => $split->recipient_id ?? $split->user_id,
+            ]));
 
             ArtistRevenue::create([
+                'uuid' => (string) Str::uuid(),
                 'artist_id' => $split->recipient_id ?? $split->user_id,
                 'revenue_type' => ArtistRevenue::TYPE_STREAM,
                 'sourceable_type' => Song::class,
                 'sourceable_id' => $song->id,
-                'song_id' => $song->id,
                 'amount_ugx' => $splitAmount,
                 'amount_usd' => round($splitAmount / 3700, 6),
                 'platform_fee' => 0,
                 'net_amount' => $splitAmount,
                 'revenue_date' => now()->toDateString(),
                 'status' => ArtistRevenue::STATUS_CONFIRMED,
+                'notes' => $splitAuditNote,
             ]);
 
-            // If the recipient is an artist, credit their balance
             $recipientArtist = Artist::where('user_id', $split->recipient_id ?? $split->user_id)->first();
             if ($recipientArtist) {
                 $recipientArtist->increment('earnings_balance', $splitAmount);

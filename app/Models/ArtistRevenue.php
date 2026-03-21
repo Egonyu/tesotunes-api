@@ -21,6 +21,7 @@ class ArtistRevenue extends Model
     use HasFactory;
 
     protected $fillable = [
+        'uuid',
         'artist_id',
         'revenue_type',
         'sourceable_type',

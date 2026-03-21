@@ -3,11 +3,15 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Setting;
 use App\Models\SubscriptionPlan;
 use App\Models\UserSubscription;
+use App\Services\Revenue\StreamingRateService;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 
 class AdminSubscriptionsController extends Controller
 {
@@ -91,83 +95,232 @@ class AdminSubscriptionsController extends Controller
         }
 
         return $this->handleApiAction(function () use ($request) {
-            $query = UserSubscription::with(['user:id,name,username,email', 'subscriptionPlan:id,name,slug,tier,price,currency']);
-
-            if ($request->filled('status')) {
-                $query->where('status', $request->status);
-            }
-
-            if ($request->filled('plan_id')) {
-                $query->where('subscription_plan_id', $request->plan_id);
-            }
-
-            if ($request->filled('user_id')) {
-                $query->where('user_id', $request->user_id);
-            }
-
-            if ($request->filled('search')) {
-                $escaped = addcslashes($request->search, '%_');
-                $query->whereHas('user', function ($q) use ($escaped) {
-                    $q->where('name', 'LIKE', "%{$escaped}%")
-                        ->orWhere('email', 'LIKE', "%{$escaped}%")
-                        ->orWhere('username', 'LIKE', "%{$escaped}%");
-                });
-            }
-
-            if ($request->filled('expiring_within_days')) {
-                $days = (int) $request->expiring_within_days;
-                $query->where('status', 'active')
-                    ->where('expires_at', '>', now())
-                    ->where('expires_at', '<=', now()->addDays($days));
-            }
-
-            $sortBy = $request->get('sort_by', 'created_at');
-            $sortOrder = $request->get('sort_order', 'desc');
-            $allowed = ['created_at', 'expires_at', 'started_at', 'amount_paid', 'status'];
-            if (in_array($sortBy, $allowed)) {
-                $query->orderBy($sortBy, $sortOrder === 'asc' ? 'asc' : 'desc');
-            } else {
-                $query->latest();
-            }
-
-            $perPage = min((int) $request->get('per_page', 20), 100);
-            $subscriptions = $query->paginate($perPage);
-
-            $items = $subscriptions->getCollection()->map(fn (UserSubscription $sub) => [
-                'id' => $sub->id,
-                'user' => $sub->user ? [
-                    'id' => $sub->user->id,
-                    'name' => $sub->user->name,
-                    'username' => $sub->user->username,
-                    'email' => $sub->user->email,
-                ] : null,
-                'plan' => $sub->subscriptionPlan ? [
-                    'id' => $sub->subscriptionPlan->id,
-                    'name' => $sub->subscriptionPlan->name,
-                    'slug' => $sub->subscriptionPlan->slug,
-                    'tier' => $sub->subscriptionPlan->tier,
-                ] : null,
-                'status' => $sub->status,
-                'amount_paid' => $sub->amount_paid,
-                'currency' => $sub->currency,
-                'payment_method' => $sub->payment_method,
-                'auto_renew' => (bool) $sub->auto_renew,
-                'started_at' => $sub->started_at?->toIso8601String(),
-                'expires_at' => $sub->expires_at?->toIso8601String(),
-                'cancelled_at' => $sub->cancelled_at?->toIso8601String(),
-                'days_remaining' => $sub->isActive() ? $sub->daysUntilExpiry() : 0,
-                'created_at' => $sub->created_at?->toIso8601String(),
-            ]);
+            $filters = $this->validateSubscriptionFilters($request);
+            $perPage = min((int) ($filters['per_page'] ?? 20), 100);
+            $subscriptions = $this->buildSubscriptionsQuery($filters)->paginate($perPage);
+            $records = $subscriptions->getCollection()->map(fn (UserSubscription $sub) => $this->transformSubscription($sub))->values();
 
             return response()->json([
                 'success' => true,
-                'data' => $items,
+                'data' => [
+                    'records' => $records,
+                    'filters' => $this->subscriptionFilterResponse($filters),
+                    'export' => $this->subscriptionsExportMetadata($filters),
+                ],
                 'meta' => [
                     'current_page' => $subscriptions->currentPage(),
                     'last_page' => $subscriptions->lastPage(),
                     'per_page' => $subscriptions->perPage(),
                     'total' => $subscriptions->total(),
                 ],
+            ]);
+        });
+    }
+
+    public function exportIndex(Request $request)
+    {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
+        try {
+            $filters = $this->validateSubscriptionFilters($request);
+            $records = $this->buildSubscriptionsQuery($filters)
+                ->get()
+                ->map(fn (UserSubscription $sub) => $this->transformSubscription($sub));
+            $export = $this->subscriptionsExportMetadata($filters);
+
+            $csv = fopen('php://temp', 'r+');
+            fputcsv($csv, ['Subscriptions']);
+            fputcsv($csv, ['Generated At', now()->toDateTimeString()]);
+            fputcsv($csv, ['Status', $filters['status'] ?? '']);
+            fputcsv($csv, ['Plan ID', $filters['plan_id'] ?? '']);
+            fputcsv($csv, ['User ID', $filters['user_id'] ?? '']);
+            fputcsv($csv, ['Search', $filters['search'] ?? '']);
+            fputcsv($csv, ['Expiring Within Days', $filters['expiring_within_days'] ?? '']);
+            fputcsv($csv, []);
+            fputcsv($csv, ['ID', 'User Name', 'Username', 'Email', 'Plan', 'Plan Slug', 'Tier', 'Status', 'Amount Paid', 'Currency', 'Payment Method', 'Auto Renew', 'Started At', 'Expires At', 'Cancelled At', 'Days Remaining', 'Created At']);
+
+            foreach ($records as $record) {
+                fputcsv($csv, [
+                    $record['id'],
+                    $record['user']['name'] ?? '',
+                    $record['user']['username'] ?? '',
+                    $record['user']['email'] ?? '',
+                    $record['plan']['name'] ?? '',
+                    $record['plan']['slug'] ?? '',
+                    $record['plan']['tier'] ?? '',
+                    $record['status'],
+                    $record['amount_paid'],
+                    $record['currency'],
+                    $record['payment_method'],
+                    $record['auto_renew'] ? 'Yes' : 'No',
+                    $record['started_at'],
+                    $record['expires_at'],
+                    $record['cancelled_at'],
+                    $record['days_remaining'],
+                    $record['created_at'],
+                ]);
+            }
+
+            rewind($csv);
+            $contents = stream_get_contents($csv) ?: '';
+            fclose($csv);
+
+            return response($contents, 200, [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => 'attachment; filename="'.$export['filename'].'"',
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to export subscriptions.',
+            ], 500);
+        }
+    }
+
+    /**
+     * GET /api/admin/subscriptions/rates — plan rates and platform commissions
+     */
+    public function rates(Request $request): JsonResponse
+    {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
+        return $this->handleApiAction(function () {
+            return response()->json([
+                'success' => true,
+                'data' => $this->buildRatesPayload(),
+            ]);
+        });
+    }
+
+    public function exportRates(Request $request)
+    {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
+        try {
+            $payload = $this->buildRatesPayload();
+            $csv = fopen('php://temp', 'r+');
+
+            fputcsv($csv, ['Subscription Rates']);
+            fputcsv($csv, ['Generated At', now()->toDateTimeString()]);
+            fputcsv($csv, []);
+            fputcsv($csv, ['Platform Commissions']);
+            foreach ($payload['platform_commissions'] as $key => $value) {
+                fputcsv($csv, [$key, $value]);
+            }
+            fputcsv($csv, []);
+            fputcsv($csv, ['Plans']);
+            fputcsv($csv, [
+                'ID',
+                'Name',
+                'Slug',
+                'Tier',
+                'Currency',
+                'Price Monthly',
+                'Price Yearly',
+                'Is Active',
+                'Stream Rate UGX',
+                'Credit To UGX Rate',
+                'Effective Stream Rate UGX',
+                'Streaming Commission Percent',
+                'Estimated Platform Fee UGX',
+                'Estimated Net Per Stream UGX',
+                'Rate Source',
+            ]);
+
+            foreach ($payload['records'] as $plan) {
+                fputcsv($csv, [
+                    $plan['id'],
+                    $plan['name'],
+                    $plan['slug'],
+                    $plan['tier'],
+                    $plan['currency'],
+                    $plan['price_monthly'],
+                    $plan['price_yearly'],
+                    $plan['is_active'] ? 'Yes' : 'No',
+                    $plan['rates']['stream_rate_ugx'],
+                    $plan['rates']['credit_to_ugx_rate'],
+                    $plan['rates']['effective']['effective_stream_rate_ugx'] ?? '',
+                    $plan['rates']['effective']['streaming_commission_percent'] ?? '',
+                    $plan['rates']['effective']['estimated_platform_fee_ugx'] ?? '',
+                    $plan['rates']['effective']['estimated_net_per_stream_ugx'] ?? '',
+                    $plan['rates']['effective']['rate_source'] ?? '',
+                ]);
+            }
+
+            rewind($csv);
+            $contents = stream_get_contents($csv) ?: '';
+            fclose($csv);
+
+            return response($contents, 200, [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => 'attachment; filename="'.$payload['export']['filename'].'"',
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to export subscription rates.',
+            ], 500);
+        }
+    }
+
+    /**
+     * PUT /api/admin/subscriptions/rates — bulk update plan rates and commissions
+     */
+    public function updateRates(Request $request): JsonResponse
+    {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
+        return $this->handleApiAction(function () use ($request) {
+            $validated = $request->validate([
+                'plans' => 'sometimes|array',
+                'plans.*.id' => 'required_with:plans|integer|exists:subscription_plans,id',
+                'plans.*.stream_rate_ugx' => 'nullable|numeric|min:0',
+                'plans.*.credit_to_ugx_rate' => 'nullable|numeric|gt:0',
+                'platform_commissions' => 'sometimes|array',
+                'platform_commissions.streaming_percent' => 'sometimes|numeric|min:0|max:100',
+                'platform_commissions.subscription_percent' => 'sometimes|numeric|min:0|max:100',
+                'platform_commissions.credit_conversion_percent' => 'sometimes|numeric|min:0|max:100',
+                'platform_commissions.withdrawal_percent' => 'sometimes|numeric|min:0|max:100',
+                'platform_commissions.distribution_percent' => 'sometimes|numeric|min:0|max:100',
+                'platform_commissions.store_percent' => 'sometimes|numeric|min:0|max:100',
+            ]);
+
+            foreach ($validated['plans'] ?? [] as $planData) {
+                $plan = SubscriptionPlan::findOrFail($planData['id']);
+                $metadata = $plan->metadata ?? [];
+
+                $metadata['stream_rate_ugx'] = array_key_exists('stream_rate_ugx', $planData)
+                    ? $this->normalizeDecimal($planData['stream_rate_ugx'])
+                    : Arr::get($metadata, 'stream_rate_ugx');
+
+                $metadata['credit_to_ugx_rate'] = array_key_exists('credit_to_ugx_rate', $planData)
+                    ? $this->normalizeDecimal($planData['credit_to_ugx_rate'], 4)
+                    : Arr::get($metadata, 'credit_to_ugx_rate');
+
+                $plan->update(['metadata' => $metadata]);
+            }
+
+            if (array_key_exists('platform_commissions', $validated)) {
+                Setting::set(
+                    'platform_commissions',
+                    $this->normalizeCommissionSettings($validated['platform_commissions']),
+                    Setting::TYPE_JSON,
+                    Setting::GROUP_PAYMENTS
+                );
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Subscription rates updated successfully.',
+                'data' => $this->buildRatesPayload(),
             ]);
         });
     }
@@ -236,7 +389,6 @@ class AdminSubscriptionsController extends Controller
 
             $plan = SubscriptionPlan::findOrFail($validated['plan_id']);
 
-            // Cancel existing active subscriptions for this user
             UserSubscription::where('user_id', $validated['user_id'])
                 ->where('status', 'active')
                 ->update([
@@ -326,7 +478,7 @@ class AdminSubscriptionsController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $plans,
+                'data' => $plans->map(fn (SubscriptionPlan $plan) => $this->transformPlan($plan))->values(),
             ]);
         });
     }
@@ -363,15 +515,271 @@ class AdminSubscriptionsController extends Controller
                 'is_featured' => 'sometimes|boolean',
                 'is_popular' => 'sometimes|boolean',
                 'sort_order' => 'sometimes|integer|min:0',
+                'rates' => 'sometimes|array',
+                'rates.stream_rate_ugx' => 'nullable|numeric|min:0',
+                'rates.credit_to_ugx_rate' => 'nullable|numeric|gt:0',
             ]);
 
-            $plan->update($validated);
+            $planData = Arr::except($validated, ['rates']);
+
+            if (array_key_exists('rates', $validated)) {
+                $planData['metadata'] = $this->mergePlanRatesIntoMetadata($plan, $validated['rates']);
+            }
+
+            $plan->update($planData);
 
             return response()->json([
                 'success' => true,
-                'data' => $plan->fresh(),
+                'data' => $this->transformPlan($plan->fresh()),
                 'message' => "Plan \"{$plan->name}\" updated successfully.",
             ]);
         });
     }
+
+    private function validateSubscriptionFilters(Request $request): array
+    {
+        return $request->validate([
+            'status' => 'nullable|string|max:50',
+            'plan_id' => 'nullable|integer',
+            'user_id' => 'nullable|integer',
+            'search' => 'nullable|string|max:255',
+            'expiring_within_days' => 'nullable|integer|min:1|max:365',
+            'sort_by' => 'nullable|string|max:50',
+            'sort_order' => 'nullable|string|in:asc,desc',
+            'page' => 'nullable|integer|min:1',
+            'per_page' => 'nullable|integer|min:1|max:100',
+        ]);
+    }
+
+    private function buildSubscriptionsQuery(array $filters)
+    {
+        $query = UserSubscription::with(['user:id,name,username,email', 'subscriptionPlan:id,name,slug,tier,price,currency']);
+
+        if (! empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        if (! empty($filters['plan_id'])) {
+            $query->where('subscription_plan_id', $filters['plan_id']);
+        }
+
+        if (! empty($filters['user_id'])) {
+            $query->where('user_id', $filters['user_id']);
+        }
+
+        if (! empty($filters['search'])) {
+            $escaped = addcslashes((string) $filters['search'], '%_');
+            $query->whereHas('user', function ($q) use ($escaped) {
+                $q->where('name', 'LIKE', "%{$escaped}%")
+                    ->orWhere('email', 'LIKE', "%{$escaped}%")
+                    ->orWhere('username', 'LIKE', "%{$escaped}%");
+            });
+        }
+
+        if (! empty($filters['expiring_within_days'])) {
+            $days = (int) $filters['expiring_within_days'];
+            $query->where('status', 'active')
+                ->where('expires_at', '>', now())
+                ->where('expires_at', '<=', now()->addDays($days));
+        }
+
+        $sortBy = $filters['sort_by'] ?? 'created_at';
+        $sortOrder = $filters['sort_order'] ?? 'desc';
+        $allowed = ['created_at', 'expires_at', 'started_at', 'amount_paid', 'status'];
+        if (in_array($sortBy, $allowed, true)) {
+            $query->orderBy($sortBy, $sortOrder === 'asc' ? 'asc' : 'desc');
+        } else {
+            $query->latest();
+        }
+
+        return $query;
+    }
+
+    private function transformSubscription(UserSubscription $sub): array
+    {
+        return [
+            'id' => $sub->id,
+            'user' => $sub->user ? [
+                'id' => $sub->user->id,
+                'name' => $sub->user->name,
+                'username' => $sub->user->username,
+                'email' => $sub->user->email,
+            ] : null,
+            'plan' => $sub->subscriptionPlan ? [
+                'id' => $sub->subscriptionPlan->id,
+                'name' => $sub->subscriptionPlan->name,
+                'slug' => $sub->subscriptionPlan->slug,
+                'tier' => $sub->subscriptionPlan->tier,
+            ] : null,
+            'status' => $sub->status,
+            'amount_paid' => $sub->amount_paid,
+            'currency' => $sub->currency,
+            'payment_method' => $sub->payment_method,
+            'auto_renew' => (bool) $sub->auto_renew,
+            'started_at' => $sub->started_at?->toIso8601String(),
+            'expires_at' => $sub->expires_at?->toIso8601String(),
+            'cancelled_at' => $sub->cancelled_at?->toIso8601String(),
+            'days_remaining' => $sub->isActive() ? $sub->daysUntilExpiry() : 0,
+            'created_at' => $sub->created_at?->toIso8601String(),
+        ];
+    }
+
+    private function subscriptionFilterResponse(array $filters): array
+    {
+        return [
+            'status' => $filters['status'] ?? null,
+            'plan_id' => $filters['plan_id'] ?? null,
+            'user_id' => $filters['user_id'] ?? null,
+            'search' => $filters['search'] ?? null,
+            'expiring_within_days' => $filters['expiring_within_days'] ?? null,
+            'sort_by' => $filters['sort_by'] ?? 'created_at',
+            'sort_order' => $filters['sort_order'] ?? 'desc',
+        ];
+    }
+
+    private function subscriptionsExportMetadata(array $filters): array
+    {
+        $query = array_filter($this->subscriptionFilterResponse($filters), static fn ($value) => $value !== null && $value !== '');
+        $filenameParts = ['subscriptions'];
+
+        if (! empty($filters['status'])) {
+            $filenameParts[] = $filters['status'];
+        }
+
+        if (! empty($filters['plan_id'])) {
+            $filenameParts[] = 'plan_'.$filters['plan_id'];
+        }
+
+        $filenameParts[] = now()->format('Y-m-d');
+
+        return [
+            'format' => 'csv',
+            'filename' => implode('_', $filenameParts).'.csv',
+            'url' => url('/api/admin/subscriptions/export').(! empty($query) ? '?'.http_build_query($query) : ''),
+            'filters' => $this->subscriptionFilterResponse($filters),
+        ];
+    }
+
+    private function buildRatesPayload(): array
+    {
+        $records = $this->buildRateRecords();
+
+        return [
+            'records' => $records,
+            'plans' => $records,
+            'filters' => [],
+            'export' => $this->ratesExportMetadata(),
+            'platform_commissions' => $this->getPlatformCommissions(),
+            'streaming_configuration' => app(StreamingRateService::class)->getStreamingConfigurationSummary(),
+        ];
+    }
+
+    private function buildRateRecords(): Collection
+    {
+        return SubscriptionPlan::orderBy('sort_order')
+            ->get()
+            ->map(function (SubscriptionPlan $plan) {
+                $rates = $this->extractPlanRates($plan);
+                $rates['effective'] = app(StreamingRateService::class)->describePlan($plan);
+
+                return [
+                    'id' => $plan->id,
+                    'name' => $plan->name,
+                    'slug' => $plan->slug,
+                    'tier' => $plan->tier,
+                    'currency' => $plan->currency,
+                    'price_monthly' => $plan->price_monthly,
+                    'price_yearly' => $plan->price_yearly,
+                    'is_active' => (bool) $plan->is_active,
+                    'rates' => $rates,
+                ];
+            })
+            ->values();
+    }
+
+    private function ratesExportMetadata(): array
+    {
+        return [
+            'format' => 'csv',
+            'filename' => 'subscription_rates_'.now()->format('Y-m-d').'.csv',
+            'url' => url('/api/admin/subscriptions/rates/export'),
+            'filters' => [],
+        ];
+    }
+
+    private function transformPlan(SubscriptionPlan $plan): array
+    {
+        $data = $plan->toArray();
+        $data['rates'] = $this->extractPlanRates($plan);
+        $data['rates']['effective'] = app(StreamingRateService::class)->describePlan($plan);
+
+        return $data;
+    }
+
+    private function extractPlanRates(SubscriptionPlan $plan): array
+    {
+        $metadata = $plan->metadata ?? [];
+
+        return [
+            'stream_rate_ugx' => Arr::get($metadata, 'stream_rate_ugx'),
+            'credit_to_ugx_rate' => Arr::get($metadata, 'credit_to_ugx_rate'),
+        ];
+    }
+
+    private function mergePlanRatesIntoMetadata(SubscriptionPlan $plan, array $rates): array
+    {
+        $metadata = $plan->metadata ?? [];
+
+        if (array_key_exists('stream_rate_ugx', $rates)) {
+            $metadata['stream_rate_ugx'] = $this->normalizeDecimal($rates['stream_rate_ugx']);
+        }
+
+        if (array_key_exists('credit_to_ugx_rate', $rates)) {
+            $metadata['credit_to_ugx_rate'] = $this->normalizeDecimal($rates['credit_to_ugx_rate'], 4);
+        }
+
+        return $metadata;
+    }
+
+    private function getPlatformCommissions(): array
+    {
+        return $this->normalizeCommissionSettings(Setting::get('platform_commissions', [
+            'streaming_percent' => 15,
+            'subscription_percent' => 0,
+            'credit_conversion_percent' => 0,
+            'withdrawal_percent' => 0,
+            'distribution_percent' => 0,
+            'store_percent' => 5,
+        ]));
+    }
+
+    private function normalizeCommissionSettings(array $settings): array
+    {
+        $defaults = [
+            'streaming_percent' => 15,
+            'subscription_percent' => 0,
+            'credit_conversion_percent' => 0,
+            'withdrawal_percent' => 0,
+            'distribution_percent' => 0,
+            'store_percent' => 5,
+        ];
+
+        $merged = array_merge($defaults, $settings);
+
+        foreach ($merged as $key => $value) {
+            $merged[$key] = $this->normalizeDecimal($value);
+        }
+
+        return $merged;
+    }
+
+    private function normalizeDecimal(mixed $value, int $precision = 2): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return number_format((float) $value, $precision, '.', '');
+    }
 }
+

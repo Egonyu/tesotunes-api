@@ -11,10 +11,14 @@ class SubscriptionPlan extends Model
     use HasFactory;
 
     protected $fillable = [
+        'uuid',
         'name',
         'slug',
         'description',
+        'tier',
         'price',
+        'price_monthly',
+        'price_yearly',
         'currency',
         'interval',
         'interval_count',
@@ -33,12 +37,16 @@ class SubscriptionPlan extends Model
         'is_trial',
         'is_popular',
         'type',
+        'downloads_per_day',
         'max_downloads_per_day',
         'download_limit',
         'max_uploads_per_month',
         'max_audio_quality_kbps',
         'allows_offline',
         'ad_free',
+        'streaming_quality',
+        'has_ads',
+        'offline_mode',
     ];
 
     protected $casts = [
@@ -53,11 +61,20 @@ class SubscriptionPlan extends Model
         'allows_offline' => 'boolean',
         'ad_free' => 'boolean',
         'price' => 'decimal:2',
+        'price_monthly' => 'decimal:2',
+        'price_yearly' => 'decimal:2',
         'price_usd' => 'decimal:2',
         'price_local' => 'decimal:2',
         'trial_days' => 'integer',
         'duration_days' => 'integer',
         'sort_order' => 'integer',
+        'downloads_per_day' => 'integer',
+        'max_downloads_per_day' => 'integer',
+        'download_limit' => 'integer',
+        'max_uploads_per_month' => 'integer',
+        'max_audio_quality_kbps' => 'integer',
+        'has_ads' => 'boolean',
+        'offline_mode' => 'boolean',
     ];
 
     public function userSubscriptions(): HasMany
