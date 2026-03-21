@@ -743,7 +743,7 @@ class AdminSubscriptionsController extends Controller
         }
 
         if (array_key_exists('rates', $validated)) {
-            $payload['metadata'] = $this->mergePlanRatesIntoMetadata($plan ?? new SubscriptionPlan(), $validated['rates']);
+            $payload['metadata'] = $this->mergePlanRatesIntoMetadata($plan ?? new SubscriptionPlan, $validated['rates']);
         }
 
         return $payload;
