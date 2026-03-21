@@ -7,6 +7,7 @@ use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class PasswordResetTest extends TestCase
@@ -17,13 +18,25 @@ class PasswordResetTest extends TestCase
 
     private string $resetUrl = '/api/auth/reset-password';
 
+    private function createActiveUser(array $attributes = []): User
+    {
+        $suffix = (string) Str::uuid();
+
+        return User::factory()->create([
+            'username' => 'password-reset-'.Str::lower($suffix),
+            'email' => 'password-reset-'.$suffix.'@example.com',
+            'is_active' => true,
+            ...$attributes,
+        ]);
+    }
+
     // ━━━ Forgot Password ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
     public function test_forgot_password_sends_reset_link_for_valid_email(): void
     {
         Notification::fake();
 
-        $user = User::factory()->create(['is_active' => true]);
+        $user = $this->createActiveUser();
 
         $response = $this->postJson($this->forgotUrl, [
             'email' => $user->email,
@@ -67,9 +80,8 @@ class PasswordResetTest extends TestCase
 
     public function test_reset_password_with_valid_token(): void
     {
-        $user = User::factory()->create([
+        $user = $this->createActiveUser([
             'password' => Hash::make('OldPassword123!'),
-            'is_active' => true,
         ]);
 
         $token = Password::createToken($user);
@@ -90,9 +102,8 @@ class PasswordResetTest extends TestCase
 
     public function test_reset_password_revokes_all_tokens(): void
     {
-        $user = User::factory()->create([
+        $user = $this->createActiveUser([
             'password' => Hash::make('OldPassword123!'),
-            'is_active' => true,
         ]);
 
         // Create some tokens
@@ -122,7 +133,7 @@ class PasswordResetTest extends TestCase
 
     public function test_reset_password_with_invalid_token(): void
     {
-        $user = User::factory()->create(['is_active' => true]);
+        $user = $this->createActiveUser();
 
         $response = $this->postJson($this->resetUrl, [
             'token' => 'invalid-token',
@@ -137,7 +148,7 @@ class PasswordResetTest extends TestCase
 
     public function test_reset_password_requires_confirmation(): void
     {
-        $user = User::factory()->create(['is_active' => true]);
+        $user = $this->createActiveUser();
         $token = Password::createToken($user);
 
         $response = $this->postJson($this->resetUrl, [
@@ -161,7 +172,7 @@ class PasswordResetTest extends TestCase
 
     public function test_reset_password_rejects_mismatched_confirmation(): void
     {
-        $user = User::factory()->create(['is_active' => true]);
+        $user = $this->createActiveUser();
         $token = Password::createToken($user);
 
         $response = $this->postJson($this->resetUrl, [
@@ -177,7 +188,7 @@ class PasswordResetTest extends TestCase
 
     public function test_reset_password_rejects_wrong_email(): void
     {
-        $user = User::factory()->create(['is_active' => true]);
+        $user = $this->createActiveUser();
         $token = Password::createToken($user);
 
         $response = $this->postJson($this->resetUrl, [

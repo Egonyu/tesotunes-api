@@ -58,6 +58,8 @@ class CatalogIntakeWorkflowTest extends TestCase
 
     public function test_delete_song_releases_slug_and_allows_same_title_reupload(): void
     {
+        Song::withTrashed()->where('slug', 'teete')->forceDelete();
+
         $song = Song::factory()->create([
             'artist_id' => $this->artist->id,
             'user_id' => $this->artistUser->id,
