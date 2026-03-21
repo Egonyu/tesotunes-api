@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\ApiUsageHourly;
 use App\Models\ApiUsageLog;
+use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -125,7 +126,7 @@ class ApiAnalyticsService
     {
         [$start, $end] = $this->parsePeriod($period);
 
-        return ApiUsageLog::select([
+        $rows = ApiUsageLog::select([
             'user_id',
             DB::raw('COUNT(*) as total_requests'),
             DB::raw('ROUND(AVG(response_time_ms)) as avg_ms'),
@@ -137,8 +138,30 @@ class ApiAnalyticsService
             ->groupBy('user_id')
             ->orderByDesc('total_requests')
             ->limit($limit)
-            ->get()
-            ->toArray();
+            ->get();
+
+        $users = User::query()
+            ->whereIn('id', $rows->pluck('user_id'))
+            ->get(['id', 'name', 'username', 'email'])
+            ->keyBy('id');
+
+        return $rows->map(function ($row) use ($users) {
+            $user = $users->get($row->user_id);
+
+            return [
+                'user_id' => (int) $row->user_id,
+                'name' => $user?->name ?: $user?->username ?: $user?->email ?: 'Unknown user',
+                'email' => $user?->email ?? '',
+                'request_count' => (int) $row->total_requests,
+                'avg_ms' => (int) $row->avg_ms,
+                'errors' => (int) $row->errors,
+            ];
+        })->all();
+    }
+
+    public function resolvePeriod(string $period): array
+    {
+        return $this->parsePeriod($period);
     }
 
     protected function parsePeriod(string $period): array

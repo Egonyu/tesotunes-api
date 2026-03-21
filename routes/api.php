@@ -371,8 +371,12 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::get('/dashboard/stats', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'stats'])->name('dashboard.stats');
     Route::get('/dashboard/recent-activity', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'recentActivity'])->name('dashboard.recent-activity');
 
+    // Platform analytics overview used by the Next admin dashboard.
+    Route::get('/analytics', [\App\Http\Controllers\Api\Admin\AdminAnalyticsController::class, 'overview'])->name('analytics.overview');
+
     // API Usage Analytics
     Route::get('/analytics/api-usage', [\App\Http\Controllers\Api\Admin\ApiAnalyticsController::class, 'dashboard'])->name('analytics.api-usage');
+    Route::get('/analytics/top-users', [\App\Http\Controllers\Api\Admin\ApiAnalyticsController::class, 'topUsers'])->name('analytics.top-users');
     Route::get('/analytics/api-usage/top-users', [\App\Http\Controllers\Api\Admin\ApiAnalyticsController::class, 'topUsers'])->name('analytics.api-usage.top-users');
 });
 
@@ -383,6 +387,13 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     // Settings API
     Route::get('/settings', [\App\Http\Controllers\Api\Admin\SettingsController::class, 'index'])->name('settings.index');
     Route::put('/settings', [\App\Http\Controllers\Api\Admin\SettingsController::class, 'update'])->name('settings.update');
+
+    // Audit logs and feature operations surfaced in the Next admin shell.
+    Route::get('/audit-logs', [\App\Http\Controllers\Api\Admin\AdminAuditLogController::class, 'index'])->name('audit-logs.index');
+    Route::get('/feature-flags', [\App\Http\Controllers\Api\Admin\AdminFeatureFlagController::class, 'index'])->name('feature-flags.index');
+    Route::post('/feature-flags', [\App\Http\Controllers\Api\Admin\AdminFeatureFlagController::class, 'store'])->name('feature-flags.store');
+    Route::put('/feature-flags/{id}', [\App\Http\Controllers\Api\Admin\AdminFeatureFlagController::class, 'update'])->name('feature-flags.update');
+    Route::delete('/feature-flags/{id}', [\App\Http\Controllers\Api\Admin\AdminFeatureFlagController::class, 'destroy'])->name('feature-flags.destroy');
 
     // Users API
     Route::get('/users', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'index'])->name('users.index');
