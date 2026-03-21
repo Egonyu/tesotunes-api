@@ -243,31 +243,12 @@ jobs:
             # Run migrations
             # ------------------------------------------------
             step "Running database migrations"
-            RESET_PRODUCTION_DB="${{ secrets.PRODUCTION_DB_RESET_ONCE }}"
-            RESET_CONFIRM="${{ secrets.PRODUCTION_DB_RESET_CONFIRM }}"
-
-            if [ "${RESET_PRODUCTION_DB:-}" = "true" ]; then
-              if [ "${RESET_CONFIRM:-}" != "WIPE_PRODUCTION_DB" ]; then
-                echo "❌ Refusing production reset: set PRODUCTION_DB_RESET_CONFIRM=WIPE_PRODUCTION_DB"
-                exit 1
-              fi
-
-              echo "⚠️ Running one-time production database reset..."
-              echo "Migration log file: $MIGRATION_LOG"
-              if ! run_and_capture "$MIGRATION_LOG" php -d display_errors=1 artisan migrate:fresh --force -v --no-ansi; then
-                echo "⚠️ Production reset failed. Full migration log:"
-                cat "$MIGRATION_LOG" || true
-                exit 1
-              fi
-              php artisan db:seed --class='Database\\Seeders\\GenreSeeder' --force
-            else
-              echo "About to run production migrations..."
-              echo "Migration log file: $MIGRATION_LOG"
-              if ! run_and_capture "$MIGRATION_LOG" php -d display_errors=1 artisan migrate --force -v --no-ansi; then
-                echo "⚠️ Production migrate failed. Full migration log:"
-                cat "$MIGRATION_LOG" || true
-                exit 1
-              fi
+            echo "About to run production migrations..."
+            echo "Migration log file: $MIGRATION_LOG"
+            if ! run_and_capture "$MIGRATION_LOG" php -d display_errors=1 artisan migrate --force -v --no-ansi; then
+              echo "⚠️ Production migrate failed. Full migration log:"
+              cat "$MIGRATION_LOG" || true
+              exit 1
             fi
 
             # ------------------------------------------------
