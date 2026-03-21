@@ -86,14 +86,43 @@ jobs:
             TIMESTAMP=$(date +%Y%m%d_%H%M%S)
             NEW_RELEASE="$RELEASES_PATH/$TIMESTAMP"
             MIGRATION_LOG="/tmp/tesotunes-migrate-$TIMESTAMP.log"
+            LIVE_HEALTH_URL="https://api.tesotunes.com/api/health"
+            PREVIOUS_RELEASE=""
+            SYMLINK_SWITCHED="false"
 
             step() {
               echo ""
               echo "==> $1"
             }
 
+            current_release_target() {
+              if [ -L "$APP_PATH" ]; then
+                readlink -f "$APP_PATH"
+              elif [ -d "$APP_PATH" ]; then
+                printf '%s\n' "$APP_PATH"
+              fi
+            }
+
+            assert_live_health() {
+              local attempts="${1:-10}"
+              local delay="${2:-5}"
+              local status=""
+
+              for i in $(seq 1 "$attempts"); do
+                status=$(curl -s -o /dev/null -w "%{http_code}" "$LIVE_HEALTH_URL" || true)
+                echo "Health attempt $i/$attempts: HTTP ${status:-000}"
+                if [ "$status" = "200" ]; then
+                  return 0
+                fi
+                sleep "$delay"
+              done
+
+              return 1
+            }
+
             # Safety: bring app up if stuck in maintenance mode from a previous failed deploy
             sudo rm -f $SHARED_PATH/storage/framework/down 2>/dev/null || true
+            PREVIOUS_RELEASE="$(current_release_target || true)"
             if [ -L "$APP_PATH" ] || [ -d "$APP_PATH" ]; then
               cd $APP_PATH
               php artisan up 2>/dev/null || true
@@ -107,6 +136,10 @@ jobs:
               if [ -f "$MIGRATION_LOG" ]; then
                 echo "⚠️ Last migration log output:"
                 tail -n 200 "$MIGRATION_LOG" || true
+              fi
+              if [ "$SYMLINK_SWITCHED" = "true" ] && [ -n "${PREVIOUS_RELEASE:-}" ] && [ -d "$PREVIOUS_RELEASE" ]; then
+                echo "⚠️ Rolling back symlink to previous release: $PREVIOUS_RELEASE"
+                ln -sfn "$PREVIOUS_RELEASE" "$APP_PATH" || true
               fi
               echo "⚠️ Deployment failed — ensuring app is brought back up..."
               sudo rm -f $SHARED_PATH/storage/framework/down 2>/dev/null || true
@@ -183,6 +216,9 @@ jobs:
             step "Discovering Laravel packages"
             php artisan package:discover --ansi
 
+            step "Validating release can boot in CLI"
+            php artisan about --only=environment
+
             # ------------------------------------------------
             # Run migrations
             # ------------------------------------------------
@@ -220,6 +256,12 @@ jobs:
             # ------------------------------------------------
             step "Switching current release symlink"
             ln -sfn $NEW_RELEASE $APP_PATH
+            SYMLINK_SWITCHED="true"
+            CURRENT_TARGET=$(readlink -f "$APP_PATH")
+            if [ "$CURRENT_TARGET" != "$NEW_RELEASE" ]; then
+              echo "❌ Symlink switch failed: expected $NEW_RELEASE but got $CURRENT_TARGET"
+              exit 1
+            fi
 
             # ------------------------------------------------
             # Optimize (clear stale caches first)
@@ -252,6 +294,15 @@ jobs:
 
             # Restart workers
             sudo supervisorctl restart tesotunes-worker:* || true
+
+            # ------------------------------------------------
+            # Verify promoted release is healthy before cleanup
+            # ------------------------------------------------
+            step "Verifying live health after symlink switch"
+            if ! assert_live_health 12 5; then
+              echo "❌ Live health check failed after symlink switch"
+              exit 1
+            fi
 
             # ------------------------------------------------
             # Cleanup old releases (keep 5)
