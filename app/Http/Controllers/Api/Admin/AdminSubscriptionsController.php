@@ -474,13 +474,73 @@ class AdminSubscriptionsController extends Controller
         }
 
         return $this->handleApiAction(function () {
-            $plans = SubscriptionPlan::orderBy('sort_order')->get();
+            $records = SubscriptionPlan::orderBy('sort_order')
+                ->get()
+                ->map(fn (SubscriptionPlan $plan) => $this->transformPlan($plan))
+                ->values();
 
             return response()->json([
                 'success' => true,
-                'data' => $plans->map(fn (SubscriptionPlan $plan) => $this->transformPlan($plan))->values(),
+                'data' => [
+                    'records' => $records,
+                    'filters' => [],
+                    'export' => $this->subscriptionPlansExportMetadata(),
+                ],
+                'legacy_data' => $records,
             ]);
         });
+    }
+
+    public function exportPlans(Request $request)
+    {
+        if ($response = $this->ensureAdmin($request)) {
+            return $response;
+        }
+
+        try {
+            $records = SubscriptionPlan::orderBy('sort_order')
+                ->get()
+                ->map(fn (SubscriptionPlan $plan) => $this->transformPlan($plan))
+                ->values();
+            $export = $this->subscriptionPlansExportMetadata();
+
+            $csv = fopen('php://temp', 'r+');
+            fputcsv($csv, ['Subscription Plans']);
+            fputcsv($csv, ['Generated At', now()->toDateTimeString()]);
+            fputcsv($csv, []);
+            fputcsv($csv, ['ID', 'Name', 'Slug', 'Tier', 'Is Active', 'Price Monthly', 'Price Yearly', 'Stream Rate UGX', 'Credit To UGX Rate', 'Effective Stream Rate UGX', 'Estimated Net Per Stream UGX', 'Rate Source']);
+
+            foreach ($records as $plan) {
+                fputcsv($csv, [
+                    $plan['id'],
+                    $plan['name'] ?? '',
+                    $plan['slug'] ?? '',
+                    $plan['tier'] ?? '',
+                    ! empty($plan['is_active']) ? 'Yes' : 'No',
+                    $plan['price_monthly'] ?? '',
+                    $plan['price_yearly'] ?? '',
+                    $plan['rates']['stream_rate_ugx'] ?? '',
+                    $plan['rates']['credit_to_ugx_rate'] ?? '',
+                    $plan['rates']['effective']['effective_stream_rate_ugx'] ?? '',
+                    $plan['rates']['effective']['estimated_net_per_stream_ugx'] ?? '',
+                    $plan['rates']['effective']['rate_source'] ?? '',
+                ]);
+            }
+
+            rewind($csv);
+            $contents = stream_get_contents($csv) ?: '';
+            fclose($csv);
+
+            return response($contents, 200, [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => 'attachment; filename="'.$export['filename'].'"',
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to export subscription plans.',
+            ], 500);
+        }
     }
 
     /**
@@ -707,6 +767,16 @@ class AdminSubscriptionsController extends Controller
         ];
     }
 
+    private function subscriptionPlansExportMetadata(): array
+    {
+        return [
+            'format' => 'csv',
+            'filename' => 'subscription_plans_'.now()->format('Y-m-d').'.csv',
+            'url' => url('/api/admin/subscription-plans/export'),
+            'filters' => [],
+        ];
+    }
+
     private function transformPlan(SubscriptionPlan $plan): array
     {
         $data = $plan->toArray();
@@ -782,4 +852,5 @@ class AdminSubscriptionsController extends Controller
         return number_format((float) $value, $precision, '.', '');
     }
 }
+
 

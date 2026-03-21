@@ -173,6 +173,56 @@ class AdminSubscriptionRatesApiTest extends TestCase
         $this->assertStringContainsString('card', $content);
     }
 
+    public function test_subscription_plans_list_includes_normalized_records_and_export_metadata(): void
+    {
+        SubscriptionPlan::factory()->premium()->create([
+            'name' => 'Premium Starter',
+            'metadata' => [
+                'stream_rate_ugx' => '10.00',
+                'credit_to_ugx_rate' => '1.5000',
+            ],
+        ]);
+
+        $response = $this->actingAs($this->admin)->getJson('/api/admin/subscription-plans');
+
+        $response->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.records.0.rates.stream_rate_ugx', '10.00')
+            ->assertJsonPath('data.records.0.rates.credit_to_ugx_rate', '1.5000')
+            ->assertJsonPath('data.export.format', 'csv');
+
+        $this->assertStringContainsString('/api/admin/subscription-plans/export', (string) $response->json('data.export.url'));
+        $this->assertStringContainsString('subscription_plans_', (string) $response->json('data.export.filename'));
+    }
+
+    public function test_admin_can_export_subscription_plans_as_csv(): void
+    {
+        SubscriptionPlan::factory()->premium()->create([
+            'name' => 'Premium Starter',
+            'slug' => 'premium-starter',
+            'tier' => 'premium',
+            'price_monthly' => 35000,
+            'metadata' => [
+                'stream_rate_ugx' => '10.00',
+                'credit_to_ugx_rate' => '1.5000',
+            ],
+        ]);
+
+        $response = $this->actingAs($this->admin)->get('/api/admin/subscription-plans/export');
+
+        $response->assertOk();
+        $response->assertHeader('content-type', 'text/csv; charset=UTF-8');
+        $response->assertHeader('content-disposition');
+
+        $content = $response->getContent();
+
+        $this->assertStringContainsString('Subscription Plans', $content);
+        $this->assertStringContainsString('Premium Starter', $content);
+        $this->assertStringContainsString('premium-starter', $content);
+        $this->assertStringContainsString('10.00', $content);
+        $this->assertStringContainsString('1.5000', $content);
+    }
+
     public function test_admin_can_bulk_update_subscription_rates_and_platform_commissions(): void
     {
         $basicPlan = SubscriptionPlan::factory()->basic()->create();
@@ -224,23 +274,6 @@ class AdminSubscriptionRatesApiTest extends TestCase
         ], Setting::get('platform_commissions'));
     }
 
-    public function test_subscription_plans_list_includes_rate_fields_for_admin_panel(): void
-    {
-        SubscriptionPlan::factory()->premium()->create([
-            'metadata' => [
-                'stream_rate_ugx' => '10.00',
-                'credit_to_ugx_rate' => '1.5000',
-            ],
-        ]);
-
-        $response = $this->actingAs($this->admin)->getJson('/api/admin/subscription-plans');
-
-        $response->assertOk()
-            ->assertJsonPath('success', true)
-            ->assertJsonPath('data.0.rates.stream_rate_ugx', '10.00')
-            ->assertJsonPath('data.0.rates.credit_to_ugx_rate', '1.5000');
-    }
-
     public function test_admin_can_update_a_single_plan_with_nested_rates(): void
     {
         $plan = SubscriptionPlan::factory()->premium()->create([
@@ -275,5 +308,3 @@ class AdminSubscriptionRatesApiTest extends TestCase
         $this->assertSame('1.6500', $plan->metadata['credit_to_ugx_rate']);
     }
 }
-
-

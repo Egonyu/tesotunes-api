@@ -533,6 +533,7 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::post('/subscriptions/grant', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'grant'])->name('subscriptions.grant');
     Route::post('/subscriptions/{id}/revoke', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'revoke'])->name('subscriptions.revoke');
     Route::get('/subscription-plans', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'plansList'])->name('subscription-plans.index');
+    Route::get('/subscription-plans/export', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'exportPlans'])->name('subscription-plans.export');
     Route::put('/subscription-plans/{id}', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'updatePlan'])->name('subscription-plans.update');
 
     // Podcasts API — full CRUD + moderation
@@ -849,6 +850,7 @@ Route::middleware('auth:sanctum')->prefix('uploads')->name('api.uploads.')->grou
     Route::post('/image', [\App\Http\Controllers\Api\Upload\FileController::class, 'uploadImage'])->name('image');
     Route::post('/avatar', [\App\Http\Controllers\Api\Upload\FileController::class, 'uploadAvatar'])->name('avatar');
 });
+
 
 
 
