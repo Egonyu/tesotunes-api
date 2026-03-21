@@ -51,6 +51,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin.exceptions' => \App\Http\Middleware\HandleAdminExceptions::class,
             'role' => \App\Http\Middleware\RoleMiddleware::class,
             'permission' => \App\Http\Middleware\PermissionMiddleware::class,
+            'event.ops.role' => \App\Http\Middleware\EventOpsRoleMiddleware::class,
             'feature' => \App\Http\Middleware\FeatureMiddleware::class,
             'api.rate_limit' => \App\Http\Middleware\ApiRateLimitMiddleware::class,
             'secure.upload' => \App\Http\Middleware\SecureFileUploadMiddleware::class,

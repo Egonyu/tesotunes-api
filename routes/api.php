@@ -65,7 +65,7 @@ Route::middleware('auth:sanctum')->post('/events/{id}/waitlist', [\App\Http\Cont
     ->name('api.events.waitlist');
 
 // Ticket checkout API Routes
-Route::prefix('tickets')->name('api.tickets.')->group(function () {
+Route::prefix('tickets')->name('api.tickets.')->middleware('throttle:api')->group(function () {
     Route::post('/quote', [\App\Http\Controllers\Api\TicketController::class, 'quote'])->name('quote');
     Route::post('/discounts/validate', [\App\Http\Controllers\Api\TicketController::class, 'validateDiscountCode'])->name('discounts.validate');
     Route::post('/purchase', [\App\Http\Controllers\Api\TicketController::class, 'purchase'])->name('purchase');
@@ -98,7 +98,7 @@ Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('ar
     Route::delete('/{id}/staff/{staffId}', [\App\Http\Controllers\Api\ArtistEventsController::class, 'removeStaff'])->name('staff.destroy');
 });
 
-Route::middleware(['auth:sanctum'])->prefix('artist/events')->name('api.artist.events.ops.')->group(function () {
+Route::middleware(['auth:sanctum', 'event.ops.role'])->prefix('artist/events')->name('api.artist.events.ops.')->group(function () {
     Route::get('/{id}/check-in/lookup', [\App\Http\Controllers\Api\ArtistEventsController::class, 'checkInLookup'])->name('checkin.lookup');
     Route::post('/{id}/check-in', [\App\Http\Controllers\Api\ArtistEventsController::class, 'checkInAttendee'])->name('checkin.store');
 });

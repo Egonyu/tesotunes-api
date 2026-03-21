@@ -16,7 +16,10 @@ class AdminEventActionsContractTest extends TestCase
 
     public function test_admin_can_publish_and_feature_an_event(): void
     {
-        Role::factory()->admin()->create();
+        Role::query()->firstOrCreate(
+            ['name' => 'admin'],
+            ['display_name' => 'Admin', 'description' => 'Administrator with full system management', 'is_active' => true, 'priority' => 5]
+        );
         $admin = User::factory()->create();
         $admin->assignRole('admin', $admin->id);
 
@@ -40,7 +43,10 @@ class AdminEventActionsContractTest extends TestCase
 
     public function test_admin_can_view_event_attendees_and_analytics(): void
     {
-        Role::factory()->admin()->create();
+        Role::query()->firstOrCreate(
+            ['name' => 'admin'],
+            ['display_name' => 'Admin', 'description' => 'Administrator with full system management', 'is_active' => true, 'priority' => 5]
+        );
         $admin = User::factory()->create();
         $admin->assignRole('admin', $admin->id);
 

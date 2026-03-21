@@ -107,6 +107,16 @@ class SecurityAuditRoutes extends Command
         'api/artist/application-status',
     ];
 
+    /**
+     * Public state-changing routes that are intentionally exposed for
+     * guest flows such as ticket checkout.
+     */
+    private array $allowedPublicStateChangingRoutes = [
+        'api/tickets/quote',
+        'api/tickets/discounts/validate',
+        'api/tickets/purchase',
+    ];
+
     public function handle(Router $router): int
     {
         $this->info('🔒 TesoTunes Route Security Audit');
@@ -142,6 +152,10 @@ class SecurityAuditRoutes extends Command
                     }
                 }
 
+                continue;
+            }
+
+            if ($this->matchesExact($uri, $this->allowedPublicStateChangingRoutes)) {
                 continue;
             }
 

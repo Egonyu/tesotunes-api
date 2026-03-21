@@ -16,7 +16,10 @@ class ArtistEventCheckInConsoleTest extends TestCase
 
     public function test_organizer_can_lookup_and_check_in_attendee_with_duplicate_override(): void
     {
-        Role::factory()->artist()->create();
+        Role::query()->firstOrCreate(
+            ['name' => 'artist'],
+            ['display_name' => 'Artist', 'description' => 'Verified artist', 'is_active' => true, 'priority' => 2]
+        );
 
         $organizer = User::factory()->create();
         $organizer->assignRole('artist', $organizer->id);

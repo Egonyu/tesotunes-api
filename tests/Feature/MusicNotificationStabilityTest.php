@@ -24,7 +24,10 @@ class MusicNotificationStabilityTest extends TestCase
             'user_id' => $owner->id,
         ]);
         $moderator = User::factory()->create();
-        $adminRole = Role::factory()->admin()->create();
+        $adminRole = Role::query()->firstOrCreate(
+            ['name' => 'admin'],
+            ['display_name' => 'Admin', 'description' => 'Administrator with full system management', 'is_active' => true, 'priority' => 5]
+        );
         $moderator->roles()->attach($adminRole->id, [
             'assigned_at' => now(),
             'is_active' => true,

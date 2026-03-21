@@ -14,7 +14,10 @@ class ArtistEventStaffRolesTest extends TestCase
 
     public function test_artist_can_add_and_remove_event_staff_members(): void
     {
-        Role::factory()->artist()->create();
+        Role::query()->firstOrCreate(
+            ['name' => 'artist'],
+            ['display_name' => 'Artist', 'description' => 'Verified artist', 'is_active' => true, 'priority' => 2]
+        );
 
         $organizer = User::factory()->create();
         $organizer->assignRole('artist', $organizer->id);

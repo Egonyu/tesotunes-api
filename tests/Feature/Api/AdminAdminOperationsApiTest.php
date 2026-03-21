@@ -27,8 +27,14 @@ class AdminAdminOperationsApiTest extends TestCase
     {
         parent::setUp();
 
-        Role::factory()->admin()->create();
-        Role::factory()->user()->create();
+        Role::query()->firstOrCreate(
+            ['name' => 'admin'],
+            ['display_name' => 'Admin', 'description' => 'Administrator with full system management', 'is_active' => true, 'priority' => 5]
+        );
+        Role::query()->firstOrCreate(
+            ['name' => 'user'],
+            ['display_name' => 'User', 'description' => 'Standard user', 'is_active' => true, 'priority' => 1]
+        );
 
         $this->admin = $this->createUserWithRole('admin');
     }

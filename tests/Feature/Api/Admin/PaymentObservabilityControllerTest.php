@@ -17,7 +17,10 @@ class PaymentObservabilityControllerTest extends TestCase
     public function test_admin_can_view_payment_observability_dashboard_and_lists(): void
     {
         $admin = User::factory()->create();
-        $adminRole = Role::factory()->admin()->create();
+        $adminRole = Role::query()->firstOrCreate(
+            ['name' => 'admin'],
+            ['display_name' => 'Admin', 'description' => 'Administrator with full system management', 'is_active' => true, 'priority' => 5]
+        );
         $admin->roles()->attach($adminRole->id, [
             'assigned_at' => now(),
             'is_active' => true,

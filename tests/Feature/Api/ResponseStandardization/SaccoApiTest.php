@@ -29,7 +29,10 @@ function createSaccoUser(): User
 function createSaccoAdmin(): User
 {
     $admin = User::factory()->create();
-    $role = Role::factory()->admin()->create();
+    $role = Role::query()->firstOrCreate(
+        ['name' => 'admin'],
+        ['display_name' => 'Admin', 'description' => 'Administrator with full system management', 'is_active' => true, 'priority' => 5]
+    );
     DB::table('user_roles')->insert([
         'user_id' => $admin->id,
         'role_id' => $role->id,

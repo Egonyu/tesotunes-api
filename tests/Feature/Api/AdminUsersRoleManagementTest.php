@@ -18,9 +18,18 @@ class AdminUsersRoleManagementTest extends TestCase
     {
         parent::setUp();
 
-        Role::factory()->user()->create();
-        Role::factory()->artist()->create();
-        Role::factory()->admin()->create();
+        Role::query()->firstOrCreate(
+            ['name' => 'user'],
+            ['display_name' => 'User', 'description' => 'Standard user', 'is_active' => true, 'priority' => 1]
+        );
+        Role::query()->firstOrCreate(
+            ['name' => 'artist'],
+            ['display_name' => 'Artist', 'description' => 'Verified artist', 'is_active' => true, 'priority' => 2]
+        );
+        Role::query()->firstOrCreate(
+            ['name' => 'admin'],
+            ['display_name' => 'Admin', 'description' => 'Administrator with full system management', 'is_active' => true, 'priority' => 5]
+        );
 
         $this->admin = User::factory()->create();
         $this->admin->assignRole('admin', $this->admin->id);
