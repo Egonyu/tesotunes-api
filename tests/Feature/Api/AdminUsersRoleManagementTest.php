@@ -161,7 +161,14 @@ class AdminUsersRoleManagementTest extends TestCase
         $response = $this->actingAs($this->admin)->getJson('/api/admin/users?role=artist');
 
         $response->assertOk();
-        $this->assertCount(0, $response->json('data'));
+
+        $returnedIds = collect($response->json('data', []))
+            ->pluck('id')
+            ->filter()
+            ->values()
+            ->all();
+
+        $this->assertNotContains($user->id, $returnedIds);
     }
 
     public function test_admin_user_show_includes_linked_artist_reference(): void

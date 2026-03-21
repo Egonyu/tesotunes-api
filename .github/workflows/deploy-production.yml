@@ -101,11 +101,9 @@ jobs:
               shift
 
               set +e
-              "$@" >"$logfile" 2>&1
-              local exit_code=$?
+              "$@" 2>&1 | tee "$logfile"
+              local exit_code=${PIPESTATUS[0]}
               set -e
-
-              cat "$logfile"
 
               if [ "$exit_code" -ne 0 ]; then
                 echo "❌ Command failed with exit code: $exit_code"
@@ -256,12 +254,20 @@ jobs:
 
               echo "⚠️ Running one-time production database reset..."
               echo "Migration log file: $MIGRATION_LOG"
-              run_and_capture "$MIGRATION_LOG" php -d display_errors=1 artisan migrate:fresh --force -v --no-ansi
+              if ! run_and_capture "$MIGRATION_LOG" php -d display_errors=1 artisan migrate:fresh --force -v --no-ansi; then
+                echo "⚠️ Production reset failed. Full migration log:"
+                cat "$MIGRATION_LOG" || true
+                exit 1
+              fi
               php artisan db:seed --class='Database\\Seeders\\GenreSeeder' --force
             else
               echo "About to run production migrations..."
               echo "Migration log file: $MIGRATION_LOG"
-              run_and_capture "$MIGRATION_LOG" php -d display_errors=1 artisan migrate --force -v --no-ansi
+              if ! run_and_capture "$MIGRATION_LOG" php -d display_errors=1 artisan migrate --force -v --no-ansi; then
+                echo "⚠️ Production migrate failed. Full migration log:"
+                cat "$MIGRATION_LOG" || true
+                exit 1
+              fi
             fi
 
             # ------------------------------------------------

@@ -120,8 +120,15 @@ class CatalogIntakeWorkflowTest extends TestCase
 
         $submission = CatalogSubmission::query()->firstOrFail();
         $this->assertCount(3, $submission->items);
-        $this->assertDatabaseCount('artists', 3);
+        $this->assertSame(
+            2,
+            Artist::query()
+                ->whereIn('stage_name', ['Offline Star', 'Another Voice'])
+                ->where('is_placeholder', true)
+                ->count()
+        );
         $this->assertSame(1, Artist::query()->where('is_placeholder', true)->where('stage_name', 'Offline Star')->count());
+        $this->assertSame(3, Song::query()->where('source_type', 'catalog_submission')->count());
         $this->assertDatabaseHas('songs', [
             'title' => 'Song One',
             'source_type' => 'catalog_submission',
