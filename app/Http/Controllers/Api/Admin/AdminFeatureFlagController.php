@@ -13,6 +13,7 @@ class AdminFeatureFlagController extends Controller
     use HandlesApiErrors;
 
     private const GROUP = 'feature_flags';
+
     private const TYPE = 'feature_flag';
 
     public function index(): JsonResponse
@@ -157,6 +158,7 @@ class AdminFeatureFlagController extends Controller
 
         if (is_string($value) && $value !== '') {
             $decoded = json_decode($value, true);
+
             return is_array($decoded) ? $decoded : [];
         }
 

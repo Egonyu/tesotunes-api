@@ -205,7 +205,7 @@ class AdminAnalyticsController extends Controller
             ->get()
             ->keyBy('day');
 
-        $points = new Collection();
+        $points = new Collection;
         $cursor = $start->copy()->startOfDay();
         $lastDay = $end->copy()->startOfDay();
 

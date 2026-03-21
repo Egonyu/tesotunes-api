@@ -7,7 +7,6 @@ use App\Models\Payment;
 use App\Models\PaymentIssue;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\DB;
 
 class PaymentObservabilityService
 {
