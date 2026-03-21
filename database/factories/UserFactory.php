@@ -25,12 +25,13 @@ class UserFactory extends Factory
     {
         $firstName = fake()->firstName();
         $lastName = fake()->lastName();
-        $email = fake()->unique()->safeEmail();
+        $suffix = Str::lower((string) Str::uuid());
+        $email = 'user-'.$suffix.'@example.test';
 
         return [
             'uuid' => Str::uuid()->toString(),
             'name' => $firstName.' '.$lastName,
-            'username' => fake()->unique()->userName(),
+            'username' => 'user_'.str_replace('-', '', $suffix),
             'email' => $email,
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
