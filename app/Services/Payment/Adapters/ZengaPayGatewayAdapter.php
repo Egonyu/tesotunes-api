@@ -61,11 +61,14 @@ class ZengaPayGatewayAdapter
             $response = $this->makeRequest('POST', '/collections', $payload);
 
             if ($response['success']) {
+                $normalized = $response['data'] ?? [];
+
                 return [
                     'success' => true,
-                    'transaction_id' => $response['data']['transactionId'] ?? $response['data']['transaction_id'] ?? null,
-                    'reference' => $response['data']['externalReference'] ?? $data['reference'],
-                    'message' => $response['data']['message'] ?? 'Payment request sent. Please approve on your phone.',
+                    'transaction_id' => $this->extractTransactionIdentifier($normalized),
+                    'reference' => $this->extractExternalReference($normalized, $data['reference']),
+                    'message' => $normalized['message'] ?? $response['message'] ?? 'Payment request sent. Please approve on your phone.',
+                    'raw_response' => $response['raw'] ?? $normalized,
                 ];
             }
 
@@ -109,11 +112,14 @@ class ZengaPayGatewayAdapter
             $response = $this->makeRequest('POST', '/transfers', $payload);
 
             if ($response['success']) {
+                $normalized = $response['data'] ?? [];
+
                 return [
                     'success' => true,
-                    'transaction_id' => $response['data']['transactionId'] ?? $response['data']['transaction_id'] ?? null,
-                    'reference' => $response['data']['externalReference'] ?? $data['reference'],
-                    'message' => $response['data']['message'] ?? 'Payout initiated successfully',
+                    'transaction_id' => $this->extractTransactionIdentifier($normalized),
+                    'reference' => $this->extractExternalReference($normalized, $data['reference']),
+                    'message' => $normalized['message'] ?? $response['message'] ?? 'Payout initiated successfully',
+                    'raw_response' => $response['raw'] ?? $normalized,
                 ];
             }
 
@@ -149,13 +155,14 @@ class ZengaPayGatewayAdapter
 
             if ($response['success']) {
                 $data = $response['data'] ?? [];
-                $status = strtolower($data['transactionStatus'] ?? $data['status'] ?? 'unknown');
+                $status = strtolower($this->extractStatus($data));
 
                 return [
                     'success' => true,
                     'status' => $this->mapTransactionStatus($status),
                     'raw_status' => $status,
                     'data' => $data,
+                    'raw_response' => $response['raw'] ?? $data,
                 ];
             }
 
@@ -164,13 +171,14 @@ class ZengaPayGatewayAdapter
 
             if ($response['success']) {
                 $data = $response['data'] ?? [];
-                $status = strtolower($data['transactionStatus'] ?? $data['status'] ?? 'unknown');
+                $status = strtolower($this->extractStatus($data));
 
                 return [
                     'success' => true,
                     'status' => $this->mapTransactionStatus($status),
                     'raw_status' => $status,
                     'data' => $data,
+                    'raw_response' => $response['raw'] ?? $data,
                 ];
             }
 
@@ -254,8 +262,9 @@ class ZengaPayGatewayAdapter
             if ($response->successful()) {
                 return [
                     'success' => true,
-                    'data' => $body['data'] ?? $body,
+                    'data' => $this->normalizeResponseData($body),
                     'message' => $body['message'] ?? 'Success',
+                    'raw' => $body,
                 ];
             }
 
@@ -314,11 +323,51 @@ class ZengaPayGatewayAdapter
     {
         return match ($zengaPayStatus) {
             'succeeded', 'successful', 'completed', 'success' => 'completed',
-            'pending', 'initiated' => 'processing',
+            'pending', 'initiated', 'processing', 'in_progress', 'requested', 'queued', 'received', 'indeterminate' => 'processing',
             'failed', 'failure', 'declined', 'rejected' => 'failed',
-            'cancelled', 'expired' => 'cancelled',
+            'cancelled', 'expired', 'timeout', 'timed_out' => 'cancelled',
+            'reversed', 'reversed_successfully', 'refunded' => 'refunded',
             default => 'unknown',
         };
+    }
+
+    protected function normalizeResponseData(array $body): array
+    {
+        $normalized = $body;
+
+        if (isset($body['data']) && is_array($body['data'])) {
+            $normalized = array_merge($body['data'], $body);
+        }
+
+        unset($normalized['data']);
+
+        return $normalized;
+    }
+
+    protected function extractTransactionIdentifier(array $data): ?string
+    {
+        return $data['transactionReference']
+            ?? $data['transaction_reference']
+            ?? $data['transactionId']
+            ?? $data['transaction_id']
+            ?? null;
+    }
+
+    protected function extractExternalReference(array $data, ?string $fallback = null): ?string
+    {
+        return $data['transactionExternalReference']
+            ?? $data['transaction_external_reference']
+            ?? $data['externalReference']
+            ?? $data['external_reference']
+            ?? $fallback;
+    }
+
+    protected function extractStatus(array $data): string
+    {
+        return (string) ($data['transactionStatus']
+            ?? $data['transaction_status']
+            ?? $data['status']
+            ?? 'unknown');
     }
 
     /**

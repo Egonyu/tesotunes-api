@@ -359,6 +359,11 @@ Route::middleware('auth:sanctum')->prefix('subscriptions')->name('api.subscripti
 // Admin Payment Analytics
 Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin')->name('api.admin.')->group(function () {
     Route::get('/payment-analytics', [\App\Http\Controllers\Api\PaymentController::class, 'analytics'])->name('payment-analytics');
+    Route::get('/payments/observability', [\App\Http\Controllers\Api\Admin\PaymentObservabilityController::class, 'dashboard'])->name('payments.observability');
+    Route::get('/payments/entry-points', [\App\Http\Controllers\Api\Admin\PaymentObservabilityController::class, 'entryPoints'])->name('payments.entry-points');
+    Route::get('/payment-issues', [\App\Http\Controllers\Api\Admin\PaymentObservabilityController::class, 'issues'])->name('payment-issues.index');
+    Route::get('/payments', [\App\Http\Controllers\Api\Admin\PaymentObservabilityController::class, 'payments'])->name('payments.index');
+    Route::get('/payments/{payment}', [\App\Http\Controllers\Api\Admin\PaymentObservabilityController::class, 'show'])->name('payments.show');
 });
 
 // Admin Dashboard & Settings API — SECURED (dashboard stats are sensitive)

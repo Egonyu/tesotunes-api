@@ -32,6 +32,7 @@ class Payment extends Model
         'transaction_reference',
         'payment_reference',
         'provider_transaction_id',
+        'provider_reference',
         'provider_response',
         'exchange_rate',
         'payment_data',
@@ -292,7 +293,11 @@ class Payment extends Model
         }
 
         if (isset($data['provider_reference'])) {
-            $updateData['payment_reference'] = $data['provider_reference'];
+            $updateData['provider_reference'] = $data['provider_reference'];
+
+            if (blank($this->payment_reference)) {
+                $updateData['payment_reference'] = $data['provider_reference'];
+            }
         }
 
         if (isset($data['payment_data'])) {

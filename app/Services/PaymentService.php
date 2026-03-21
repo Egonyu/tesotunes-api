@@ -93,6 +93,7 @@ class PaymentService
                 'amount' => $amount,
                 'currency' => $plan->currency ?? 'UGX',
                 'payment_method' => $paymentMethod,
+                'phone_number' => $paymentData['phone_number'] ?? null,
                 'description' => "Subscription: {$plan->name}",
                 'metadata' => array_merge($paymentData, [
                     'subscription_plan_id' => $plan->id,
@@ -177,6 +178,7 @@ class PaymentService
                 'amount' => $amount,
                 'currency' => $currency,
                 'payment_method' => $paymentMethod,
+                'phone_number' => $paymentData['phone_number'] ?? null,
                 'description' => $description,
                 'metadata' => $paymentData,
             ]);
@@ -685,67 +687,7 @@ class PaymentService
      */
     protected function processZengaPayPayment(Payment $payment, array $data): array
     {
-        try {
-            $zengapay = new ZengaPayGatewayAdapter;
-
-            // Prepare payment data
-            $chargeData = [
-                'amount' => $payment->amount,
-                'phone' => $data['phone_number'] ?? $payment->phone_number,
-                'reference' => $payment->payment_reference,
-                'description' => $payment->description ?? "TesoTunes Payment #{$payment->id}",
-            ];
-
-            // Initiate collection
-            $result = $zengapay->charge($chargeData);
-
-            if ($result['success']) {
-                // Update payment with ZengaPay transaction ID
-                $payment->forceFill([
-                    'status' => self::STATUS_PROCESSING,
-                    'initiated_at' => now(),
-                ])->save();
-
-                $payment->update([
-                    'provider_transaction_id' => $result['transaction_id'] ?? null,
-                    'transaction_reference' => $result['reference'] ?? $payment->payment_reference,
-                ]);
-
-                Log::info('ZengaPay payment initiated', [
-                    'payment_id' => $payment->id,
-                    'transaction_id' => $result['transaction_id'] ?? null,
-                ]);
-
-                return [
-                    'success' => true,
-                    'message' => $result['message'] ?? 'Payment request sent. Please approve on your phone.',
-                    'transaction_id' => $result['transaction_id'] ?? null,
-                    'reference' => $result['reference'] ?? $payment->payment_reference,
-                    'status' => 'pending',
-                ];
-            }
-
-            Log::warning('ZengaPay payment failed', [
-                'payment_id' => $payment->id,
-                'error' => $result['message'] ?? 'Unknown error',
-            ]);
-
-            return [
-                'success' => false,
-                'message' => $result['message'] ?? 'Payment request failed',
-            ];
-
-        } catch (Exception $e) {
-            Log::error('ZengaPay payment exception', [
-                'payment_id' => $payment->id,
-                'error' => $e->getMessage(),
-            ]);
-
-            return [
-                'success' => false,
-                'message' => 'Payment service temporarily unavailable. Please try again.',
-            ];
-        }
+        return app(\App\Services\Payment\ZengaPayService::class)->processPayment($payment, $data);
     }
 
     /**

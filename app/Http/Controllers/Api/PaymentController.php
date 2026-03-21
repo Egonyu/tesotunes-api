@@ -4,11 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
+use App\Models\PaymentIssue;
 use App\Models\SubscriptionPlan;
+use App\Services\Payment\PaymentObservabilityService;
 use App\Services\Payment\ZengaPayService;
 use App\Services\PaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
@@ -168,6 +171,29 @@ class PaymentController extends Controller
             'ip' => $request->ip(),
         ]);
 
+        if ($provider === 'zengapay') {
+            $zengaPay = app(ZengaPayService::class);
+            $signature = $request->header('X-Signature')
+                ?? $request->header('X-Webhook-Signature')
+                ?? $request->header('X-ZengaPay-Signature')
+                ?? '';
+
+            if (! $zengaPay->verifyWebhookSignature($request->getContent(), $signature, $payload)) {
+                $zengaPay->recordWebhookSignatureFailure($payload, $signature);
+
+                Log::warning('Payment webhook: invalid signature from zengapay', [
+                    'ip' => $request->ip(),
+                ]);
+
+                return response()->json(['message' => 'Invalid signature.'], 403);
+            }
+
+            $result = $zengaPay->handleWebhook($payload);
+            $statusCode = ($result['success'] ?? false) ? 200 : 404;
+
+            return response()->json($result, $statusCode);
+        }
+
         // Verify webhook signature
         if (! $this->verifyWebhookSignature($request, $provider)) {
             Log::warning("Payment webhook: invalid signature from {$provider}", [
@@ -233,6 +259,17 @@ class PaymentController extends Controller
      */
     protected function verifyWebhookSignature(Request $request, string $provider): bool
     {
+        if ($provider === 'zengapay') {
+            return app(ZengaPayService::class)->verifyWebhookSignature(
+                $request->getContent(),
+                $request->header('X-Signature')
+                    ?? $request->header('X-Webhook-Signature')
+                    ?? $request->header('X-ZengaPay-Signature')
+                    ?? '',
+                $request->all()
+            );
+        }
+
         $signature = $request->header('X-Signature')
             ?? $request->header('X-Webhook-Signature')
             ?? $request->header('X-ZengaPay-Signature')
@@ -264,8 +301,27 @@ class PaymentController extends Controller
     /**
      * GET /api/payments/status/{transactionId} — check ZengaPay transaction status
      */
-    public function checkStatus(string $transactionId): JsonResponse
+    public function checkStatus(Request $request, string $transactionId): JsonResponse
     {
+        $payment = $this->resolveTrackedPayment($transactionId);
+
+        if ($payment) {
+            $user = $request->user();
+            $isAdmin = $user?->hasAnyRole(['admin', 'super_admin']) ?? false;
+
+            if (! $isAdmin && $payment->user_id !== $user?->id) {
+                return response()->json([
+                    'message' => 'You are not authorized to view this payment.',
+                ], 403);
+            }
+
+            $this->refreshPaymentStatus($payment, 'generic_status_poll');
+
+            return response()->json([
+                'data' => $this->buildPaymentStatusPayload($payment->fresh()),
+            ]);
+        }
+
         $result = $this->paymentService->checkZengaPayStatus($transactionId);
 
         return response()->json([
@@ -400,6 +456,14 @@ class PaymentController extends Controller
             ]);
             $payment->save();
 
+            $this->observability()->recordAudit($payment, 'payment_request_created', [
+                'channel' => 'wallet_topup',
+                'provider' => Payment::PROVIDER_ZENGAPAY,
+                'reference' => $reference,
+                'amount' => $amount,
+                'phone' => $phone,
+            ]);
+
             // In dev/sandbox mode, simulate a successful payment
             $zengaPayConfig = config('services.zengapay');
             if (empty($zengaPayConfig['api_key']) || app()->environment('local', 'testing')) {
@@ -420,6 +484,8 @@ class PaymentController extends Controller
 
                 return response()->json([
                     'data' => [
+                        'success' => true,
+                        'reference' => $reference,
                         'transaction_ref' => $reference,
                         'status' => $payment->status,
                         'message' => app()->environment('local', 'testing')
@@ -431,22 +497,11 @@ class PaymentController extends Controller
 
             // Call ZengaPay to initiate collection
             $zengaPay = app(ZengaPayService::class);
-            $result = $zengaPay->collect(
-                $amount,
-                $phone,
-                $reference,
-                'TesoTunes Wallet Top-Up - UGX '.number_format($amount)
-            );
+            $result = $zengaPay->processPayment($payment, [
+                'phone_number' => $phone,
+            ]);
 
             if ($result['success']) {
-                $payment->forceFill([
-                    'status' => Payment::STATUS_PROCESSING,
-                    'initiated_at' => now(),
-                ]);
-                $payment->update([
-                    'provider_transaction_id' => $result['transaction_id'] ?? null,
-                ]);
-
                 Log::info('Mobile money deposit initiated', [
                     'user_id' => $user->id,
                     'amount' => $amount,
@@ -457,21 +512,15 @@ class PaymentController extends Controller
                 return response()->json([
                     'data' => [
                         'success' => true,
+                        'reference' => $reference,
                         'transaction_ref' => $reference,
+                        'status' => $payment->fresh()->status,
                         'message' => $result['message'] ?? 'Please approve the payment on your phone.',
                     ],
                 ], 201);
             }
 
             // Collection request failed
-            $payment->forceFill([
-                'status' => Payment::STATUS_FAILED,
-                'failed_at' => now(),
-            ]);
-            $payment->update([
-                'failure_reason' => $result['message'] ?? 'Failed to initiate payment',
-            ]);
-
             return response()->json([
                 'data' => [
                     'success' => false,
@@ -512,47 +561,10 @@ class PaymentController extends Controller
             ], 404);
         }
 
-        // If still processing, poll ZengaPay for latest status
-        if ($payment->status === Payment::STATUS_PROCESSING && $payment->provider_transaction_id) {
-            try {
-                $zengaPay = app(ZengaPayService::class);
-                $statusResult = $zengaPay->checkStatus($payment->provider_transaction_id);
-
-                if (! empty($statusResult['status'])) {
-                    $zgStatus = strtolower($statusResult['status']);
-
-                    if (in_array($zgStatus, ['succeeded', 'successful', 'completed', 'success'])) {
-                        $payment->markAsCompleted([
-                            'external_transaction_id' => $payment->provider_transaction_id,
-                            'provider_reference' => $reference,
-                            'payment_data' => ['status_polled_at' => now()->toIso8601String()],
-                        ]);
-                    } elseif (in_array($zgStatus, ['failed', 'failure', 'declined', 'rejected'])) {
-                        $payment->markAsFailed(
-                            $statusResult['reason'] ?? 'Payment was declined',
-                            ['payment_data' => ['status_polled_at' => now()->toIso8601String()]]
-                        );
-                    }
-                }
-            } catch (\Exception $e) {
-                Log::warning('Failed to poll ZengaPay status', [
-                    'reference' => $reference,
-                    'error' => $e->getMessage(),
-                ]);
-            }
-        }
+        $this->refreshPaymentStatus($payment, 'mobile_money_status_poll');
 
         return response()->json([
-            'data' => [
-                'status' => $payment->status,
-                'amount' => $payment->amount,
-                'reference' => $reference,
-                'message' => $payment->status === 'completed'
-                    ? 'Payment successful!'
-                    : ($payment->status === 'failed'
-                        ? ($payment->failure_reason ?? 'Payment failed')
-                        : 'Payment is being processed...'),
-            ],
+            'data' => $this->buildPaymentStatusPayload($payment->fresh(), $reference),
         ]);
     }
 
@@ -647,7 +659,30 @@ class PaymentController extends Controller
                 ]);
                 $payment->update([
                     'provider_transaction_id' => $result['transaction_id'] ?? null,
+                    'provider_reference' => $result['reference'] ?? $payment->provider_reference,
+                    'provider_response' => $result['raw_response'] ?? $payment->provider_response,
                 ]);
+
+                $this->observability()->recordAudit($payment->fresh(), 'payment_withdrawal_initiated', [
+                    'channel' => 'zengapay',
+                    'reference' => $reference,
+                    'provider_transaction_id' => $result['transaction_id'] ?? null,
+                    'amount' => $amount,
+                ]);
+
+                if (blank($result['transaction_id'] ?? null)) {
+                    $this->observability()->recordIssue(
+                        $payment->fresh(),
+                        PaymentIssue::TYPE_MISSING_PROVIDER_REFERENCE,
+                        "Missing provider transaction reference for withdrawal #{$payment->id}",
+                        [
+                            'description' => 'Withdrawal initiation succeeded but the provider did not return a transaction identifier.',
+                            'severity' => 'high',
+                            'money_deducted' => true,
+                            'service_delivered' => false,
+                        ]
+                    );
+                }
 
                 return response()->json([
                     'data' => [
@@ -666,7 +701,14 @@ class PaymentController extends Controller
             $payment->forceFill([
                 'status' => Payment::STATUS_FAILED,
                 'failed_at' => now(),
+                'failure_reason' => $result['message'] ?? 'Withdrawal initiation failed',
             ])->save();
+
+            $this->observability()->recordAudit($payment->fresh(), 'payment_withdrawal_failed', [
+                'channel' => 'zengapay',
+                'reference' => $reference,
+                'message' => $result['message'] ?? 'Withdrawal initiation failed',
+            ]);
 
             return response()->json([
                 'data' => [
@@ -699,5 +741,170 @@ class PaymentController extends Controller
             ->paginate($this->getPerPage($request, 15));
 
         return response()->json($payments);
+    }
+
+    protected function resolveTrackedPayment(string $lookup): ?Payment
+    {
+        return Payment::query()
+            ->when(is_numeric($lookup), fn ($query) => $query->where('id', (int) $lookup))
+            ->orWhere('uuid', $lookup)
+            ->orWhere('payment_reference', $lookup)
+            ->orWhere('transaction_reference', $lookup)
+            ->orWhere('provider_transaction_id', $lookup)
+            ->orWhere('transaction_id', $lookup)
+            ->first();
+    }
+
+    protected function refreshPaymentStatus(Payment $payment, string $context): void
+    {
+        if (! in_array($payment->status, [Payment::STATUS_PENDING, Payment::STATUS_PROCESSING], true)) {
+            return;
+        }
+
+        if (blank($payment->provider_transaction_id)) {
+            $this->observability()->recordIssue(
+                $payment,
+                PaymentIssue::TYPE_MISSING_PROVIDER_REFERENCE,
+                "Missing provider transaction reference for payment #{$payment->id}",
+                [
+                    'description' => 'Status polling cannot continue because the provider transaction reference is missing.',
+                    'severity' => 'high',
+                    'money_deducted' => $payment->status === Payment::STATUS_PROCESSING,
+                    'service_delivered' => false,
+                    'metadata' => [
+                        'context' => $context,
+                        'detected_at' => now()->toIso8601String(),
+                    ],
+                ]
+            );
+
+            $this->observability()->recordAudit($payment, 'payment_status_poll_skipped', [
+                'context' => $context,
+                'reason' => 'missing_provider_transaction_id',
+            ]);
+
+            return;
+        }
+
+        try {
+            $zengaPay = app(ZengaPayService::class);
+            $statusResult = $zengaPay->checkStatus($payment->provider_transaction_id);
+
+            $this->observability()->recordAudit($payment, 'payment_status_polled', [
+                'context' => $context,
+                'provider_transaction_id' => $payment->provider_transaction_id,
+                'result' => Arr::except($statusResult, ['raw_response']),
+            ]);
+
+            if (! ($statusResult['success'] ?? false)) {
+                $this->observability()->recordIssue(
+                    $payment,
+                    PaymentIssue::TYPE_PROVIDER_ERROR,
+                    "Provider status poll failed for payment #{$payment->id}",
+                    [
+                        'description' => $statusResult['message'] ?? 'Unable to fetch the latest provider status.',
+                        'severity' => 'medium',
+                        'money_deducted' => $payment->status === Payment::STATUS_PROCESSING,
+                        'service_delivered' => false,
+                        'metadata' => [
+                            'context' => $context,
+                        ],
+                    ]
+                );
+
+                return;
+            }
+
+            $status = strtolower((string) ($statusResult['status'] ?? ''));
+
+            match ($status) {
+                Payment::STATUS_COMPLETED => $payment->markAsCompleted([
+                    'external_transaction_id' => $payment->provider_transaction_id,
+                    'provider_reference' => $payment->provider_reference ?? $payment->payment_reference,
+                    'payment_data' => ['status_polled_at' => now()->toIso8601String()],
+                ]),
+                Payment::STATUS_FAILED => $payment->markAsFailed(
+                    $statusResult['message'] ?? 'Payment was declined by the provider.',
+                    ['payment_data' => ['status_polled_at' => now()->toIso8601String()]]
+                ),
+                Payment::STATUS_CANCELLED => $payment->markAsCancelled(),
+                Payment::STATUS_REFUNDED => $payment->markAsRefunded(),
+                default => null,
+            };
+
+            $payment->refresh();
+
+            if (in_array($payment->status, [Payment::STATUS_COMPLETED, Payment::STATUS_FAILED, Payment::STATUS_CANCELLED, Payment::STATUS_REFUNDED], true)) {
+                $this->observability()->resolveIssue(
+                    $payment,
+                    PaymentIssue::TYPE_PROVIDER_ERROR,
+                    'Provider polling completed and the payment moved to a final state.'
+                );
+                $this->observability()->resolveIssue(
+                    $payment,
+                    PaymentIssue::TYPE_WEBHOOK_MISSING,
+                    'Status polling finalized the payment.'
+                );
+                $this->observability()->resolveIssue(
+                    $payment,
+                    PaymentIssue::TYPE_STUCK_PROCESSING,
+                    'Status polling finalized the payment.'
+                );
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to poll ZengaPay status', [
+                'payment_id' => $payment->id,
+                'reference' => $payment->payment_reference,
+                'error' => $e->getMessage(),
+            ]);
+
+            $this->observability()->recordIssue(
+                $payment,
+                PaymentIssue::TYPE_PROVIDER_ERROR,
+                "Exception during provider status poll for payment #{$payment->id}",
+                [
+                    'description' => $e->getMessage(),
+                    'severity' => 'high',
+                    'money_deducted' => $payment->status === Payment::STATUS_PROCESSING,
+                    'service_delivered' => false,
+                    'metadata' => [
+                        'context' => $context,
+                    ],
+                ]
+            );
+        }
+    }
+
+    protected function buildPaymentStatusPayload(Payment $payment, ?string $reference = null): array
+    {
+        return [
+            'id' => $payment->id,
+            'status' => $payment->status,
+            'amount' => (float) $payment->amount,
+            'reference' => $reference ?? $payment->payment_reference ?? $payment->transaction_reference,
+            'provider_transaction_id' => $payment->provider_transaction_id,
+            'completed_at' => optional($payment->completed_at)->toIso8601String(),
+            'failed_at' => optional($payment->failed_at)->toIso8601String(),
+            'issue_count' => $payment->issues()
+                ->whereNotIn('status', [PaymentIssue::STATUS_RESOLVED, PaymentIssue::STATUS_CLOSED])
+                ->count(),
+            'message' => $this->paymentStatusMessage($payment),
+        ];
+    }
+
+    protected function paymentStatusMessage(Payment $payment): string
+    {
+        return match ($payment->status) {
+            Payment::STATUS_COMPLETED => 'Payment successful.',
+            Payment::STATUS_FAILED => $payment->failure_reason ?: 'Payment failed.',
+            Payment::STATUS_CANCELLED => 'Payment was cancelled.',
+            Payment::STATUS_REFUNDED => 'Payment was reversed/refunded.',
+            default => 'Payment is being processed...',
+        };
+    }
+
+    protected function observability(): PaymentObservabilityService
+    {
+        return app(PaymentObservabilityService::class);
     }
 }

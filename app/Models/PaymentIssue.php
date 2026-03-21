@@ -23,6 +23,12 @@ class PaymentIssue extends Model
 
     const TYPE_WEBHOOK_MISSING = 'webhook_missing';
 
+    const TYPE_INVALID_WEBHOOK_SIGNATURE = 'invalid_webhook_signature';
+
+    const TYPE_MISSING_PROVIDER_REFERENCE = 'missing_provider_reference';
+
+    const TYPE_CUSTOMER_COMPLAINT = 'customer_complaint';
+
     // Issue statuses
     const STATUS_OPEN = 'open';
 

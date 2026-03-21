@@ -148,6 +148,59 @@ class WebhookTest extends TestCase
         $this->assertSame(Payment::STATUS_COMPLETED, $payment->fresh()->status);
     }
 
+    public function test_webhook_accepts_top_level_transaction_reference_with_canonical_signature(): void
+    {
+        $payment = Payment::withoutEvents(fn () => Payment::factory()->create([
+            'status' => Payment::STATUS_PROCESSING,
+            'payment_reference' => 'REF-zenga-canonical',
+            'transaction_reference' => 'REF-zenga-canonical',
+            'provider_transaction_id' => null,
+            'payment_method' => Payment::METHOD_ZENGAPAY,
+            'provider' => Payment::PROVIDER_ZENGAPAY,
+            'payment_provider' => Payment::PROVIDER_ZENGAPAY,
+            'completed_at' => null,
+        ]));
+
+        $payload = [
+            'transactionReference' => '550e8400-e29b-41d4-a716-446655440000',
+            'transactionExternalReference' => 'REF-zenga-canonical',
+            'transactionStatus' => 'COMPLETED',
+            'transactionAmount' => 2000,
+            'transactionCurrency' => 'UGX',
+        ];
+
+        $canonicalPayload = implode('', [
+            $payload['transactionReference'],
+            $payload['transactionStatus'],
+            (string) $payload['transactionAmount'],
+            $payload['transactionCurrency'],
+            $payload['transactionExternalReference'],
+        ]);
+
+        $response = $this->call(
+            'POST',
+            $this->webhookUrl,
+            [],
+            [],
+            [],
+            [
+                'CONTENT_TYPE' => 'application/json',
+                'HTTP_X-Signature' => hash_hmac('sha256', $canonicalPayload, $this->webhookSecret),
+            ],
+            json_encode($payload, JSON_THROW_ON_ERROR)
+        );
+
+        $response->assertOk()
+            ->assertJsonPath('payment_id', $payment->id)
+            ->assertJsonPath('new_status', Payment::STATUS_COMPLETED);
+
+        $payment->refresh();
+
+        $this->assertSame(Payment::STATUS_COMPLETED, $payment->status);
+        $this->assertSame('550e8400-e29b-41d4-a716-446655440000', $payment->provider_transaction_id);
+        $this->assertNotNull($payment->provider_reference);
+    }
+
     private function postSignedWebhook(array $payload)
     {
         $json = json_encode($payload, JSON_THROW_ON_ERROR);

@@ -44,11 +44,19 @@ class PaymentReconciliationService
 
         foreach ($stuckPayments as $payment) {
             $issue = $this->detectIssue($payment, PaymentIssue::TYPE_STUCK_PROCESSING, [
-                'money_deducted' => true,
+                'money_deducted' => $payment->provider_transaction_id !== null,
                 'service_delivered' => false,
                 'description' => "Payment stuck in processing since {$payment->initiated_at}",
             ]);
             $issues[] = $issue;
+
+            if (blank($payment->provider_transaction_id)) {
+                $issues[] = $this->detectIssue($payment, PaymentIssue::TYPE_MISSING_PROVIDER_REFERENCE, [
+                    'money_deducted' => false,
+                    'service_delivered' => false,
+                    'description' => 'Payment is processing but the provider transaction reference is missing, so provider reconciliation cannot start.',
+                ]);
+            }
         }
 
         // 2. Find pending payments older than 30 minutes
@@ -89,12 +97,15 @@ class PaymentReconciliationService
             PaymentIssue::TYPE_DUPLICATE_CHARGE => "Duplicate charge: Payment #{$payment->id}",
             PaymentIssue::TYPE_TIMEOUT => "Timeout: Payment #{$payment->id}",
             PaymentIssue::TYPE_WEBHOOK_MISSING => "Missing webhook: Payment #{$payment->id}",
+            PaymentIssue::TYPE_INVALID_WEBHOOK_SIGNATURE => "Invalid webhook signature: Payment #{$payment->id}",
+            PaymentIssue::TYPE_MISSING_PROVIDER_REFERENCE => "Missing provider reference: Payment #{$payment->id}",
+            PaymentIssue::TYPE_CUSTOMER_COMPLAINT => "Customer complaint: Payment #{$payment->id}",
             default => "Issue: Payment #{$payment->id}",
         };
 
         $severity = match ($type) {
             PaymentIssue::TYPE_STUCK_PROCESSING, PaymentIssue::TYPE_DUPLICATE_CHARGE => 'critical',
-            PaymentIssue::TYPE_PROVIDER_ERROR, PaymentIssue::TYPE_AMOUNT_MISMATCH => 'high',
+            PaymentIssue::TYPE_PROVIDER_ERROR, PaymentIssue::TYPE_AMOUNT_MISMATCH, PaymentIssue::TYPE_INVALID_WEBHOOK_SIGNATURE, PaymentIssue::TYPE_MISSING_PROVIDER_REFERENCE => 'high',
             PaymentIssue::TYPE_TIMEOUT, PaymentIssue::TYPE_WEBHOOK_MISSING => 'medium',
             default => 'low',
         };
@@ -108,6 +119,7 @@ class PaymentReconciliationService
             'severity' => $severity,
             'money_deducted' => $data['money_deducted'] ?? false,
             'service_delivered' => $data['service_delivered'] ?? false,
+            'provider_status' => $data['provider_status'] ?? null,
             'metadata' => $data['metadata'] ?? null,
         ]);
     }
@@ -128,9 +140,15 @@ class PaymentReconciliationService
         $issue->update(['status' => PaymentIssue::STATUS_INVESTIGATING]);
 
         // Check with ZengaPay for current status
-        $transactionId = $payment->provider_transaction_id ?? $payment->transaction_reference;
+        $transactionId = $payment->provider_transaction_id;
 
         if (! $transactionId) {
+            $this->detectIssue($payment, PaymentIssue::TYPE_MISSING_PROVIDER_REFERENCE, [
+                'money_deducted' => $payment->status === Payment::STATUS_PROCESSING,
+                'service_delivered' => $payment->status === Payment::STATUS_COMPLETED,
+                'description' => 'Payment investigation could not continue because the provider transaction reference is missing.',
+            ]);
+
             return [
                 'success' => false,
                 'message' => 'No transaction ID available for provider lookup',
@@ -141,6 +159,13 @@ class PaymentReconciliationService
             $result = $this->gateway->getTransactionStatus($transactionId);
 
             if (! $result['success']) {
+                $this->detectIssue($payment, PaymentIssue::TYPE_PROVIDER_ERROR, [
+                    'money_deducted' => $payment->status === Payment::STATUS_PROCESSING,
+                    'service_delivered' => $payment->status === Payment::STATUS_COMPLETED,
+                    'provider_status' => $result['status'] ?? null,
+                    'description' => 'Could not retrieve provider status during reconciliation.',
+                ]);
+
                 return [
                     'success' => false,
                     'message' => 'Could not retrieve status from ZengaPay: '.($result['message'] ?? 'Unknown'),
@@ -157,6 +182,12 @@ class PaymentReconciliationService
                     'payment_data' => ['reconciled' => true, 'reconciled_at' => now()->toIso8601String()],
                 ]);
 
+                app(PaymentObservabilityService::class)->resolveIssue(
+                    $payment->fresh(),
+                    PaymentIssue::TYPE_STUCK_PROCESSING,
+                    'Provider confirmed the payment and reconciliation completed automatically.'
+                );
+
                 $issue->markAsResolved(
                     PaymentIssue::RESOLUTION_AUTO_RESOLVED,
                     'Provider confirmed payment as completed. Auto-reconciled.'
@@ -170,6 +201,12 @@ class PaymentReconciliationService
 
             if ($providerStatus === 'failed') {
                 $payment->markAsFailed('Confirmed failed by provider during reconciliation');
+
+                app(PaymentObservabilityService::class)->resolveIssue(
+                    $payment->fresh(),
+                    PaymentIssue::TYPE_STUCK_PROCESSING,
+                    'Provider confirmed the payment as failed during reconciliation.'
+                );
 
                 $issue->markAsResolved(
                     PaymentIssue::RESOLUTION_AUTO_RESOLVED,
@@ -254,10 +291,21 @@ class PaymentReconciliationService
         ];
 
         foreach ($stuckPayments as $payment) {
-            $transactionId = $payment->provider_transaction_id ?? $payment->transaction_reference;
+            $transactionId = $payment->provider_transaction_id;
 
             if (! $transactionId) {
                 $results['errors']++;
+                app(PaymentObservabilityService::class)->recordIssue(
+                    $payment,
+                    PaymentIssue::TYPE_MISSING_PROVIDER_REFERENCE,
+                    "Missing provider transaction reference for payment #{$payment->id}",
+                    [
+                        'description' => 'Automatic reconciliation skipped this payment because no provider transaction reference is stored.',
+                        'severity' => 'high',
+                        'money_deducted' => false,
+                        'service_delivered' => false,
+                    ]
+                );
 
                 continue;
             }
@@ -267,6 +315,17 @@ class PaymentReconciliationService
 
                 if (! $status['success']) {
                     $results['errors']++;
+                    app(PaymentObservabilityService::class)->recordIssue(
+                        $payment,
+                        PaymentIssue::TYPE_PROVIDER_ERROR,
+                        "Provider reconciliation failed for payment #{$payment->id}",
+                        [
+                            'description' => $status['message'] ?? 'Unable to fetch provider status during reconciliation.',
+                            'severity' => 'high',
+                            'money_deducted' => $payment->status === Payment::STATUS_PROCESSING,
+                            'service_delivered' => false,
+                        ]
+                    );
 
                     continue;
                 }
@@ -277,10 +336,20 @@ class PaymentReconciliationService
                             'external_transaction_id' => $transactionId,
                             'payment_data' => ['reconciled' => true],
                         ]);
+                        app(PaymentObservabilityService::class)->resolveIssue(
+                            $payment->fresh(),
+                            PaymentIssue::TYPE_STUCK_PROCESSING,
+                            'Provider confirmed the payment as completed during scheduled reconciliation.'
+                        );
                         $results['resolved']++;
                     })(),
                     'failed', 'cancelled' => (function () use ($payment, &$results) {
                         $payment->markAsCancelled();
+                        app(PaymentObservabilityService::class)->resolveIssue(
+                            $payment->fresh(),
+                            PaymentIssue::TYPE_STUCK_PROCESSING,
+                            'Provider confirmed the payment as failed/cancelled during scheduled reconciliation.'
+                        );
                         $results['failed']++;
                     })(),
                     default => (function () use (&$results) {

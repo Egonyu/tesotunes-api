@@ -15,9 +15,14 @@ class ZengaPayWebhookController extends Controller
      */
     public function __invoke(Request $request, ZengaPayService $service): JsonResponse
     {
-        // Verify webhook signature if configured
-        $signature = $request->header('X-ZengaPay-Signature', '');
-        if (! $service->verifyWebhookSignature($request->getContent(), $signature)) {
+        $signature = $request->header('X-Signature')
+            ?? $request->header('X-Webhook-Signature')
+            ?? $request->header('X-ZengaPay-Signature')
+            ?? '';
+
+        if (! $service->verifyWebhookSignature($request->getContent(), $signature, $request->all())) {
+            $service->recordWebhookSignatureFailure($request->all(), $signature);
+
             Log::warning('ZengaPay webhook: invalid signature');
 
             return response()->json(['message' => 'Invalid signature'], 403);
