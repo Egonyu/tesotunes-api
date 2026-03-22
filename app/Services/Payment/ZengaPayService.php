@@ -496,6 +496,7 @@ class ZengaPayService
 
                 if (in_array($normalizedKey, ['v1', 'sig', 'signature', 'sha256', 'x-signature'], true)) {
                     $rawCandidates[] = $value;
+
                     continue;
                 }
             }
