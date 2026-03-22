@@ -2,6 +2,17 @@
 
 $zengaPayCallbackUrl = env('ZENGAPAY_CALLBACK_URL');
 
+$zengaPayWebhookSecrets = array_values(array_filter(array_map(
+    'trim',
+    explode(',', (string) env('ZENGAPAY_WEBHOOK_SECRETS', ''))
+)));
+
+$primaryZengaPayWebhookSecret = trim((string) env('ZENGAPAY_WEBHOOK_SECRET', ''));
+if ($primaryZengaPayWebhookSecret !== '') {
+    array_unshift($zengaPayWebhookSecrets, $primaryZengaPayWebhookSecret);
+    $zengaPayWebhookSecrets = array_values(array_unique($zengaPayWebhookSecrets));
+}
+
 if (! is_string($zengaPayCallbackUrl) || trim($zengaPayCallbackUrl) === '' || str_contains($zengaPayCallbackUrl, '${APP_URL}')) {
     $appUrl = rtrim((string) env('APP_URL', ''), '/');
     $zengaPayCallbackUrl = $appUrl !== '' ? $appUrl.'/api/webhooks/zengapay' : null;
@@ -98,7 +109,8 @@ return [
     'zengapay' => [
         'api_key' => env('ZENGAPAY_API_KEY'),
         'api_secret' => env('ZENGAPAY_API_SECRET'),
-        'webhook_secret' => env('ZENGAPAY_WEBHOOK_SECRET'),
+        'webhook_secret' => $zengaPayWebhookSecrets[0] ?? null,
+        'webhook_secrets' => $zengaPayWebhookSecrets,
         'environment' => env('ZENGAPAY_ENVIRONMENT', 'production'),
         'callback_url' => $zengaPayCallbackUrl,
         'base_url' => env('ZENGAPAY_BASE_URL', 'https://api.zengapay.com/v1'),
