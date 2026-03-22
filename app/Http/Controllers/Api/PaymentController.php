@@ -797,6 +797,25 @@ class PaymentController extends Controller
             ]);
 
             if (! ($statusResult['success'] ?? false)) {
+                if (($statusResult['error_code'] ?? null) === 'INVALID_PROVIDER_TRANSACTION_ID') {
+                    $this->observability()->recordIssue(
+                        $payment,
+                        PaymentIssue::TYPE_MISSING_PROVIDER_REFERENCE,
+                        "Invalid provider transaction reference for payment #{$payment->id}",
+                        [
+                            'description' => ($statusResult['message'] ?? 'Provider transaction identifier is invalid.')." Stored value: {$payment->provider_transaction_id}.",
+                            'severity' => 'high',
+                            'money_deducted' => $payment->status === Payment::STATUS_PROCESSING,
+                            'service_delivered' => false,
+                            'metadata' => [
+                                'context' => $context,
+                            ],
+                        ]
+                    );
+
+                    return;
+                }
+
                 $this->observability()->recordIssue(
                     $payment,
                     PaymentIssue::TYPE_PROVIDER_ERROR,

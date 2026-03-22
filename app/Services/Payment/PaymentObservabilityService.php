@@ -454,7 +454,9 @@ class PaymentObservabilityService
             'completed_at' => optional($payment->completed_at)->toIso8601String(),
             'failed_at' => optional($payment->failed_at)->toIso8601String(),
             'refunded_at' => optional($payment->refunded_at)->toIso8601String(),
-            'processing_age_minutes' => $payment->initiated_at ? now()->diffInMinutes($payment->initiated_at) : null,
+            'processing_age_minutes' => $payment->initiated_at
+                ? max(0, (int) now()->diffInMinutes($payment->initiated_at, false))
+                : null,
             'issue_count' => $payment->issues->count(),
             'latest_issue' => $latestIssue ? $this->serializeIssue($latestIssue) : null,
         ];

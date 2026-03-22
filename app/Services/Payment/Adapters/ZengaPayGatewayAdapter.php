@@ -5,6 +5,7 @@ namespace App\Services\Payment\Adapters;
 use Exception;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 /**
  * ZengaPay Gateway Adapter
@@ -151,6 +152,14 @@ class ZengaPayGatewayAdapter
     public function getTransactionStatus(string $transactionId): array
     {
         try {
+            if (! $this->isProviderTransactionIdentifier($transactionId)) {
+                return [
+                    'success' => false,
+                    'error_code' => 'INVALID_PROVIDER_TRANSACTION_ID',
+                    'message' => 'Provider transaction identifier must be a UUID.',
+                ];
+            }
+
             $response = $this->makeRequest('GET', "/collections/{$transactionId}");
 
             if ($response['success']) {
@@ -346,11 +355,23 @@ class ZengaPayGatewayAdapter
 
     protected function extractTransactionIdentifier(array $data): ?string
     {
-        return $data['transactionReference']
-            ?? $data['transaction_reference']
-            ?? $data['transactionId']
-            ?? $data['transaction_id']
-            ?? null;
+        $candidates = [
+            $data['id'] ?? null,
+            $data['transactionId'] ?? null,
+            $data['transaction_id'] ?? null,
+            $data['providerTransactionId'] ?? null,
+            $data['provider_transaction_id'] ?? null,
+            $data['transactionReference'] ?? null,
+            $data['transaction_reference'] ?? null,
+        ];
+
+        foreach ($candidates as $candidate) {
+            if ($this->isProviderTransactionIdentifier($candidate)) {
+                return trim((string) $candidate);
+            }
+        }
+
+        return null;
     }
 
     protected function extractExternalReference(array $data, ?string $fallback = null): ?string
@@ -368,6 +389,17 @@ class ZengaPayGatewayAdapter
             ?? $data['transaction_status']
             ?? $data['status']
             ?? 'unknown');
+    }
+
+    protected function isProviderTransactionIdentifier(mixed $candidate): bool
+    {
+        if (! is_string($candidate)) {
+            return false;
+        }
+
+        $value = trim($candidate);
+
+        return $value !== '' && Str::isUuid($value);
     }
 
     /**

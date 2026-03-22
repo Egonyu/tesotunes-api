@@ -8,6 +8,7 @@ use App\Services\Payment\Adapters\ZengaPayGatewayAdapter;
 use Exception;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 /**
  * ZengaPay Service — Higher-level payment service wrapping the gateway adapter.
@@ -187,9 +188,9 @@ class ZengaPayService
      */
     public function verifyWebhookSignature(string $payload, string $signature, array $parsedPayload = []): bool
     {
-        $secret = config('services.zengapay.webhook_secret');
+        $secrets = $this->webhookSecrets();
 
-        if (empty($secret)) {
+        if ($secrets === []) {
             if (app()->environment('local', 'testing')) {
                 Log::warning('ZengaPay webhook secret is not configured — skipping signature verification in dev');
 
@@ -201,18 +202,27 @@ class ZengaPayService
             return false;
         }
 
-        $normalizedSignature = $this->normalizeSignature($signature);
+        $normalizedSignatures = $this->extractSignatureCandidates($signature);
 
-        if ($normalizedSignature === '') {
+        if ($normalizedSignatures === []) {
             return false;
         }
 
-        foreach ($this->signaturePayloadCandidates($payload, $parsedPayload) as $candidate) {
-            $hex = hash_hmac('sha256', $candidate, $secret);
-            $base64 = base64_encode(hash_hmac('sha256', $candidate, $secret, true));
+        foreach ($secrets as $secret) {
+            foreach ($this->signaturePayloadCandidates($payload, $parsedPayload) as $candidate) {
+                $hex = strtolower(hash_hmac('sha256', $candidate, $secret));
+                $base64 = base64_encode(hash_hmac('sha256', $candidate, $secret, true));
+                $base64Url = rtrim(strtr($base64, '+/', '-_'), '=');
 
-            if (hash_equals($hex, $normalizedSignature) || hash_equals($base64, $normalizedSignature)) {
-                return true;
+                foreach ($normalizedSignatures as $normalizedSignature) {
+                    if (
+                        hash_equals($hex, $normalizedSignature)
+                        || hash_equals($base64, $normalizedSignature)
+                        || hash_equals($base64Url, $normalizedSignature)
+                    ) {
+                        return true;
+                    }
+                }
             }
         }
 
@@ -281,7 +291,7 @@ class ZengaPayService
 
         // Don't re-process already finalized payments, but backfill identifiers if they were missing.
         if (in_array($payment->status, [Payment::STATUS_COMPLETED, Payment::STATUS_REFUNDED, Payment::STATUS_FAILED], true)) {
-            if ($transactionId && blank($payment->provider_transaction_id)) {
+            if ($this->isProviderTransactionIdentifier($transactionId) && blank($payment->provider_transaction_id)) {
                 $payment->forceFill([
                     'provider_transaction_id' => $transactionId,
                     'provider_response' => $payload,
@@ -324,7 +334,7 @@ class ZengaPayService
             'Webhook arrived and the payment lifecycle resumed.'
         );
 
-        if ($transactionId) {
+        if ($this->isProviderTransactionIdentifier($transactionId)) {
             $this->observability()->resolveIssue(
                 $payment->fresh(),
                 PaymentIssue::TYPE_MISSING_PROVIDER_REFERENCE,
@@ -452,11 +462,53 @@ class ZengaPayService
     {
         $signature = trim($signature);
 
-        if (str_contains($signature, '=')) {
-            [, $signature] = array_pad(explode('=', $signature, 2), 2, '');
+        $signature = trim($signature);
+
+        if ($signature === '') {
+            return '';
         }
 
-        return trim($signature);
+        if (preg_match('/^[A-Fa-f0-9]{64}$/', $signature) === 1) {
+            return strtolower($signature);
+        }
+
+        $signature = rtrim($signature, '=');
+
+        if (preg_match('/^[A-Za-z0-9+\/\-_]+$/', $signature) === 1) {
+            return $signature;
+        }
+
+        return '';
+    }
+
+    protected function extractSignatureCandidates(string $signatureHeader): array
+    {
+        $rawCandidates = [];
+
+        foreach (preg_split('/\s*,\s*/', trim($signatureHeader)) ?: [] as $part) {
+            if ($part === '') {
+                continue;
+            }
+
+            if (str_contains($part, '=')) {
+                [$key, $value] = array_pad(explode('=', $part, 2), 2, '');
+                $normalizedKey = strtolower(trim($key));
+
+                if (in_array($normalizedKey, ['v1', 'sig', 'signature', 'sha256', 'x-signature'], true)) {
+                    $rawCandidates[] = $value;
+                    continue;
+                }
+            }
+
+            $rawCandidates[] = $part;
+        }
+
+        $normalized = array_values(array_unique(array_filter(array_map(
+            fn (string $candidate) => $this->normalizeSignature($candidate),
+            $rawCandidates
+        ))));
+
+        return $normalized;
     }
 
     protected function signaturePayloadCandidates(string $payload, array $parsedPayload = []): array
@@ -549,7 +601,9 @@ class ZengaPayService
     protected function stampWebhookMetadata(Payment $payment, array $payload, ?string $transactionId, ?string $externalRef, string $status): void
     {
         $payment->forceFill([
-            'provider_transaction_id' => $transactionId ?? $payment->provider_transaction_id,
+            'provider_transaction_id' => $this->isProviderTransactionIdentifier($transactionId)
+                ? $transactionId
+                : $payment->provider_transaction_id,
             'provider_reference' => $externalRef ?? $payment->provider_reference,
             'provider_response' => $payload,
             'payment_data' => array_merge($payment->payment_data ?? [], [
@@ -562,5 +616,26 @@ class ZengaPayService
     protected function observability(): PaymentObservabilityService
     {
         return app(PaymentObservabilityService::class);
+    }
+
+    protected function webhookSecrets(): array
+    {
+        $configSecrets = config('services.zengapay.webhook_secrets', []);
+        $configured = is_array($configSecrets) ? $configSecrets : [];
+
+        $single = config('services.zengapay.webhook_secret');
+        if (is_string($single) && trim($single) !== '') {
+            $configured[] = $single;
+        }
+
+        return array_values(array_unique(array_filter(array_map(
+            static fn (mixed $secret) => is_string($secret) ? trim($secret) : '',
+            $configured
+        ))));
+    }
+
+    protected function isProviderTransactionIdentifier(?string $candidate): bool
+    {
+        return is_string($candidate) && trim($candidate) !== '' && Str::isUuid(trim($candidate));
     }
 }

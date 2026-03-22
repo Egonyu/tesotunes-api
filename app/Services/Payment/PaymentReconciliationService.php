@@ -159,6 +159,19 @@ class PaymentReconciliationService
             $result = $this->gateway->getTransactionStatus($transactionId);
 
             if (! $result['success']) {
+                if (($result['error_code'] ?? null) === 'INVALID_PROVIDER_TRANSACTION_ID') {
+                    $this->detectIssue($payment, PaymentIssue::TYPE_MISSING_PROVIDER_REFERENCE, [
+                        'money_deducted' => $payment->status === Payment::STATUS_PROCESSING,
+                        'service_delivered' => $payment->status === Payment::STATUS_COMPLETED,
+                        'description' => ($result['message'] ?? 'Provider transaction identifier is invalid.')." Stored value: {$transactionId}.",
+                    ]);
+
+                    return [
+                        'success' => false,
+                        'message' => 'Stored provider transaction identifier is invalid for provider lookup.',
+                    ];
+                }
+
                 $this->detectIssue($payment, PaymentIssue::TYPE_PROVIDER_ERROR, [
                     'money_deducted' => $payment->status === Payment::STATUS_PROCESSING,
                     'service_delivered' => $payment->status === Payment::STATUS_COMPLETED,
@@ -314,6 +327,23 @@ class PaymentReconciliationService
                 $status = $this->gateway->getTransactionStatus($transactionId);
 
                 if (! $status['success']) {
+                    if (($status['error_code'] ?? null) === 'INVALID_PROVIDER_TRANSACTION_ID') {
+                        $results['errors']++;
+                        app(PaymentObservabilityService::class)->recordIssue(
+                            $payment,
+                            PaymentIssue::TYPE_MISSING_PROVIDER_REFERENCE,
+                            "Invalid provider transaction reference for payment #{$payment->id}",
+                            [
+                                'description' => ($status['message'] ?? 'Provider transaction identifier is invalid.')." Stored value: {$transactionId}.",
+                                'severity' => 'high',
+                                'money_deducted' => $payment->status === Payment::STATUS_PROCESSING,
+                                'service_delivered' => false,
+                            ]
+                        );
+
+                        continue;
+                    }
+
                     $results['errors']++;
                     app(PaymentObservabilityService::class)->recordIssue(
                         $payment,
