@@ -65,10 +65,10 @@ class GenreResource extends JsonResource
 
             // API links
             'links' => [
-                'self' => url("/api/genres/{$this->slug}"),
-                'songs' => url("/api/genres/{$this->id}/songs"),
-                'artists' => url("/api/genres/{$this->id}/artists"),
-                'albums' => url("/api/genres/{$this->id}/albums"),
+                'self' => route('api.genres.show.slug', ['slug' => $this->slug]),
+                'songs' => route('api.genres.songs', ['genre' => $this->id]),
+                'artists' => route('api.genres.artists', ['genre' => $this->id]),
+                'albums' => route('api.genres.albums', ['genre' => $this->id]),
             ],
         ];
     }

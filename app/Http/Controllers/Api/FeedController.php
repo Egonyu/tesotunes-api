@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\BaseResourceCollection;
 use App\Models\FeedItem;
 use App\Models\Post;
 use App\Models\UserFeedSetting;
@@ -39,19 +40,7 @@ class FeedController extends Controller
             $this->analyticsService->trackView($user, 'main');
         }
 
-        return response()->json([
-            'data' => $feed->items(),
-            'meta' => [
-                'current_page' => $feed->currentPage(),
-                'last_page' => $feed->lastPage(),
-                'per_page' => $feed->perPage(),
-                'total' => $feed->total(),
-            ],
-            'links' => [
-                'next' => $feed->nextPageUrl(),
-                'prev' => $feed->previousPageUrl(),
-            ],
-        ]);
+        return BaseResourceCollection::make($feed);
     }
 
     /**
@@ -143,19 +132,7 @@ class FeedController extends Controller
             $this->analyticsService->trackView($user, 'discover');
         }
 
-        return response()->json([
-            'data' => $feed->items(),
-            'meta' => [
-                'current_page' => $feed->currentPage(),
-                'last_page' => $feed->lastPage(),
-                'per_page' => $feed->perPage(),
-                'total' => $feed->total(),
-            ],
-            'links' => [
-                'next' => $feed->nextPageUrl(),
-                'prev' => $feed->previousPageUrl(),
-            ],
-        ]);
+        return BaseResourceCollection::make($feed);
     }
 
     /**
@@ -178,20 +155,7 @@ class FeedController extends Controller
             ->forModules([$module])
             ->get($page);
 
-        return response()->json([
-            'data' => $feed->items(),
-            'meta' => [
-                'current_page' => $feed->currentPage(),
-                'last_page' => $feed->lastPage(),
-                'per_page' => $feed->perPage(),
-                'total' => $feed->total(),
-                'module' => $module,
-            ],
-            'links' => [
-                'next' => $feed->nextPageUrl(),
-                'prev' => $feed->previousPageUrl(),
-            ],
-        ]);
+        return new BaseResourceCollection($feed, ['module' => $module]);
     }
 
     /**
@@ -318,19 +282,7 @@ class FeedController extends Controller
             ->latest()
             ->paginate($this->getPerPage($request));
 
-        return response()->json([
-            'data' => $items->items(),
-            'meta' => [
-                'current_page' => $items->currentPage(),
-                'last_page' => $items->lastPage(),
-                'per_page' => $items->perPage(),
-                'total' => $items->total(),
-            ],
-            'links' => [
-                'next' => $items->nextPageUrl(),
-                'prev' => $items->previousPageUrl(),
-            ],
-        ]);
+        return BaseResourceCollection::make($items);
     }
 
     /**

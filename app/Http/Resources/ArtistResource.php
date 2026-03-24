@@ -13,8 +13,7 @@ class ArtistResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        // Load profile relation for location data if available
-        $profile = $this->whenLoaded('profile', fn () => $this->profile);
+        $artistRouteKey = $this->slug;
 
         return [
             'id' => $this->id,
@@ -74,9 +73,9 @@ class ArtistResource extends JsonResource
 
             // API links
             'links' => [
-                'self' => url("/api/artists/{$this->slug}"),
-                'songs' => url("/api/artists/{$this->id}/songs"),
-                'albums' => url("/api/artists/{$this->id}/albums"),
+                'self' => $artistRouteKey ? route('api.music.artist', ['artist' => $artistRouteKey]) : null,
+                'songs' => $artistRouteKey ? route('api.music.artist.songs', ['artist' => $artistRouteKey]) : null,
+                'albums' => $artistRouteKey ? route('api.music.artist.albums', ['artist' => $artistRouteKey]) : null,
             ],
         ];
     }

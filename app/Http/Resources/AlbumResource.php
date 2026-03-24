@@ -14,6 +14,10 @@ class AlbumResource extends JsonResource
     public function toArray(Request $request): array
     {
         $resolvedArtworkUrl = $this->artwork_url ?? StorageHelper::url($this->artwork);
+        $albumRouteKey = $this->slug ?: $this->id;
+        $artistRouteKey = $this->relationLoaded('artist') && $this->artist
+            ? ($this->artist->slug ?: $this->artist->id)
+            : ($this->artist_id ?? null);
 
         return [
             'id' => $this->id,
@@ -69,9 +73,9 @@ class AlbumResource extends JsonResource
 
             // API links
             'links' => [
-                'self' => url("/api/albums/{$this->slug}"),
-                'tracks' => url("/api/albums/{$this->id}/tracks"),
-                'artist' => $this->artist_id ? url("/api/artists/{$this->artist_id}") : null,
+                'self' => $albumRouteKey ? route('api.music.album', ['album' => $albumRouteKey]) : null,
+                'tracks' => $albumRouteKey ? route('api.music.album.tracks', ['album' => $albumRouteKey]) : null,
+                'artist' => $artistRouteKey ? route('api.music.artist', ['artist' => $artistRouteKey]) : null,
             ],
         ];
     }

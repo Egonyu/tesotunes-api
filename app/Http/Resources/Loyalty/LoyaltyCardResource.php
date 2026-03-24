@@ -66,8 +66,8 @@ class LoyaltyCardResource extends JsonResource
 
             // Links
             'links' => [
-                'self' => url("/api/loyalty-cards/{$this->slug}"),
-                'rewards' => url("/api/loyalty-cards/{$this->slug}/rewards"),
+                'self' => route('api.loyalty-cards.show', ['loyaltyCard' => $this->slug]),
+                'rewards' => route('api.loyalty-cards.rewards', ['loyaltyCard' => $this->slug]),
             ],
         ];
     }

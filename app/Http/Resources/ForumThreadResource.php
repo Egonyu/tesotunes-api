@@ -60,8 +60,8 @@ class ForumThreadResource extends JsonResource
 
             // API links
             'links' => [
-                'self' => url("/api/admin/forums/{$this->id}"),
-                'replies' => url("/api/admin/forums/{$this->id}/replies"),
+                'self' => route('api.admin.forums.show', ['id' => $this->id]),
+                'replies' => route('api.admin.forums.replies', ['id' => $this->id]),
             ],
         ];
     }

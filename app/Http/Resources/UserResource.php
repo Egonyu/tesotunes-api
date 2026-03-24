@@ -33,6 +33,9 @@ class UserResource extends JsonResource
 
             // Role & Status
             'role' => $this->role ?? 'user',
+            'permissions' => method_exists($this->resource, 'getAllPermissions')
+                ? $this->resource->getAllPermissions()
+                : [],
             'is_artist' => (bool) $this->is_artist,
             'is_active' => (bool) $this->is_active,
             'is_verified' => (bool) $this->is_verified,
@@ -56,40 +59,10 @@ class UserResource extends JsonResource
 
             // Relationships (conditional)
             'settings' => $this->when($this->relationLoaded('settings'), $this->settings),
-            'subscription' => $this->when($this->relationLoaded('subscription'), function () {
-                $sub = $this->subscription;
-                if (! $sub || ! $sub->isActive()) {
-                    return [
-                        'has_subscription' => false,
-                        'plan' => 'free',
-                        'tier' => 'free',
-                        'ad_free' => false,
-                        'offline_access' => false,
-                    ];
-                }
-
-                $plan = $sub->subscriptionPlan;
-
-                return [
-                    'has_subscription' => true,
-                    'id' => $sub->id,
-                    'plan' => $plan?->slug ?? 'unknown',
-                    'plan_name' => $plan?->name,
-                    'tier' => $plan?->tier,
-                    'status' => $sub->status,
-                    'started_at' => $sub->started_at?->toIso8601String(),
-                    'expires_at' => $sub->expires_at?->toIso8601String(),
-                    'days_remaining' => $sub->daysUntilExpiry(),
-                    'auto_renew' => (bool) $sub->auto_renew,
-                    'ad_free' => (bool) ($plan?->ad_free ?? false),
-                    'offline_access' => (bool) ($plan?->allows_offline ?? false),
-                    'limits' => [
-                        'downloads_per_day' => $plan?->max_downloads_per_day ?? $plan?->downloads_per_day ?? 3,
-                        'audio_quality_kbps' => $plan?->max_audio_quality_kbps ?? 128,
-                        'uploads_per_month' => $plan?->max_uploads_per_month ?? 0,
-                    ],
-                ];
-            }),
+            'subscription' => $this->when(
+                $this->relationLoaded('subscription'),
+                fn () => new UserSubscriptionResource($this->subscription)
+            ),
             'artist' => $this->when($this->relationLoaded('artist') && $this->artist, function () {
                 return [
                     'id' => $this->artist->id,

@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Auth;
 
 class PlaylistResource extends JsonResource
 {
@@ -51,10 +52,10 @@ class PlaylistResource extends JsonResource
             'songs' => SongResource::collection($this->whenLoaded('songs')),
 
             // User-specific context (only when authenticated)
-            'is_owner' => $this->when(auth()->check(), fn () => $this->user_id === auth()->id()),
+            'is_owner' => $this->when(Auth::check(), fn () => $this->user_id === Auth::id()),
             'can_edit' => $this->when(
-                auth()->check() && method_exists($this->resource, 'canBeEditedBy'),
-                fn () => $this->canBeEditedBy(auth()->user())
+                Auth::check() && method_exists($this->resource, 'canBeEditedBy'),
+                fn () => $this->canBeEditedBy(Auth::user())
             ),
 
             // Timestamps
@@ -63,8 +64,8 @@ class PlaylistResource extends JsonResource
 
             // API links
             'links' => [
-                'self' => url("/api/playlists/{$this->slug}"),
-                'tracks' => url("/api/playlists/{$this->id}/tracks"),
+                'self' => route('api.music.playlist', ['playlist' => $this->slug]),
+                'tracks' => route('api.music.playlist.tracks', ['playlist' => $this->slug]),
             ],
         ];
     }

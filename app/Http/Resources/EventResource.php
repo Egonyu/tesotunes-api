@@ -189,10 +189,10 @@ class EventResource extends JsonResource
 
             // API links
             'links' => [
-                'self' => url("/api/events/{$this->id}"),
-                'artist' => url("/api/artist/events/{$this->id}"),
-                'admin' => url("/api/admin/events/{$this->id}"),
-                'registrations' => url("/api/admin/events/{$this->id}/registrations"),
+                'self' => route('api.events.show', ['id' => $this->id]),
+                'artist' => route('api.artist.events.show', ['id' => $this->id]),
+                'admin' => route('api.admin.events.show', ['id' => $this->id]),
+                'registrations' => route('api.admin.events.registrations', ['id' => $this->id]),
             ],
         ];
     }

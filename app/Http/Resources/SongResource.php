@@ -13,11 +13,22 @@ class SongResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $streamingAccess = SongStreamingAccessResource::make($this->resource)->resolve($request);
         $resolvedArtworkUrl = $this->artwork_url
             ?? StorageHelper::url($this->artwork)
             ?? (($this->relationLoaded('album') && $this->album)
                 ? StorageHelper::url($this->album->artwork)
                 : null);
+        $songRouteKey = $this->slug ?: $this->id;
+        $loadedArtistRouteKey = ($this->relationLoaded('artist') && $this->artist)
+            ? ($this->artist->slug ?: $this->artist->id)
+            : null;
+        $artistRouteKey = $loadedArtistRouteKey
+            ?? ($this->artist_slug ?? null)
+            ?? ($this->artist_id ?? null);
+        $albumRouteKey = ($this->relationLoaded('album') && $this->album)
+            ? ($this->album->slug ?: $this->album->id)
+            : ($this->album_id ?? null);
 
         return [
             'id' => $this->id,
@@ -29,25 +40,7 @@ class SongResource extends JsonResource
             'artwork_url' => $resolvedArtworkUrl,
             'cover_url' => $resolvedArtworkUrl,
 
-            // stream_url: pre-signed CDN URL valid for 15 minutes (Spotify-style).
-            // Only included when the user has streaming access.  The client hits
-            // this URL directly — no Laravel proxy, no extra round-trip.
-            'stream_url' => $this->when(
-                $this->canStreamFor($request->user()),
-                fn () => $this->streamingUrlFor($request->user())
-            ),
-
-            // audio_url kept for backward compatibility — same value as stream_url.
-            'audio_url' => $this->when(
-                $this->canStreamFor($request->user()),
-                fn () => $this->streamingUrlFor($request->user())
-            ),
-
-            // preview_url: 30-second preview clip, no auth required for free tracks.
-            'preview_url' => $this->when(
-                ! empty($this->audio_file_preview),
-                fn () => StorageHelper::temporaryUrl($this->audio_file_preview, 30)
-            ),
+            ...$streamingAccess,
 
             // Metadata
             'status' => $this->status,
@@ -103,9 +96,15 @@ class SongResource extends JsonResource
 
             // API links
             'links' => [
-                'self' => url("/api/songs/{$this->slug}"),
-                'artist' => $this->artist_id ? url("/api/artists/{$this->artist_id}") : null,
-                'album' => $this->album_id ? url("/api/albums/{$this->album_id}") : null,
+                'self' => $songRouteKey
+                    ? route('api.music.song', ['song' => $songRouteKey])
+                    : null,
+                'artist' => $artistRouteKey
+                    ? route('api.music.artist', ['artist' => $artistRouteKey])
+                    : null,
+                'album' => $albumRouteKey
+                    ? route('api.music.album', ['album' => $albumRouteKey])
+                    : null,
             ],
 
             // Share payload — everything the frontend needs to build a social-share sheet:
@@ -161,43 +160,5 @@ class SongResource extends JsonResource
                 'instagram' => null,
             ],
         ];
-    }
-
-    /**
-     * Check if the current user can stream this song.
-     */
-    protected function canStreamFor(?object $user): bool
-    {
-        if ($this->is_free) {
-            return true;
-        }
-
-        // Current platform policy allows streaming for all users while plan
-        // limits gate quality/entitlements elsewhere.
-        if (! $user) {
-            return true;
-        }
-
-        if (is_object($user) && method_exists($user, 'canStream')) {
-            return (bool) $user->canStream();
-        }
-
-        return true;
-    }
-
-    /**
-     * Resolve stream URL based on user quality entitlement.
-     */
-    protected function streamingUrlFor(?object $user): ?string
-    {
-        $maxQuality = (is_object($user) && method_exists($user, 'getMaxAudioQuality'))
-            ? (int) $user->getMaxAudioQuality()
-            : 128;
-
-        return StorageHelper::streamingUrl(
-            $maxQuality >= 320 ? $this->audio_file_320 : null,
-            $this->audio_file_128,
-            $this->audio_file_original
-        );
     }
 }
