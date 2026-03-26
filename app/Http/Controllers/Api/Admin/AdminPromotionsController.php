@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Event;
 use App\Models\EventPromotionRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
