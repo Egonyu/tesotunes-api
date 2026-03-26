@@ -408,6 +408,35 @@ class PaymentObservabilityService
             ->each(fn (PaymentIssue $issue) => $issue->markAsResolved($resolutionType, $notes));
     }
 
+    public function resolveTerminalStateIssues(Payment $payment, string $notes = ''): void
+    {
+        if (! in_array($payment->status, [
+            Payment::STATUS_COMPLETED,
+            Payment::STATUS_FAILED,
+            Payment::STATUS_CANCELLED,
+            Payment::STATUS_REFUNDED,
+        ], true)) {
+            return;
+        }
+
+        foreach ([
+            PaymentIssue::TYPE_PROVIDER_ERROR,
+            PaymentIssue::TYPE_WEBHOOK_MISSING,
+            PaymentIssue::TYPE_STUCK_PROCESSING,
+            PaymentIssue::TYPE_INVALID_WEBHOOK_SIGNATURE,
+        ] as $type) {
+            $this->resolveIssue($payment, $type, $notes);
+        }
+
+        if (filled($payment->provider_transaction_id)) {
+            $this->resolveIssue(
+                $payment,
+                PaymentIssue::TYPE_MISSING_PROVIDER_REFERENCE,
+                $notes !== '' ? $notes : 'A provider transaction identifier is now available.'
+            );
+        }
+    }
+
     public function recordAudit(Payment $payment, string $action, array $newValues = [], array $oldValues = []): void
     {
         AuditLog::create([
@@ -426,6 +455,7 @@ class PaymentObservabilityService
     public function serializePayment(Payment $payment): array
     {
         $latestIssue = $payment->issues
+            ->filter(fn (PaymentIssue $issue) => ! in_array($issue->status, [PaymentIssue::STATUS_RESOLVED, PaymentIssue::STATUS_CLOSED], true))
             ->sortByDesc('created_at')
             ->first();
 

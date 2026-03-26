@@ -247,7 +247,7 @@ class SaccoLoanController extends Controller
             'term_months' => 'nullable|integer|min:1|max:60',
             'purpose' => 'nullable|string|max:1000',
             'phone_number' => 'nullable|string|max:20',
-            'payment_method' => 'nullable|string|in:mtn_momo,airtel_money,manual,bank',
+            'payment_method' => 'nullable|string|in:zengapay,manual,bank',
         ]);
 
         $member = isset($validated['member_id'])

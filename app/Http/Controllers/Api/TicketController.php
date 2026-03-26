@@ -5,10 +5,12 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TicketResource;
 use App\Models\EventAttendee;
+use App\Models\EventTicketCase;
 use App\Models\EventTicket;
 use App\Notifications\EventTicketConfirmationNotification;
 use App\Services\Events\EventDiscountCodeService;
 use App\Services\Events\EventFeeCalculatorService;
+use App\Services\Events\EventTicketCaseService;
 use App\Services\Events\EventTicketingService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Notification;
@@ -19,6 +21,7 @@ class TicketController extends Controller
         private readonly EventTicketingService $eventTicketingService,
         private readonly EventFeeCalculatorService $eventFeeCalculatorService,
         private readonly EventDiscountCodeService $eventDiscountCodeService,
+        private readonly EventTicketCaseService $eventTicketCaseService,
     ) {}
 
     /**
@@ -290,6 +293,53 @@ class TicketController extends Controller
         ]);
     }
 
+    public function cases(int $id)
+    {
+        $user = auth()->user();
+        $registration = EventAttendee::where('user_id', $user->id)->findOrFail($id);
+
+        $cases = EventTicketCase::with(['requestedBy', 'resolvedBy'])
+            ->where('event_attendee_id', $registration->id)
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(fn (EventTicketCase $case) => $this->serializeTicketCase($case));
+
+        return response()->json([
+            'data' => $cases,
+        ]);
+    }
+
+    public function requestCase(Request $request, int $id)
+    {
+        $validated = $request->validate([
+            'case_type' => 'required|in:refund_request,payment_dispute',
+            'dispute_category' => 'nullable|string|max:60',
+            'reason' => 'required|string|min:10|max:2000',
+            'gateway_reference' => 'nullable|string|max:120',
+            'evidence_url' => 'nullable|url|max:2048',
+            'evidence_notes' => 'nullable|string|max:2000',
+            'requested_refund_amount' => 'nullable|numeric|min:0',
+        ]);
+
+        $user = auth()->user();
+        $registration = EventAttendee::with(['event', 'ticket'])
+            ->where('user_id', $user->id)
+            ->findOrFail($id);
+
+        if ($registration->isCancelled()) {
+            return response()->json(['message' => 'Cancelled tickets cannot open a new support case.'], 422);
+        }
+
+        $case = $this->eventTicketCaseService->openCase($user, $registration, $validated);
+
+        return response()->json([
+            'message' => $case->wasRecentlyCreated
+                ? 'Ticket support request submitted successfully.'
+                : 'An open support request for this ticket already exists.',
+            'data' => $this->serializeTicketCase($case->fresh(['requestedBy', 'resolvedBy'])),
+        ], $case->wasRecentlyCreated ? 201 : 200);
+    }
+
     public function resend(int $id)
     {
         $user = auth()->user();
@@ -406,6 +456,9 @@ class TicketController extends Controller
                 'status' => $registration->status,
                 'holder_name' => $registration->attendee_name,
                 'checked_in_at' => $registration->checked_in_at,
+                'ticket_source' => data_get($registration->attendee_metadata, 'ticket_source'),
+                'printed_ticket_import' => (bool) data_get($registration->attendee_metadata, 'printed_ticket_import', false),
+                'validation_notes' => data_get($registration->attendee_metadata, 'validation_notes'),
                 'event' => [
                     'id' => $registration->event->id,
                     'title' => $registration->event->title,
@@ -478,8 +531,41 @@ class TicketController extends Controller
                 'holder_name' => $registration->attendee_name,
                 'checked_in_at' => $registration->checked_in_at->toIso8601String(),
                 'event' => $event ? $event->title : null,
+                'ticket_source' => data_get($registration->attendee_metadata, 'ticket_source'),
+                'printed_ticket_import' => (bool) data_get($registration->attendee_metadata, 'printed_ticket_import', false),
+                'validation_notes' => data_get($registration->attendee_metadata, 'validation_notes'),
                 'loyalty_points_earned' => ($event && ($event->loyalty_points_per_checkin ?? 0) > 0) ? $event->loyalty_points_per_checkin : 0,
             ],
         ]);
+    }
+
+    private function serializeTicketCase(EventTicketCase $case): array
+    {
+        return [
+            'id' => $case->id,
+            'case_type' => $case->case_type,
+            'dispute_category' => $case->dispute_category,
+            'status' => $case->status,
+            'escalation_status' => $case->escalation_status,
+            'reason' => $case->reason,
+            'gateway_reference' => $case->gateway_reference,
+            'evidence_url' => $case->evidence_url,
+            'evidence_notes' => $case->evidence_notes,
+            'resolution_notes' => $case->resolution_notes,
+            'requested_refund_amount' => $case->requested_refund_amount !== null ? (float) $case->requested_refund_amount : null,
+            'approved_refund_amount' => $case->approved_refund_amount !== null ? (float) $case->approved_refund_amount : null,
+            'requested_by' => $case->relationLoaded('requestedBy') && $case->requestedBy ? [
+                'id' => $case->requestedBy->id,
+                'name' => $case->requestedBy->display_name ?? $case->requestedBy->name ?? $case->requestedBy->username,
+                'email' => $case->requestedBy->email,
+            ] : null,
+            'resolved_by' => $case->relationLoaded('resolvedBy') && $case->resolvedBy ? [
+                'id' => $case->resolvedBy->id,
+                'name' => $case->resolvedBy->display_name ?? $case->resolvedBy->name ?? $case->resolvedBy->username,
+                'email' => $case->resolvedBy->email,
+            ] : null,
+            'resolved_at' => $case->resolved_at?->toIso8601String(),
+            'created_at' => $case->created_at?->toIso8601String(),
+        ];
     }
 }

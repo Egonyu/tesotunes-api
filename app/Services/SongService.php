@@ -187,8 +187,13 @@ class SongService
     /**
      * Handle song download
      */
-    public function downloadSong(Song $song, User $user): array
+    public function downloadSong(Song $song, User $user, string $quality = '320'): array
     {
+        $quality = strtolower($quality);
+        if (! in_array($quality, ['128', '192', '320', 'flac'], true)) {
+            $quality = '320';
+        }
+
         // Check if user can download
         if (! $this->canUserDownload($user)) {
             throw new Exception('Download limit reached. Upgrade to premium for unlimited downloads.');
@@ -205,13 +210,14 @@ class SongService
 
         // Check for existing download
         $existingDownload = Download::where('user_id', $user->id)
-            ->where('song_id', $song->id)
+            ->where('downloadable_type', Song::class)
+            ->where('downloadable_id', $song->id)
             ->first();
 
         if ($existingDownload) {
             return [
                 'download_url' => $song->getDownloadUrlAttribute(),
-                'expires_at' => $existingDownload->expires_at,
+                'expires_at' => now()->addMinutes(15)->toIso8601String(),
                 'message' => 'Song already downloaded',
             ];
         }
@@ -219,11 +225,13 @@ class SongService
         // Create download record
         $download = Download::create([
             'user_id' => $user->id,
-            'song_id' => $song->id,
-            'quality' => '320kbps',
+            'downloadable_type' => Song::class,
+            'downloadable_id' => $song->id,
+            'quality' => $quality,
+            'format' => $quality === 'flac' ? 'flac' : 'mp3',
             'file_size_bytes' => $song->file_size_bytes,
             'downloaded_at' => now(),
-            'expires_at' => $song->is_free ? null : now()->addDays(30),
+            'ip_address' => request()->ip(),
         ]);
 
         // Increment download count
@@ -243,7 +251,7 @@ class SongService
 
         return [
             'download_url' => $song->getDownloadUrlAttribute(),
-            'expires_at' => $download->expires_at,
+            'expires_at' => now()->addMinutes(15)->toIso8601String(),
             'message' => 'Download initiated successfully',
         ];
     }
@@ -517,8 +525,9 @@ class SongService
 
         // Get user's downloads
         $downloadedSongs = Download::where('user_id', $user->id)
-            ->whereIn('song_id', $songIds)
-            ->pluck('song_id')
+            ->where('downloadable_type', Song::class)
+            ->whereIn('downloadable_id', $songIds)
+            ->pluck('downloadable_id')
             ->flip();
 
         $songs->each(function ($song) use ($likedSongs, $downloadedSongs) {

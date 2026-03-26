@@ -24,6 +24,7 @@ class EventTicketTierResource extends JsonResource
             'quantity_total' => $this->quantity_total,
             'quantity_sold' => (int) ($this->quantity_sold ?? 0),
             'quantity_reserved' => (int) ($this->quantity_reserved ?? 0),
+            'quantity_external_allocated' => (int) ($this->external_allocated_quantity ?? 0),
             'available' => $available,
             'min_per_order' => (int) ($this->min_per_order ?? 1),
             'max_per_order' => (int) ($this->max_per_order ?? 10),

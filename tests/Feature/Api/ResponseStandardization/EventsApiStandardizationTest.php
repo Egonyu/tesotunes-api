@@ -96,7 +96,7 @@ class EventsApiStandardizationTest extends TestCase
             ->assertHeader('Content-Type', 'application/json')
             ->assertJsonStructure([
                 'data' => [
-                    '*' => ['id', 'title', 'slug', 'status', 'starts_at', 'venue_name', 'city', 'ticketing_mode', 'waitlist_count', 'waitlist_joined', 'links'],
+                    '*' => ['id', 'title', 'slug', 'status', 'starts_at', 'venue_name', 'city', 'ticketing_mode', 'ticketing_summary', 'waitlist_count', 'waitlist_joined', 'links'],
                 ],
                 'meta' => ['current_page', 'last_page', 'per_page', 'total'],
                 'links',
@@ -116,6 +116,7 @@ class EventsApiStandardizationTest extends TestCase
                     'title',
                     'slug',
                     'ticketing_mode',
+                    'ticketing_summary' => ['mode_label', 'tesotunes_checkout_enabled', 'manual_reconciliation_enabled', 'external_allocated'],
                     'waitlist_count',
                     'waitlist_joined',
                     'ticket_tiers' => [
@@ -144,7 +145,7 @@ class EventsApiStandardizationTest extends TestCase
         $response->assertOk()
             ->assertJsonStructure([
                 'data' => [
-                    '*' => ['id', 'title', 'slug', 'status', 'starts_at', 'ticketing_mode', 'waitlist_count', 'waitlist_joined', 'links'],
+                    '*' => ['id', 'title', 'slug', 'status', 'starts_at', 'ticketing_mode', 'ticketing_summary', 'waitlist_count', 'waitlist_joined', 'links'],
                 ],
                 'meta' => ['current_page', 'last_page', 'per_page', 'total'],
                 'links',
@@ -159,6 +160,17 @@ class EventsApiStandardizationTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.ticketing_mode', Event::TICKETING_MODE_HYBRID);
+    }
+
+    public function test_public_event_detail_includes_ticketing_summary_for_hybrid_mode(): void
+    {
+        $response = $this->getJson("/api/events/{$this->event->id}");
+
+        $response->assertOk()
+            ->assertJsonPath('data.ticketing_summary.mode_label', 'Tesotunes + external channels')
+            ->assertJsonPath('data.ticketing_summary.tesotunes_checkout_enabled', true)
+            ->assertJsonPath('data.ticketing_summary.manual_reconciliation_enabled', true)
+            ->assertJsonPath('data.ticketing_summary.tesotunes_sold', 1);
     }
 
     public function test_artist_event_analytics_returns_data_wrapper_without_success_key(): void

@@ -4,6 +4,7 @@ namespace App\Services\Events;
 
 use App\Models\Event;
 use App\Models\EventAttendee;
+use App\Models\EventTicketCase;
 use App\Models\EventPayoutLedgerEntry;
 use App\Models\Payment;
 use Illuminate\Support\Collection;
@@ -121,6 +122,66 @@ class EventPayoutLedgerService
         }
 
         return $this->buildLegacyRowsFromAttendees($event);
+    }
+
+    public function recordSupportCaseAdjustment(EventTicketCase $case, float $approvedRefundAmount = 0): ?EventPayoutLedgerEntry
+    {
+        $case->loadMissing(['event', 'attendee.ticket', 'payment']);
+        $attendee = $case->attendee;
+
+        if (! $attendee) {
+            return null;
+        }
+
+        $existing = EventPayoutLedgerEntry::query()
+            ->where('event_id', $case->event_id)
+            ->whereJsonContains('metadata->support_case_id', $case->id)
+            ->first();
+
+        if ($existing) {
+            return $existing;
+        }
+
+        $feeBreakdown = is_array(data_get($attendee->attendee_metadata, 'line_item_fee_breakdown'))
+            ? data_get($attendee->attendee_metadata, 'line_item_fee_breakdown')
+            : (is_array(data_get($attendee->attendee_metadata, 'fee_breakdown')) ? data_get($attendee->attendee_metadata, 'fee_breakdown') : []);
+
+        $grossRevenue = (float) ($feeBreakdown['discounted_base_amount'] ?? $feeBreakdown['base_amount'] ?? $attendee->price_paid_ugx ?? $attendee->amount_paid ?? 0);
+        $customerPaidTotal = (float) ($approvedRefundAmount > 0 ? $approvedRefundAmount : ($feeBreakdown['total_amount'] ?? $attendee->amount_paid ?? $attendee->price_paid_ugx ?? 0));
+        $tesotunesFeeRevenue = (float) ($feeBreakdown['total_fee_amount'] ?? 0);
+        $platformCommissionAmount = (float) ($feeBreakdown['platform_commission_amount'] ?? 0);
+        $processingFeeAmount = (float) ($feeBreakdown['processing_fee_amount'] ?? 0);
+        $organizerNetAmount = (float) ($feeBreakdown['organizer_net_amount'] ?? max(0, $grossRevenue - $tesotunesFeeRevenue));
+
+        return EventPayoutLedgerEntry::create([
+            'event_id' => $case->event_id,
+            'organizer_id' => $case->event?->organizer_id,
+            'payment_id' => null,
+            'order_id' => data_get($attendee->attendee_metadata, 'order_id') ?? 'support-case-'.$case->id,
+            'payment_reference' => $attendee->payment_reference,
+            'currency' => $case->payment?->currency ?? 'UGX',
+            'ticket_quantity' => -1 * max(1, (int) ($attendee->quantity ?? 1)),
+            'gross_revenue' => -1 * round($grossRevenue, 2),
+            'customer_paid_total' => -1 * round($customerPaidTotal, 2),
+            'tesotunes_fee_revenue' => -1 * round($tesotunesFeeRevenue, 2),
+            'platform_commission_amount' => -1 * round($platformCommissionAmount, 2),
+            'processing_fee_amount' => -1 * round($processingFeeAmount, 2),
+            'organizer_net_amount' => -1 * round($organizerNetAmount, 2),
+            'fee_source' => 'support_case_adjustment',
+            'payout_status' => EventPayoutLedgerEntry::STATUS_FAILED,
+            'attribution_label' => data_get($attendee->attendee_metadata, 'attribution.campaign_code')
+                ?? data_get($attendee->attendee_metadata, 'attribution.utm_campaign')
+                ?? data_get($attendee->attendee_metadata, 'attribution.source'),
+            'attribution' => data_get($attendee->attendee_metadata, 'attribution'),
+            'metadata' => [
+                'support_case_id' => $case->id,
+                'support_case_type' => $case->case_type,
+                'adjustment_reason' => $case->reason,
+                'approved_refund_amount' => round($approvedRefundAmount, 2),
+            ],
+            'occurred_at' => now(),
+            'failed_at' => now(),
+        ]);
     }
 
     private function upsertFromPayment(Payment $payment, string $status, array $overrides = []): ?EventPayoutLedgerEntry

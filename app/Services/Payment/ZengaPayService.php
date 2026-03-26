@@ -298,6 +298,11 @@ class ZengaPayService
                 ])->save();
             }
 
+            $this->observability()->resolveTerminalStateIssues(
+                $payment->fresh(),
+                'A valid webhook was received after the payment had already reached a final state.'
+            );
+
             return ['success' => true, 'message' => 'Payment already finalized'];
         }
 
@@ -322,32 +327,35 @@ class ZengaPayService
             default => $payment->markAsProcessing(),
         };
 
+        $resolvedPayment = $payment->fresh();
         $this->observability()->resolveIssue(
-            $payment->fresh(),
+            $resolvedPayment,
             PaymentIssue::TYPE_INVALID_WEBHOOK_SIGNATURE,
             'Received a valid webhook for this payment.'
         );
-
         $this->observability()->resolveIssue(
-            $payment->fresh(),
+            $resolvedPayment,
             PaymentIssue::TYPE_WEBHOOK_MISSING,
             'Webhook arrived and the payment lifecycle resumed.'
         );
-
         if ($this->isProviderTransactionIdentifier($transactionId)) {
             $this->observability()->resolveIssue(
-                $payment->fresh(),
+                $resolvedPayment,
                 PaymentIssue::TYPE_MISSING_PROVIDER_REFERENCE,
                 'Provider transaction identifier backfilled from webhook.'
             );
         }
+        $this->observability()->resolveTerminalStateIssues(
+            $resolvedPayment,
+            'A valid webhook updated the payment lifecycle.'
+        );
 
-        $this->observability()->recordAudit($payment->fresh(), 'payment_webhook_processed', [
+        $this->observability()->recordAudit($resolvedPayment, 'payment_webhook_processed', [
             'channel' => 'zengapay',
             'transaction_id' => $transactionId,
             'external_reference' => $externalRef,
             'status' => $status,
-            'new_status' => $payment->fresh()->status,
+            'new_status' => $resolvedPayment->status,
         ]);
 
         Log::info('ZengaPay webhook processed', [
@@ -360,7 +368,7 @@ class ZengaPayService
             'success' => true,
             'message' => 'Webhook processed',
             'payment_id' => $payment->id,
-            'new_status' => $payment->fresh()->status,
+            'new_status' => $resolvedPayment->status,
         ];
     }
 
@@ -535,22 +543,126 @@ class ZengaPayService
             $candidates[] = implode('|', array_values($flat));
             $candidates[] = implode('', array_values($flat));
 
-            $selected = array_filter([
-                $flat['data.transactionReference'] ?? $flat['transactionReference'] ?? $flat['data.transactionId'] ?? $flat['transactionId'] ?? null,
-                $flat['data.transactionStatus'] ?? $flat['transactionStatus'] ?? $flat['status'] ?? null,
-                $flat['data.transactionAmount'] ?? $flat['transactionAmount'] ?? $flat['amount'] ?? null,
-                $flat['data.transactionCurrency'] ?? $flat['transactionCurrency'] ?? $flat['currency'] ?? null,
-                $flat['data.transactionExternalReference'] ?? $flat['transactionExternalReference'] ?? $flat['externalReference'] ?? null,
-                $flat['data.customerPhoneNumber'] ?? $flat['customerPhoneNumber'] ?? $flat['phoneNumber'] ?? null,
-            ], fn ($value) => $value !== null && $value !== '');
+            foreach ($this->selectedSignatureFieldSets($flat) as $selected) {
+                if ($selected === []) {
+                    continue;
+                }
 
-            if ($selected !== []) {
                 $candidates[] = implode('', $selected);
                 $candidates[] = implode('|', $selected);
             }
         }
 
         return array_values(array_unique(array_filter($candidates, fn ($candidate) => is_string($candidate) && $candidate !== '')));
+    }
+
+    protected function selectedSignatureFieldSets(array $flat): array
+    {
+        $transactionReference = $flat['data.transactionReference']
+            ?? $flat['transactionReference']
+            ?? $flat['data.transactionId']
+            ?? $flat['transactionId']
+            ?? null;
+
+        $status = $flat['data.transactionStatus']
+            ?? $flat['transactionStatus']
+            ?? $flat['status']
+            ?? null;
+
+        $amount = $flat['data.transactionAmount']
+            ?? $flat['transactionAmount']
+            ?? $flat['amount']
+            ?? null;
+
+        $currency = $flat['data.transactionCurrency']
+            ?? $flat['transactionCurrency']
+            ?? $flat['currency']
+            ?? null;
+
+        $externalReference = $flat['data.transactionExternalReference']
+            ?? $flat['transactionExternalReference']
+            ?? $flat['externalReference']
+            ?? $flat['external_reference']
+            ?? null;
+
+        $phone = $flat['data.customerPhoneNumber']
+            ?? $flat['customerPhoneNumber']
+            ?? $flat['phoneNumber']
+            ?? null;
+
+        $statusVariants = $this->signatureValueVariants($status);
+        $amountVariants = $this->signatureAmountVariants($amount);
+        $currencyVariants = $this->signatureValueVariants($currency);
+
+        $fieldSets = [];
+
+        foreach ($statusVariants as $statusVariant) {
+            foreach ($amountVariants as $amountVariant) {
+                foreach ([
+                    [$transactionReference, $statusVariant, $amountVariant, $currency, $externalReference, $phone],
+                    [$transactionReference, $statusVariant, $amountVariant, $currency, $externalReference],
+                    [$transactionReference, $statusVariant, $amountVariant, $externalReference, $phone],
+                    [$transactionReference, $statusVariant, $amountVariant, $externalReference],
+                ] as $set) {
+                    $fieldSets[] = array_values(array_filter($set, fn ($value) => $value !== null && $value !== ''));
+                }
+
+                foreach ($currencyVariants as $currencyVariant) {
+                    if ($currencyVariant === '') {
+                        continue;
+                    }
+
+                    $fieldSets[] = array_values(array_filter([
+                        $transactionReference,
+                        $statusVariant,
+                        $amountVariant,
+                        $currencyVariant,
+                        $externalReference,
+                    ], fn ($value) => $value !== null && $value !== ''));
+                }
+            }
+        }
+
+        $unique = [];
+
+        foreach (array_filter($fieldSets, fn (array $set) => $set !== []) as $set) {
+            $unique[implode("\0", $set)] = $set;
+        }
+
+        return array_values($unique);
+    }
+
+    protected function signatureValueVariants(?string $value): array
+    {
+        if (! is_string($value) || trim($value) === '') {
+            return [];
+        }
+
+        $trimmed = trim($value);
+
+        return array_values(array_unique([
+            $trimmed,
+            strtolower($trimmed),
+            strtoupper($trimmed),
+        ]));
+    }
+
+    protected function signatureAmountVariants(mixed $value): array
+    {
+        if ($value === null || $value === '') {
+            return [];
+        }
+
+        $amount = trim((string) $value);
+        $variants = [$amount];
+
+        if (is_numeric($amount)) {
+            $numeric = (float) $amount;
+            $variants[] = (string) ((int) $numeric === $numeric ? (int) $numeric : $numeric);
+            $variants[] = number_format($numeric, 2, '.', '');
+        }
+
+        return array_values(array_unique(array_filter($variants, fn ($candidate) => $candidate !== '')));
     }
 
     protected function flattenPayload(array $payload, string $prefix = ''): array
@@ -629,10 +741,29 @@ class ZengaPayService
             $configured[] = $single;
         }
 
-        return array_values(array_unique(array_filter(array_map(
+        $apiSecret = config('services.zengapay.api_secret');
+        if (is_string($apiSecret) && trim($apiSecret) !== '') {
+            $configured[] = $apiSecret;
+        }
+
+        $normalized = array_values(array_unique(array_filter(array_map(
             static fn (mixed $secret) => is_string($secret) ? trim($secret) : '',
             $configured
         ))));
+
+        $variants = [];
+        foreach ($normalized as $secret) {
+            $variants[] = $secret;
+
+            if (preg_match('/^[A-Fa-f0-9]{64}$/', $secret) === 1) {
+                $decoded = hex2bin($secret);
+                if ($decoded !== false) {
+                    $variants[] = $decoded;
+                }
+            }
+        }
+
+        return array_values(array_unique(array_filter($variants, fn ($secret) => is_string($secret) && $secret !== '')));
     }
 
     protected function isProviderTransactionIdentifier(?string $candidate): bool

@@ -83,6 +83,11 @@ class EventTicket extends Model
             ->whereNotIn('status', [EventAttendee::STATUS_CANCELLED, EventAttendee::STATUS_NO_SHOW]);
     }
 
+    public function channelAllocations(): HasMany
+    {
+        return $this->hasMany(EventTicketChannelAllocation::class, 'ticket_id');
+    }
+
     // Scopes
     public function scopeActive(Builder $query): Builder
     {
@@ -129,12 +134,26 @@ class EventTicket extends Model
     public function getQuantityAvailableAttribute()
     {
         $reserved = (int) ($this->quantity_reserved ?? 0);
+        $externalAllocated = $this->getExternalAllocatedQuantityAttribute();
 
         if ($this->quantity_total === null) {
             return null; // Unlimited
         }
 
-        return max(0, $this->quantity_total - $this->quantity_sold - $reserved);
+        return max(0, $this->quantity_total - $this->quantity_sold - $reserved - $externalAllocated);
+    }
+
+    public function getExternalAllocatedQuantityAttribute(): int
+    {
+        if ($this->relationLoaded('channelAllocations')) {
+            return (int) $this->channelAllocations
+                ->whereNull('released_at')
+                ->sum('quantity');
+        }
+
+        return (int) $this->channelAllocations()
+            ->active()
+            ->sum('quantity');
     }
 
     public function getTicketTypeAttribute(): string
@@ -212,6 +231,16 @@ class EventTicket extends Model
     {
         $this->increment('quantity_sold', $quantity);
         $this->decrement('quantity_reserved', $quantity);
+    }
+
+    public function reverseSale(int $quantity): void
+    {
+        $currentSold = (int) ($this->quantity_sold ?? 0);
+        $nextSold = max(0, $currentSold - max(0, $quantity));
+
+        $this->forceFill([
+            'quantity_sold' => $nextSold,
+        ])->save();
     }
 
     public function getFormattedPriceAttribute(): string

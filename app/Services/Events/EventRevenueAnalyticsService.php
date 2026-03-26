@@ -4,6 +4,8 @@ namespace App\Services\Events;
 
 use App\Models\Event;
 use App\Models\EventAttendee;
+use App\Models\EventFunnelTouchpoint;
+use App\Models\EventTicketCase;
 use Illuminate\Support\Collection;
 
 class EventRevenueAnalyticsService
@@ -19,11 +21,19 @@ class EventRevenueAnalyticsService
         }
 
         if (! $event->relationLoaded('tickets')) {
-            $event->load('tickets');
+            $event->load('tickets.channelAllocations');
         }
 
         if (! $event->relationLoaded('interestedUsers')) {
             $event->load('interestedUsers');
+        }
+
+        if (! $event->relationLoaded('funnelTouchpoints')) {
+            $event->load('funnelTouchpoints');
+        }
+
+        if (! $event->relationLoaded('ticketCases')) {
+            $event->load('ticketCases');
         }
 
         $confirmedAttendees = $event->attendees
@@ -32,10 +42,12 @@ class EventRevenueAnalyticsService
 
         $orderFinancials = $this->summarizeOrders($confirmedAttendees);
         $marketingSummary = $this->buildMarketingSummary($confirmedAttendees);
+        $funnelSummary = $this->buildFunnelSummary($event, $confirmedAttendees);
         $salesChannels = $this->buildSalesChannelSummary($event, $confirmedAttendees);
         $roiSummary = $this->buildRoiSummary($event, $marketingSummary);
         $payoutSummary = $this->eventPayoutLedgerService->summarizeForEvent($event, $orderFinancials);
         $tierBreakdown = $this->buildTierBreakdown($event, $confirmedAttendees);
+        $inventoryAllocations = $this->buildInventoryAllocationSummary($event);
         $dateBreakdown = $this->buildDateBreakdown($confirmedAttendees);
         $ticketsSold = (int) $event->tickets->sum('quantity_sold');
         $interestedCount = (int) $event->interestedUsers->count();
@@ -65,9 +77,12 @@ class EventRevenueAnalyticsService
             ],
             'payouts' => $payoutSummary,
             'marketing' => $marketingSummary,
+            'funnel' => $funnelSummary,
             'sales_channels' => $salesChannels,
             'roi' => $roiSummary,
+            'inventory_allocations' => $inventoryAllocations,
             'settlements' => $this->buildSettlementSummary($event, $tierBreakdown, $marketingSummary, $payoutSummary),
+            'support_cases' => $this->buildSupportCaseSummary($event),
             'conversion_rate' => $interestedCount > 0 ? round(($ticketsSold / $interestedCount) * 100, 2) : 0.0,
             'sell_through_rate' => $totalInventory > 0
                 ? round(($ticketsSold / max(1, $totalInventory)) * 100, 2)
@@ -152,6 +167,7 @@ class EventRevenueAnalyticsService
                 'estimated_organizer_payout' => $tierFinancials['estimated_organizer_payout'],
                 'tesotunes_fee_revenue' => $tierFinancials['tesotunes_fee_revenue'],
                 'available' => (int) ($ticket->quantity_available ?? 0),
+                'external_allocated' => (int) ($ticket->external_allocated_quantity ?? 0),
             ];
         })->values();
     }
@@ -281,6 +297,26 @@ class EventRevenueAnalyticsService
                 ->sortByDesc('gross_revenue')
                 ->values()
                 ->all(),
+        ];
+    }
+
+    private function buildInventoryAllocationSummary(Event $event): array
+    {
+        $byTier = $event->tickets->map(function ($ticket) {
+            return [
+                'id' => $ticket->id,
+                'name' => $ticket->name,
+                'quantity_total' => $ticket->quantity_total,
+                'quantity_sold' => (int) ($ticket->quantity_sold ?? 0),
+                'quantity_reserved' => (int) ($ticket->quantity_reserved ?? 0),
+                'quantity_external_allocated' => (int) ($ticket->external_allocated_quantity ?? 0),
+                'available' => (int) ($ticket->quantity_available ?? 0),
+            ];
+        })->values();
+
+        return [
+            'external_allocated_total' => (int) $byTier->sum('quantity_external_allocated'),
+            'by_tier' => $byTier->all(),
         ];
     }
 
@@ -430,6 +466,100 @@ class EventRevenueAnalyticsService
         ];
     }
 
+    private function buildSupportCaseSummary(Event $event): array
+    {
+        $cases = $event->ticketCases instanceof Collection
+            ? $event->ticketCases
+            : collect();
+
+        return [
+            'open' => (int) $cases->where('status', EventTicketCase::STATUS_OPEN)->count(),
+            'approved' => (int) $cases->where('status', EventTicketCase::STATUS_APPROVED)->count(),
+            'rejected' => (int) $cases->where('status', EventTicketCase::STATUS_REJECTED)->count(),
+            'refund_requests' => (int) $cases->where('case_type', EventTicketCase::TYPE_REFUND_REQUEST)->count(),
+            'payment_disputes' => (int) $cases->where('case_type', EventTicketCase::TYPE_PAYMENT_DISPUTE)->count(),
+            'open_payment_disputes' => (int) $cases
+                ->where('case_type', EventTicketCase::TYPE_PAYMENT_DISPUTE)
+                ->where('status', EventTicketCase::STATUS_OPEN)
+                ->count(),
+            'chargeback_review_cases' => (int) $cases
+                ->where('case_type', EventTicketCase::TYPE_PAYMENT_DISPUTE)
+                ->where('escalation_status', EventTicketCase::ESCALATION_REVIEW)
+                ->count(),
+            'chargeback_exposure_amount' => round((float) $cases
+                ->where('case_type', EventTicketCase::TYPE_PAYMENT_DISPUTE)
+                ->whereIn('status', [EventTicketCase::STATUS_OPEN, EventTicketCase::STATUS_APPROVED])
+                ->sum('requested_refund_amount'), 2),
+            'approved_refund_amount' => round((float) $cases->where('status', EventTicketCase::STATUS_APPROVED)->sum('approved_refund_amount'), 2),
+        ];
+    }
+
+    private function buildFunnelSummary(Event $event, Collection $confirmedAttendees): array
+    {
+        $rows = [];
+
+        foreach ($event->funnelTouchpoints as $touchpoint) {
+            $label = $touchpoint->source_label ?: 'direct-native';
+            $rows[$label] ??= $this->makeFunnelBucket($label, [
+                'channel' => $touchpoint->channel,
+                'campaign_code' => $touchpoint->campaign_code,
+                'referral_code' => $touchpoint->referral_code,
+            ]);
+
+            if ($touchpoint->stage === EventFunnelTouchpoint::STAGE_VISIT) {
+                $rows[$label]['visits']++;
+            }
+
+            if ($touchpoint->stage === EventFunnelTouchpoint::STAGE_CHECKOUT_START) {
+                $rows[$label]['checkout_starts']++;
+            }
+        }
+
+        foreach ($this->groupAttendeesByOrder($confirmedAttendees) as $orderAttendees) {
+            /** @var EventAttendee $primaryAttendee */
+            $primaryAttendee = $orderAttendees->first();
+            $metadata = $primaryAttendee->attendee_metadata ?? [];
+            $attribution = is_array($metadata['attribution'] ?? null) ? $metadata['attribution'] : [];
+            $label = $this->resolveAttributionLabel($attribution) ?: 'direct-native';
+
+            $rows[$label] ??= $this->makeFunnelBucket($label, [
+                'channel' => $attribution['channel'] ?? null,
+                'campaign_code' => $attribution['campaign_code'] ?? ($attribution['utm_campaign'] ?? null),
+                'referral_code' => $attribution['referral_code'] ?? ($attribution['promoter_code'] ?? null),
+            ]);
+
+            $rows[$label]['paid_orders']++;
+            $rows[$label]['tickets_sold'] += (int) $orderAttendees->sum(fn (EventAttendee $attendee) => $attendee->quantity ?? 1);
+        }
+
+        $bySource = collect($rows)
+            ->map(function (array $row) {
+                $row['visit_to_checkout_rate'] = $row['visits'] > 0
+                    ? round(($row['checkout_starts'] / $row['visits']) * 100, 2)
+                    : 0.0;
+                $row['checkout_to_order_rate'] = $row['checkout_starts'] > 0
+                    ? round(($row['paid_orders'] / $row['checkout_starts']) * 100, 2)
+                    : 0.0;
+                $row['visit_to_order_rate'] = $row['visits'] > 0
+                    ? round(($row['paid_orders'] / $row['visits']) * 100, 2)
+                    : 0.0;
+
+                return $row;
+            })
+            ->sortByDesc(fn (array $row) => $row['paid_orders'] > 0 ? $row['paid_orders'] : $row['visits'])
+            ->values();
+
+        return [
+            'totals' => [
+                'visits' => (int) $bySource->sum('visits'),
+                'checkout_starts' => (int) $bySource->sum('checkout_starts'),
+                'paid_orders' => (int) $bySource->sum('paid_orders'),
+                'tickets_sold' => (int) $bySource->sum('tickets_sold'),
+            ],
+            'by_source' => $bySource->all(),
+        ];
+    }
+
     private function resolveAttributionLabel(array $attribution): ?string
     {
         foreach ([
@@ -473,6 +603,23 @@ class EventRevenueAnalyticsService
             'estimated_organizer_payout' => 0.0,
             'tesotunes_fee_revenue' => 0.0,
             'order_share_percent' => 0.0,
+        ];
+    }
+
+    private function makeFunnelBucket(string $label, array $meta = []): array
+    {
+        return [
+            'label' => $label,
+            'channel' => $meta['channel'] ?? null,
+            'campaign_code' => $meta['campaign_code'] ?? null,
+            'referral_code' => $meta['referral_code'] ?? null,
+            'visits' => 0,
+            'checkout_starts' => 0,
+            'paid_orders' => 0,
+            'tickets_sold' => 0,
+            'visit_to_checkout_rate' => 0.0,
+            'checkout_to_order_rate' => 0.0,
+            'visit_to_order_rate' => 0.0,
         ];
     }
 

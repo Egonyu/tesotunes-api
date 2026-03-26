@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Support\Facades\Schema;
 
 class Permission extends Model
 {
@@ -32,7 +33,11 @@ class Permission extends Model
     // Scopes
     public function scopeActive($query)
     {
-        return $query->where('is_active', true);
+        if (Schema::hasColumn($this->getTable(), 'is_active')) {
+            return $query->where('is_active', true);
+        }
+
+        return $query;
     }
 
     public function scopeByCategory($query, string $category)

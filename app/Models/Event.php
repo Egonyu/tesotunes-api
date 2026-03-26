@@ -163,6 +163,12 @@ class Event extends Model
         return $this->hasMany(EventTicket::class);
     }
 
+    public function externalAllocations(): HasMany
+    {
+        return $this->hasMany(EventTicketChannelAllocation::class)
+            ->where('channel', EventTicketChannelAllocation::CHANNEL_EXTERNAL);
+    }
+
     public function attendees(): HasMany
     {
         return $this->hasMany(EventAttendee::class);
@@ -176,6 +182,21 @@ class Event extends Model
     public function payoutLedgerEntries(): HasMany
     {
         return $this->hasMany(EventPayoutLedgerEntry::class);
+    }
+
+    public function funnelTouchpoints(): HasMany
+    {
+        return $this->hasMany(EventFunnelTouchpoint::class);
+    }
+
+    public function ticketCases(): HasMany
+    {
+        return $this->hasMany(EventTicketCase::class);
+    }
+
+    public function promotionRequests(): HasMany
+    {
+        return $this->hasMany(EventPromotionRequest::class)->latest('requested_at');
     }
 
     public function waitlistEntries(): HasMany

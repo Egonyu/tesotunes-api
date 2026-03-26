@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\EventResource;
 use App\Models\Event;
+use App\Models\EventFunnelTouchpoint;
 use App\Models\EventWaitlistEntry;
 use Illuminate\Http\Request;
 
@@ -136,5 +137,85 @@ class PublicEventsController extends Controller
                 'entry_id' => $entry->id,
             ],
         ], 201);
+    }
+
+    public function trackFunnelTouch(Request $request, int $id)
+    {
+        $event = Event::query()
+            ->where('status', 'published')
+            ->findOrFail($id);
+
+        $validated = $request->validate([
+            'stage' => 'required|in:visit,checkout_start',
+            'session_key' => 'required|string|max:120',
+            'source' => 'nullable|string|max:120',
+            'channel' => 'nullable|string|max:120',
+            'campaign_code' => 'nullable|string|max:160',
+            'referral_code' => 'nullable|string|max:160',
+            'promoter_code' => 'nullable|string|max:160',
+            'utm_source' => 'nullable|string|max:120',
+            'utm_medium' => 'nullable|string|max:120',
+            'utm_campaign' => 'nullable|string|max:160',
+            'landing_page' => 'nullable|string|max:255',
+        ]);
+
+        $sourceLabel = $this->resolveFunnelSourceLabel($validated);
+
+        $touchpoint = EventFunnelTouchpoint::firstOrCreate(
+            [
+                'event_id' => $event->id,
+                'stage' => $validated['stage'],
+                'session_key' => $validated['session_key'],
+                'source_label' => $sourceLabel,
+                'touch_date' => now()->toDateString(),
+            ],
+            [
+                'source' => $validated['source'] ?? ($validated['utm_source'] ?? null),
+                'channel' => $validated['channel'] ?? ($validated['utm_medium'] ?? null),
+                'campaign_code' => $validated['campaign_code'] ?? ($validated['utm_campaign'] ?? null),
+                'referral_code' => $validated['referral_code'] ?? null,
+                'promoter_code' => $validated['promoter_code'] ?? null,
+                'landing_page' => $validated['landing_page'] ?? null,
+                'occurred_at' => now(),
+                'metadata' => [
+                    'utm_source' => $validated['utm_source'] ?? null,
+                    'utm_medium' => $validated['utm_medium'] ?? null,
+                    'utm_campaign' => $validated['utm_campaign'] ?? null,
+                    'ip' => $request->ip(),
+                    'user_agent' => substr((string) $request->userAgent(), 0, 255),
+                ],
+            ]
+        );
+
+        return response()->json([
+            'message' => 'Event funnel touch recorded.',
+            'data' => [
+                'id' => $touchpoint->id,
+                'event_id' => $event->id,
+                'stage' => $touchpoint->stage,
+                'source_label' => $touchpoint->source_label,
+            ],
+        ], 201);
+    }
+
+    private function resolveFunnelSourceLabel(array $payload): string
+    {
+        foreach ([
+            'campaign_code',
+            'promoter_code',
+            'referral_code',
+            'utm_campaign',
+            'utm_source',
+            'source',
+            'channel',
+            'utm_medium',
+        ] as $key) {
+            $value = $payload[$key] ?? null;
+            if (is_string($value) && trim($value) !== '') {
+                return trim($value);
+            }
+        }
+
+        return 'direct-native';
     }
 }

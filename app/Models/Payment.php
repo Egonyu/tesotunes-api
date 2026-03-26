@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Settings\ArtistSettingsService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -625,6 +626,83 @@ class Payment extends Model
                 'ledger_settled_at' => now()->toIso8601String(),
                 'credits_settled' => $creditsAmount,
             ]);
+
+            return;
+        }
+
+        if ($this->payment_type === 'purchase') {
+            $songId = (int) ($this->song_id
+                ?? data_get($this->metadata, 'song_id')
+                ?? ($this->payable_type === Song::class ? $this->payable_id : 0));
+
+            if ($songId <= 0) {
+                return;
+            }
+
+            $song = Song::query()->find($songId);
+
+            if (! $song) {
+                return;
+            }
+
+            $existingPurchase = SongPurchase::query()
+                ->where('user_id', $this->user_id)
+                ->where('song_id', $song->id)
+                ->first();
+
+            $purchase = $existingPurchase;
+
+            if (! $purchase) {
+                $purchase = SongPurchase::create([
+                    'user_id' => $this->user_id,
+                    'song_id' => $song->id,
+                    'amount_paid' => (float) $this->amount,
+                    'currency' => $this->currency ?: ($song->currency ?? 'UGX'),
+                    'payment_method' => $this->payment_method ?: 'zengapay',
+                    'transaction_id' => $this->transaction_id ?: self::generateTransactionId(),
+                    'purchased_at' => now(),
+                ]);
+            }
+
+            $paymentData = $this->payment_data ?? [];
+            if (empty($paymentData['purchase_revenue_recorded_at'])) {
+                $artistSharePct = (float) data_get($this->metadata, 'distribution.artist_percentage', -1);
+                if ($artistSharePct < 0 || $artistSharePct > 100) {
+                    $artistSharePct = max(0, min(100, (float) app(ArtistSettingsService::class)->getRevenueShare()));
+                }
+
+                $platformSharePct = 100 - $artistSharePct;
+                $artistAmount = round((float) $this->amount * ($artistSharePct / 100), 2);
+                $platformAmount = round((float) $this->amount - $artistAmount, 2);
+
+                ArtistRevenue::create([
+                    'uuid' => (string) Str::uuid(),
+                    'artist_id' => $song->artist_id,
+                    'revenue_type' => ArtistRevenue::TYPE_DOWNLOAD,
+                    'sourceable_type' => Song::class,
+                    'sourceable_id' => $song->id,
+                    'song_id' => $song->id,
+                    'amount_ugx' => (float) $this->amount,
+                    'amount_usd' => 0,
+                    'platform_fee' => $platformAmount,
+                    'net_amount' => $artistAmount,
+                    'revenue_date' => now()->toDateString(),
+                    'status' => ArtistRevenue::STATUS_CONFIRMED,
+                    'notes' => 'Song purchase revenue split '.$artistSharePct.'/'.$platformSharePct.' payment#'.$this->id,
+                ]);
+
+                if ($song->artist && empty($paymentData['artist_wallet_credited_at'])) {
+                    $song->artist->increment('earnings_balance', $artistAmount);
+                    $song->artist->increment('total_revenue', $artistAmount);
+                }
+
+                $this->stampPaymentData([
+                    'purchase_revenue_recorded_at' => now()->toIso8601String(),
+                    'artist_wallet_credited_at' => now()->toIso8601String(),
+                    'song_purchase_id' => $purchase->id,
+                    'ledger_settled_at' => now()->toIso8601String(),
+                ]);
+            }
         }
     }
 

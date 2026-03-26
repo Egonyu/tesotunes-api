@@ -854,19 +854,8 @@ class PaymentController extends Controller
             $payment->refresh();
 
             if (in_array($payment->status, [Payment::STATUS_COMPLETED, Payment::STATUS_FAILED, Payment::STATUS_CANCELLED, Payment::STATUS_REFUNDED], true)) {
-                $this->observability()->resolveIssue(
+                $this->observability()->resolveTerminalStateIssues(
                     $payment,
-                    PaymentIssue::TYPE_PROVIDER_ERROR,
-                    'Provider polling completed and the payment moved to a final state.'
-                );
-                $this->observability()->resolveIssue(
-                    $payment,
-                    PaymentIssue::TYPE_WEBHOOK_MISSING,
-                    'Status polling finalized the payment.'
-                );
-                $this->observability()->resolveIssue(
-                    $payment,
-                    PaymentIssue::TYPE_STUCK_PROCESSING,
                     'Status polling finalized the payment.'
                 );
             }

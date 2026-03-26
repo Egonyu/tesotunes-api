@@ -366,18 +366,16 @@ class PaymentReconciliationService
                             'external_transaction_id' => $transactionId,
                             'payment_data' => ['reconciled' => true],
                         ]);
-                        app(PaymentObservabilityService::class)->resolveIssue(
+                        app(PaymentObservabilityService::class)->resolveTerminalStateIssues(
                             $payment->fresh(),
-                            PaymentIssue::TYPE_STUCK_PROCESSING,
-                            'Provider confirmed the payment as completed during scheduled reconciliation.'
+                            'Provider confirmed the payment during scheduled reconciliation.'
                         );
                         $results['resolved']++;
                     })(),
                     'failed', 'cancelled' => (function () use ($payment, &$results) {
                         $payment->markAsCancelled();
-                        app(PaymentObservabilityService::class)->resolveIssue(
+                        app(PaymentObservabilityService::class)->resolveTerminalStateIssues(
                             $payment->fresh(),
-                            PaymentIssue::TYPE_STUCK_PROCESSING,
                             'Provider confirmed the payment as failed/cancelled during scheduled reconciliation.'
                         );
                         $results['failed']++;

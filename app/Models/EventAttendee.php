@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EventAttendee extends Model
 {
@@ -112,6 +113,11 @@ class EventAttendee extends Model
     public function eventTicket(): BelongsTo
     {
         return $this->belongsTo(EventTicket::class, 'ticket_id');
+    }
+
+    public function ticketCases(): HasMany
+    {
+        return $this->hasMany(EventTicketCase::class, 'event_attendee_id');
     }
 
     public function getTicketNumberAttribute(): string

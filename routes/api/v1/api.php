@@ -29,6 +29,10 @@ Route::get('/stream/{songId}', [App\Http\Controllers\Api\MusicController::class,
     ->middleware(['api.rate_limit:30:1'])
     ->name('stream.file');
 
+// Public purchase visibility (returns purchased=false for guests)
+Route::get('/songs/{song}/purchase-status', [App\Http\Controllers\Api\Music\SongController::class, 'purchaseStatus'])
+    ->name('api.songs.purchase-status');
+
 // Player API routes with optional authentication and stricter rate limiting
 // Guests can use player, but play tracking requires authentication
 Route::prefix('player')->middleware(['api.rate_limit:20:1'])->group(function () {
@@ -97,6 +101,10 @@ Route::middleware(['auth:sanctum', 'api.rate_limit:60:1'])->group(function () {
         ->name('api.songs.play');
     Route::post('/songs/{song}/download', [App\Http\Controllers\Api\Music\SongController::class, 'download'])
         ->name('api.songs.download');
+    Route::post('/songs/{song}/purchase', [App\Http\Controllers\Api\Music\SongController::class, 'purchase'])
+        ->name('api.songs.purchase');
+    Route::get('/songs/{song}/purchase/payment-status/{reference}', [App\Http\Controllers\Api\Music\SongController::class, 'purchasePaymentStatus'])
+        ->name('api.songs.purchase.payment-status');
 
     // Track interactions (aliases for songs)
     Route::post('/tracks/{song}/like', [App\Http\Controllers\Api\Music\SongController::class, 'like'])

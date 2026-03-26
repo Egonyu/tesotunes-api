@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Setting;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -47,6 +48,7 @@ class SettingsController extends Controller
                 'notifications' => 'sometimes|array',
                 'security' => 'sometimes|array',
                 'payments' => 'sometimes|array',
+                'payments.artist_revenue_share' => 'sometimes|numeric|min:0|max:100',
                 'email' => 'sometimes|array',
                 'storage' => 'sometimes|array',
             ]);
@@ -163,6 +165,10 @@ class SettingsController extends Controller
             'zengapay_enabled' => (bool) Cache::get('settings.payments.zengapay_enabled', false),
             'zengapay_merchant_id' => Cache::get('settings.payments.zengapay_merchant_id') ?: '',
             'zengapay_api_key' => Cache::get('settings.payments.zengapay_api_key') ?: '',
+            'artist_revenue_share' => (float) Setting::get(
+                'artist_revenue_share',
+                (float) Cache::get('settings.payments.artist_revenue_share', 70)
+            ),
         ];
     }
 
@@ -222,6 +228,21 @@ class SettingsController extends Controller
     private function updatePaymentSettings(array $data)
     {
         foreach ($data as $key => $value) {
+            if ($key === 'artist_revenue_share') {
+                $normalizedValue = max(0, min(100, (float) $value));
+
+                Setting::set(
+                    'artist_revenue_share',
+                    (string) $normalizedValue,
+                    Setting::TYPE_STRING,
+                    Setting::GROUP_ARTISTS
+                );
+
+                Cache::put("settings.payments.{$key}", $normalizedValue, now()->addYears(1));
+
+                continue;
+            }
+
             Cache::put("settings.payments.{$key}", $value, now()->addYears(1));
         }
     }

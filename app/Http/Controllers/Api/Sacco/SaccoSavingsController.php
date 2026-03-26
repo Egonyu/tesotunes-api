@@ -116,7 +116,7 @@ class SaccoSavingsController extends Controller
             'description' => 'nullable|string|max:500',
             'reference_number' => 'nullable|string|max:100',
             'phone_number' => 'nullable|string|max:20',
-            'payment_method' => 'nullable|string|in:wallet,mtn_momo,airtel_money',
+            'payment_method' => 'nullable|string|in:wallet,zengapay',
         ]);
 
         $account = isset($validated['account_id'])
@@ -175,7 +175,7 @@ class SaccoSavingsController extends Controller
             'amount' => 'required|numeric|min:1',
             'description' => 'nullable|string|max:500',
             'reference_number' => 'nullable|string|max:100',
-            'payment_method' => 'nullable|string|in:wallet',
+            'payment_method' => 'nullable|string|in:wallet,zengapay',
         ]);
 
         $account = isset($validated['account_id'])
@@ -195,7 +195,7 @@ class SaccoSavingsController extends Controller
             $account->decrement('balance_ugx', $validated['amount']);
             $account->member()->decrement('total_savings', $validated['amount']);
 
-            if (($validated['payment_method'] ?? 'wallet') === 'wallet') {
+            if (in_array(($validated['payment_method'] ?? 'wallet'), ['wallet', 'zengapay'], true)) {
                 $request->user()->increment('ugx_balance', $validated['amount']);
             }
 

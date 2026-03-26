@@ -59,6 +59,7 @@ Route::prefix('events')->name('api.events.')->group(function () {
     Route::get('/upcoming', [\App\Http\Controllers\Api\PublicEventsController::class, 'upcoming'])->name('upcoming');
     Route::get('/categories', [\App\Http\Controllers\Api\PublicEventsController::class, 'categories'])->name('categories');
     Route::get('/{id}', [\App\Http\Controllers\Api\PublicEventsController::class, 'show'])->name('show');
+    Route::post('/{id}/funnel-touch', [\App\Http\Controllers\Api\PublicEventsController::class, 'trackFunnelTouch'])->name('funnel-touch');
 });
 
 Route::middleware('auth:sanctum')->post('/events/{id}/waitlist', [\App\Http\Controllers\Api\PublicEventsController::class, 'joinWaitlist'])
@@ -77,6 +78,8 @@ Route::middleware('auth:sanctum')->prefix('tickets')->name('api.tickets.account.
     Route::get('/my', [\App\Http\Controllers\Api\TicketController::class, 'myTickets'])->name('my');
     Route::post('/{id}/resend', [\App\Http\Controllers\Api\TicketController::class, 'resend'])->name('resend');
     Route::post('/{id}/transfer', [\App\Http\Controllers\Api\TicketController::class, 'transfer'])->name('transfer');
+    Route::get('/{id}/cases', [\App\Http\Controllers\Api\TicketController::class, 'cases'])->name('cases.index');
+    Route::post('/{id}/cases', [\App\Http\Controllers\Api\TicketController::class, 'requestCase'])->name('cases.store');
     Route::get('/validate/{ticketNumber}', [\App\Http\Controllers\Api\TicketController::class, 'validateTicket'])->name('validate');
     Route::post('/check-in', [\App\Http\Controllers\Api\TicketController::class, 'checkIn'])->name('check-in');
     Route::get('/{id}', [\App\Http\Controllers\Api\TicketController::class, 'show'])->name('show');
@@ -92,6 +95,7 @@ Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('ar
     Route::delete('/{id}', [\App\Http\Controllers\Api\ArtistEventsController::class, 'destroy'])->name('destroy');
     Route::get('/{id}/analytics', [\App\Http\Controllers\Api\ArtistEventsController::class, 'analytics'])->name('analytics');
     Route::get('/{id}/analytics/export', [\App\Http\Controllers\Api\ArtistEventsController::class, 'exportAnalytics'])->name('analytics.export');
+    Route::post('/{id}/promotion-requests', [\App\Http\Controllers\Api\ArtistEventsController::class, 'storePromotionRequest'])->name('promotion-requests.store');
     Route::post('/{id}/discount-codes', [\App\Http\Controllers\Api\ArtistEventsController::class, 'storeDiscountCode'])->name('discount-codes.store');
     Route::delete('/{id}/discount-codes/{discountId}', [\App\Http\Controllers\Api\ArtistEventsController::class, 'deleteDiscountCode'])->name('discount-codes.destroy');
     Route::post('/{id}/staff', [\App\Http\Controllers\Api\ArtistEventsController::class, 'addStaff'])->name('staff.store');
@@ -101,6 +105,16 @@ Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('ar
 Route::middleware(['auth:sanctum', 'event.ops.role'])->prefix('artist/events')->name('api.artist.events.ops.')->group(function () {
     Route::get('/{id}/check-in/lookup', [\App\Http\Controllers\Api\ArtistEventsController::class, 'checkInLookup'])->name('checkin.lookup');
     Route::post('/{id}/check-in', [\App\Http\Controllers\Api\ArtistEventsController::class, 'checkInAttendee'])->name('checkin.store');
+    Route::get('/{id}/ticket-cases', [\App\Http\Controllers\Api\ArtistEventsController::class, 'ticketCases'])->name('ticket-cases.index');
+    Route::post('/{id}/ticket-cases/{caseId}/resolve', [\App\Http\Controllers\Api\ArtistEventsController::class, 'resolveTicketCase'])->name('ticket-cases.resolve');
+    Route::get('/{id}/offline-sales', [\App\Http\Controllers\Api\ArtistEventsController::class, 'offlineSales'])->name('offline-sales.index');
+    Route::post('/{id}/offline-sales', [\App\Http\Controllers\Api\ArtistEventsController::class, 'storeOfflineSale'])->name('offline-sales.store');
+    Route::post('/{id}/printed-ticket-imports', [\App\Http\Controllers\Api\ArtistEventsController::class, 'storePrintedTicketImport'])->name('printed-ticket-imports.store');
+    Route::post('/{id}/printed-ticket-imports/{orderId}/sync', [\App\Http\Controllers\Api\ArtistEventsController::class, 'syncPrintedTicketImport'])->name('printed-ticket-imports.sync');
+    Route::post('/{id}/offline-sales/{orderId}/void', [\App\Http\Controllers\Api\ArtistEventsController::class, 'voidOfflineSale'])->name('offline-sales.void');
+    Route::get('/{id}/external-allocations', [\App\Http\Controllers\Api\ArtistEventsController::class, 'externalAllocations'])->name('external-allocations.index');
+    Route::post('/{id}/external-allocations', [\App\Http\Controllers\Api\ArtistEventsController::class, 'storeExternalAllocation'])->name('external-allocations.store');
+    Route::post('/{id}/external-allocations/{allocationId}/release', [\App\Http\Controllers\Api\ArtistEventsController::class, 'releaseExternalAllocation'])->name('external-allocations.release');
 });
 
 // ============================================================================
@@ -441,6 +455,14 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::get('/events/{id}/attendees', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'attendees'])->name('events.attendees');
     Route::get('/events/{id}/registrations', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'registrations'])->name('events.registrations');
 
+    // Promotions moderation
+    Route::get('/promotions', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'index'])->name('promotions.index');
+    Route::get('/promotions/analytics', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'analytics'])->name('promotions.analytics');
+    Route::get('/promotions/disputes', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'disputes'])->name('promotions.disputes');
+    Route::post('/promotions/{promotion}/approve', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'approve'])->name('promotions.approve');
+    Route::post('/promotions/{promotion}/reject', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'reject'])->name('promotions.reject');
+    Route::post('/promotions/disputes/{disputeId}/resolve', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'resolveDispute'])->name('promotions.disputes.resolve');
+
     // Campaigns API
     Route::get('/campaigns/stats', [\App\Http\Controllers\Api\Admin\CampaignsApiController::class, 'stats'])->name('campaigns.stats');
     Route::get('/campaigns', [\App\Http\Controllers\Api\Admin\CampaignsApiController::class, 'index'])->name('campaigns.index');
@@ -553,9 +575,11 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
 
     // Roles & Permissions API
     Route::get('/roles', [\App\Http\Controllers\Api\Admin\RoleController::class, 'index'])->name('roles.index');
+    Route::get('/permissions', [\App\Http\Controllers\Api\Admin\RoleController::class, 'permissions'])->name('permissions.index');
     Route::get('/roles/permissions', [\App\Http\Controllers\Api\Admin\RoleController::class, 'permissions'])->name('roles.permissions');
     Route::get('/roles/{role}', [\App\Http\Controllers\Api\Admin\RoleController::class, 'show'])->name('roles.show');
     Route::post('/roles', [\App\Http\Controllers\Api\Admin\RoleController::class, 'store'])->name('roles.store');
+    Route::put('/roles/{role}/permissions', [\App\Http\Controllers\Api\Admin\RoleController::class, 'updatePermissions'])->name('roles.update-permissions');
     Route::put('/roles/{role}', [\App\Http\Controllers\Api\Admin\RoleController::class, 'update'])->name('roles.update');
     Route::delete('/roles/{role}', [\App\Http\Controllers\Api\Admin\RoleController::class, 'destroy'])->name('roles.destroy');
     Route::post('/roles/assign', [\App\Http\Controllers\Api\Admin\RoleController::class, 'assignToUser'])->name('roles.assign');

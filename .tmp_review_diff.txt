@@ -1,0 +1,242 @@
+diff --git a/app/Notifications/SecurityAlertNotification.php b/app/Notifications/SecurityAlertNotification.php
+index 67f1f1d..f9d3480 100644
+--- a/app/Notifications/SecurityAlertNotification.php
++++ b/app/Notifications/SecurityAlertNotification.php
+@@ -43,44 +43,120 @@ public function toMail(object $notifiable): MailMessage
+         $userAgent = $this->metadata['user_agent'] ?? 'Unknown device';
+         $time = $this->metadata['time'] ?? now()->format('M d, Y H:i');
+         $location = $this->metadata['location'] ?? 'Unknown location';
++        $displayName = trim((string) ($notifiable->display_name ?? $notifiable->name ?? ''));
++        if ($displayName === '') {
++            $displayName = 'there';
++        }
+ 
+         return match ($this->event) {
+             self::NEW_LOGIN, self::NEW_DEVICE => (new MailMessage)
+                 ->subject('New Login Detected ΓÇö TesoTunes')
+-                ->greeting("Hi {$notifiable->display_name},")
+-                ->line('A new login was detected on your account:')
+-                ->line("- **Time**: {$time}")
+-                ->line("- **IP Address**: {$ip}")
+-                ->line("- **Device**: {$userAgent}")
+-                ->line("- **Location**: {$location}")
+-                ->line("If this wasn't you, please change your password immediately.")
+-                ->action('Change Password', url('/settings/security'))
+-                ->line('Stay safe!'),
++                ->view('emails.security-alert', [
++                    'brand' => 'TesoTunes',
++                    'greeting' => "Hi {$displayName},",
++                    'intro' => 'A new login was detected on your account:',
++                    'details' => $this->normalizeDetails([
++                        'Time' => $time,
++                        'IP Address' => $ip,
++                        'Device' => $userAgent,
++                        'Location' => $location,
++                    ]),
++                    'body' => "If this wasn't you, please change your password immediately.",
++                    'actionText' => 'Change Password',
++                    'actionUrl' => $this->frontendUrl('/settings/security'),
++                    'outro' => 'Stay safe!',
++                ]),
+ 
+             self::PASSWORD_CHANGED => (new MailMessage)
+                 ->subject('Password Changed ΓÇö TesoTunes')
+-                ->greeting("Hi {$notifiable->display_name},")
+-                ->line('Your password was successfully changed.')
+-                ->line("- **Time**: {$time}")
+-                ->line("- **IP Address**: {$ip}")
+-                ->line("If you didn't make this change, contact support immediately.")
+-                ->action('Contact Support', url('/support')),
++                ->view('emails.security-alert', [
++                    'brand' => 'TesoTunes',
++                    'greeting' => "Hi {$displayName},",
++                    'intro' => 'Your password was successfully changed.',
++                    'details' => $this->normalizeDetails([
++                        'Time' => $time,
++                        'IP Address' => $ip,
++                    ]),
++                    'body' => "If you didn't make this change, contact support immediately.",
++                    'actionText' => 'Contact Support',
++                    'actionUrl' => $this->frontendUrl('/support'),
++                    'outro' => 'Security is our priority.',
++                ]),
+ 
+             self::SUSPICIOUS_ACTIVITY => (new MailMessage)
+                 ->subject('URGENT: Suspicious Activity ΓÇö TesoTunes')
+-                ->greeting("Hi {$notifiable->display_name},")
+-                ->line('We detected suspicious activity on your account.')
+-                ->line('Details: '.($this->metadata['details'] ?? 'Multiple failed login attempts'))
+-                ->line('For your security, we recommend changing your password.')
+-                ->action('Secure Your Account', url('/settings/security')),
++                ->view('emails.security-alert', [
++                    'brand' => 'TesoTunes',
++                    'greeting' => "Hi {$displayName},",
++                    'intro' => 'We detected suspicious activity on your account.',
++                    'details' => $this->normalizeDetails([
++                        'Details' => ($this->metadata['details'] ?? 'Multiple failed login attempts'),
++                        'Time' => $time,
++                        'IP Address' => $ip,
++                    ]),
++                    'body' => 'For your security, we recommend changing your password.',
++                    'actionText' => 'Secure Your Account',
++                    'actionUrl' => $this->frontendUrl('/settings/security'),
++                    'outro' => 'Stay alert and keep your account protected.',
++                ]),
+ 
+             default => (new MailMessage)
+                 ->subject('Security Alert ΓÇö TesoTunes')
+-                ->line('A security event occurred on your account.')
+-                ->action('Review Activity', url('/settings/security')),
++                ->view('emails.security-alert', [
++                    'brand' => 'TesoTunes',
++                    'greeting' => "Hi {$displayName},",
++                    'intro' => 'A security event occurred on your account.',
++                    'details' => $this->normalizeDetails([
++                        'Time' => $time,
++                    ]),
++                    'body' => 'Review your recent activity and update your password if needed.',
++                    'actionText' => 'Review Activity',
++                    'actionUrl' => $this->frontendUrl('/settings/security'),
++                    'outro' => 'Stay safe!',
++                ]),
+         };
+     }
+ 
++    private function frontendUrl(string $path): string
++    {
++        $raw = rtrim((string) config('app.frontend_url', ''), '/');
++        $parts = parse_url($raw);
++
++        $validFrontendUrl = is_array($parts)
++            && isset($parts['scheme'], $parts['host'])
++            && in_array(strtolower((string) $parts['scheme']), ['http', 'https'], true);
++
++        $base = $validFrontendUrl
++            ? $raw
++            : 'https://beta.tesotunes.com';
++
++        return $base.'/'.ltrim($path, '/');
++    }
++
++    private function normalizeDetails(array $details): array
++    {
++        $normalized = [];
++
++        foreach ($details as $label => $value) {
++            if ($value === null) {
++                $normalized[$label] = 'N/A';
++
++                continue;
++            }
++
++            if (is_scalar($value)) {
++                $normalized[$label] = (string) $value;
++
++                continue;
++            }
++
++            $encoded = json_encode($value, JSON_UNESCAPED_SLASHES);
++            $normalized[$label] = $encoded !== false ? $encoded : 'N/A';
++        }
++
++        return $normalized;
++    }
++
+     public function toArray(object $notifiable): array
+     {
+         return [
+diff --git a/app/Notifications/WeeklyDigestNotification.php b/app/Notifications/WeeklyDigestNotification.php
+index 7e2444a..b6285c0 100644
+--- a/app/Notifications/WeeklyDigestNotification.php
++++ b/app/Notifications/WeeklyDigestNotification.php
+@@ -28,9 +28,14 @@ public function via(object $notifiable): array
+ 
+     public function toMail(object $notifiable): MailMessage
+     {
++        $displayName = trim((string) ($notifiable->display_name ?? $notifiable->name ?? 'there'));
++        if ($displayName === '') {
++            $displayName = 'there';
++        }
++
+         $mail = (new MailMessage)
+             ->subject('Your Weekly Music Recap ΓÇö TesoTunes')
+-            ->greeting("Hey {$notifiable->display_name}!");
++            ->greeting("Hey {$displayName}!");
+ 
+         $songsListened = $this->digest['songs_listened'] ?? 0;
+         $minutesListened = $this->digest['minutes_listened'] ?? 0;
+@@ -62,10 +67,26 @@ public function toMail(object $notifiable): MailMessage
+         }
+ 
+         return $mail
+-            ->action('Discover New Music', url('/discover'))
++            ->action('Discover New Music', $this->frontendUrl('/discover'))
+             ->line('Keep the music playing!');
+     }
+ 
++    private function frontendUrl(string $path): string
++    {
++        $raw = rtrim((string) config('app.frontend_url', ''), '/');
++        $parts = parse_url($raw);
++
++        $validFrontendUrl = is_array($parts)
++            && isset($parts['scheme'], $parts['host'])
++            && in_array(strtolower((string) $parts['scheme']), ['http', 'https'], true);
++
++        $base = $validFrontendUrl
++            ? $raw
++            : 'https://beta.tesotunes.com';
++
++        return $base.'/'.ltrim($path, '/');
++    }
++
+     public function toArray(object $notifiable): array
+     {
+         return [
+diff --git a/app/Notifications/WelcomeNotification.php b/app/Notifications/WelcomeNotification.php
+index 4253cc0..cd7e48b 100644
+--- a/app/Notifications/WelcomeNotification.php
++++ b/app/Notifications/WelcomeNotification.php
+@@ -20,19 +20,40 @@ public function via(object $notifiable): array
+ 
+     public function toMail(object $notifiable): MailMessage
+     {
++        $displayName = trim((string) ($notifiable->display_name ?? $notifiable->name ?? 'there'));
++        if ($displayName === '') {
++            $displayName = 'there';
++        }
++
+         return (new MailMessage)
+             ->subject('Welcome to TesoTunes!')
+-            ->greeting("Welcome, {$notifiable->name}!")
++            ->greeting("Welcome, {$displayName}!")
+             ->line('Thank you for joining TesoTunes ΓÇö Africa\'s premier music platform.')
+             ->line('Here\'s what you can do:')
+             ->line('≡ƒÄ╡ **Discover** ΓÇö Stream thousands of African songs')
+             ->line('Γ¥ñ∩╕Å **Connect** ΓÇö Follow your favorite artists')
+             ->line('≡ƒô▒ **Download** ΓÇö Take your music offline')
+             ->line('≡ƒÆ░ **Earn** ΓÇö Get credits for listening and engaging')
+-            ->action('Start Exploring', url('/discover'))
++            ->action('Start Exploring', $this->frontendUrl('/discover'))
+             ->line('Enjoy the music!');
+     }
+ 
++    private function frontendUrl(string $path): string
++    {
++        $raw = rtrim((string) config('app.frontend_url', ''), '/');
++        $parts = parse_url($raw);
++
++        $validFrontendUrl = is_array($parts)
++            && isset($parts['scheme'], $parts['host'])
++            && in_array(strtolower((string) $parts['scheme']), ['http', 'https'], true);
++
++        $base = $validFrontendUrl
++            ? $raw
++            : 'https://beta.tesotunes.com';
++
++        return $base.'/'.ltrim($path, '/');
++    }
++
+     public function toArray(object $notifiable): array
+     {
+         return [

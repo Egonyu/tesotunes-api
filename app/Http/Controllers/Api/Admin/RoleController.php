@@ -151,6 +151,39 @@ class RoleController extends Controller
     }
 
     /**
+     * Update role permissions only.
+     */
+    public function updatePermissions(Request $request, Role $role): JsonResponse
+    {
+        return $this->handleApiAction(function () use ($request, $role) {
+            if ($role->name === 'super_admin' && ! $request->user()->isSuperAdmin()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Cannot modify super admin role.',
+                ], 403);
+            }
+
+            $validated = $request->validate([
+                'permissions' => 'required|array',
+                'permissions.*' => 'string|exists:permissions,name',
+            ]);
+
+            $role->update([
+                'permissions' => $validated['permissions'],
+            ]);
+
+            $permissions = Permission::whereIn('name', $validated['permissions'])->pluck('id');
+            $role->permissions()->sync($permissions);
+
+            return response()->json([
+                'success' => true,
+                'data' => $role->load('permissions'),
+                'message' => 'Role permissions updated successfully.',
+            ]);
+        }, 'Failed to update role permissions.');
+    }
+
+    /**
      * Delete a role.
      */
     public function destroy(Role $role): JsonResponse
@@ -264,11 +297,17 @@ class RoleController extends Controller
     public function permissions(): JsonResponse
     {
         return $this->handleApiAction(function () {
-            $permissions = Permission::active()
-                ->orderBy('category')
+            $permissions = Permission::query();
+
+            if (\Illuminate\Support\Facades\Schema::hasColumn('permissions', 'is_active')) {
+                $permissions->where('is_active', true);
+            }
+
+            $permissions = $permissions
+                ->orderBy('group')
                 ->orderBy('name')
                 ->get()
-                ->groupBy('category');
+                ->groupBy(fn ($permission) => $permission->group ?? 'general');
 
             return response()->json(['success' => true, 'data' => $permissions]);
         }, 'Failed to retrieve permissions.');

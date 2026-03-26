@@ -166,7 +166,7 @@ class SaccoMembershipController extends Controller
         $validated = $request->validate([
             'initial_deposit' => 'nullable|numeric|min:0',
             'initial_shares' => 'nullable|integer|min:0',
-            'payment_method' => 'nullable|string|in:wallet',
+            'payment_method' => 'nullable|string|in:wallet,zengapay',
         ]);
 
         $initialDeposit = (float) ($validated['initial_deposit'] ?? 0);

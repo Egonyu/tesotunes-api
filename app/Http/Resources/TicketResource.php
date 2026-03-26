@@ -48,6 +48,8 @@ class TicketResource extends JsonResource
                 'order_id' => data_get($this->attendee_metadata, 'order_id'),
                 'attribution' => data_get($this->attendee_metadata, 'attribution'),
                 'fee_breakdown' => data_get($this->attendee_metadata, 'fee_breakdown'),
+                'wallet_actions' => data_get($this->attendee_metadata, 'wallet_actions'),
+                'support_cases' => data_get($this->attendee_metadata, 'support_cases'),
             ],
         ];
     }
