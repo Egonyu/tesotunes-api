@@ -20,6 +20,11 @@ class MigrationPolicyGuardTest extends TestCase
         '2026_03_21_230000_add_marketing_settings_to_events_table.php',
         '2026_03_21_233000_create_event_waitlist_entries_table.php',
         '2026_03_21_234500_create_event_discount_codes_table.php',
+        '2026_03_26_120000_create_event_funnel_touchpoints_table.php',
+        '2026_03_26_133000_create_event_ticket_cases_table.php',
+        '2026_03_26_150000_create_event_ticket_channel_allocations_table.php',
+        '2026_03_26_160000_create_event_promotion_requests_table.php',
+        '2026_03_26_170000_add_dispute_fields_to_event_ticket_cases_table.php',
     ];
 
     private const BANNED_NAME_FRAGMENTS = [

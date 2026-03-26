@@ -237,6 +237,11 @@ class SaccoLoanController extends Controller
      */
     public function apply(Request $request): JsonResponse
     {
+        $paymentMethod = $this->normalizePaymentMethod($request->input('payment_method'));
+        if ($paymentMethod !== null) {
+            $request->merge(['payment_method' => $paymentMethod]);
+        }
+
         $validated = $request->validate([
             'member_id' => 'nullable|integer|exists:sacco_members,id',
             'product_id' => 'nullable|integer|exists:sacco_loan_products,id',
@@ -247,7 +252,7 @@ class SaccoLoanController extends Controller
             'term_months' => 'nullable|integer|min:1|max:60',
             'purpose' => 'nullable|string|max:1000',
             'phone_number' => 'nullable|string|max:20',
-            'payment_method' => 'nullable|string|in:zengapay,manual,bank',
+            'payment_method' => 'nullable|string|in:zengapay,mtn_momo,airtel_money,manual,bank',
         ]);
 
         $member = isset($validated['member_id'])
@@ -495,5 +500,13 @@ class SaccoLoanController extends Controller
         return SaccoMember::query()
             ->where('user_id', $request->user()->id)
             ->firstOrFail();
+    }
+
+    private function normalizePaymentMethod(?string $paymentMethod): ?string
+    {
+        return match ($paymentMethod) {
+            'mtn_momo', 'airtel_money' => 'zengapay',
+            default => $paymentMethod,
+        };
     }
 }

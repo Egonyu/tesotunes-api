@@ -110,13 +110,18 @@ class SaccoSavingsController extends Controller
      */
     public function deposit(Request $request): JsonResponse
     {
+        $paymentMethod = $this->normalizePaymentMethod($request->input('payment_method'));
+        if ($paymentMethod !== null) {
+            $request->merge(['payment_method' => $paymentMethod]);
+        }
+
         $validated = $request->validate([
             'account_id' => 'nullable|integer|exists:sacco_savings_accounts,id',
             'amount' => 'required|numeric|min:1',
             'description' => 'nullable|string|max:500',
             'reference_number' => 'nullable|string|max:100',
             'phone_number' => 'nullable|string|max:20',
-            'payment_method' => 'nullable|string|in:wallet,zengapay',
+            'payment_method' => 'nullable|string|in:wallet,zengapay,mtn_momo,airtel_money',
         ]);
 
         $account = isset($validated['account_id'])
@@ -170,12 +175,17 @@ class SaccoSavingsController extends Controller
      */
     public function withdraw(Request $request): JsonResponse
     {
+        $paymentMethod = $this->normalizePaymentMethod($request->input('payment_method'));
+        if ($paymentMethod !== null) {
+            $request->merge(['payment_method' => $paymentMethod]);
+        }
+
         $validated = $request->validate([
             'account_id' => 'nullable|integer|exists:sacco_savings_accounts,id',
             'amount' => 'required|numeric|min:1',
             'description' => 'nullable|string|max:500',
             'reference_number' => 'nullable|string|max:100',
-            'payment_method' => 'nullable|string|in:wallet,zengapay',
+            'payment_method' => 'nullable|string|in:wallet,zengapay,mtn_momo,airtel_money',
         ]);
 
         $account = isset($validated['account_id'])
@@ -332,5 +342,13 @@ class SaccoSavingsController extends Controller
             'minimum_balance_ugx' => 0,
             'status' => 'active',
         ]);
+    }
+
+    private function normalizePaymentMethod(?string $paymentMethod): ?string
+    {
+        return match ($paymentMethod) {
+            'mtn_momo', 'airtel_money' => 'zengapay',
+            default => $paymentMethod,
+        };
     }
 }

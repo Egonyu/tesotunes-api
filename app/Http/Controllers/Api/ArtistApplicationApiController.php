@@ -100,15 +100,34 @@ class ArtistApplicationApiController extends Controller
     {
         $user = Auth::user();
 
+        $legacyPayoutMethod = $request->input('payout_method');
+
+        if ($legacyPayoutMethod === 'mtn_momo') {
+            $request->merge([
+                'payout_method' => 'mobile_money',
+                'mobile_money_provider' => $request->input('mobile_money_provider') ?: 'mtn',
+            ]);
+        } elseif ($legacyPayoutMethod === 'airtel_money') {
+            $request->merge([
+                'payout_method' => 'mobile_money',
+                'mobile_money_provider' => $request->input('mobile_money_provider') ?: 'airtel',
+            ]);
+        }
+
         // Frontend compatibility: legacy clients may send payment_option instead of payout_method.
         if (! $request->filled('payout_method') && $request->filled('payment_option')) {
             $request->merge(['payout_method' => $request->input('payment_option')]);
         }
 
+        if (in_array($request->input('payout_method'), ['zengapay', 'mobile_money'], true)) {
+            $request->merge([
+                'mobile_money_number' => $request->input('mobile_money_number') ?: $request->input('phone'),
+            ]);
+        }
+
         if ($request->input('payout_method') === 'zengapay') {
             $request->merge([
-                'mobile_money_provider' => null,
-                'mobile_money_number' => $request->input('mobile_money_number') ?: $request->input('phone'),
+                'mobile_money_provider' => 'zengapay',
             ]);
         }
 
@@ -129,9 +148,9 @@ class ArtistApplicationApiController extends Controller
                 'secondary_genres.*' => 'exists:genres,id',
                 'full_name' => 'required|string|max:255',
                 'phone' => 'required|string|max:20',
-                'payout_method' => 'nullable|in:bank,zengapay',
+                'payout_method' => 'nullable|in:bank,zengapay,mobile_money',
                 'mobile_money_number' => 'nullable|string|max:20',
-                'mobile_money_provider' => 'nullable|in:zengapay',
+                'mobile_money_provider' => 'nullable|in:mtn,airtel,zengapay',
                 'bank_name' => 'nullable|required_if:payout_method,bank',
                 'bank_account' => 'nullable|required_if:payout_method,bank',
                 'country' => 'nullable|string|max:2',
@@ -160,6 +179,9 @@ class ArtistApplicationApiController extends Controller
 
         if ($validated['payout_method'] === 'zengapay') {
             $validated['mobile_money_provider'] = 'zengapay';
+            $validated['mobile_money_number'] = $validated['mobile_money_number'] ?? $validated['phone'];
+        } elseif ($validated['payout_method'] === 'mobile_money') {
+            $validated['mobile_money_provider'] = $validated['mobile_money_provider'] ?? 'mtn';
             $validated['mobile_money_number'] = $validated['mobile_money_number'] ?? $validated['phone'];
         }
 

@@ -53,12 +53,17 @@ class SaccoSharesController extends Controller
      */
     public function purchase(Request $request): JsonResponse
     {
+        $paymentMethod = $this->normalizePaymentMethod($request->input('payment_method'));
+        if ($paymentMethod !== null) {
+            $request->merge(['payment_method' => $paymentMethod]);
+        }
+
         $validated = $request->validate([
             'member_id' => 'nullable|integer|exists:sacco_members,id',
             'shares_quantity' => 'nullable|integer|min:1',
             'quantity' => 'nullable|integer|min:1',
             'phone_number' => 'nullable|string|max:20',
-            'payment_method' => 'nullable|string|in:wallet,zengapay',
+            'payment_method' => 'nullable|string|in:wallet,zengapay,mtn_momo,airtel_money',
         ]);
 
         $member = isset($validated['member_id'])
@@ -76,14 +81,16 @@ class SaccoSharesController extends Controller
 
         $totalAmount = $quantity * $pricePerShare;
 
-        if (($request->user()->ugx_balance ?? 0) < $totalAmount) {
+        if (($validated['payment_method'] ?? 'wallet') === 'wallet' && ($request->user()->ugx_balance ?? 0) < $totalAmount) {
             throw ValidationException::withMessages([
                 'quantity' => ['Insufficient wallet balance.'],
             ]);
         }
 
-        DB::transaction(function () use ($member, $quantity, $pricePerShare, $totalAmount, $request) {
-            $request->user()->decrement('ugx_balance', $totalAmount);
+        DB::transaction(function () use ($member, $quantity, $pricePerShare, $totalAmount, $request, $validated) {
+            if (($validated['payment_method'] ?? 'wallet') === 'wallet') {
+                $request->user()->decrement('ugx_balance', $totalAmount);
+            }
 
             $share = SaccoShare::firstOrCreate(
                 ['member_id' => $member->id],
@@ -233,5 +240,13 @@ class SaccoSharesController extends Controller
     private function getShareValue(): int
     {
         return (int) config('sacco.share_capital.share_value', 10000);
+    }
+
+    private function normalizePaymentMethod(?string $paymentMethod): ?string
+    {
+        return match ($paymentMethod) {
+            'mtn_momo', 'airtel_money' => 'zengapay',
+            default => $paymentMethod,
+        };
     }
 }
