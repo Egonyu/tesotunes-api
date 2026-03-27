@@ -2,13 +2,17 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Helpers\StorageHelper;
 use App\Http\Controllers\Controller;
+use App\Models\Role;
 use App\Models\User;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 /**
  * Consolidated admin users controller.
@@ -19,6 +23,281 @@ use Illuminate\Support\Facades\Validator;
 class AdminUsersController extends Controller
 {
     use HandlesApiErrors;
+
+    private const MANAGED_ROLE_NAMES = ['user', 'artist', 'moderator', 'admin', 'super_admin'];
+
+    private const MANAGED_ROLE_DEFAULTS = [
+        Role::USER => [
+            'display_name' => 'User',
+            'description' => 'Standard user account',
+            'priority' => 20,
+            'is_active' => true,
+        ],
+        Role::ARTIST => [
+            'display_name' => 'Artist',
+            'description' => 'Music artist account',
+            'priority' => 40,
+            'is_active' => true,
+        ],
+        Role::MODERATOR => [
+            'display_name' => 'Moderator',
+            'description' => 'Content moderation access',
+            'priority' => 60,
+            'is_active' => true,
+        ],
+        Role::ADMIN => [
+            'display_name' => 'Administrator',
+            'description' => 'General administration access',
+            'priority' => 80,
+            'is_active' => true,
+        ],
+        Role::SUPER_ADMIN => [
+            'display_name' => 'Super Administrator',
+            'description' => 'Full system access',
+            'priority' => 100,
+            'is_active' => true,
+        ],
+    ];
+
+    private function resolveManagedRole(string $roleName): Role
+    {
+        if (! in_array($roleName, self::MANAGED_ROLE_NAMES, true)) {
+            return Role::where('name', $roleName)->firstOrFail();
+        }
+
+        return Role::firstOrCreate(
+            ['name' => $roleName],
+            self::MANAGED_ROLE_DEFAULTS[$roleName] ?? [
+                'display_name' => str_replace('_', ' ', ucfirst($roleName)),
+                'description' => ucfirst(str_replace('_', ' ', $roleName)).' role',
+                'priority' => 1,
+                'is_active' => true,
+            ]
+        );
+    }
+
+    private function buildArtistReference(User $user): ?array
+    {
+        $artist = $user->artist;
+
+        if (! $artist) {
+            return null;
+        }
+
+        return [
+            'id' => $artist->id,
+            'stage_name' => $artist->stage_name,
+            'slug' => $artist->slug,
+            'status' => $artist->status,
+        ];
+    }
+
+    private function buildEventOrganizerReference(User $user): ?array
+    {
+        $settingsValue = $user->getAttribute('settings');
+        if (is_string($settingsValue)) {
+            $decoded = json_decode($settingsValue, true);
+            $settings = is_array($decoded) ? $decoded : [];
+        } else {
+            $settings = is_array($settingsValue) ? $settingsValue : [];
+        }
+        $profile = data_get($settings, 'event_organizer_profile');
+
+        if (! is_array($profile) || ! ($profile['enabled'] ?? false)) {
+            return null;
+        }
+
+        return [
+            'enabled' => true,
+            'business_name' => $profile['business_name'] ?? null,
+            'support_email' => $profile['support_email'] ?? null,
+            'support_phone' => $profile['support_phone'] ?? null,
+            'notes' => $profile['notes'] ?? null,
+            'ready_for_events' => (bool) ($profile['ready_for_events'] ?? false),
+            'payout_method' => $profile['payout_method'] ?? ($user->artistProfile?->payout_method ?? 'mobile_money'),
+            'mobile_money_provider' => $user->mobile_money_provider ?? $user->artistProfile?->mobile_money_provider,
+            'mobile_money_number' => $user->mobile_money_number ?? $user->artistProfile?->mobile_money_number,
+            'bank_name' => $user->artistProfile?->bank_name,
+            'bank_account' => $user->artistProfile?->bank_account,
+        ];
+    }
+
+    private function generateUniqueUsername(?string $preferred, string $email): string
+    {
+        $base = Str::lower((string) ($preferred ?: Str::before($email, '@') ?: 'user'));
+        $base = preg_replace('/[^a-z0-9_]+/', '_', $base) ?: 'user';
+        $base = trim($base, '_') ?: 'user';
+        $username = $base;
+        $suffix = 2;
+
+        while (User::where('username', $username)->exists()) {
+            $username = $base.'_'.$suffix;
+            $suffix++;
+        }
+
+        return $username;
+    }
+
+    private function syncEventOrganizerSetup(User $user, Request $request): void
+    {
+        $isEventOrganizer = $request->boolean('is_event_organizer');
+        $settingsValue = $user->getAttribute('settings');
+        if (is_string($settingsValue)) {
+            $decoded = json_decode($settingsValue, true);
+            $settings = is_array($decoded) ? $decoded : [];
+        } else {
+            $settings = is_array($settingsValue) ? $settingsValue : [];
+        }
+
+        if (! $isEventOrganizer) {
+            if (array_key_exists('event_organizer_profile', $settings)) {
+                unset($settings['event_organizer_profile']);
+                $user->update(['settings' => $settings]);
+            }
+
+            return;
+        }
+
+        $payoutMethod = $request->input('organizer_payout_method', 'mobile_money');
+        $mobileMoneyProvider = $request->input('organizer_mobile_money_provider');
+        $mobileMoneyNumber = $request->input('organizer_mobile_money_number');
+
+        if ($payoutMethod === 'zengapay') {
+            $mobileMoneyProvider = 'zengapay';
+            $mobileMoneyNumber = $mobileMoneyNumber ?: $user->phone;
+        }
+
+        if ($payoutMethod === 'mobile_money' && ! $mobileMoneyNumber) {
+            $mobileMoneyNumber = $user->phone;
+        }
+
+        $settings['event_organizer_profile'] = [
+            'enabled' => true,
+            'business_name' => $request->input('organizer_business_name') ?: $user->display_name ?: $user->name,
+            'support_email' => $request->input('organizer_support_email') ?: $user->email,
+            'support_phone' => $request->input('organizer_support_phone') ?: $user->phone,
+            'notes' => $request->input('organizer_notes'),
+            'payout_method' => $payoutMethod,
+            'ready_for_events' => filled($request->input('organizer_business_name'))
+                && filled($request->input('organizer_support_email'))
+                && ($payoutMethod === 'bank'
+                    ? filled($request->input('organizer_bank_name')) && filled($request->input('organizer_bank_account'))
+                    : filled($mobileMoneyNumber)),
+            'created_via_admin' => true,
+            'updated_at' => now()->toIso8601String(),
+        ];
+
+        $user->update(array_filter([
+            'mobile_money_provider' => $mobileMoneyProvider,
+            'mobile_money_number' => $mobileMoneyNumber,
+            'settings' => $settings,
+        ], fn ($value) => $value !== null));
+
+        if (User::hasArtistProfilesTable()) {
+            $user->artistProfile()->updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'payout_method' => $payoutMethod === 'bank' ? 'bank_transfer' : 'mobile_money',
+                    'mobile_money_provider' => $mobileMoneyProvider,
+                    'mobile_money_number' => $mobileMoneyNumber,
+                    'bank_name' => $request->input('organizer_bank_name'),
+                    'bank_account' => $request->input('organizer_bank_account'),
+                    'profile_completed' => true,
+                    'is_active' => true,
+                ]
+            );
+        }
+    }
+
+    private function buildUserPayload(User $user): array
+    {
+        $user->loadMissing(['artist', 'artistProfile']);
+
+        return [
+            'id' => $user->id,
+            'uuid' => $user->uuid,
+            'name' => $user->name,
+            'full_name' => $user->full_name,
+            'username' => $user->username,
+            'email' => $user->email,
+            'phone' => $user->phone,
+            'bio' => $user->bio ?? null,
+            'country' => $user->country,
+            'city' => $user->city ?? null,
+            'role' => $user->role,
+            'is_active' => (bool) $user->is_active,
+            'email_verified_at' => $user->email_verified_at,
+            'last_login_at' => $user->last_login_at ?? null,
+            'avatar_url' => $user->avatar
+                ? url('storage/'.$user->avatar)
+                : null,
+            'artist' => $this->buildArtistReference($user),
+            'event_organizer' => $this->buildEventOrganizerReference($user),
+            'created_at' => $user->created_at,
+            'updated_at' => $user->updated_at,
+        ];
+    }
+
+    private function generateUniqueArtistSlug(string $name, int $userId, ?int $ignoreArtistId = null): string
+    {
+        $baseSlug = \Illuminate\Support\Str::slug($name) ?: 'artist-'.$userId;
+        $slug = $baseSlug;
+        $suffix = 2;
+
+        while (\App\Models\Artist::query()
+            ->when($ignoreArtistId, fn ($query) => $query->where('id', '!=', $ignoreArtistId))
+            ->where('slug', $slug)
+            ->exists()) {
+            $slug = $baseSlug.'-'.$suffix;
+            $suffix++;
+        }
+
+        return $slug;
+    }
+
+    private function applyRole(User $user, string $roleName, ?int $assignedBy = null): void
+    {
+        $role = $this->resolveManagedRole($roleName);
+
+        $managedRoleIds = Role::whereIn('name', self::MANAGED_ROLE_NAMES)->pluck('id');
+
+        if ($managedRoleIds->isNotEmpty()) {
+            DB::table('user_roles')
+                ->where('user_id', $user->id)
+                ->whereIn('role_id', $managedRoleIds)
+                ->update([
+                    'is_active' => false,
+                    'updated_at' => now(),
+                ]);
+        }
+
+        $existingPivot = DB::table('user_roles')
+            ->where('user_id', $user->id)
+            ->where('role_id', $role->id)
+            ->exists();
+
+        if ($existingPivot) {
+            $user->roles()->updateExistingPivot($role->id, [
+                'is_active' => true,
+                'assigned_at' => now(),
+                'assigned_by' => $assignedBy,
+                'updated_at' => now(),
+            ]);
+        } else {
+            $user->roles()->attach($role->id, [
+                'is_active' => true,
+                'assigned_at' => now(),
+                'assigned_by' => $assignedBy,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        $user->clearPermissionCache();
+        $user->unsetRelation('roles');
+        $user->unsetRelation('activeRoles');
+    }
+
     /**
      * List users with filtering, searching, and pagination.
      */
@@ -27,75 +306,77 @@ class AdminUsersController extends Controller
         return $this->handleApiAction(function () use ($request) {
             $query = User::query();
 
-        // Search
-        if ($request->filled('search')) {
-            $escaped = addcslashes($request->search, '%_');
-            $query->where(function ($q) use ($escaped) {
-                $q->where('name', 'LIKE', "%{$escaped}%")
-                    ->orWhere('username', 'LIKE', "%{$escaped}%")
-                    ->orWhere('email', 'LIKE', "%{$escaped}%")
-                    ->orWhere('full_name', 'LIKE', "%{$escaped}%");
+            // Search
+            if ($request->filled('search')) {
+                $escaped = addcslashes($request->search, '%_');
+                $query->where(function ($q) use ($escaped) {
+                    $q->where('name', 'LIKE', "%{$escaped}%")
+                        ->orWhere('username', 'LIKE', "%{$escaped}%")
+                        ->orWhere('email', 'LIKE', "%{$escaped}%")
+                        ->orWhere('full_name', 'LIKE', "%{$escaped}%");
+                });
+            }
+
+            // Filter by role
+            if ($request->filled('role') && $request->role !== 'all') {
+                $query->whereHas('activeRoles', function ($roleQuery) use ($request) {
+                    $roleQuery->where('name', $request->role);
+                });
+            }
+
+            // Filter by status
+            if ($request->filled('status') && $request->status !== 'all') {
+                match ($request->status) {
+                    'active' => $query->where('is_active', true),
+                    'inactive', 'banned' => $query->where('is_active', false),
+                    'verified' => $query->whereNotNull('email_verified_at'),
+                    default => null,
+                };
+            }
+
+            // Filter by active flag
+            if ($request->has('is_active')) {
+                $query->where('is_active', $request->boolean('is_active'));
+            }
+
+            // Filter by country
+            if ($request->filled('country')) {
+                $query->where('country', $request->country);
+            }
+
+            // Sorting
+            $sortBy = $request->get('sort_by', 'created_at');
+            $sortOrder = $request->get('sort_order', 'desc');
+            $allowed = ['created_at', 'name', 'email', 'username', 'is_active'];
+            if (in_array($sortBy, $allowed)) {
+                $query->orderBy($sortBy, $sortOrder === 'asc' ? 'asc' : 'desc');
+            } else {
+                $query->latest();
+            }
+
+            $perPage = min((int) $request->get('per_page', 20), 100);
+            $users = $query->paginate($perPage);
+
+            // Transform for frontend compatibility
+            $users->getCollection()->transform(function (User $user) {
+                return [
+                    'id' => $user->id,
+                    'uuid' => $user->uuid,
+                    'name' => $user->full_name ?: $user->username,
+                    'username' => $user->username,
+                    'email' => $user->email,
+                    'phone' => $user->phone,
+                    'country' => $user->country,
+                    'role' => $user->role,
+                    'is_active' => (bool) $user->is_active,
+                    'email_verified_at' => $user->email_verified_at,
+                    'last_login_at' => $user->last_login_at ?? null,
+                    'avatar_url' => $user->avatar
+                        ? url('storage/'.$user->avatar)
+                        : null,
+                    'created_at' => $user->created_at,
+                ];
             });
-        }
-
-        // Filter by role
-        if ($request->filled('role') && $request->role !== 'all') {
-            $query->where('role', $request->role);
-        }
-
-        // Filter by status
-        if ($request->filled('status') && $request->status !== 'all') {
-            match ($request->status) {
-                'active' => $query->where('is_active', true),
-                'inactive', 'banned' => $query->where('is_active', false),
-                'verified' => $query->whereNotNull('email_verified_at'),
-                default => null,
-            };
-        }
-
-        // Filter by active flag
-        if ($request->has('is_active')) {
-            $query->where('is_active', $request->boolean('is_active'));
-        }
-
-        // Filter by country
-        if ($request->filled('country')) {
-            $query->where('country', $request->country);
-        }
-
-        // Sorting
-        $sortBy = $request->get('sort_by', 'created_at');
-        $sortOrder = $request->get('sort_order', 'desc');
-        $allowed = ['created_at', 'name', 'email', 'username', 'role', 'is_active'];
-        if (in_array($sortBy, $allowed)) {
-            $query->orderBy($sortBy, $sortOrder === 'asc' ? 'asc' : 'desc');
-        } else {
-            $query->latest();
-        }
-
-        $perPage = min((int) $request->get('per_page', 20), 100);
-        $users = $query->paginate($perPage);
-
-        // Transform for frontend compatibility
-        $users->getCollection()->transform(function (User $user) {
-            return [
-                'id' => $user->id,
-                'uuid' => $user->uuid,
-                'name' => $user->full_name ?: $user->username,
-                'username' => $user->username,
-                'email' => $user->email,
-                'phone' => $user->phone,
-                'country' => $user->country,
-                'role' => $user->role,
-                'is_active' => (bool) $user->is_active,
-                'email_verified_at' => $user->email_verified_at,
-                'last_login_at' => $user->last_login_at ?? null,
-                'avatar_url' => $user->avatar
-                    ? url('storage/'.$user->avatar)
-                    : null,
-                'created_at' => $user->created_at,
-            ];
-        });
 
             return response()->json([
                 'success' => true,
@@ -124,9 +405,14 @@ class AdminUsersController extends Controller
                 'new_this_month' => User::whereMonth('created_at', now()->month)
                     ->whereYear('created_at', now()->year)
                     ->count(),
-                'users_by_role' => User::selectRaw('role, count(*) as count')
-                    ->groupBy('role')
-                    ->pluck('count', 'role'),
+                'users_by_role' => DB::table('roles')
+                    ->leftJoin('user_roles', function ($join) {
+                        $join->on('roles.id', '=', 'user_roles.role_id')
+                            ->where('user_roles.is_active', true);
+                    })
+                    ->selectRaw('roles.name, count(user_roles.user_id) as count')
+                    ->groupBy('roles.name')
+                    ->pluck('count', 'name'),
                 'users_by_country' => User::selectRaw('country, count(*) as count')
                     ->whereNotNull('country')
                     ->groupBy('country')
@@ -148,33 +434,11 @@ class AdminUsersController extends Controller
     public function show($id): JsonResponse
     {
         return $this->handleApiAction(function () use ($id) {
-            $user = User::findOrFail($id);
-
-        $data = [
-            'id' => $user->id,
-            'uuid' => $user->uuid,
-            'name' => $user->name,
-            'full_name' => $user->full_name,
-            'username' => $user->username,
-            'email' => $user->email,
-            'phone' => $user->phone,
-            'bio' => $user->bio ?? null,
-            'country' => $user->country,
-            'city' => $user->city ?? null,
-            'role' => $user->role,
-            'is_active' => (bool) $user->is_active,
-            'email_verified_at' => $user->email_verified_at,
-            'last_login_at' => $user->last_login_at ?? null,
-            'avatar_url' => $user->avatar
-                ? url('storage/'.$user->avatar)
-                : null,
-            'created_at' => $user->created_at,
-            'updated_at' => $user->updated_at,
-        ];
+            $user = User::with('artist')->findOrFail($id);
 
             return response()->json([
                 'success' => true,
-                'data' => $data,
+                'data' => $this->buildUserPayload($user),
             ]);
         }, 'Failed to load user details.');
     }
@@ -186,47 +450,107 @@ class AdminUsersController extends Controller
     {
         return $this->handleApiAction(function () use ($request) {
             $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:8',
-            'phone' => 'nullable|string|max:20',
-            'role' => 'nullable|string|in:user,artist,moderator,admin',
-            'country' => 'nullable|string|max:2',
-            'is_active' => 'nullable|boolean',
-        ]);
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|unique:users,email',
+                'username' => 'nullable|string|max:100|unique:users,username',
+                'password' => 'required|string|min:8',
+                'phone' => 'nullable|string|max:20',
+                'role' => 'nullable|string|in:user,artist,moderator,admin',
+                'country' => 'nullable|string|max:2',
+                'city' => 'nullable|string|max:255',
+                'bio' => 'nullable|string|max:500',
+                'status' => 'nullable|string|in:active,inactive,suspended,pending',
+                'is_active' => 'nullable|boolean',
+                'email_verified' => 'nullable|boolean',
+                'avatar' => 'nullable|file|image|max:5120',
+                'is_event_organizer' => 'nullable|boolean',
+                'organizer_business_name' => 'nullable|string|max:255',
+                'organizer_support_email' => 'nullable|email|max:255',
+                'organizer_support_phone' => 'nullable|string|max:30',
+                'organizer_notes' => 'nullable|string|max:500',
+                'organizer_payout_method' => 'nullable|in:mobile_money,bank,zengapay',
+                'organizer_mobile_money_provider' => 'nullable|in:mtn,airtel,zengapay',
+                'organizer_mobile_money_number' => 'nullable|string|max:20',
+                'organizer_bank_name' => 'nullable|string|max:255',
+                'organizer_bank_account' => 'nullable|string|max:255',
+            ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
 
-        $currentUser = $request->user();
+            $currentUser = $request->user();
 
-        // Prevent non-super admins from creating admin users
-        if (in_array($request->role, ['admin', 'super_admin']) && ! $currentUser->isSuperAdmin()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Insufficient permissions to create admin users.',
-            ], 403);
-        }
+            // Prevent non-super admins from creating admin users
+            if (in_array($request->role, ['admin', 'super_admin']) && ! $currentUser->isSuperAdmin()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient permissions to create admin users.',
+                ], 403);
+            }
 
-        $user = User::create([
-            'name' => $request->name,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'phone' => $request->phone,
-            'role' => $request->role ?? 'user',
-            'country' => $request->country ?? 'UG',
-            'is_active' => $request->boolean('is_active', true),
-            'email_verified_at' => now(),
-        ]);
+            $user = DB::transaction(function () use ($request, $currentUser) {
+                $avatarPath = $request->hasFile('avatar')
+                    ? StorageHelper::store($request->file('avatar'), 'users/avatars')
+                    : null;
+
+                $user = User::create([
+                    'name' => $request->name,
+                    'username' => $this->generateUniqueUsername($request->input('username'), $request->email),
+                    'email' => $request->email,
+                    'password' => Hash::make($request->password),
+                    'phone' => $request->phone,
+                    'country' => $request->country ?? 'UG',
+                    'city' => $request->city,
+                    'bio' => $request->bio,
+                    'status' => $request->input('status', 'active'),
+                    'avatar' => $avatarPath,
+                    'is_active' => $request->boolean('is_active', true),
+                ]);
+
+                if ($request->boolean('email_verified', true)) {
+                    $user->forceFill(['email_verified_at' => now()])->save();
+                }
+
+                $user->profile()->updateOrCreate(
+                    ['user_id' => $user->id],
+                    array_filter([
+                        'display_name' => $user->display_name,
+                        'bio' => $request->bio,
+                        'country' => $request->country ?? 'UG',
+                        'city' => $request->city,
+                    ], fn ($value) => $value !== null)
+                );
+
+                $role = $request->role ?? 'user';
+                $this->applyRole($user, $role, $currentUser->id);
+
+                if ($role === 'artist') {
+                    $user->update(['is_artist' => true]);
+                    \App\Models\Artist::create([
+                        'user_id' => $user->id,
+                        'stage_name' => $user->display_name ?? $user->name ?? 'Artist',
+                        'slug' => $this->generateUniqueArtistSlug(
+                            $user->display_name ?? $user->name ?? 'Artist',
+                            $user->id
+                        ),
+                        'status' => 'active',
+                        'is_verified' => false,
+                    ]);
+                }
+
+                $this->syncEventOrganizerSetup($user, $request);
+
+                return $user->fresh(['artist']);
+            });
 
             return response()->json([
                 'success' => true,
-                'data' => $user,
+                'data' => $this->buildUserPayload($user),
                 'message' => 'User created successfully.',
             ], 201);
         }, 'Failed to create user.');
@@ -241,58 +565,116 @@ class AdminUsersController extends Controller
             $user = User::findOrFail($id);
             $currentUser = $request->user();
 
-        // Permission check
-        if (! $currentUser->canManageUser($user)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Insufficient permissions to manage this user.',
-            ], 403);
-        }
+            // Permission check
+            if (! $currentUser->canManageUser($user)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient permissions to manage this user.',
+                ], 403);
+            }
 
-        $validator = Validator::make($request->all(), [
-            'name' => 'sometimes|string|max:255',
-            'email' => 'sometimes|email|unique:users,email,'.$id,
-            'username' => 'sometimes|string|max:100|unique:users,username,'.$id,
-            'phone' => 'sometimes|string|max:20',
-            'password' => 'sometimes|string|min:8',
-            'role' => 'sometimes|string|in:user,artist,moderator,admin',
-            'country' => 'nullable|string|max:2',
-            'bio' => 'nullable|string|max:500',
-            'city' => 'nullable|string|max:255',
-            'is_active' => 'nullable|boolean',
-        ]);
+            $validator = Validator::make($request->all(), [
+                'name' => 'sometimes|string|max:255',
+                'email' => 'sometimes|email|unique:users,email,'.$id,
+                'username' => 'sometimes|string|max:100|unique:users,username,'.$id,
+                'phone' => 'sometimes|string|max:20',
+                'password' => 'sometimes|string|min:8',
+                'role' => 'sometimes|string|in:user,artist,moderator,admin',
+                'country' => 'nullable|string|max:2',
+                'bio' => 'nullable|string|max:500',
+                'city' => 'nullable|string|max:255',
+                'is_active' => 'nullable|boolean',
+                'is_event_organizer' => 'nullable|boolean',
+                'organizer_business_name' => 'nullable|string|max:255',
+                'organizer_support_email' => 'nullable|email|max:255',
+                'organizer_support_phone' => 'nullable|string|max:30',
+                'organizer_notes' => 'nullable|string|max:500',
+                'organizer_payout_method' => 'nullable|in:mobile_money,bank,zengapay',
+                'organizer_mobile_money_provider' => 'nullable|in:mtn,airtel,zengapay',
+                'organizer_mobile_money_number' => 'nullable|string|max:20',
+                'organizer_bank_name' => 'nullable|string|max:255',
+                'organizer_bank_account' => 'nullable|string|max:255',
+            ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
+            if ($validator->fails()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Validation failed',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
 
-        // Prevent non-super admins from assigning admin role
-        if ($request->filled('role') && in_array($request->role, ['admin', 'super_admin']) && ! $currentUser->isSuperAdmin()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Insufficient permissions to assign admin roles.',
-            ], 403);
-        }
+            // Prevent non-super admins from assigning admin role
+            if ($request->filled('role') && in_array($request->role, ['admin', 'super_admin']) && ! $currentUser->isSuperAdmin()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient permissions to assign admin roles.',
+                ], 403);
+            }
 
-        $data = $request->only(['name', 'email', 'username', 'phone', 'role', 'country', 'bio', 'city']);
+            $updatedUser = DB::transaction(function () use ($request, $user, $currentUser) {
+                $data = $request->only(['name', 'email', 'username', 'phone', 'country', 'bio', 'city']);
 
-        if ($request->has('is_active')) {
-            $data['is_active'] = $request->boolean('is_active');
-        }
+                if ($request->has('is_active')) {
+                    $data['is_active'] = $request->boolean('is_active');
+                }
 
-        if ($request->filled('password')) {
-            $data['password'] = Hash::make($request->password);
-        }
+                if ($request->filled('password')) {
+                    $data['password'] = Hash::make($request->password);
+                }
 
-        $user->update(array_filter($data, fn ($v) => $v !== null));
+                $user->update(array_filter($data, fn ($v) => $v !== null));
+
+                $user->profile()->updateOrCreate(
+                    ['user_id' => $user->id],
+                    array_filter([
+                        'display_name' => $user->display_name,
+                        'bio' => $request->input('bio', $user->bio),
+                        'country' => $request->input('country', $user->country),
+                        'city' => $request->input('city', $user->city),
+                    ], fn ($value) => $value !== null)
+                );
+
+                if ($request->filled('role')) {
+                    $newRole = $request->input('role');
+                    $oldRole = $user->role;
+
+                    if ($newRole !== $oldRole) {
+                        $this->applyRole($user, $newRole, $currentUser->id);
+
+                        if ($newRole === 'artist') {
+                            $user->update(['is_artist' => true]);
+                            $artist = $user->artist;
+                            if (! $artist) {
+                                \App\Models\Artist::create([
+                                    'user_id' => $user->id,
+                                    'stage_name' => $user->display_name ?? $user->name ?? $user->username ?? 'Artist',
+                                    'slug' => $this->generateUniqueArtistSlug(
+                                        $user->display_name ?? $user->name ?? $user->username ?? 'Artist',
+                                        $user->id
+                                    ),
+                                    'status' => 'active',
+                                    'is_verified' => false,
+                                ]);
+                            }
+                        }
+
+                        if ($oldRole === 'artist' && $newRole !== 'artist') {
+                            $user->update(['is_artist' => false]);
+                        }
+                    }
+                }
+
+                if ($request->has('is_event_organizer')) {
+                    $this->syncEventOrganizerSetup($user, $request);
+                }
+
+                return $user->fresh(['artist']);
+            });
 
             return response()->json([
                 'success' => true,
-                'data' => $user->fresh(),
+                'data' => $this->buildUserPayload($updatedUser),
                 'message' => 'User updated successfully.',
             ]);
         }, 'Failed to update user.');

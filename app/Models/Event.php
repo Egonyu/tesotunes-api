@@ -2,17 +2,27 @@
 
 namespace App\Models;
 
+use App\Jobs\SendEventCancellationNotificationsJob;
 use App\Traits\HasComments;
 use App\Traits\HasReviews;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Event extends Model
 {
     use HasComments, HasFactory, HasReviews, SoftDeletes;
+
+    public const TICKETING_MODE_TESOTUNES_MANAGED = 'tesotunes_managed';
+
+    public const TICKETING_MODE_HYBRID = 'hybrid';
+
+    public const TICKETING_MODE_EXTERNAL_ONLY = 'external_only';
+
+    public const TICKETING_MODE_FREE_RSVP = 'free_rsvp';
 
     protected $fillable = [
         'uuid',
@@ -57,6 +67,7 @@ class Event extends Model
         'tickets_sold',
         'attendee_count',
         'is_free',
+        'ticketing_mode',
         'ticket_price',
         'currency',
         'cover_image',
@@ -66,6 +77,7 @@ class Event extends Model
         'contact_info',
         'website',
         'social_links',
+        'marketing_settings',
         'is_featured',
         'is_published',
         'published_at',
@@ -97,6 +109,7 @@ class Event extends Model
         'requirements' => 'array',
         'contact_info' => 'array',
         'social_links' => 'array',
+        'marketing_settings' => 'array',
         'latitude' => 'decimal:7',
         'longitude' => 'decimal:7',
     ];
@@ -109,6 +122,18 @@ class Event extends Model
             if (empty($model->uuid)) {
                 $model->uuid = (string) \Str::uuid();
             }
+
+            if (empty($model->ticketing_mode)) {
+                $model->ticketing_mode = $model->is_free
+                    ? self::TICKETING_MODE_FREE_RSVP
+                    : self::TICKETING_MODE_TESOTUNES_MANAGED;
+            }
+
+            $model->normalizeOrganizerIdentity();
+        });
+
+        static::saving(function ($model) {
+            $model->normalizeOrganizerIdentity();
         });
     }
 
@@ -123,14 +148,22 @@ class Event extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    public function artist(): BelongsTo
+    {
+        return $this->belongsTo(Artist::class, 'artist_id');
+    }
+
+    public function artists(): BelongsToMany
+    {
+        return $this->belongsToMany(Artist::class, 'event_artist')
+            ->withTimestamps()
+            ->withPivot('sort_order')
+            ->orderBy('event_artist.sort_order');
+    }
+
     public function location()
     {
         return $this->belongsTo(EventLocation::class, 'event_location_id');
-    }
-
-    public function statistics()
-    {
-        return $this->hasOne(EventStatistics::class);
     }
 
     public function tickets(): HasMany
@@ -138,9 +171,56 @@ class Event extends Model
         return $this->hasMany(EventTicket::class);
     }
 
+    public function externalAllocations(): HasMany
+    {
+        return $this->hasMany(EventTicketChannelAllocation::class)
+            ->where('channel', EventTicketChannelAllocation::CHANNEL_EXTERNAL);
+    }
+
     public function attendees(): HasMany
     {
         return $this->hasMany(EventAttendee::class);
+    }
+
+    public function staffMembers(): HasMany
+    {
+        return $this->hasMany(EventStaffMember::class)->where('is_active', true);
+    }
+
+    public function payoutLedgerEntries(): HasMany
+    {
+        return $this->hasMany(EventPayoutLedgerEntry::class);
+    }
+
+    public function funnelTouchpoints(): HasMany
+    {
+        return $this->hasMany(EventFunnelTouchpoint::class);
+    }
+
+    public function ticketCases(): HasMany
+    {
+        return $this->hasMany(EventTicketCase::class);
+    }
+
+    public function promotionRequests(): HasMany
+    {
+        return $this->hasMany(EventPromotionRequest::class)->latest('requested_at');
+    }
+
+    public function waitlistEntries(): HasMany
+    {
+        return $this->hasMany(EventWaitlistEntry::class);
+    }
+
+    public function discountCodes(): HasMany
+    {
+        return $this->hasMany(EventDiscountCode::class);
+    }
+
+    public function interestedUsers(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'event_interests', 'event_id', 'user_id')
+            ->withTimestamps();
     }
 
     public function activities()
@@ -162,6 +242,17 @@ class Event extends Model
     public function scopeFeatured($query)
     {
         return $query->where('is_featured', true);
+    }
+
+    public function scopeOwnedByUser($query, User $user)
+    {
+        return $query->where(function ($builder) use ($user) {
+            $builder->where('organizer_id', $user->id)
+                ->orWhere('user_id', $user->id)
+                ->orWhereHas('artist', function ($artistQuery) use ($user) {
+                    $artistQuery->where('user_id', $user->id);
+                });
+        });
     }
 
     public function scopeByCategory($query, $category)
@@ -269,7 +360,11 @@ class Event extends Model
     {
         return $this->attendees()
             ->where('user_id', $user->id)
-            ->whereIn('status', ['confirmed', 'pending'])
+            ->whereIn('status', [
+                EventAttendee::STATUS_PENDING,
+                EventAttendee::STATUS_CONFIRMED,
+                EventAttendee::STATUS_ATTENDED,
+            ])
             ->exists();
     }
 
@@ -311,9 +406,18 @@ class Event extends Model
 
         return $this->attendees()->create([
             'user_id' => $user->id,
-            'status' => $this->is_free ? 'confirmed' : 'pending',
-            'registration_data' => $data,
-            'registered_at' => now(),
+            'attendee_name' => $data['attendee_name'] ?? $user->name,
+            'attendee_email' => $data['attendee_email'] ?? $user->email,
+            'attendee_phone' => $data['attendee_phone'] ?? $user->phone,
+            'status' => $this->is_free ? EventAttendee::STATUS_CONFIRMED : EventAttendee::STATUS_PENDING,
+            'payment_method' => $this->is_free ? EventAttendee::PAYMENT_METHOD_FREE : null,
+            'payment_status' => $this->is_free ? 'completed' : 'pending',
+            'confirmed_at' => $this->is_free ? now() : null,
+            'quantity' => (int) ($data['quantity'] ?? 1),
+            'amount_paid' => $this->is_free ? 0 : (float) ($data['amount_paid'] ?? 0),
+            'price_paid_ugx' => $this->is_free ? 0 : (float) ($data['price_paid_ugx'] ?? ($data['amount_paid'] ?? 0)),
+            'price_paid_credits' => (int) ($data['price_paid_credits'] ?? 0),
+            'attendee_metadata' => $data ?: null,
         ]);
     }
 
@@ -321,6 +425,7 @@ class Event extends Model
     {
         $this->update([
             'status' => 'published',
+            'is_published' => true,
             'published_at' => now(),
         ]);
     }
@@ -339,16 +444,7 @@ class Event extends Model
             'cancellation_reason' => $reason,
         ]);
 
-        // Notify attendees
-        $this->attendees()->each(function ($attendee) use ($reason) {
-            $attendee->user->notifications()->create([
-                'type' => 'event_cancelled',
-                'title' => 'Event Cancelled',
-                'message' => "The event '{$this->title}' has been cancelled.".($reason ? " Reason: {$reason}" : ''),
-                'data' => ['event_id' => $this->id],
-                'action_url' => route('frontend.events.show', $this->id),
-            ]);
-        });
+        SendEventCancellationNotificationsJob::dispatch($this->id, $reason);
     }
 
     // Ticketing helper methods
@@ -372,18 +468,18 @@ class Event extends Model
     public function getConfirmedAttendeesCountAttribute(): int
     {
         return $this->attendees()
-            ->whereIn('status', ['confirmed', 'checked_in'])
+            ->whereIn('status', [EventAttendee::STATUS_CONFIRMED, EventAttendee::STATUS_ATTENDED])
             ->count();
     }
 
     public function getPendingAttendeesCountAttribute(): int
     {
-        return $this->attendees()->where('status', 'pending')->count();
+        return $this->attendees()->where('status', EventAttendee::STATUS_PENDING)->count();
     }
 
     public function getCheckedInAttendeesCountAttribute(): int
     {
-        return $this->attendees()->where('status', 'checked_in')->count();
+        return $this->attendees()->whereNotNull('checked_in_at')->count();
     }
 
     public function getTotalTicketsSoldAttribute(): int
@@ -398,12 +494,12 @@ class Event extends Model
 
     public function getCheapestTicketPriceAttribute(): ?float
     {
-        return $this->onSaleTickets()->min('price');
+        return $this->onSaleTickets()->min('price_ugx');
     }
 
     public function getMostExpensiveTicketPriceAttribute(): ?float
     {
-        return $this->onSaleTickets()->max('price');
+        return $this->onSaleTickets()->max('price_ugx');
     }
 
     public function getPriceRangeAttribute(): string
@@ -433,10 +529,12 @@ class Event extends Model
     public function createDefaultTicket(): EventTicket
     {
         return $this->tickets()->create([
-            'ticket_type' => 'General Admission',
+            'name' => 'General Admission',
             'description' => 'Standard event access',
-            'price' => $this->base_price ?? 0,
-            'quantity_available' => $this->capacity,
+            'price_ugx' => $this->ticket_price ?? 0,
+            'is_free' => (float) ($this->ticket_price ?? 0) === 0.0,
+            'quantity_total' => $this->capacity,
+            'quantity_reserved' => 0,
             'max_per_order' => 10,
             'is_active' => true,
             'sort_order' => 1,
@@ -449,11 +547,11 @@ class Event extends Model
 
         return [
             'total_ticket_types' => $tickets->count(),
-            'total_tickets_available' => $tickets->sum('quantity_available'),
+            'total_tickets_available' => $tickets->sum(fn ($ticket) => $ticket->quantity_available ?? 0),
             'total_tickets_sold' => $tickets->sum('quantity_sold'),
             'total_revenue' => $this->total_revenue,
             'tickets_remaining' => $tickets->sum(function ($ticket) {
-                return $ticket->quantity_available ? $ticket->quantity_remaining : 0;
+                return $ticket->quantity_available ?? 0;
             }),
             'sales_progress' => $this->capacity ?
                 ($this->total_tickets_sold / $this->capacity) * 100 : 0,
@@ -539,5 +637,56 @@ class Event extends Model
         }
 
         return ! $this->userMeetsTierRequirement($user);
+    }
+
+    public function resolveOrganizerUser(): ?User
+    {
+        if ($this->relationLoaded('organizer') && $this->organizer) {
+            return $this->organizer;
+        }
+
+        if ($this->organizer_id) {
+            return $this->organizer()->first();
+        }
+
+        if ($this->user_id) {
+            return $this->user()->first();
+        }
+
+        if ($this->artist_id) {
+            return $this->artist()->with('user')->first()?->user;
+        }
+
+        return null;
+    }
+
+    public function canonicalOrganizerId(): ?int
+    {
+        return $this->organizer_id
+            ?? $this->user_id
+            ?? $this->artist?->user_id
+            ?? null;
+    }
+
+    protected function normalizeOrganizerIdentity(): void
+    {
+        if (! $this->organizer_id && $this->user_id) {
+            $this->organizer_id = $this->user_id;
+        }
+
+        if (! $this->user_id && $this->organizer_id) {
+            $this->user_id = $this->organizer_id;
+        }
+
+        if (! $this->organizer_type) {
+            $this->organizer_type = 'user';
+        }
+
+        if ($this->organizer_id && ! $this->artist_id) {
+            $organizer = User::query()->with('artist')->find($this->organizer_id);
+            if ($organizer?->artist?->id) {
+                $this->artist_id = $organizer->artist->id;
+            }
+        }
     }
 }

@@ -290,8 +290,16 @@ class AppServiceProvider extends ServiceProvider
         // Login attempts (prevent brute force) - now uses settings
         RateLimiter::for('login', function (Request $request) {
             $maxAttempts = Setting::get('auth_max_login_attempts', 5);
+            $email = strtolower((string) $request->input('email', 'guest'));
+            $key = $request->ip();
 
-            return Limit::perMinute($maxAttempts)->by($request->ip());
+            if ($this->app->isLocal()) {
+                // Local development produces repeated retries across the same browser/IP.
+                // Scope by email+IP and allow a looser limit so developers do not lock themselves out.
+                return Limit::perMinute(max($maxAttempts, 20))->by($email.'|'.$request->ip());
+            }
+
+            return Limit::perMinute($maxAttempts)->by($key);
         });
 
         // API calls (generous for unreliable internet)

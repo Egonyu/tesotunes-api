@@ -46,6 +46,45 @@ Route::get('/announcements', [\App\Http\Controllers\Api\FeedController::class, '
 // Loyalty API Routes (fan clubs, memberships, rewards, points)
 require __DIR__.'/api/loyalty.php';
 
+// Ojokotau / Crowdfunding Campaign API Routes (public browsing + authenticated actions)
+require __DIR__.'/api/campaigns.php';
+
+// Homepage featured content
+Route::get('/featured', [\App\Http\Controllers\Api\FeaturedContentController::class, 'index'])->name('api.featured');
+
+// Promotions marketplace API (public web entry point)
+Route::prefix('promotions')->name('api.promotions.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Api\PromotionMarketplaceController::class, 'index'])->name('index');
+    Route::get('/platforms/list', [\App\Http\Controllers\Api\PromotionMarketplaceController::class, 'platforms'])->name('platforms');
+    Route::get('/{slug}/reviews', [\App\Http\Controllers\Api\PromotionMarketplaceController::class, 'reviews'])->name('reviews');
+    Route::get('/{slug}', [\App\Http\Controllers\Api\PromotionMarketplaceController::class, 'show'])->name('show');
+});
+
+Route::get('/promoters/{username}', [\App\Http\Controllers\Api\PromotionMarketplaceController::class, 'promoter'])->name('api.promoters.show');
+
+Route::middleware('auth:sanctum')->prefix('promotions')->name('api.promotions.auth.')->group(function () {
+    Route::post('/', [\App\Http\Controllers\Api\PromotionMarketplaceController::class, 'store'])->name('store');
+    Route::put('/{promotion}', [\App\Http\Controllers\Api\PromotionMarketplaceController::class, 'update'])->name('update');
+    Route::delete('/{promotion}', [\App\Http\Controllers\Api\PromotionMarketplaceController::class, 'destroy'])->name('destroy');
+    Route::post('/{promotion}/pause', [\App\Http\Controllers\Api\PromotionMarketplaceController::class, 'pause'])->name('pause');
+    Route::post('/{promotion}/activate', [\App\Http\Controllers\Api\PromotionMarketplaceController::class, 'activate'])->name('activate');
+    Route::post('/{slug}/purchase', [\App\Http\Controllers\Api\PromotionBuyerController::class, 'purchase'])->name('purchase');
+    Route::post('/orders/{orderId}/verify', [\App\Http\Controllers\Api\PromotionMarketplaceController::class, 'verifyOrder'])->name('orders.verify');
+    Route::post('/orders/{orderId}/reject', [\App\Http\Controllers\Api\PromotionMarketplaceController::class, 'rejectOrder'])->name('orders.reject');
+    Route::post('/orders/{orderId}/submit-verification', [\App\Http\Controllers\Api\PromotionBuyerController::class, 'submitVerification'])->name('orders.submit-verification');
+    Route::post('/orders/{orderId}/dispute', [\App\Http\Controllers\Api\PromotionBuyerController::class, 'dispute'])->name('orders.dispute');
+    Route::post('/orders/{orderId}/review', [\App\Http\Controllers\Api\PromotionBuyerController::class, 'review'])->name('orders.review');
+});
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/my/promotions', [\App\Http\Controllers\Api\PromotionMarketplaceController::class, 'myPromotions'])->name('api.promotions.my');
+    Route::get('/my/promotions/analytics', [\App\Http\Controllers\Api\PromotionMarketplaceController::class, 'sellerAnalytics'])->name('api.promotions.my.analytics');
+    Route::get('/my/promotions/orders', [\App\Http\Controllers\Api\PromotionMarketplaceController::class, 'myPromotionOrders'])->name('api.promotions.my.orders');
+    Route::get('/my/promotions/orders/{orderId}', [\App\Http\Controllers\Api\PromotionMarketplaceController::class, 'myPromotionOrder'])->name('api.promotions.my.orders.show');
+    Route::get('/my/promotions/purchases', [\App\Http\Controllers\Api\PromotionBuyerController::class, 'myPurchases'])->name('api.promotions.my.purchases');
+    Route::get('/my/promotions/purchases/{orderId}', [\App\Http\Controllers\Api\PromotionBuyerController::class, 'myPurchase'])->name('api.promotions.my.purchases.show');
+});
+
 // Public Events API Routes (no auth required)
 Route::prefix('events')->name('api.events.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Api\PublicEventsController::class, 'index'])->name('index');
@@ -53,13 +92,29 @@ Route::prefix('events')->name('api.events.')->group(function () {
     Route::get('/upcoming', [\App\Http\Controllers\Api\PublicEventsController::class, 'upcoming'])->name('upcoming');
     Route::get('/categories', [\App\Http\Controllers\Api\PublicEventsController::class, 'categories'])->name('categories');
     Route::get('/{id}', [\App\Http\Controllers\Api\PublicEventsController::class, 'show'])->name('show');
+    Route::post('/{id}/funnel-touch', [\App\Http\Controllers\Api\PublicEventsController::class, 'trackFunnelTouch'])->name('funnel-touch');
 });
 
-// Ticket API Routes (auth required)
-Route::middleware('auth:sanctum')->prefix('tickets')->name('api.tickets.')->group(function () {
+Route::middleware('auth:sanctum')->post('/events/{id}/waitlist', [\App\Http\Controllers\Api\PublicEventsController::class, 'joinWaitlist'])
+    ->name('api.events.waitlist');
+
+// Ticket checkout API Routes
+Route::prefix('tickets')->name('api.tickets.')->middleware('throttle:api')->group(function () {
+    Route::post('/quote', [\App\Http\Controllers\Api\TicketController::class, 'quote'])->name('quote');
+    Route::post('/discounts/validate', [\App\Http\Controllers\Api\TicketController::class, 'validateDiscountCode'])->name('discounts.validate');
     Route::post('/purchase', [\App\Http\Controllers\Api\TicketController::class, 'purchase'])->name('purchase');
+});
+
+// Ticket account and operations API Routes (auth required)
+Route::middleware('auth:sanctum')->prefix('tickets')->name('api.tickets.account.')->group(function () {
+    Route::get('/attendee-profiles', [\App\Http\Controllers\Api\TicketController::class, 'attendeeProfiles'])->name('attendee-profiles');
     Route::get('/my', [\App\Http\Controllers\Api\TicketController::class, 'myTickets'])->name('my');
-    Route::get('/validate/{ticketNumber}', [\App\Http\Controllers\Api\TicketController::class, 'validate'])->name('validate');
+    Route::get('/{id}/invoice', [\App\Http\Controllers\Api\TicketController::class, 'invoice'])->name('invoice');
+    Route::post('/{id}/resend', [\App\Http\Controllers\Api\TicketController::class, 'resend'])->name('resend');
+    Route::post('/{id}/transfer', [\App\Http\Controllers\Api\TicketController::class, 'transfer'])->name('transfer');
+    Route::get('/{id}/cases', [\App\Http\Controllers\Api\TicketController::class, 'cases'])->name('cases.index');
+    Route::post('/{id}/cases', [\App\Http\Controllers\Api\TicketController::class, 'requestCase'])->name('cases.store');
+    Route::get('/validate/{ticketNumber}', [\App\Http\Controllers\Api\TicketController::class, 'validateTicket'])->name('validate');
     Route::post('/check-in', [\App\Http\Controllers\Api\TicketController::class, 'checkIn'])->name('check-in');
     Route::get('/{id}', [\App\Http\Controllers\Api\TicketController::class, 'show'])->name('show');
 });
@@ -68,11 +123,33 @@ Route::middleware('auth:sanctum')->prefix('tickets')->name('api.tickets.')->grou
 Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('artist/events')->name('api.artist.events.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Api\ArtistEventsController::class, 'index'])->name('index');
     Route::post('/', [\App\Http\Controllers\Api\ArtistEventsController::class, 'store'])->name('store');
+    Route::post('/commission-simulation', [\App\Http\Controllers\Api\ArtistEventsController::class, 'commissionSimulation'])->name('commission-simulation');
     Route::get('/{id}', [\App\Http\Controllers\Api\ArtistEventsController::class, 'show'])->name('show');
     Route::put('/{id}', [\App\Http\Controllers\Api\ArtistEventsController::class, 'update'])->name('update');
     Route::post('/{id}', [\App\Http\Controllers\Api\ArtistEventsController::class, 'update'])->name('update.post');
     Route::delete('/{id}', [\App\Http\Controllers\Api\ArtistEventsController::class, 'destroy'])->name('destroy');
     Route::get('/{id}/analytics', [\App\Http\Controllers\Api\ArtistEventsController::class, 'analytics'])->name('analytics');
+    Route::get('/{id}/analytics/export', [\App\Http\Controllers\Api\ArtistEventsController::class, 'exportAnalytics'])->name('analytics.export');
+    Route::post('/{id}/promotion-requests', [\App\Http\Controllers\Api\ArtistEventsController::class, 'storePromotionRequest'])->name('promotion-requests.store');
+    Route::post('/{id}/discount-codes', [\App\Http\Controllers\Api\ArtistEventsController::class, 'storeDiscountCode'])->name('discount-codes.store');
+    Route::delete('/{id}/discount-codes/{discountId}', [\App\Http\Controllers\Api\ArtistEventsController::class, 'deleteDiscountCode'])->name('discount-codes.destroy');
+    Route::post('/{id}/staff', [\App\Http\Controllers\Api\ArtistEventsController::class, 'addStaff'])->name('staff.store');
+    Route::delete('/{id}/staff/{staffId}', [\App\Http\Controllers\Api\ArtistEventsController::class, 'removeStaff'])->name('staff.destroy');
+});
+
+Route::middleware(['auth:sanctum', 'event.ops.role'])->prefix('artist/events')->name('api.artist.events.ops.')->group(function () {
+    Route::get('/{id}/check-in/lookup', [\App\Http\Controllers\Api\ArtistEventsController::class, 'checkInLookup'])->name('checkin.lookup');
+    Route::post('/{id}/check-in', [\App\Http\Controllers\Api\ArtistEventsController::class, 'checkInAttendee'])->name('checkin.store');
+    Route::get('/{id}/ticket-cases', [\App\Http\Controllers\Api\ArtistEventsController::class, 'ticketCases'])->name('ticket-cases.index');
+    Route::post('/{id}/ticket-cases/{caseId}/resolve', [\App\Http\Controllers\Api\ArtistEventsController::class, 'resolveTicketCase'])->name('ticket-cases.resolve');
+    Route::get('/{id}/offline-sales', [\App\Http\Controllers\Api\ArtistEventsController::class, 'offlineSales'])->name('offline-sales.index');
+    Route::post('/{id}/offline-sales', [\App\Http\Controllers\Api\ArtistEventsController::class, 'storeOfflineSale'])->name('offline-sales.store');
+    Route::post('/{id}/printed-ticket-imports', [\App\Http\Controllers\Api\ArtistEventsController::class, 'storePrintedTicketImport'])->name('printed-ticket-imports.store');
+    Route::post('/{id}/printed-ticket-imports/{orderId}/sync', [\App\Http\Controllers\Api\ArtistEventsController::class, 'syncPrintedTicketImport'])->name('printed-ticket-imports.sync');
+    Route::post('/{id}/offline-sales/{orderId}/void', [\App\Http\Controllers\Api\ArtistEventsController::class, 'voidOfflineSale'])->name('offline-sales.void');
+    Route::get('/{id}/external-allocations', [\App\Http\Controllers\Api\ArtistEventsController::class, 'externalAllocations'])->name('external-allocations.index');
+    Route::post('/{id}/external-allocations', [\App\Http\Controllers\Api\ArtistEventsController::class, 'storeExternalAllocation'])->name('external-allocations.store');
+    Route::post('/{id}/external-allocations/{allocationId}/release', [\App\Http\Controllers\Api\ArtistEventsController::class, 'releaseExternalAllocation'])->name('external-allocations.release');
 });
 
 // ============================================================================
@@ -95,14 +172,22 @@ Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('ar
     // Albums
     Route::get('/albums', [\App\Http\Controllers\Api\ArtistApiController::class, 'albums'])->name('albums.index');
     Route::post('/albums', [\App\Http\Controllers\Api\ArtistApiController::class, 'storeAlbum'])->name('albums.store');
+    Route::get('/albums/{id}', [\App\Http\Controllers\Api\ArtistApiController::class, 'showAlbum'])->name('albums.show');
+    Route::put('/albums/{id}', [\App\Http\Controllers\Api\ArtistApiController::class, 'updateAlbum'])->name('albums.update');
 
     // Profile
     Route::get('/profile', [\App\Http\Controllers\Api\ArtistApiController::class, 'profile'])->name('profile.show');
     Route::put('/profile', [\App\Http\Controllers\Api\ArtistApiController::class, 'updateProfile'])->name('profile.update');
+    Route::post('/profile/avatar', [\App\Http\Controllers\Api\ArtistApiController::class, 'uploadProfileAvatar'])->name('profile.avatar');
+    Route::post('/profile/banner', [\App\Http\Controllers\Api\ArtistApiController::class, 'uploadProfileBanner'])->name('profile.banner');
 
     // Earnings
     Route::get('/earnings', [\App\Http\Controllers\Api\ArtistApiController::class, 'earnings'])->name('earnings.index');
+    Route::get('/earnings/songs', [\App\Http\Controllers\Api\ArtistApiController::class, 'perSongEarnings'])->name('earnings.songs');
     Route::post('/earnings/withdraw', [\App\Http\Controllers\Api\ArtistApiController::class, 'withdraw'])->name('earnings.withdraw');
+
+    // Royalty Splits
+    Route::get('/royalty-splits', [\App\Http\Controllers\Api\ArtistApiController::class, 'royaltySplits'])->name('royalty-splits.index');
 
     // Analytics
     Route::get('/analytics', [\App\Http\Controllers\Api\ArtistApiController::class, 'analytics'])->name('analytics');
@@ -117,12 +202,32 @@ Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('ar
     Route::post('/referrals/share', [\App\Http\Controllers\Api\ArtistApiController::class, 'trackShare'])->name('referrals.share');
 });
 
+Route::middleware('auth:sanctum')->prefix('catalog')->name('api.catalog.')->group(function () {
+    Route::post('/submissions', [\App\Http\Controllers\Api\CatalogSubmissionController::class, 'store'])->name('submissions.store');
+    Route::get('/submissions', [\App\Http\Controllers\Api\CatalogSubmissionController::class, 'index'])->name('submissions.index');
+    Route::get('/submissions/{submission}', [\App\Http\Controllers\Api\CatalogSubmissionController::class, 'show'])->name('submissions.show');
+    Route::get('/claim-requests', [\App\Http\Controllers\Api\CatalogClaimRequestController::class, 'index'])->name('claims.index');
+    Route::post('/claim-requests', [\App\Http\Controllers\Api\CatalogClaimRequestController::class, 'store'])->name('claims.store');
+});
+
+Route::get('/catalog/claimable-artists', [\App\Http\Controllers\Api\Music\ArtistController::class, 'index'])->name('api.catalog.claimable-artists');
+
+Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin/catalog')->name('api.admin.catalog.')->group(function () {
+    Route::get('/claim-requests', [\App\Http\Controllers\Api\Admin\CatalogClaimRequestAdminController::class, 'index'])->name('claims.index');
+    Route::post('/claim-requests/{claim}/approve', [\App\Http\Controllers\Api\Admin\CatalogClaimRequestAdminController::class, 'approve'])->name('claims.approve');
+    Route::post('/claim-requests/{claim}/reject', [\App\Http\Controllers\Api\Admin\CatalogClaimRequestAdminController::class, 'reject'])->name('claims.reject');
+});
+
 // Ad tracking endpoints (no auth required for impressions)
-Route::post('/ads/impression', [\App\Http\Controllers\Api\AdTrackingController::class, 'recordImpression']);
-Route::post('/ads/click', [\App\Http\Controllers\Api\AdTrackingController::class, 'recordClick']);
+Route::middleware('throttle:ad-tracking')->group(function () {
+    Route::post('/ads/impression', [\App\Http\Controllers\Api\AdTrackingController::class, 'recordImpression']);
+    Route::post('/ads/click', [\App\Http\Controllers\Api\AdTrackingController::class, 'recordClick']);
+});
 
 // Theme preference (works for both guests and authenticated users)
-Route::post('/theme', [\App\Http\Controllers\ThemeController::class, 'update'])->name('api.theme.update');
+Route::post('/theme', [\App\Http\Controllers\ThemeController::class, 'update'])
+    ->middleware('throttle:theme')
+    ->name('api.theme.update');
 Route::get('/theme', [\App\Http\Controllers\ThemeController::class, 'get'])->name('api.theme.get');
 
 // Genres API endpoint for artist registration
@@ -159,6 +264,14 @@ Route::middleware('auth:sanctum')->prefix('player')->name('api.player.')->group(
 
 // Activity Interaction API endpoints
 Route::middleware('auth:sanctum')->group(function () {
+    Route::prefix('settings')->group(function () {
+        Route::get('/2fa', [\App\Http\Controllers\Api\Settings\TwoFactorSettingsController::class, 'status']);
+        Route::post('/2fa/enable', [\App\Http\Controllers\Api\Settings\TwoFactorSettingsController::class, 'enable']);
+        Route::post('/2fa/verify', [\App\Http\Controllers\Api\Settings\TwoFactorSettingsController::class, 'verify']);
+        Route::post('/2fa/disable', [\App\Http\Controllers\Api\Settings\TwoFactorSettingsController::class, 'disable']);
+        Route::post('/2fa/recovery-codes', [\App\Http\Controllers\Api\Settings\TwoFactorSettingsController::class, 'regenerateRecoveryCodes']);
+    });
+
     // User profile management
     Route::put('/user', [\App\Http\Controllers\Api\User\ProfileController::class, 'update'])
         ->name('api.user.update.sanctum');
@@ -170,6 +283,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Like/Unlike any entity
     Route::post('/like/{type}/{id}', [\App\Http\Controllers\Api\ActivityInteractionController::class, 'toggleLike'])
         ->name('api.like.toggle');
+
+    // Like status for any entity
+    Route::get('/like/{type}/{id}/status', [\App\Http\Controllers\Api\ActivityInteractionController::class, 'likeStatus'])
+        ->name('api.like.status');
 
     // Bookmark/Unbookmark any entity
     Route::post('/bookmark/{type}/{id}', [\App\Http\Controllers\Api\ActivityInteractionController::class, 'toggleBookmark'])
@@ -183,19 +300,29 @@ Route::middleware('auth:sanctum')->group(function () {
 // Content API (Genres & Moods)
 require __DIR__.'/api/content.php';
 
-Route::prefix('v1')->name('api.v1.')->group(function () {
-    require __DIR__.'/api/v1/api.php';
-});
+Route::prefix('v1')
+    ->name('api.v1.')
+    ->middleware('deprecated:2026-06-30,/api')
+    ->group(function () {
+        require __DIR__.'/api/v1/api.php';
+    });
 
 // Store Module API Routes (if enabled)
 if (config('store.enabled', false)) {
-    Route::prefix('v1/store')->name('api.v1.store.')->group(function () {
-        require app_path('Modules/Store/Routes/api.php');
-    });
+    Route::prefix('v1/store')
+        ->name('api.v1.store.')
+        ->middleware('deprecated:2026-06-30,/api/store')
+        ->group(function () {
+            require app_path('Modules/Store/Routes/api.php');
+        });
 }
-
-// Store API routes
-require __DIR__.'/api/store.php';
+// The Store module provider registers /api/store routes when STORE_ENABLED is
+// set at application boot. Tests enable the module later in setUp(), so we
+// still load the legacy AJAX routes during test runs to preserve the /api/store
+// contract without duplicating production routes.
+if (app()->runningUnitTests()) {
+    require __DIR__.'/api/store.php';
+}
 
 // Admin Store API — SECURED with auth + role middleware (SEC-CRIT-2 fix)
 Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin/store')->name('admin.store.api.')->group(function () {
@@ -222,6 +349,15 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::get('/analytics', [\App\Http\Controllers\Api\Admin\StoreApiController::class, 'analytics'])->name('analytics');
 });
 
+Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin/featured')->name('admin.featured.api.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Api\Admin\FeaturedContentController::class, 'index'])->name('index');
+    Route::post('/', [\App\Http\Controllers\Api\Admin\FeaturedContentController::class, 'store'])->name('store');
+    Route::post('/reorder', [\App\Http\Controllers\Api\Admin\FeaturedContentController::class, 'reorder'])->name('reorder');
+    Route::post('/{id}/toggle', [\App\Http\Controllers\Api\Admin\FeaturedContentController::class, 'toggle'])->name('toggle');
+    Route::put('/{id}', [\App\Http\Controllers\Api\Admin\FeaturedContentController::class, 'update'])->name('update');
+    Route::delete('/{id}', [\App\Http\Controllers\Api\Admin\FeaturedContentController::class, 'destroy'])->name('destroy');
+});
+
 // Cross-Module Notification API Routes
 Route::middleware('auth:sanctum')->prefix('notifications')->name('api.notifications.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Api\NotificationController::class, 'index'])->name('index');
@@ -237,6 +373,7 @@ Route::middleware('auth:sanctum')->prefix('notifications')->name('api.notificati
     Route::middleware('role:admin,super_admin')->group(function () {
         // Removed send-test route - use proper notification testing
         Route::get('/analytics', [\App\Http\Controllers\Api\NotificationController::class, 'analytics'])->name('analytics');
+        Route::get('/health', [\App\Http\Controllers\Api\NotificationController::class, 'health'])->name('health');
         Route::post('/preview', [\App\Http\Controllers\Api\NotificationController::class, 'preview'])->name('preview');
     });
 });
@@ -274,6 +411,16 @@ Route::middleware('auth:sanctum')->prefix('payouts')->name('api.payouts.')->grou
 });
 
 // Subscription API Routes
+Route::get('/subscription-plans', [\App\Http\Controllers\Api\SubscriptionController::class, 'plans'])->name('api.subscription-plans');
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/user/subscription', [\App\Http\Controllers\Api\SubscriptionController::class, 'current'])->name('api.user.subscription');
+    Route::get('/user/subscription/history', [\App\Http\Controllers\Api\SubscriptionController::class, 'history'])->name('api.user.subscription.history');
+    Route::post('/subscriptions/subscribe', [\App\Http\Controllers\Api\SubscriptionController::class, 'subscribe'])->name('api.subscriptions.subscribe');
+    Route::post('/subscriptions/change-plan', [\App\Http\Controllers\Api\SubscriptionController::class, 'changePlan'])->name('api.subscriptions.change-plan');
+    Route::post('/subscriptions/toggle-auto-renew', [\App\Http\Controllers\Api\SubscriptionController::class, 'toggleAutoRenew'])->name('api.subscriptions.toggle-auto-renew');
+});
+
 Route::middleware('auth:sanctum')->prefix('subscriptions')->name('api.subscriptions.')->group(function () {
     Route::post('/{subscription}/cancel', [\App\Http\Controllers\Api\SubscriptionController::class, 'cancel'])->name('cancel');
     Route::post('/{subscription}/extend', [\App\Http\Controllers\Api\SubscriptionController::class, 'extend'])->name('extend')->middleware('role:admin,super_admin');
@@ -282,12 +429,25 @@ Route::middleware('auth:sanctum')->prefix('subscriptions')->name('api.subscripti
 // Admin Payment Analytics
 Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin')->name('api.admin.')->group(function () {
     Route::get('/payment-analytics', [\App\Http\Controllers\Api\PaymentController::class, 'analytics'])->name('payment-analytics');
+    Route::get('/payments/observability', [\App\Http\Controllers\Api\Admin\PaymentObservabilityController::class, 'dashboard'])->name('payments.observability');
+    Route::get('/payments/entry-points', [\App\Http\Controllers\Api\Admin\PaymentObservabilityController::class, 'entryPoints'])->name('payments.entry-points');
+    Route::get('/payment-issues', [\App\Http\Controllers\Api\Admin\PaymentObservabilityController::class, 'issues'])->name('payment-issues.index');
+    Route::get('/payments', [\App\Http\Controllers\Api\Admin\PaymentObservabilityController::class, 'payments'])->name('payments.index');
+    Route::get('/payments/{payment}', [\App\Http\Controllers\Api\Admin\PaymentObservabilityController::class, 'show'])->name('payments.show');
 });
 
 // Admin Dashboard & Settings API — SECURED (dashboard stats are sensitive)
 Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin')->name('api.admin.')->group(function () {
     Route::get('/dashboard/stats', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'stats'])->name('dashboard.stats');
     Route::get('/dashboard/recent-activity', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'recentActivity'])->name('dashboard.recent-activity');
+
+    // Platform analytics overview used by the Next admin dashboard.
+    Route::get('/analytics', [\App\Http\Controllers\Api\Admin\AdminAnalyticsController::class, 'overview'])->name('analytics.overview');
+
+    // API Usage Analytics
+    Route::get('/analytics/api-usage', [\App\Http\Controllers\Api\Admin\ApiAnalyticsController::class, 'dashboard'])->name('analytics.api-usage');
+    Route::get('/analytics/top-users', [\App\Http\Controllers\Api\Admin\ApiAnalyticsController::class, 'topUsers'])->name('analytics.top-users');
+    Route::get('/analytics/api-usage/top-users', [\App\Http\Controllers\Api\Admin\ApiAnalyticsController::class, 'topUsers'])->name('analytics.api-usage.top-users');
 });
 
 Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin')->name('api.admin.')->group(function () {
@@ -297,6 +457,13 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     // Settings API
     Route::get('/settings', [\App\Http\Controllers\Api\Admin\SettingsController::class, 'index'])->name('settings.index');
     Route::put('/settings', [\App\Http\Controllers\Api\Admin\SettingsController::class, 'update'])->name('settings.update');
+
+    // Audit logs and feature operations surfaced in the Next admin shell.
+    Route::get('/audit-logs', [\App\Http\Controllers\Api\Admin\AdminAuditLogController::class, 'index'])->name('audit-logs.index');
+    Route::get('/feature-flags', [\App\Http\Controllers\Api\Admin\AdminFeatureFlagController::class, 'index'])->name('feature-flags.index');
+    Route::post('/feature-flags', [\App\Http\Controllers\Api\Admin\AdminFeatureFlagController::class, 'store'])->name('feature-flags.store');
+    Route::put('/feature-flags/{id}', [\App\Http\Controllers\Api\Admin\AdminFeatureFlagController::class, 'update'])->name('feature-flags.update');
+    Route::delete('/feature-flags/{id}', [\App\Http\Controllers\Api\Admin\AdminFeatureFlagController::class, 'destroy'])->name('feature-flags.destroy');
 
     // Users API
     Route::get('/users', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'index'])->name('users.index');
@@ -311,11 +478,27 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     // Events API
     Route::get('/events/stats', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'stats'])->name('events.stats');
     Route::get('/events', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'index'])->name('events.index');
+    Route::post('/events/commission-simulation', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'commissionSimulation'])->name('events.commission-simulation');
     Route::get('/events/{id}', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'show'])->name('events.show');
     Route::post('/events', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'store'])->name('events.store');
     Route::put('/events/{id}', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'update'])->name('events.update');
     Route::delete('/events/{id}', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'destroy'])->name('events.destroy');
+    Route::post('/events/{id}/publish', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'publish'])->name('events.publish');
+    Route::post('/events/{id}/toggle-featured', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'toggleFeatured'])->name('events.toggle-featured');
+    Route::get('/events/{id}/analytics', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'analytics'])->name('events.analytics');
+    Route::get('/events/{id}/analytics/export', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'exportAnalytics'])->name('events.analytics.export');
+    Route::post('/events/{id}/payouts/hold', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'holdPayouts'])->name('events.payouts.hold');
+    Route::post('/events/{id}/payouts/release', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'releasePayouts'])->name('events.payouts.release');
+    Route::get('/events/{id}/attendees', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'attendees'])->name('events.attendees');
     Route::get('/events/{id}/registrations', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'registrations'])->name('events.registrations');
+
+    // Promotions moderation
+    Route::get('/promotions', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'index'])->name('promotions.index');
+    Route::get('/promotions/analytics', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'analytics'])->name('promotions.analytics');
+    Route::get('/promotions/disputes', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'disputes'])->name('promotions.disputes');
+    Route::post('/promotions/{promotion}/approve', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'approve'])->name('promotions.approve');
+    Route::post('/promotions/{promotion}/reject', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'reject'])->name('promotions.reject');
+    Route::post('/promotions/disputes/{disputeId}/resolve', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'resolveDispute'])->name('promotions.disputes.resolve');
 
     // Campaigns API
     Route::get('/campaigns/stats', [\App\Http\Controllers\Api\Admin\CampaignsApiController::class, 'stats'])->name('campaigns.stats');
@@ -358,6 +541,9 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     // SACCO API
     Route::get('/sacco/stats', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'stats'])->name('sacco.stats');
     Route::get('/sacco/members', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'members'])->name('sacco.members');
+    Route::get('/sacco/members/{id}', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'showMember'])->name('sacco.members.show');
+    Route::get('/sacco/members/{id}/transactions', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'memberTransactions'])->name('sacco.members.transactions');
+    Route::get('/sacco/members/{id}/loans', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'memberLoans'])->name('sacco.members.loans');
     Route::get('/sacco/loans', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'loans'])->name('sacco.loans');
     Route::get('/sacco/loans/{id}', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'showLoan'])->name('sacco.loans.show');
     Route::post('/sacco/loans/{id}/approve', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'approveLoan'])->name('sacco.loans.approve');
@@ -365,6 +551,22 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::post('/sacco/loans/{id}/disburse', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'disburseLoan'])->name('sacco.loans.disburse');
     Route::get('/sacco/loans/{id}/repayments', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'loanRepayments'])->name('sacco.loans.repayments');
     Route::get('/sacco/transactions', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'savingsTransactions'])->name('sacco.transactions');
+
+    // SACCO Board Meetings & Members (Admin CRUD)
+    Route::get('/sacco/board-members', [\App\Http\Controllers\Api\Admin\SaccoBoardMeetingsController::class, 'boardMembers'])->name('sacco.board-members');
+    Route::get('/sacco/board-meetings', [\App\Http\Controllers\Api\Admin\SaccoBoardMeetingsController::class, 'index'])->name('sacco.board-meetings.index');
+    Route::post('/sacco/board-meetings', [\App\Http\Controllers\Api\Admin\SaccoBoardMeetingsController::class, 'store'])->name('sacco.board-meetings.store');
+    Route::get('/sacco/board-meetings/{id}', [\App\Http\Controllers\Api\Admin\SaccoBoardMeetingsController::class, 'show'])->name('sacco.board-meetings.show');
+    Route::put('/sacco/board-meetings/{id}', [\App\Http\Controllers\Api\Admin\SaccoBoardMeetingsController::class, 'update'])->name('sacco.board-meetings.update');
+    Route::delete('/sacco/board-meetings/{id}', [\App\Http\Controllers\Api\Admin\SaccoBoardMeetingsController::class, 'destroy'])->name('sacco.board-meetings.destroy');
+    Route::get('/sacco/meetings', [\App\Http\Controllers\Api\Admin\SaccoGovernanceController::class, 'meetings'])->name('sacco.meetings.index');
+    Route::post('/sacco/meetings', [\App\Http\Controllers\Api\Admin\SaccoGovernanceController::class, 'storeMeeting'])->name('sacco.meetings.store');
+    Route::get('/sacco/meetings/attendance-summary', [\App\Http\Controllers\Api\Admin\SaccoGovernanceController::class, 'attendanceSummary'])->name('sacco.meetings.attendance-summary');
+    Route::get('/sacco/meetings/{meeting}', [\App\Http\Controllers\Api\Admin\SaccoGovernanceController::class, 'showMeeting'])->name('sacco.meetings.show');
+    Route::put('/sacco/meetings/{meeting}', [\App\Http\Controllers\Api\Admin\SaccoGovernanceController::class, 'updateMeeting'])->name('sacco.meetings.update');
+    Route::delete('/sacco/meetings/{meeting}', [\App\Http\Controllers\Api\Admin\SaccoGovernanceController::class, 'destroyMeeting'])->name('sacco.meetings.destroy');
+    Route::get('/sacco/meetings/{meeting}/attendance', [\App\Http\Controllers\Api\Admin\SaccoGovernanceController::class, 'attendance'])->name('sacco.meetings.attendance');
+    Route::post('/sacco/meetings/{meeting}/attendance', [\App\Http\Controllers\Api\Admin\SaccoGovernanceController::class, 'markAttendance'])->name('sacco.meetings.attendance.mark');
 
     // Songs API
     Route::get('/songs/statistics', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'statistics'])->name('songs.statistics');
@@ -378,6 +580,16 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::post('/songs/{id}/toggle-status', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'toggleStatus'])->name('songs.toggle-status');
     Route::post('/songs/{id}/toggle-featured', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'toggleFeatured'])->name('songs.toggle-featured');
     Route::get('/songs/{id}/play-history', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'playHistory'])->name('songs.play-history');
+
+    // Albums API
+    Route::get('/albums/statistics', [\App\Http\Controllers\Api\Admin\AdminAlbumsController::class, 'statistics'])->name('albums.statistics');
+    Route::get('/albums', [\App\Http\Controllers\Api\Admin\AdminAlbumsController::class, 'index'])->name('albums.index');
+    Route::post('/albums', [\App\Http\Controllers\Api\Admin\AdminAlbumsController::class, 'store'])->name('albums.store');
+    Route::get('/albums/{id}', [\App\Http\Controllers\Api\Admin\AdminAlbumsController::class, 'show'])->name('albums.show');
+    Route::put('/albums/{id}', [\App\Http\Controllers\Api\Admin\AdminAlbumsController::class, 'update'])->name('albums.update');
+    Route::post('/albums/{id}', [\App\Http\Controllers\Api\Admin\AdminAlbumsController::class, 'update'])->name('albums.update.post');
+    Route::delete('/albums/{id}', [\App\Http\Controllers\Api\Admin\AdminAlbumsController::class, 'destroy'])->name('albums.destroy');
+    Route::post('/albums/{id}/toggle-status', [\App\Http\Controllers\Api\Admin\AdminAlbumsController::class, 'toggleStatus'])->name('albums.toggle-status');
 
     // Awards API — full CRUD
     Route::get('/awards/stats', [\App\Http\Controllers\Api\Admin\AdminAwardsApiController::class, 'stats'])->name('awards.stats');
@@ -400,13 +612,59 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
 
     // Roles & Permissions API
     Route::get('/roles', [\App\Http\Controllers\Api\Admin\RoleController::class, 'index'])->name('roles.index');
+    Route::get('/permissions', [\App\Http\Controllers\Api\Admin\RoleController::class, 'permissions'])->name('permissions.index');
     Route::get('/roles/permissions', [\App\Http\Controllers\Api\Admin\RoleController::class, 'permissions'])->name('roles.permissions');
     Route::get('/roles/{role}', [\App\Http\Controllers\Api\Admin\RoleController::class, 'show'])->name('roles.show');
     Route::post('/roles', [\App\Http\Controllers\Api\Admin\RoleController::class, 'store'])->name('roles.store');
+    Route::put('/roles/{role}/permissions', [\App\Http\Controllers\Api\Admin\RoleController::class, 'updatePermissions'])->name('roles.update-permissions');
     Route::put('/roles/{role}', [\App\Http\Controllers\Api\Admin\RoleController::class, 'update'])->name('roles.update');
     Route::delete('/roles/{role}', [\App\Http\Controllers\Api\Admin\RoleController::class, 'destroy'])->name('roles.destroy');
     Route::post('/roles/assign', [\App\Http\Controllers\Api\Admin\RoleController::class, 'assignToUser'])->name('roles.assign');
     Route::post('/roles/remove', [\App\Http\Controllers\Api\Admin\RoleController::class, 'removeFromUser'])->name('roles.remove');
+
+    // Subscription Management API
+    Route::get('/subscriptions/stats', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'stats'])->name('subscriptions.stats');
+    Route::get('/subscriptions', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'index'])->name('subscriptions.index');
+    Route::get('/subscriptions/export', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'exportIndex'])->name('subscriptions.export');
+    Route::get('/subscriptions/rates', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'rates'])->name('subscriptions.rates');
+    Route::get('/subscriptions/rates/export', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'exportRates'])->name('subscriptions.rates.export');
+    Route::put('/subscriptions/rates', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'updateRates'])->name('subscriptions.rates.update');
+    Route::get('/subscriptions/{id}', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'show'])->name('subscriptions.show');
+    Route::post('/subscriptions/grant', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'grant'])->name('subscriptions.grant');
+    Route::post('/subscriptions/{id}/revoke', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'revoke'])->name('subscriptions.revoke');
+    Route::get('/subscription-plans', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'plansList'])->name('subscription-plans.index');
+    Route::get('/subscription-plans/export', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'exportPlans'])->name('subscription-plans.export');
+    Route::post('/subscription-plans', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'storePlan'])->name('subscription-plans.store');
+    Route::put('/subscription-plans/{id}', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'updatePlan'])->name('subscription-plans.update');
+
+    // Podcasts API — full CRUD + moderation
+    Route::get('/podcasts/stats', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'stats'])->name('podcasts.stats');
+    Route::get('/podcasts/categories', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'categories'])->name('podcasts.categories');
+    Route::get('/podcasts', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'index'])->name('podcasts.index');
+    Route::get('/podcasts/{id}', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'show'])->name('podcasts.show');
+    Route::post('/podcasts', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'store'])->name('podcasts.store');
+    Route::put('/podcasts/{id}', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'update'])->name('podcasts.update');
+    Route::delete('/podcasts/{id}', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'destroy'])->name('podcasts.destroy');
+    Route::post('/podcasts/{id}/approve', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'approve'])->name('podcasts.approve');
+    Route::post('/podcasts/{id}/suspend', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'suspend'])->name('podcasts.suspend');
+    Route::get('/podcasts/{$id}/episodes', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'episodes'])->name('podcasts.episodes');
+
+    // Genres API — full CRUD
+    Route::get('/genres', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'index'])->name('genres.index');
+    Route::post('/genres', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'store'])->name('genres.store');
+    Route::get('/genres/{id}', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'show'])->name('genres.show');
+    Route::put('/genres/{id}', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'update'])->name('genres.update');
+    Route::delete('/genres/{id}', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'destroy'])->name('genres.destroy');
+    Route::post('/genres/{id}/toggle-active', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'toggleActive'])->name('genres.toggle-active');
+    Route::get('/reports/stats', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'stats'])->name('reports.stats');
+    Route::get('/reports/export', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'exportReports'])->name('reports.export');
+    Route::get('/reports/streaming-payouts', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'streamingPayouts'])->name('reports.streaming-payouts');
+    Route::get('/reports/streaming-payouts/export', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'exportStreamingPayouts'])->name('reports.streaming-payouts.export');
+    Route::get('/reports', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'index'])->name('reports.index');
+    Route::post('/reports/{report}/status', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'updateStatus'])->name('reports.status');
+    Route::get('/system/health', [\App\Http\Controllers\Api\Admin\AdminSystemController::class, 'health'])->name('system.health');
+    Route::get('/system/tests', [\App\Http\Controllers\Api\Admin\AdminSystemController::class, 'tests'])->name('system.tests');
+    Route::post('/system/actions', [\App\Http\Controllers\Api\Admin\AdminSystemController::class, 'action'])->name('system.actions');
 });
 
 // Payment Webhooks (Public - no auth required, rate limited)
@@ -518,74 +776,111 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // SACCO API Routes
 Route::prefix('sacco')
-    ->middleware(['auth:sanctum', 'sacco.member.api'])
+    ->middleware(['auth:sanctum'])
     ->name('api.sacco.')
     ->group(function () {
-        // Base sacco route
-        Route::get('/', \App\Http\Controllers\Api\Sacco\SaccoIndexController::class)->name('index');
-
-        // Membership
+        // Public-to-authenticated membership entrypoints
         Route::get('membership', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'myMembership'])->name('membership');
         Route::post('join', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'join'])->name('join');
-        Route::get('members', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'index'])->name('members.index');
-        Route::post('members', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'store'])->name('members.store');
-        Route::get('members/{member}', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'show'])->name('members.show');
-        Route::put('members/{member}', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'update'])->name('members.update');
-        Route::patch('members/{member}/status', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'updateStatus'])->name('members.status');
 
-        // Savings
-        Route::prefix('savings')->name('savings.')->group(function () {
-            Route::post('accounts', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'openAccount'])->name('accounts.open');
-            Route::post('deposit', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'deposit'])->name('deposit');
-            Route::post('withdraw', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'withdraw'])->name('withdraw');
-            Route::get('accounts/{account}', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'show'])->name('accounts.show');
-            Route::get('transactions/{account}', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'transactions'])->name('transactions');
-            Route::get('balance/{account}', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'balance'])->name('balance');
-        });
+        Route::middleware('sacco.member.api')->group(function () {
+            // Base sacco route
+            Route::get('/', \App\Http\Controllers\Api\Sacco\SaccoIndexController::class)->name('index');
+            Route::get('dashboard', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'dashboard'])->name('dashboard');
+            Route::get('profile', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'profile'])->name('profile');
+            Route::get('transactions', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'memberTransactions'])->name('transactions.index');
 
-        // Loans
-        Route::prefix('loans')->name('loans.')->group(function () {
-            Route::get('', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'myLoans'])->name('index');
-            Route::post('apply', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'apply'])->name('apply');
-            Route::post('{loan}/approve', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'approve'])->name('approve');
-            Route::post('{loan}/disburse', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'disburse'])->name('disburse');
-            Route::post('{loan}/repay', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'repay'])->name('repay');
-            Route::get('{loan}', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'show'])->name('show');
-            Route::get('member/{member}', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'memberLoans'])->name('member');
-            Route::get('{loan}/schedule', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'schedule'])->name('schedule');
-            Route::get('{loan}/balance', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'balance'])->name('balance');
-        });
+            // Membership
+            Route::get('members', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'index'])->name('members.index');
+            Route::post('members', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'store'])->name('members.store');
+            Route::get('members/{member}', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'show'])->name('members.show');
+            Route::put('members/{member}', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'update'])->name('members.update');
+            Route::patch('members/{member}/status', [\App\Http\Controllers\Api\Sacco\SaccoMembershipController::class, 'updateStatus'])->name('members.status');
 
-        // Shares
-        Route::prefix('shares')->name('shares.')->group(function () {
-            Route::post('purchase', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'purchase'])->name('purchase');
-            Route::post('transfer', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'transfer'])->name('transfer');
-            Route::get('member/{member}', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'memberShares'])->name('member');
-            Route::get('value', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'currentValue'])->name('value');
-        });
+            // Savings
+            Route::get('savings', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'summary'])->name('savings.summary');
+            Route::prefix('savings')->name('savings.')->group(function () {
+                Route::post('accounts', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'openAccount'])->name('accounts.open');
+                Route::post('deposit', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'deposit'])->name('deposit');
+                Route::post('withdraw', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'withdraw'])->name('withdraw');
+                Route::get('accounts/{account}', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'show'])->name('accounts.show');
+                Route::get('transactions/{account}', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'transactions'])->name('transactions');
+                Route::get('balance/{account}', [\App\Http\Controllers\Api\Sacco\SaccoSavingsController::class, 'balance'])->name('balance');
+            });
 
-        // Reports
-        Route::prefix('reports')->name('reports.')->group(function () {
-            Route::get('membership', [\App\Http\Controllers\Api\Sacco\SaccoReportsController::class, 'membership'])->name('membership');
-            Route::get('loans', [\App\Http\Controllers\Api\Sacco\SaccoReportsController::class, 'loans'])->name('loans');
-            Route::get('savings', [\App\Http\Controllers\Api\Sacco\SaccoReportsController::class, 'savings'])->name('savings');
-            Route::get('shares', [\App\Http\Controllers\Api\Sacco\SaccoReportsController::class, 'shares'])->name('shares');
-            Route::get('financial', [\App\Http\Controllers\Api\Sacco\SaccoReportsController::class, 'financial'])->name('financial');
-            Route::get('member/{member}', [\App\Http\Controllers\Api\Sacco\SaccoReportsController::class, 'memberStatement'])->name('member');
-            Route::get('overdue', [\App\Http\Controllers\Api\Sacco\SaccoReportsController::class, 'overdue'])->name('overdue');
-        });
+            // Loans
+            Route::get('loan-products', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'products'])->name('loan-products.index');
+            Route::prefix('loans')->name('loans.')->group(function () {
+                Route::get('', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'myLoans'])->name('index');
+                Route::get('guarantors', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'guarantors'])->name('guarantors');
+                Route::post('apply', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'apply'])->name('apply');
+                Route::get('eligibility', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'eligibility'])->name('eligibility');
+                Route::post('calculate-schedule', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'calculateSchedule'])->name('calculate-schedule');
+                Route::post('{loan}/approve', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'approve'])->name('approve');
+                Route::post('{loan}/disburse', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'disburse'])->name('disburse');
+                Route::post('{loan}/repay', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'repay'])->name('repay');
+                Route::post('{loan}/pay', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'repay'])->name('pay');
+                Route::get('{loan}', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'show'])->name('show');
+                Route::get('member/{member}', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'memberLoans'])->name('member');
+                Route::get('{loan}/schedule', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'schedule'])->name('schedule');
+                Route::get('{loan}/balance', [\App\Http\Controllers\Api\Sacco\SaccoLoanController::class, 'balance'])->name('balance');
+            });
 
-        // Analytics
-        Route::prefix('analytics')->name('analytics.')->group(function () {
-            Route::get('dashboard', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'dashboard'])->name('dashboard');
-            Route::get('trends/membership', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'membershipTrends'])->name('trends.membership');
-            Route::get('performance/loans', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'loanPerformance'])->name('performance.loans');
-            Route::get('savings', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'savings'])->name('savings');
-            Route::get('repayments', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'repayments'])->name('repayments');
-            Route::get('portfolio', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'portfolio'])->name('portfolio');
-            Route::get('activity', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'activity'])->name('activity');
-            Route::get('top-performers', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'topPerformers'])->name('top-performers');
-            Route::get('risk', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'risk'])->name('risk');
+            // Shares
+            Route::get('shares', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'myShares'])->name('shares.self');
+            Route::prefix('shares')->name('shares.')->group(function () {
+                Route::post('purchase', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'purchase'])->name('purchase');
+                Route::post('buy', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'purchase'])->name('buy');
+                Route::post('transfer', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'transfer'])->name('transfer');
+                Route::get('member/{member}', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'memberShares'])->name('member');
+                Route::get('value', [\App\Http\Controllers\Api\Sacco\SaccoSharesController::class, 'currentValue'])->name('value');
+            });
+
+            // Meetings
+            Route::get('meetings', [\App\Http\Controllers\Api\Sacco\SaccoMeetingsController::class, 'index'])->name('meetings.index');
+            Route::get('meetings/{meeting}', [\App\Http\Controllers\Api\Sacco\SaccoMeetingsController::class, 'show'])->name('meetings.show');
+            Route::post('meetings/{meeting}/rsvp', [\App\Http\Controllers\Api\Sacco\SaccoMeetingsController::class, 'rsvp'])->name('meetings.rsvp');
+            Route::get('notifications', [\App\Http\Controllers\Api\Sacco\SaccoNotificationsController::class, 'index'])->name('notifications.index');
+            Route::post('notifications/read-all', [\App\Http\Controllers\Api\Sacco\SaccoNotificationsController::class, 'markAllRead'])->name('notifications.read-all');
+            Route::post('notifications/{notification}/read', [\App\Http\Controllers\Api\Sacco\SaccoNotificationsController::class, 'markRead'])->name('notifications.read');
+
+            // Goals (savings goals)
+            Route::prefix('goals')->name('goals.')->group(function () {
+                Route::get('', [\App\Http\Controllers\Api\Sacco\SaccoGoalsController::class, 'index'])->name('index');
+                Route::post('', [\App\Http\Controllers\Api\Sacco\SaccoGoalsController::class, 'store'])->name('store');
+                Route::get('{goal}', [\App\Http\Controllers\Api\Sacco\SaccoGoalsController::class, 'show'])->name('show');
+                Route::put('{goal}', [\App\Http\Controllers\Api\Sacco\SaccoGoalsController::class, 'update'])->name('update');
+                Route::delete('{goal}', [\App\Http\Controllers\Api\Sacco\SaccoGoalsController::class, 'destroy'])->name('destroy');
+                Route::post('{goal}/deposit', [\App\Http\Controllers\Api\Sacco\SaccoGoalsController::class, 'deposit'])->name('deposit');
+                Route::post('{goal}/convert-credits', [\App\Http\Controllers\Api\Sacco\SaccoGoalsController::class, 'convertCredits'])->name('convert-credits');
+                Route::post('{goal}/auto-save', [\App\Http\Controllers\Api\Sacco\SaccoGoalsController::class, 'autoSave'])->name('auto-save');
+                Route::get('{goal}/transactions', [\App\Http\Controllers\Api\Sacco\SaccoGoalsController::class, 'transactions'])->name('transactions');
+                Route::get('{goal}/funding-options', [\App\Http\Controllers\Api\Sacco\SaccoGoalsController::class, 'fundingOptions'])->name('funding-options');
+            });
+
+            // Reports
+            Route::prefix('reports')->name('reports.')->group(function () {
+                Route::get('membership', [\App\Http\Controllers\Api\Sacco\SaccoReportsController::class, 'membership'])->name('membership');
+                Route::get('loans', [\App\Http\Controllers\Api\Sacco\SaccoReportsController::class, 'loans'])->name('loans');
+                Route::get('savings', [\App\Http\Controllers\Api\Sacco\SaccoReportsController::class, 'savings'])->name('savings');
+                Route::get('shares', [\App\Http\Controllers\Api\Sacco\SaccoReportsController::class, 'shares'])->name('shares');
+                Route::get('financial', [\App\Http\Controllers\Api\Sacco\SaccoReportsController::class, 'financial'])->name('financial');
+                Route::get('member/{member}', [\App\Http\Controllers\Api\Sacco\SaccoReportsController::class, 'memberStatement'])->name('member');
+                Route::get('overdue', [\App\Http\Controllers\Api\Sacco\SaccoReportsController::class, 'overdue'])->name('overdue');
+            });
+
+            // Analytics
+            Route::prefix('analytics')->name('analytics.')->group(function () {
+                Route::get('dashboard', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'dashboard'])->name('dashboard');
+                Route::get('trends/membership', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'membershipTrends'])->name('trends.membership');
+                Route::get('performance/loans', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'loanPerformance'])->name('performance.loans');
+                Route::get('savings', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'savings'])->name('savings');
+                Route::get('repayments', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'repayments'])->name('repayments');
+                Route::get('portfolio', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'portfolio'])->name('portfolio');
+                Route::get('activity', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'activity'])->name('activity');
+                Route::get('top-performers', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'topPerformers'])->name('top-performers');
+                Route::get('risk', [\App\Http\Controllers\Api\Sacco\SaccoAnalyticsController::class, 'risk'])->name('risk');
+            });
         });
     });
 
@@ -637,24 +932,22 @@ Route::prefix('feed')->name('api.feed.')->group(function () {
 // USER CREDITS ROUTES
 // ============================================================================
 Route::prefix('credits')->middleware('auth:sanctum')->name('api.credits.')->group(function () {
+    Route::get('/balance', [\App\Http\Controllers\Api\User\CreditController::class, 'balance'])->name('balance');
     Route::get('/dashboard', [\App\Http\Controllers\Api\User\CreditController::class, 'dashboard'])->name('dashboard');
     Route::get('/transactions', [\App\Http\Controllers\Api\User\CreditController::class, 'transactions'])->name('transactions');
+    Route::post('/purchase', [\App\Http\Controllers\Api\User\CreditController::class, 'purchase'])->name('purchase');
+    Route::post('/exchange', [\App\Http\Controllers\Api\User\CreditController::class, 'exchange'])->name('exchange');
     Route::post('/claim-daily-bonus', [\App\Http\Controllers\Api\User\CreditController::class, 'claimDailyBonus'])->name('claim-daily-bonus');
     Route::post('/transfer', [\App\Http\Controllers\Api\User\CreditController::class, 'transfer'])->name('transfer');
     Route::get('/promotions', [\App\Http\Controllers\Api\User\CreditController::class, 'promotions'])->name('promotions');
     Route::post('/promotions/{promotion}/participate', [\App\Http\Controllers\Api\User\CreditController::class, 'participateInPromotion'])->name('promotions.participate');
 });
 
-// Auth prefix routes (rate-limited, for compatibility with frontend)
-Route::prefix('auth')->group(function () {
-    Route::middleware('throttle:login')->post('/login', [\App\Http\Controllers\Api\Auth\AuthController::class, 'login']);
-    Route::middleware('throttle:register')->post('/register', [\App\Http\Controllers\Api\Auth\AuthController::class, 'register']);
-
-    Route::middleware('auth:sanctum')->group(function () {
-        Route::post('/logout', [\App\Http\Controllers\Api\Auth\AuthController::class, 'logout']);
-        Route::post('/refresh', [\App\Http\Controllers\Api\Auth\AuthController::class, 'refresh']);
-        Route::get('/user', [\App\Http\Controllers\Api\Auth\AuthController::class, 'user']);
-    });
-});
-
 // REMOVED: test-upload debug endpoint — security hardening
+
+// File Upload API Routes (authenticated)
+Route::middleware('auth:sanctum')->prefix('uploads')->name('api.uploads.')->group(function () {
+    Route::post('/audio', [\App\Http\Controllers\Api\Upload\FileController::class, 'uploadAudio'])->name('audio');
+    Route::post('/image', [\App\Http\Controllers\Api\Upload\FileController::class, 'uploadImage'])->name('image');
+    Route::post('/avatar', [\App\Http\Controllers\Api\Upload\FileController::class, 'uploadAvatar'])->name('avatar');
+});
