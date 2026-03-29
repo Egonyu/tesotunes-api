@@ -217,6 +217,7 @@ class SecurityAuditRoutes extends Command
             if (array_intersect(['POST', 'PUT', 'DELETE', 'PATCH'], $route->methods())) {
                 if (! $this->hasMiddleware($middleware, 'auth:sanctum')
                     && ! $this->hasMiddleware($middleware, 'auth')
+                    && ! $this->hasMiddleware($middleware, 'observability.collector')
                     && ! $this->hasMiddleware($middleware, 'webhook.rate_limit')) {
                     $issues[] = [
                         'severity' => 'HIGH',
