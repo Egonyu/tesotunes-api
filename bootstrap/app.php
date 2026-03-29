@@ -8,6 +8,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
@@ -60,12 +61,16 @@ return Application::configure(basePath: dirname(__DIR__))
             'module.enabled' => \App\Http\Middleware\CheckModuleEnabled::class,
             'check.environment' => \App\Http\Middleware\CheckEnvironment::class,
             'webhook.rate_limit' => \App\Http\Middleware\WebhookRateLimiter::class,
+            'observability.collector' => \App\Http\Middleware\VerifyObservabilityCollectorToken::class,
             'loyalty.tier' => \App\Http\Middleware\CheckLoyaltyTierAccess::class,
             'deprecated' => \App\Http\Middleware\DeprecationMiddleware::class,
         ]);
 
         // Add security headers to all requests
         $middleware->append(\App\Http\Middleware\SecurityHeadersMiddleware::class);
+
+        // Stamp request/trace correlation IDs used by observability features.
+        $middleware->append(\App\Http\Middleware\AssignObservabilityContext::class);
 
         // Log API requests (method, URI, status, duration, user)
         $middleware->appendToGroup('api', \App\Http\Middleware\ApiLoggingMiddleware::class);
@@ -90,6 +95,10 @@ return Application::configure(basePath: dirname(__DIR__))
             $request = app()->bound('request') ? app('request') : null;
 
             if ($request && ($request->is('api/*') || $request->expectsJson())) {
+                if ($e instanceof HttpResponseException) {
+                    return false;
+                }
+
                 if ($e instanceof AuthenticationException) {
                     Log::channel('security')->warning('api.authentication_failed', [
                         'guards' => $e->guards(),
@@ -182,6 +191,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // ── Render: consistent JSON error responses for API routes ───
         $exceptions->render(function (\Throwable $e, Request $request) {
             if ($request->is('api/*') || $request->expectsJson()) {
+                if ($e instanceof HttpResponseException) {
+                    return $e->getResponse();
+                }
+
                 $buildPayload = function (string $message, array $extra = []) use ($e) {
                     $payload = array_merge([
                         'success' => false,

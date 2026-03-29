@@ -449,6 +449,31 @@ class PaymentObservabilityService
             'ip_address' => request()?->ip(),
             'user_agent' => request()?->userAgent(),
             'url' => request()?->fullUrl(),
+            'request_id' => request()?->attributes?->get('observability_request_id'),
+            'trace_id' => request()?->attributes?->get('observability_trace_id'),
+            'session_id' => request()?->attributes?->get('observability_session_id'),
+        ]);
+    }
+
+    public function recordWebhookAudit(
+        string $action,
+        array $context = [],
+        ?Payment $payment = null,
+        ?int $userId = null,
+    ): void {
+        AuditLog::create([
+            'user_id' => $userId ?? $payment?->user_id,
+            'action' => $action,
+            'auditable_type' => Payment::class,
+            'auditable_id' => $payment?->id ?? 0,
+            'old_values' => null,
+            'new_values' => $context,
+            'ip_address' => request()?->ip(),
+            'user_agent' => request()?->userAgent(),
+            'url' => request()?->fullUrl(),
+            'request_id' => request()?->attributes?->get('observability_request_id'),
+            'trace_id' => request()?->attributes?->get('observability_trace_id'),
+            'session_id' => request()?->attributes?->get('observability_session_id'),
         ]);
     }
 

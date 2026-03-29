@@ -47,6 +47,9 @@ class TrackApiUsage
             'ip_address' => $request->ip(),
             'user_agent' => substr($request->userAgent() ?? '', 0, 500),
             'requested_at' => now(),
+            'request_id' => $request->attributes->get('observability_request_id'),
+            'trace_id' => $request->attributes->get('observability_trace_id'),
+            'session_id' => $request->attributes->get('observability_session_id'),
         ]);
 
         return $response;

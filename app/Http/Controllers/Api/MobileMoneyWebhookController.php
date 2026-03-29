@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
+use App\Services\Payment\PaymentObservabilityService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -16,6 +17,10 @@ use Illuminate\Support\Facades\Log;
  */
 class MobileMoneyWebhookController extends Controller
 {
+    public function __construct(
+        protected PaymentObservabilityService $paymentObservability,
+    ) {}
+
     public function handle(Request $request): JsonResponse
     {
         $payload = $request->all();
@@ -27,8 +32,20 @@ class MobileMoneyWebhookController extends Controller
             'payload_keys' => array_keys($payload),
         ]);
 
+        $this->paymentObservability->recordWebhookAudit('mobile_money_webhook_received', [
+            'provider' => $provider,
+            'payload_keys' => array_keys($payload),
+            'source' => 'mobile_money_controller',
+        ]);
+
         // Verify signature
         if (! $this->verifySignature($request, $provider)) {
+            $this->paymentObservability->recordWebhookAudit('mobile_money_webhook_signature_failed', [
+                'provider' => $provider,
+                'payload_keys' => array_keys($payload),
+                'source' => 'mobile_money_controller',
+            ]);
+
             Log::warning('Mobile money webhook: invalid signature', [
                 'provider' => $provider,
                 'ip' => $request->ip(),
@@ -46,6 +63,12 @@ class MobileMoneyWebhookController extends Controller
             ?? null;
 
         if (! $transactionId) {
+            $this->paymentObservability->recordWebhookAudit('mobile_money_webhook_missing_reference', [
+                'provider' => $provider,
+                'payload_keys' => array_keys($payload),
+                'source' => 'mobile_money_controller',
+            ]);
+
             return response()->json(['message' => 'Missing transaction reference.'], 400);
         }
 
@@ -54,6 +77,12 @@ class MobileMoneyWebhookController extends Controller
             ->first();
 
         if (! $payment) {
+            $this->paymentObservability->recordWebhookAudit('mobile_money_webhook_payment_not_found', [
+                'provider' => $provider,
+                'transaction_id' => $transactionId,
+                'source' => 'mobile_money_controller',
+            ]);
+
             Log::warning('Mobile money webhook: payment not found', [
                 'transaction_id' => $transactionId,
                 'provider' => $provider,
@@ -64,6 +93,13 @@ class MobileMoneyWebhookController extends Controller
 
         // Idempotency: skip finalized payments
         if (in_array($payment->status, ['completed', 'refunded', 'cancelled'])) {
+            $this->paymentObservability->recordWebhookAudit('mobile_money_webhook_replayed_finalized', [
+                'provider' => $provider,
+                'transaction_id' => $transactionId,
+                'status' => $payment->status,
+                'source' => 'mobile_money_controller',
+            ], $payment);
+
             return response()->json([
                 'message' => 'Payment already processed.',
                 'status' => $payment->status,
@@ -83,6 +119,13 @@ class MobileMoneyWebhookController extends Controller
                 'payment_id' => $payment->id,
                 'provider' => $provider,
             ]);
+
+            $this->paymentObservability->recordWebhookAudit('mobile_money_webhook_completed', [
+                'provider' => $provider,
+                'transaction_id' => $transactionId,
+                'status' => $status,
+                'source' => 'mobile_money_controller',
+            ], $payment->fresh());
         } elseif (in_array($status, ['failed', 'failure', 'declined', 'rejected'])) {
             $payment->markAsFailed(
                 $payload['reason'] ?? $payload['message'] ?? 'Payment failed',
@@ -94,8 +137,22 @@ class MobileMoneyWebhookController extends Controller
                 'provider' => $provider,
                 'reason' => $payload['reason'] ?? $payload['message'] ?? 'unknown',
             ]);
+
+            $this->paymentObservability->recordWebhookAudit('mobile_money_webhook_failed', [
+                'provider' => $provider,
+                'transaction_id' => $transactionId,
+                'status' => $status,
+                'reason' => $payload['reason'] ?? $payload['message'] ?? 'Payment failed',
+                'source' => 'mobile_money_controller',
+            ], $payment->fresh());
         } elseif (in_array($status, ['cancelled', 'expired', 'timeout'])) {
             $payment->markAsCancelled();
+            $this->paymentObservability->recordWebhookAudit('mobile_money_webhook_cancelled', [
+                'provider' => $provider,
+                'transaction_id' => $transactionId,
+                'status' => $status,
+                'source' => 'mobile_money_controller',
+            ], $payment->fresh());
         }
 
         return response()->json([

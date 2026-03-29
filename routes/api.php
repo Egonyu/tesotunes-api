@@ -194,6 +194,7 @@ Route::post('/theme', [\App\Http\Controllers\ThemeController::class, 'update'])
     ->middleware('throttle:theme')
     ->name('api.theme.update');
 Route::get('/theme', [\App\Http\Controllers\ThemeController::class, 'get'])->name('api.theme.get');
+Route::get('/platform-settings', [\App\Http\Controllers\Api\Admin\SettingsController::class, 'publicIndex'])->name('api.platform-settings.public');
 
 // Genres API endpoint for artist registration
 Route::get('/genres', [\App\Http\Controllers\Api\GenreController::class, 'index']);
@@ -289,6 +290,38 @@ if (config('store.enabled', false)) {
 if (app()->runningUnitTests()) {
     require __DIR__.'/api/store.php';
 }
+
+Route::prefix('promotions')->name('promotions.')->group(function () {
+    Route::get('/', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'index'])->name('index');
+    Route::get('/platforms/list', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'platforms'])->name('platforms');
+    Route::get('/{slug}', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'show'])->name('show');
+    Route::middleware(['auth:sanctum'])->group(function () {
+        Route::post('/', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'store'])->name('store');
+        Route::put('/{product}', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'update'])->name('update');
+        Route::delete('/{product}', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'destroy'])->name('destroy');
+        Route::post('/{product}/pause', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'pause'])->name('pause');
+        Route::post('/{product}/activate', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'activate'])->name('activate');
+        Route::post('/{slug}/purchase', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'purchase'])->name('purchase');
+        Route::post('/orders/{orderId}/submit-verification', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'submitVerification'])->name('orders.submit-verification');
+        Route::post('/orders/{orderId}/dispute', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'dispute'])->name('orders.dispute');
+        Route::post('/orders/{orderId}/review', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'review'])->name('orders.review');
+    });
+});
+Route::get('/promoters/{username}', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'promoterProfile'])->name('promoters.show');
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/my/promotions', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'myPromotions'])->name('my.promotions');
+    Route::get('/my/promotions/purchases', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'myPurchases'])->name('my.promotions.purchases');
+    Route::get('/my/promotions/purchases/{orderId}', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'myPurchase'])->name('my.promotions.purchase');
+    Route::get('/my/promotions/orders', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'sellerOrders'])->name('my.promotions.orders');
+    Route::get('/my/promotions/orders/{orderId}', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'showOrder'])->name('my.promotions.order');
+    Route::get('/my/promotions/analytics', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'statistics'])->name('my.promotions.analytics');
+    Route::get('/my/promotions/{promotionId}', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'show'])->name('my.promotions.show');
+    Route::get('/my/promoter-profile', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'profile'])->name('my.promoter-profile');
+    Route::put('/my/promoter-profile', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'updateProfile'])->name('my.promoter-profile.update');
+    Route::post('/promotions/orders/{orderId}/verify', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'verifyCompletion'])->name('promotions.orders.verify');
+    Route::post('/promotions/orders/{orderId}/reject', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'rejectCompletion'])->name('promotions.orders.reject');
+});
 
 // Admin Store API — SECURED with auth + role middleware (SEC-CRIT-2 fix)
 Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin/store')->name('admin.store.api.')->group(function () {
@@ -434,6 +467,7 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     // Users API
     Route::get('/users', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'index'])->name('users.index');
     Route::get('/users/statistics', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'statistics'])->name('users.statistics');
+    Route::get('/users/{id}/access-history', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'accessHistory'])->name('users.access-history');
     Route::get('/users/{id}', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'show'])->name('users.show');
     Route::post('/users', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'store'])->name('users.store');
     Route::put('/users/{id}', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'update'])->name('users.update');
@@ -575,6 +609,9 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
 
     // Roles & Permissions API
     Route::get('/roles', [\App\Http\Controllers\Api\Admin\RoleController::class, 'index'])->name('roles.index');
+    Route::get('/role-templates', [\App\Http\Controllers\Api\Admin\RoleController::class, 'templates'])->name('roles.templates');
+    Route::post('/role-templates', [\App\Http\Controllers\Api\Admin\RoleController::class, 'storeTemplate'])->name('roles.templates.store');
+    Route::delete('/role-templates/{roleTemplate}', [\App\Http\Controllers\Api\Admin\RoleController::class, 'destroyTemplate'])->name('roles.templates.destroy');
     Route::get('/permissions', [\App\Http\Controllers\Api\Admin\RoleController::class, 'permissions'])->name('permissions.index');
     Route::get('/roles/permissions', [\App\Http\Controllers\Api\Admin\RoleController::class, 'permissions'])->name('roles.permissions');
     Route::get('/roles/{role}', [\App\Http\Controllers\Api\Admin\RoleController::class, 'show'])->name('roles.show');
@@ -583,7 +620,9 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::put('/roles/{role}', [\App\Http\Controllers\Api\Admin\RoleController::class, 'update'])->name('roles.update');
     Route::delete('/roles/{role}', [\App\Http\Controllers\Api\Admin\RoleController::class, 'destroy'])->name('roles.destroy');
     Route::post('/roles/assign', [\App\Http\Controllers\Api\Admin\RoleController::class, 'assignToUser'])->name('roles.assign');
+    Route::post('/roles/assign-bulk', [\App\Http\Controllers\Api\Admin\RoleController::class, 'assignToUsers'])->name('roles.assign-bulk');
     Route::post('/roles/remove', [\App\Http\Controllers\Api\Admin\RoleController::class, 'removeFromUser'])->name('roles.remove');
+    Route::post('/roles/remove-bulk', [\App\Http\Controllers\Api\Admin\RoleController::class, 'removeFromUsers'])->name('roles.remove-bulk');
 
     // Subscription Management API
     Route::get('/subscriptions/stats', [\App\Http\Controllers\Api\Admin\AdminSubscriptionsController::class, 'stats'])->name('subscriptions.stats');
@@ -628,6 +667,33 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::get('/system/health', [\App\Http\Controllers\Api\Admin\AdminSystemController::class, 'health'])->name('system.health');
     Route::get('/system/tests', [\App\Http\Controllers\Api\Admin\AdminSystemController::class, 'tests'])->name('system.tests');
     Route::post('/system/actions', [\App\Http\Controllers\Api\Admin\AdminSystemController::class, 'action'])->name('system.actions');
+    Route::prefix('observability')->name('observability.')->group(function () {
+        Route::get('/overview', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'overview'])->name('overview');
+        Route::get('/events', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'events'])->name('events.index');
+        Route::get('/events/{event}', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'showEvent'])->name('events.show');
+        Route::get('/entry-points', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'entryPoints'])->name('entry-points');
+        Route::get('/attackers', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'attackers'])->name('attackers.index');
+        Route::get('/attackers/{attacker}', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'showAttacker'])->name('attackers.show');
+        Route::get('/bots', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'bots'])->name('bots');
+        Route::get('/auth-sessions', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'authSessions'])->name('auth-sessions');
+        Route::get('/auth-sessions/{session}', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'showAuthSession'])->name('auth-sessions.show');
+        Route::get('/payments-risk', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'paymentsRisk'])->name('payments-risk');
+        Route::get('/payments-risk/{reference}', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'showPaymentReference'])->name('payments-risk.show');
+        Route::get('/integrations', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'integrations'])->name('integrations');
+        Route::get('/system-host', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'systemHost'])->name('system-host');
+        Route::get('/database', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'database'])->name('database');
+        Route::get('/audit-trail', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'auditTrail'])->name('audit-trail');
+        Route::get('/changes', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'changes'])->name('changes');
+        Route::get('/stakeholder-risk', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'stakeholderRisk'])->name('stakeholder-risk');
+        Route::get('/stakeholder-risk/{actorType}/{actorId}', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'showStakeholder'])->name('stakeholder-risk.show');
+        Route::get('/incidents', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'incidents'])->name('incidents.index');
+        Route::get('/incidents/suggestions', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'incidentSuggestions'])->name('incidents.suggestions');
+        Route::get('/incidents/{incident}', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'showIncident'])->name('incidents.show');
+        Route::patch('/incidents/{incident}/assign', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'assignIncident'])->name('incidents.assign');
+        Route::patch('/incidents/{incident}/release', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'releaseIncident'])->name('incidents.release');
+        Route::post('/incidents', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'storeIncident'])->name('incidents.store');
+        Route::patch('/incidents/{incident}', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'updateIncident'])->name('incidents.update');
+    });
 });
 
 // Payment Webhooks (Public - no auth required, rate limited)
@@ -635,6 +701,10 @@ Route::middleware('webhook.rate_limit')->group(function () {
     Route::post('/webhooks/payment/{provider}', [\App\Http\Controllers\Api\PaymentController::class, 'webhook'])->name('api.webhooks.payment');
     Route::post('/payments/webhook', [\App\Http\Controllers\Api\PaymentController::class, 'webhook'])->name('api.payments.webhook');
     Route::post('/webhooks/mobile-money', [\App\Http\Controllers\Api\MobileMoneyWebhookController::class, 'handle'])->name('webhooks.mobile-money');
+});
+
+Route::middleware(['observability.collector'])->prefix('observability/collector')->name('api.observability.collector.')->group(function () {
+    Route::post('/events', [\App\Http\Controllers\Api\ObservabilityCollectorController::class, 'ingest'])->name('events.ingest');
 });
 
 // ISRC Generation Routes
