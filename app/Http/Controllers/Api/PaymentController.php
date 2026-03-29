@@ -19,6 +19,7 @@ class PaymentController extends Controller
 {
     public function __construct(
         protected PaymentService $paymentService,
+        protected PaymentObservabilityService $paymentObservability,
     ) {}
 
     protected function ensureAdmin(Request $request): ?JsonResponse
@@ -171,6 +172,12 @@ class PaymentController extends Controller
             'ip' => $request->ip(),
         ]);
 
+        $this->paymentObservability->recordWebhookAudit('payment_webhook_received', [
+            'provider' => $provider,
+            'payload_keys' => array_keys($payload),
+            'source' => 'payment_controller',
+        ]);
+
         if ($provider === 'zengapay') {
             $zengaPay = app(ZengaPayService::class);
             $signature = $request->header('X-Signature')
@@ -196,6 +203,12 @@ class PaymentController extends Controller
 
         // Verify webhook signature
         if (! $this->verifyWebhookSignature($request, $provider)) {
+            $this->paymentObservability->recordWebhookAudit('payment_webhook_signature_failed', [
+                'provider' => $provider,
+                'payload_keys' => array_keys($payload),
+                'source' => 'payment_controller',
+            ]);
+
             Log::warning("Payment webhook: invalid signature from {$provider}", [
                 'ip' => $request->ip(),
             ]);
@@ -207,6 +220,12 @@ class PaymentController extends Controller
         $transactionId = $payload['transactionId'] ?? $payload['transaction_id'] ?? $payload['reference'] ?? null;
 
         if (! $transactionId) {
+            $this->paymentObservability->recordWebhookAudit('payment_webhook_missing_reference', [
+                'provider' => $provider,
+                'payload_keys' => array_keys($payload),
+                'source' => 'payment_controller',
+            ]);
+
             return response()->json(['message' => 'Missing transaction reference.'], 400);
         }
 
@@ -215,6 +234,12 @@ class PaymentController extends Controller
             ->first();
 
         if (! $payment) {
+            $this->paymentObservability->recordWebhookAudit('payment_webhook_payment_not_found', [
+                'provider' => $provider,
+                'transaction_id' => $transactionId,
+                'source' => 'payment_controller',
+            ]);
+
             Log::warning("Payment not found for webhook transaction: {$transactionId}");
 
             return response()->json(['message' => 'Payment not found.'], 404);
@@ -222,6 +247,13 @@ class PaymentController extends Controller
 
         // Idempotency: don't re-process finalized payments
         if (in_array($payment->status, ['completed', 'refunded', 'cancelled'])) {
+            $this->paymentObservability->recordWebhookAudit('payment_webhook_replayed_finalized', [
+                'provider' => $provider,
+                'transaction_id' => $transactionId,
+                'status' => $payment->status,
+                'source' => 'payment_controller',
+            ], $payment);
+
             Log::info('Payment webhook: already finalized', [
                 'payment_id' => $payment->id,
                 'status' => $payment->status,
@@ -240,11 +272,24 @@ class PaymentController extends Controller
                 'status' => 'completed',
                 'completed_at' => now(),
             ])->save();
+            $this->paymentObservability->recordWebhookAudit('payment_webhook_completed', [
+                'provider' => $provider,
+                'transaction_id' => $transactionId,
+                'status' => $status,
+                'source' => 'payment_controller',
+            ], $payment);
         } elseif (in_array($status, ['failed', 'failure', 'declined'])) {
             $payment->forceFill([
                 'status' => 'failed',
                 'failure_reason' => $payload['reason'] ?? $payload['message'] ?? 'Payment failed',
             ])->save();
+            $this->paymentObservability->recordWebhookAudit('payment_webhook_failed', [
+                'provider' => $provider,
+                'transaction_id' => $transactionId,
+                'status' => $status,
+                'reason' => $payload['reason'] ?? $payload['message'] ?? 'Payment failed',
+                'source' => 'payment_controller',
+            ], $payment);
         }
 
         return response()->json([

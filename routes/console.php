@@ -256,6 +256,13 @@ Schedule::command('api-usage:aggregate --prune-days=30')
     ->onOneServer()
     ->runInBackground();
 
+Schedule::command('observability:maintain')
+    ->hourly()
+    ->name('observability-maintenance')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
 /*
 |--------------------------------------------------------------------------
 | Weekly Music Digest Notifications

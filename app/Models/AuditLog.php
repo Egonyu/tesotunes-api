@@ -17,6 +17,9 @@ class AuditLog extends Model
         'ip_address',
         'user_agent',
         'url',
+        'request_id',
+        'trace_id',
+        'session_id',
     ];
 
     protected $casts = [
@@ -45,6 +48,9 @@ class AuditLog extends Model
             'ip_address' => request()->ip(),
             'user_agent' => request()->userAgent(),
             'url' => request()->fullUrl(),
+            'request_id' => request()->attributes->get('observability_request_id'),
+            'trace_id' => request()->attributes->get('observability_trace_id'),
+            'session_id' => request()->attributes->get('observability_session_id'),
         ]);
     }
 

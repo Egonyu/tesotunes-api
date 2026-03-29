@@ -377,16 +377,19 @@ class ZengaPayService
         $data = $this->extractWebhookData($payload);
         $payment = $this->locatePayment($data['transaction_id'], $data['external_reference']);
 
-        if (! $payment) {
-            return;
-        }
-
-        $this->observability()->recordAudit($payment, 'payment_webhook_signature_failed', [
+        $this->observability()->recordWebhookAudit('payment_webhook_signature_failed', [
             'channel' => 'zengapay',
             'transaction_id' => $data['transaction_id'],
             'external_reference' => $data['external_reference'],
             'provided_signature' => $this->normalizeSignature((string) $signature),
-        ]);
+            'status' => $data['status'],
+            'provider' => 'zengapay',
+            'payload_keys' => array_keys($payload),
+        ], $payment);
+
+        if (! $payment) {
+            return;
+        }
 
         $this->observability()->recordIssue(
             $payment,

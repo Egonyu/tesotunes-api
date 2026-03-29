@@ -17,6 +17,9 @@ class ApiUsageLog extends Model
         'ip_address',
         'user_agent',
         'requested_at',
+        'request_id',
+        'trace_id',
+        'session_id',
     ];
 
     protected $casts = [
