@@ -83,6 +83,8 @@ class RolePermissionSeeder extends Seeder
             ]
         );
         $admin->permissions()->sync([
+            $permissionIds['manage-roles'],
+            $permissionIds['manage-settings'],
             $permissionIds['manage-users'],
             $permissionIds['view-users'],
             $permissionIds['edit-users'],

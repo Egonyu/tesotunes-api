@@ -8,12 +8,16 @@ use App\Models\User;
 use App\Models\UserSetting;
 use App\Notifications\SecurityAlertNotification;
 use App\Notifications\WelcomeNotification;
+use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rules\Password as PasswordRule;
 
 class AuthController extends Controller
 {
@@ -29,6 +33,27 @@ class AuthController extends Controller
             'token' => $token,
             'token_type' => 'Bearer',
         ]);
+    }
+
+    /**
+     * Resolve the login throttle key used by the route limiter.
+     */
+    private function loginThrottleKey(Request $request): string
+    {
+        $identifier = Str::lower(trim((string) $request->input('email')));
+
+        return $identifier !== ''
+            ? "login:{$identifier}|{$request->ip()}"
+            : "login-ip:{$request->ip()}";
+    }
+
+    /**
+     * Clear accumulated failed login attempts after a successful sign-in.
+     */
+    private function clearLoginThrottle(Request $request): void
+    {
+        // The named throttle middleware hashes keys as md5($limiterName.$key).
+        RateLimiter::clear(md5('login'.$this->loginThrottleKey($request)));
     }
 
     /**
@@ -61,7 +86,7 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|confirmed',
+            'password' => ['required', 'confirmed', PasswordRule::defaults()],
             'phone' => 'nullable|string|max:20',
             'country' => 'nullable|string|max:2',
             'date_of_birth' => 'nullable|date|before:today',
@@ -99,6 +124,8 @@ class AuthController extends Controller
             ]);
         }
 
+        event(new Registered($user));
+
         try {
             $user->notify(new WelcomeNotification);
         } catch (\Throwable $e) {
@@ -110,12 +137,10 @@ class AuthController extends Controller
             ]);
         }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
-
         return response()->json([
+            'message' => 'Registration successful. Please verify your email before signing in.',
             'data' => new UserResource($this->loadAuthRelations($user, ['settings'])),
-            'token' => $token,
-            'token_type' => 'Bearer',
+            'requires_email_verification' => true,
         ], 201);
     }
 
@@ -168,7 +193,24 @@ class AuthController extends Controller
             ], 403);
         }
 
+        if (! $user->hasVerifiedEmail()) {
+            Log::channel('security')->warning('auth.login.blocked', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'url' => $request->fullUrl(),
+                'reason' => 'email_not_verified',
+            ]);
+
+            return response()->json([
+                'message' => 'Please verify your email before signing in.',
+                'code' => 'EMAIL_NOT_VERIFIED',
+            ], 403);
+        }
+
         $user->update(['last_login_at' => now()]);
+        $this->clearLoginThrottle($request);
 
         // Security alert for new login
         $user->notify(new SecurityAlertNotification(

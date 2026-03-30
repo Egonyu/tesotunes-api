@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api\Auth;
 
 use App\Models\User;
+use App\Notifications\VerifyEmailNotification;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
@@ -48,22 +49,25 @@ class RegisterTest extends TestCase
 
         $response->assertCreated()
             ->assertJsonStructure([
+                'message',
                 'data' => [
                     'id', 'name', 'email', 'role',
                     'is_active', 'is_verified', 'is_premium',
                 ],
-                'token',
-                'token_type',
+                'requires_email_verification',
             ])
             ->assertJson([
-                'token_type' => 'Bearer',
+                'message' => 'Registration successful. Please verify your email before signing in.',
+                'requires_email_verification' => true,
                 'data' => [
                     'email' => $payload['email'],
                     'role' => 'user',
                 ],
             ]);
-
-        $this->assertNotEmpty($response->json('token'));
+        Notification::assertSentTo(
+            User::where('email', $payload['email'])->firstOrFail(),
+            VerifyEmailNotification::class
+        );
     }
 
     public function test_register_creates_user_in_database(): void
@@ -107,14 +111,14 @@ class RegisterTest extends TestCase
 
     public function test_register_hashes_password(): void
     {
-        $payload = $this->validPayload(['password' => 'MyPlainText!', 'password_confirmation' => 'MyPlainText!']);
+        $payload = $this->validPayload(['password' => 'MyPlainText1!', 'password_confirmation' => 'MyPlainText1!']);
 
         $this->postJson($this->registerUrl, $payload)->assertCreated();
 
         $user = User::where('email', $payload['email'])->first();
         $this->assertNotNull($user);
-        $this->assertNotEquals('MyPlainText!', $user->password);
-        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('MyPlainText!', $user->password));
+        $this->assertNotEquals('MyPlainText1!', $user->password);
+        $this->assertTrue(\Illuminate\Support\Facades\Hash::check('MyPlainText1!', $user->password));
     }
 
     public function test_register_defaults_country_to_ug(): void
@@ -161,22 +165,15 @@ class RegisterTest extends TestCase
             ->assertHeader('Content-Type', 'application/json');
     }
 
-    public function test_register_returns_token_that_works(): void
+    public function test_register_does_not_issue_a_token_before_email_verification(): void
     {
         $payload = $this->validPayload();
 
         $response = $this->postJson($this->registerUrl, $payload);
         $response->assertCreated();
 
-        $token = $response->json('token');
-
-        // Use token to access /api/auth/user
-        $userResponse = $this->getJson('/api/auth/user', [
-            'Authorization' => "Bearer {$token}",
-        ]);
-
-        $userResponse->assertOk()
-            ->assertJson(['data' => ['email' => $payload['email']]]);
+        $this->assertNull($response->json('token'));
+        $this->assertTrue((bool) $response->json('requires_email_verification'));
     }
 
     // ━━━ Email Verification ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -13,15 +13,15 @@ use InvalidArgumentException;
  * - Must be array
  * - Each permission must be string
  * - No duplicate permissions
- * - Permissions follow format: 'resource.action' or '*'
- * - Valid actions: view, create, edit, delete, moderate, *
+ * - Permissions may use dotted or slug-style keys such as:
+ *   'resource.action', 'catalog.claim.review', 'edit-content', or '*'
  *
  * Examples:
  * - 'music.play', 'music.upload', 'admin.*', '*'
  */
 class PermissionsCast implements CastsAttributes
 {
-    // Valid permission actions
+    // Valid permission actions for strict dotted permissions
     const VALID_ACTIONS = ['view', 'create', 'edit', 'delete', 'moderate', 'manage', 'list', 'show', 'store', 'update', 'destroy', 'approve', 'reject', 'play', 'upload', 'download', 'share', 'like', 'follow', 'comment', 'handle', 'dashboard', 'access', '*'];
 
     // Valid resources
@@ -95,9 +95,15 @@ class PermissionsCast implements CastsAttributes
             return '*';
         }
 
-        // Must contain a dot (resource.action)
+        // Accept legacy slug-style keys already used in the system, e.g.:
+        // edit-content, manage-users, catalog.claim.review, music.*
+        if (preg_match('/^[a-z0-9]+(?:[._-][a-z0-9*]+)*$/', $permission) === 1) {
+            return strtolower($permission);
+        }
+
+        // Must contain a dot for strict resource/action validation
         if (! str_contains($permission, '.')) {
-            throw new InvalidArgumentException("Permission must be in format 'resource.action' or '*'. Got: {$permission}");
+            throw new InvalidArgumentException("Permission must use a supported key format such as 'resource.action', 'slug-key', or '*'. Got: {$permission}");
         }
 
         [$resource, $action] = explode('.', $permission, 2);

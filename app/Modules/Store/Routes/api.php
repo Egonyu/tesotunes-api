@@ -9,7 +9,6 @@ use App\Modules\Store\Http\Controllers\Api\ProductCategoryController;
 use App\Modules\Store\Http\Controllers\Api\ProductController;
 use App\Modules\Store\Http\Controllers\Api\PromotionController;
 use App\Modules\Store\Http\Controllers\Api\ReportController;
-use App\Modules\Store\Http\Controllers\Api\ReviewController;
 use App\Modules\Store\Http\Controllers\Api\SellerPromotionController;
 use App\Modules\Store\Http\Controllers\Api\StoreController;
 use Illuminate\Support\Facades\Route;
@@ -61,8 +60,6 @@ Route::prefix('public')->name('public.')->group(function () {
     // Products by store
     Route::get('/stores/{store}/products', [ProductController::class, 'byStore'])->name('stores.products');
 
-    // Public reviews
-    Route::get('/products/{product}/reviews', [ReviewController::class, 'productReviews'])->name('products.reviews');
 });
 
 /*
@@ -109,15 +106,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::put('/preferences', [NotificationController::class, 'updatePreferences'])->name('preferences.update');
     });
 
-    // Reviews
-    Route::prefix('reviews')->name('reviews.')->group(function () {
-        Route::post('/products/{product}', [ReviewController::class, 'createProductReview'])->name('products.create');
-        Route::get('/products/{product}/can-review', [ReviewController::class, 'canReview'])->name('products.can-review');
-        Route::put('/{review}', [ReviewController::class, 'update'])->name('update');
-        Route::delete('/{review}', [ReviewController::class, 'destroy'])->name('destroy');
-        Route::post('/{review}/helpful', [ReviewController::class, 'markHelpful'])->name('helpful');
-    });
-
 });
 
 /*
@@ -150,11 +138,6 @@ Route::middleware(['auth:sanctum'])->prefix('seller')->name('seller.')->group(fu
     Route::prefix('orders')->name('orders.')->group(function () {
         Route::get('/', [OrderController::class, 'sellerOrders'])->name('index');
         Route::put('/{orderNumber}/status', [OrderController::class, 'updateStatus'])->name('update-status');
-    });
-
-    // Seller Reviews
-    Route::prefix('reviews')->name('reviews.')->group(function () {
-        Route::post('/{review}/respond', [ReviewController::class, 'addSellerResponse'])->name('respond');
     });
 
     // Analytics

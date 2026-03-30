@@ -48,6 +48,7 @@ use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event as EventFacade;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -75,8 +76,8 @@ class AppServiceProvider extends ServiceProvider
         // ArtistPayout::observe(ArtistPayoutObserver::class); // Not yet implemented
         ArtistRevenue::observe(ArtistRevenueObserver::class);
 
-        // Register observer for store reviews
-        \App\Modules\Store\Models\Review::observe(ReviewObserver::class);
+        // Register observer for shared reviews
+        \App\Models\Review::observe(ReviewObserver::class);
 
         // Register observers for timeline activities (Timeline Phase 2)
         // User::observe(UserObserver::class); // Not yet implemented
@@ -310,11 +311,48 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function configureRateLimiting(): void
     {
-        // Login attempts (prevent brute force) - now uses settings
+        // Login attempts (prevent brute force) - isolated from password reset flows
         RateLimiter::for('login', function (Request $request) {
-            $maxAttempts = Setting::get('auth_max_login_attempts', 5);
+            $isLocalEnvironment = $this->app->environment(['local', 'development']);
+            $configuredMaxAttempts = (int) (Setting::get(
+                'auth_max_login_attempts',
+                Setting::get('security_max_login_attempts', 5)
+            ) ?? 5);
+            $configuredDecayMinutes = (int) (Setting::get(
+                'auth_lockout_duration',
+                Setting::get('security_lockout_duration_minutes', 15)
+            ) ?? 15);
+            $maxAttempts = $isLocalEnvironment ? max(25, $configuredMaxAttempts) : max(1, $configuredMaxAttempts);
+            $decayMinutes = $isLocalEnvironment ? 1 : max(1, $configuredDecayMinutes);
+            $identifier = Str::lower(trim((string) $request->input('email')));
+            $rateLimitKey = $identifier !== ''
+                ? "login:{$identifier}|{$request->ip()}"
+                : "login-ip:{$request->ip()}";
 
-            return Limit::perMinute($maxAttempts)->by($request->ip());
+            return Limit::perMinutes($decayMinutes, $maxAttempts)
+                ->by($rateLimitKey)
+                // Only failed / blocked sign-in attempts should contribute to lockout.
+                ->after(fn ($response) => in_array($response->getStatusCode(), [401, 403], true));
+        });
+
+        RateLimiter::for('password-recovery', function (Request $request) {
+            $isLocalEnvironment = $this->app->environment(['local', 'development']);
+            $maxAttempts = $isLocalEnvironment ? 20 : 6;
+            $decayMinutes = $isLocalEnvironment ? 1 : 10;
+            $identifier = Str::lower(trim((string) ($request->input('email') ?: $request->input('token') ?: 'guest')));
+
+            return Limit::perMinutes($decayMinutes, $maxAttempts)
+                ->by("password-recovery:{$identifier}|{$request->ip()}");
+        });
+
+        RateLimiter::for('email-verification', function (Request $request) {
+            $isLocalEnvironment = $this->app->environment(['local', 'development']);
+            $maxAttempts = $isLocalEnvironment ? 30 : 10;
+            $decayMinutes = $isLocalEnvironment ? 1 : 10;
+            $identifier = Str::lower(trim((string) ($request->input('email') ?: $request->input('id') ?: 'guest')));
+
+            return Limit::perMinutes($decayMinutes, $maxAttempts)
+                ->by("email-verification:{$identifier}|{$request->ip()}");
         });
 
         // API calls (generous for unreliable internet)

@@ -20,7 +20,7 @@ class StoreService
             'total_products' => $store->products()->count(),
             'total_orders' => $store->orders()->count(),
             'total_revenue' => $paidOrderCount * 50000, // Estimated revenue (orders table lacks total_amount)
-            'average_rating' => $store->reviews()->avg('rating') ?? 0,
+            'average_rating' => $store->approvedReviews()->avg('rating') ?? 0,
             'pending_orders' => $store->orders()
                 ->where('status', 'pending')
                 ->count(),

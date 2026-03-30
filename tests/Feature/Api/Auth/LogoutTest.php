@@ -38,6 +38,7 @@ class LogoutTest extends TestCase
         $user = User::factory()->create([
             'password' => bcrypt('SecurePass123!'),
             'is_active' => true,
+            'email_verified_at' => now(),
         ]);
 
         $token = $this->loginAndGetToken($user);
@@ -57,6 +58,7 @@ class LogoutTest extends TestCase
         $user = User::factory()->create([
             'password' => bcrypt('SecurePass123!'),
             'is_active' => true,
+            'email_verified_at' => now(),
         ]);
 
         $token = $this->loginAndGetToken($user);
@@ -79,6 +81,7 @@ class LogoutTest extends TestCase
         $user = User::factory()->create([
             'password' => bcrypt('SecurePass123!'),
             'is_active' => true,
+            'email_verified_at' => now(),
         ]);
 
         // Login twice to get two tokens
@@ -131,6 +134,7 @@ class LogoutTest extends TestCase
         $user = User::factory()->create([
             'password' => bcrypt('SecurePass123!'),
             'is_active' => true,
+            'email_verified_at' => now(),
         ]);
 
         $token = $this->loginAndGetToken($user);

@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\User;
 use App\Notifications\VerifyEmailNotification;
 use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\URL;
 
 /**
  * Handles email verification for the SPA frontend.
@@ -20,6 +23,8 @@ use Illuminate\Http\Request;
  */
 class EmailVerificationController extends Controller
 {
+    private const RESEND_DISPATCHED_MESSAGE = 'If your account still requires verification, we have sent a fresh verification email.';
+
     /**
      * POST /api/auth/email/verify
      *
@@ -36,20 +41,19 @@ class EmailVerificationController extends Controller
             'signature' => 'required|string',
         ]);
 
-        $user = \App\Models\User::findOrFail($request->id);
+        $user = User::findOrFail($request->integer('id'));
+        $failure = $this->validateVerificationLink(
+            $user,
+            $request->integer('id'),
+            (string) $request->string('hash'),
+            $request->integer('expires'),
+            $request->input('signature')
+        );
 
-        // Verify the hash matches the user's email
-        if (! hash_equals(sha1($user->getEmailForVerification()), $request->hash)) {
+        if ($failure) {
             return response()->json([
-                'message' => 'Invalid verification link.',
-            ], 403);
-        }
-
-        // Check if link has expired
-        if (now()->timestamp > $request->expires) {
-            return response()->json([
-                'message' => 'Verification link has expired. Please request a new one.',
-            ], 410);
+                'message' => $failure['message'],
+            ], $failure['status']);
         }
 
         if ($user->hasVerifiedEmail()) {
@@ -67,6 +71,42 @@ class EmailVerificationController extends Controller
     }
 
     /**
+     * GET /email/verify/{id}/{hash}
+     *
+     * Complete verification from the signed email link, then redirect to the
+     * frontend verification page with a stable status query string.
+     */
+    public function redirect(Request $request, int $id, string $hash): RedirectResponse
+    {
+        $user = User::find($id);
+
+        if (! $user) {
+            return $this->redirectToFrontend('failed', 'user-not-found');
+        }
+
+        $failure = $this->validateVerificationLink(
+            $user,
+            $id,
+            $hash,
+            $request->integer('expires'),
+            $request->query('signature')
+        );
+
+        if ($failure) {
+            return $this->redirectToFrontend('failed', $failure['reason'] ?? 'invalid-signature');
+        }
+
+        if ($user->hasVerifiedEmail()) {
+            return $this->redirectToFrontend('already-verified');
+        }
+
+        $user->markEmailAsVerified();
+        event(new Verified($user));
+
+        return $this->redirectToFrontend('verified');
+    }
+
+    /**
      * POST /api/auth/email/resend
      *
      * Resend the verification email to the authenticated user.
@@ -75,16 +115,27 @@ class EmailVerificationController extends Controller
     {
         $user = $request->user();
 
-        if ($user->hasVerifiedEmail()) {
+        if (! $user) {
+            $request->validate([
+                'email' => 'required|email',
+            ]);
+
+            $normalizedEmail = mb_strtolower(trim((string) $request->input('email')));
+            $user = User::query()
+                ->whereRaw('LOWER(email) = ?', [$normalizedEmail])
+                ->first();
+        }
+
+        if (! $user || $user->hasVerifiedEmail()) {
             return response()->json([
-                'message' => 'Email already verified.',
+                'message' => self::RESEND_DISPATCHED_MESSAGE,
             ]);
         }
 
         $user->notify(new VerifyEmailNotification);
 
         return response()->json([
-            'message' => 'Verification email sent.',
+            'message' => self::RESEND_DISPATCHED_MESSAGE,
         ]);
     }
 
@@ -99,5 +150,82 @@ class EmailVerificationController extends Controller
             'verified' => $request->user()->hasVerifiedEmail(),
             'email' => $request->user()->email,
         ]);
+    }
+
+    /**
+     * Validate the signed verification payload without relying on the current
+     * request path. This supports both direct GET links and the SPA POST flow.
+     *
+     * @return array{status:int,message:string,reason?:string}|null
+     */
+    private function validateVerificationLink(
+        User $user,
+        int $id,
+        string $hash,
+        ?int $expires,
+        mixed $signature
+    ): ?array {
+        if (! hash_equals((string) $user->getKey(), (string) $id)) {
+            return [
+                'status' => 403,
+                'message' => 'Invalid verification link.',
+                'reason' => 'invalid-user',
+            ];
+        }
+
+        if (! hash_equals(sha1($user->getEmailForVerification()), $hash)) {
+            return [
+                'status' => 403,
+                'message' => 'Invalid verification link.',
+                'reason' => 'invalid-hash',
+            ];
+        }
+
+        if (! $expires || ! is_string($signature) || trim($signature) === '') {
+            return [
+                'status' => 403,
+                'message' => 'Invalid verification link.',
+                'reason' => 'missing-parameters',
+            ];
+        }
+
+        if (now()->timestamp > $expires) {
+            return [
+                'status' => 410,
+                'message' => 'Verification link has expired. Please request a new one.',
+                'reason' => 'expired',
+            ];
+        }
+
+        $verificationRequest = Request::create(
+            route('verification.verify', [
+                'id' => $id,
+                'hash' => $hash,
+                'expires' => $expires,
+                'signature' => $signature,
+            ]),
+            'GET'
+        );
+
+        if (! URL::hasValidSignature($verificationRequest)) {
+            return [
+                'status' => 403,
+                'message' => 'Invalid verification link.',
+                'reason' => 'invalid-signature',
+            ];
+        }
+
+        return null;
+    }
+
+    private function redirectToFrontend(string $status, ?string $reason = null): RedirectResponse
+    {
+        $frontendUrl = rtrim((string) config('app.frontend_url'), '/');
+        $query = http_build_query(array_filter([
+            'status' => $status,
+            'reason' => $reason,
+        ]));
+
+        return redirect()->away("{$frontendUrl}/verify-email".($query ? "?{$query}" : ''));
     }
 }

@@ -74,6 +74,9 @@ class AdminAuditLogController extends Controller
             'description' => $this->buildDescription($log, $resourceType),
             'ip_address' => $log->ip_address,
             'user_agent' => $log->user_agent,
+            'request_id' => $log->request_id,
+            'trace_id' => $log->trace_id,
+            'session_id' => $log->session_id,
             'changes' => $this->mergeChanges($log->old_values ?? [], $log->new_values ?? []),
             'created_at' => $log->created_at?->toIso8601String(),
         ];

@@ -2,11 +2,13 @@
 
 namespace App\Modules\Store\Models;
 
+use App\Models\Review;
 use App\Traits\HasComments;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
@@ -197,14 +199,24 @@ class Product extends Model
         return $this->hasMany(OrderItem::class);
     }
 
-    public function reviews(): HasMany
+    public function reviews(): MorphMany
     {
-        return $this->hasMany(StoreReview::class);
+        return $this->morphMany(Review::class, 'reviewable');
     }
 
-    public function approvedReviews(): HasMany
+    public function approvedReviews(): MorphMany
     {
-        return $this->reviews()->where('status', 'approved');
+        return $this->reviews()->where('status', Review::STATUS_APPROVED);
+    }
+
+    public function genericReviews(): MorphMany
+    {
+        return $this->reviews();
+    }
+
+    public function approvedGenericReviews(): MorphMany
+    {
+        return $this->approvedReviews();
     }
 
     /*

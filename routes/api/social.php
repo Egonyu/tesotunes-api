@@ -34,6 +34,20 @@ Route::prefix('comments')->name('api.comments.')->group(function () {
     });
 });
 
+// Reviews API Routes (polymorphic reviews on any entity)
+Route::prefix('reviews')->name('api.reviews.')->group(function () {
+    Route::get('/{reviewableType}/{reviewableId}', [\App\Http\Controllers\Api\Social\ReviewController::class, 'index'])
+        ->name('index');
+
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/{reviewableType}/{reviewableId}/eligibility', [\App\Http\Controllers\Api\Social\ReviewController::class, 'eligibility'])->name('eligibility');
+        Route::post('/', [\App\Http\Controllers\Api\Social\ReviewController::class, 'store'])->name('store');
+        Route::put('/{review}', [\App\Http\Controllers\Api\Social\ReviewController::class, 'update'])->name('update');
+        Route::delete('/{review}', [\App\Http\Controllers\Api\Social\ReviewController::class, 'destroy'])->name('destroy');
+        Route::post('/{review}/helpful', [\App\Http\Controllers\Api\Social\ReviewController::class, 'markHelpful'])->name('helpful');
+    });
+});
+
 // Shares API Routes (auth required)
 Route::middleware('auth:sanctum')->prefix('shares')->name('api.shares.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Api\Social\ShareController::class, 'index'])->name('index');

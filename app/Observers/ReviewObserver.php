@@ -2,7 +2,7 @@
 
 namespace App\Observers;
 
-use App\Modules\Store\Models\Review;
+use App\Models\Review;
 use App\Services\ActivityService;
 use App\Services\FeedItemService;
 use Illuminate\Support\Facades\Log;
@@ -23,7 +23,9 @@ class ReviewObserver
                 subject: $review,
                 metadata: [
                     'rating' => $review->rating,
-                    'store_id' => $review->store_id,
+                    'store_id' => $review->metadata['store_id'] ?? null,
+                    'reviewable_type' => $review->reviewable_type,
+                    'reviewable_id' => $review->reviewable_id,
                 ]
             );
 
@@ -31,7 +33,7 @@ class ReviewObserver
                 'type' => 'product_reviewed',
                 'module' => 'store',
                 'title' => ($user->name ?? 'Someone').' left a '.$review->rating.'-star review',
-                'body' => $review->comment ? substr($review->comment, 0, 200) : null,
+                'body' => $review->content ? substr($review->content, 0, 200) : null,
                 'actor_id' => $user->id,
                 'actor_type' => 'user',
                 'actor_name' => $user->name,
@@ -41,7 +43,9 @@ class ReviewObserver
                 'visibility' => 'members',
                 'extras' => [
                     'rating' => $review->rating,
-                    'store_id' => $review->store_id,
+                    'store_id' => $review->metadata['store_id'] ?? null,
+                    'reviewable_type' => $review->reviewable_type,
+                    'reviewable_id' => $review->reviewable_id,
                 ],
             ]);
         } catch (\Exception $e) {

@@ -47,6 +47,8 @@ class ApiLoggingMiddleware
             'user_id' => $request->user()?->id,
             'ip' => $request->ip(),
             'user_agent' => $request->userAgent(),
+            'request_id' => $request->attributes->get('observability_request_id'),
+            'trace_id' => $request->attributes->get('observability_trace_id'),
         ];
 
         // Slow request warning (>2 seconds)

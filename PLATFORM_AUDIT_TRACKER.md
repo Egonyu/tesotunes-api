@@ -259,7 +259,7 @@
 - [x] `AuditLoggingListener.php:14` — Structured audit logging with user/IP/request context
 - [x] `ISRCService.php:140` — IFPI API call when configured, format-validation fallback
 - [x] `Store/AnalyticsService.php:328` — Queries store_visits table for real-time views
-- [x] `Store/ReviewService.php:285` — Counts reviews with non-empty images array
+- [x] `Models/Review.php` — Shared polymorphic reviews now power product, store, and promotion feedback
 - [x] `Store/ReportingService.php:295` — Sends MonthlyReportNotification with CSV attachments
 - [x] `Store/PaymentService.php:116` — Integrated with ZengaPay processPayment
 - [x] `Store/NotificationService.php:249` — Africa's Talking SMS, mock fallback

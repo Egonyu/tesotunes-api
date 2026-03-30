@@ -13,6 +13,31 @@ class SettingsController extends Controller
 {
     use HandlesApiErrors;
 
+    private const APPEARANCE_STRING_FIELDS = [
+        'primary_color',
+        'logo_light',
+        'logo_dark',
+        'favicon',
+        'app_name',
+        'admin_panel_name',
+        'admin_panel_subtitle',
+        'logo_alt',
+        'logo_compact_label',
+        'sacco_name',
+        'sacco_tagline',
+        'auth_form_title',
+        'auth_form_subtitle',
+        'auth_hero_title',
+        'auth_hero_description',
+        'auth_hero_image',
+        'auth_stat_1_value',
+        'auth_stat_1_label',
+        'auth_stat_2_value',
+        'auth_stat_2_label',
+        'auth_stat_3_value',
+        'auth_stat_3_label',
+    ];
+
     /**
      * Get all platform settings
      */
@@ -34,6 +59,29 @@ class SettingsController extends Controller
                 'data' => $settings,
             ]);
         }, 'Failed to retrieve platform settings.');
+    }
+
+    /**
+     * Get public platform settings used by unauthenticated surfaces.
+     */
+    public function publicIndex()
+    {
+        return $this->handleApiAction(function () {
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'general' => [
+                        'platform_name' => $this->getGeneralSettings()['platform_name'],
+                        'tagline' => $this->getGeneralSettings()['tagline'],
+                    ],
+                    'appearance' => $this->getAppearanceSettings(),
+                    'security' => [
+                        'max_login_attempts' => $this->getSecuritySettings()['max_login_attempts'],
+                        'lockout_duration_minutes' => $this->getSecuritySettings()['lockout_duration_minutes'],
+                    ],
+                ],
+            ]);
+        }, 'Failed to retrieve public platform settings.');
     }
 
     /**
@@ -114,24 +162,49 @@ class SettingsController extends Controller
     private function getGeneralSettings()
     {
         return [
-            'platform_name' => Cache::get('settings.general.platform_name', config('app.name')) ?: 'TesoTunes',
-            'tagline' => Cache::get('settings.general.tagline') ?: 'Empowering Artists, Connecting Fans',
-            'support_email' => Cache::get('settings.general.support_email', config('mail.from.address')) ?: 'support@tesotunes.com',
-            'default_currency' => Cache::get('settings.general.default_currency') ?: 'UGX',
-            'timezone' => Cache::get('settings.general.timezone', config('app.timezone')) ?: 'Africa/Kampala',
-            'maintenance_mode' => (bool) Cache::get('settings.general.maintenance_mode', false),
-            'registration_enabled' => (bool) Cache::get('settings.general.registration_enabled', true),
+            'platform_name' => $this->getStoredSetting('general', 'platform_name', config('app.name') ?: 'TesoTunes'),
+            'tagline' => $this->getStoredSetting('general', 'tagline', 'Empowering Artists, Connecting Fans'),
+            'support_email' => $this->getStoredSetting('general', 'support_email', config('mail.from.address') ?: 'support@tesotunes.com'),
+            'default_currency' => $this->getStoredSetting('general', 'default_currency', 'UGX'),
+            'timezone' => $this->getStoredSetting('general', 'timezone', config('app.timezone') ?: 'Africa/Kampala'),
+            'maintenance_mode' => $this->getStoredSetting('general', 'maintenance_mode', false, 'boolean'),
+            'registration_enabled' => $this->getStoredSetting('general', 'registration_enabled', true, 'boolean'),
         ];
     }
 
     private function getAppearanceSettings()
     {
-        return [
-            'primary_color' => Cache::get('settings.appearance.primary_color') ?: '#10B981',
-            'logo_light' => Cache::get('settings.appearance.logo_light') ?: '',
-            'logo_dark' => Cache::get('settings.appearance.logo_dark') ?: '',
-            'favicon' => Cache::get('settings.appearance.favicon') ?: '',
+        $defaults = [
+            'primary_color' => '#10B981',
+            'logo_light' => '',
+            'logo_dark' => '',
+            'favicon' => '',
+            'app_name' => 'TesoTunes',
+            'admin_panel_name' => 'Admin Panel',
+            'admin_panel_subtitle' => 'Platform operations',
+            'logo_alt' => 'TesoTunes',
+            'logo_compact_label' => 'T',
+            'sacco_name' => 'TesoTunes SACCO',
+            'sacco_tagline' => 'Artist Finance Platform',
+            'auth_form_title' => 'Welcome back',
+            'auth_form_subtitle' => 'Sign in to continue listening to your favorite music',
+            'auth_hero_title' => 'Discover East African Music',
+            'auth_hero_description' => 'Stream millions of songs, discover new artists, and support the sounds of East Africa.',
+            'auth_hero_image' => '',
+            'auth_stat_1_value' => '10K+',
+            'auth_stat_1_label' => 'Songs',
+            'auth_stat_2_value' => '500+',
+            'auth_stat_2_label' => 'Artists',
+            'auth_stat_3_value' => '50K+',
+            'auth_stat_3_label' => 'Users',
         ];
+
+        $settings = [];
+        foreach ($defaults as $key => $default) {
+            $settings[$key] = $this->getStoredSetting('appearance', $key, $default);
+        }
+
+        return $settings;
     }
 
     private function getNotificationSettings()
@@ -147,11 +220,11 @@ class SettingsController extends Controller
     private function getSecuritySettings()
     {
         return [
-            'two_factor_required' => Cache::get('settings.security.two_factor_required', false),
-            'password_min_length' => Cache::get('settings.security.password_min_length', 8),
-            'session_timeout_minutes' => Cache::get('settings.security.session_timeout_minutes', 120),
-            'max_login_attempts' => Cache::get('settings.security.max_login_attempts', 5),
-            'lockout_duration_minutes' => Cache::get('settings.security.lockout_duration_minutes', 15),
+            'two_factor_required' => $this->getStoredSetting('security', 'two_factor_required', false, 'boolean'),
+            'password_min_length' => $this->getStoredSetting('security', 'password_min_length', 8, 'integer'),
+            'session_timeout_minutes' => $this->getStoredSetting('security', 'session_timeout_minutes', 120, 'integer'),
+            'max_login_attempts' => (int) (Setting::get('auth_max_login_attempts', $this->getStoredSetting('security', 'max_login_attempts', 5, 'integer')) ?? 5),
+            'lockout_duration_minutes' => (int) (Setting::get('auth_lockout_duration', $this->getStoredSetting('security', 'lockout_duration_minutes', 15, 'integer')) ?? 15),
         ];
     }
 
@@ -200,14 +273,18 @@ class SettingsController extends Controller
     private function updateGeneralSettings(array $data)
     {
         foreach ($data as $key => $value) {
-            Cache::put("settings.general.{$key}", $value, now()->addYears(1));
+            $this->storeSetting('general', $key, $value, is_bool($value) ? Setting::TYPE_BOOLEAN : Setting::TYPE_STRING);
         }
     }
 
     private function updateAppearanceSettings(array $data)
     {
         foreach ($data as $key => $value) {
-            Cache::put("settings.appearance.{$key}", $value, now()->addYears(1));
+            if (! in_array($key, self::APPEARANCE_STRING_FIELDS, true)) {
+                continue;
+            }
+
+            $this->storeSetting('appearance', $key, (string) $value, Setting::TYPE_STRING);
         }
     }
 
@@ -221,7 +298,16 @@ class SettingsController extends Controller
     private function updateSecuritySettings(array $data)
     {
         foreach ($data as $key => $value) {
-            Cache::put("settings.security.{$key}", $value, now()->addYears(1));
+            $type = is_bool($value) ? Setting::TYPE_BOOLEAN : Setting::TYPE_INTEGER;
+            $this->storeSetting('security', $key, $value, $type);
+
+            if ($key === 'max_login_attempts') {
+                Setting::set('auth_max_login_attempts', (int) $value, Setting::TYPE_INTEGER, Setting::GROUP_SECURITY);
+            }
+
+            if ($key === 'lockout_duration_minutes') {
+                Setting::set('auth_lockout_duration', (int) $value, Setting::TYPE_INTEGER, Setting::GROUP_SECURITY);
+            }
         }
     }
 
@@ -259,5 +345,40 @@ class SettingsController extends Controller
         foreach ($data as $key => $value) {
             Cache::put("settings.storage.{$key}", $value, now()->addYears(1));
         }
+    }
+
+    private function getStoredSetting(string $section, string $key, mixed $default, string $type = 'string'): mixed
+    {
+        $cacheKey = "settings.{$section}.{$key}";
+        $stored = Setting::get("{$section}_{$key}");
+
+        if ($stored !== null) {
+            Cache::put($cacheKey, $stored, now()->addYears(1));
+
+            return match ($type) {
+                'boolean' => (bool) $stored,
+                'integer' => (int) $stored,
+                default => $stored,
+            };
+        }
+
+        $cached = Cache::get($cacheKey, $default);
+
+        return match ($type) {
+            'boolean' => (bool) $cached,
+            'integer' => (int) $cached,
+            default => $cached,
+        };
+    }
+
+    private function storeSetting(string $section, string $key, mixed $value, string $type): void
+    {
+        Setting::set("{$section}_{$key}", $value, $type, match ($section) {
+            'appearance' => Setting::GROUP_GENERAL,
+            'security' => Setting::GROUP_SECURITY,
+            default => Setting::GROUP_GENERAL,
+        });
+
+        Cache::put("settings.{$section}.{$key}", $value, now()->addYears(1));
     }
 }

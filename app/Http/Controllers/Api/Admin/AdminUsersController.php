@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\AuditLog;
 use App\Models\Role;
 use App\Models\User;
 use App\Traits\HandlesApiErrors;
@@ -92,7 +93,7 @@ class AdminUsersController extends Controller
 
     private function buildUserPayload(User $user): array
     {
-        $user->loadMissing('artist');
+        $user->loadMissing(['artist', 'activeRoles.permissions']);
 
         return [
             'id' => $user->id,
@@ -106,6 +107,14 @@ class AdminUsersController extends Controller
             'country' => $user->country,
             'city' => $user->city ?? null,
             'role' => $user->role,
+            'active_roles' => $user->activeRoles->map(fn (Role $role) => [
+                'id' => $role->id,
+                'name' => $role->name,
+                'display_name' => $role->display_name,
+                'priority' => $role->priority,
+                'permissions' => $role->permissionKeys(),
+            ])->values()->all(),
+            'permissions' => $user->getAllPermissions(),
             'is_active' => (bool) $user->is_active,
             'email_verified_at' => $user->email_verified_at,
             'last_login_at' => $user->last_login_at ?? null,
@@ -115,6 +124,27 @@ class AdminUsersController extends Controller
             'artist' => $this->buildArtistReference($user),
             'created_at' => $user->created_at,
             'updated_at' => $user->updated_at,
+        ];
+    }
+
+    private function buildRoleHistoryItem(AuditLog $log): array
+    {
+        $roleName = $log->new_values['role'] ?? $log->old_values['role'] ?? null;
+
+        return [
+            'id' => $log->id,
+            'action' => $log->action,
+            'role_name' => $roleName,
+            'actor' => $log->user ? [
+                'id' => $log->user->id,
+                'name' => $log->user->name ?: $log->user->username ?: $log->user->email,
+                'email' => $log->user->email,
+            ] : null,
+            'before_roles' => array_values($log->old_values['roles'] ?? []),
+            'after_roles' => array_values($log->new_values['roles'] ?? []),
+            'expires_at' => $log->new_values['expires_at'] ?? null,
+            'ip_address' => $log->ip_address,
+            'created_at' => $log->created_at?->toIso8601String(),
         ];
     }
 
@@ -184,7 +214,7 @@ class AdminUsersController extends Controller
     public function index(Request $request): JsonResponse
     {
         return $this->handleApiAction(function () use ($request) {
-            $query = User::query();
+            $query = User::query()->with(['activeRoles.permissions']);
 
             // Search
             if ($request->filled('search')) {
@@ -248,6 +278,14 @@ class AdminUsersController extends Controller
                     'phone' => $user->phone,
                     'country' => $user->country,
                     'role' => $user->role,
+                    'active_roles' => $user->activeRoles->map(fn (Role $role) => [
+                        'id' => $role->id,
+                        'name' => $role->name,
+                        'display_name' => $role->display_name,
+                        'priority' => $role->priority,
+                        'permissions' => $role->permissionKeys(),
+                    ])->values()->all(),
+                    'permissions' => $user->getAllPermissions(),
                     'is_active' => (bool) $user->is_active,
                     'email_verified_at' => $user->email_verified_at,
                     'last_login_at' => $user->last_login_at ?? null,
@@ -321,6 +359,50 @@ class AdminUsersController extends Controller
                 'data' => $this->buildUserPayload($user),
             ]);
         }, 'Failed to load user details.');
+    }
+
+    /**
+     * Show access summary and role change history for a single user.
+     */
+    public function accessHistory(Request $request, $id): JsonResponse
+    {
+        return $this->handleApiAction(function () use ($request, $id) {
+            $user = User::with(['artist', 'activeRoles.permissions'])->findOrFail($id);
+            $currentUser = $request->user();
+
+            if (! $currentUser->canManageUser($user)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Insufficient permissions to view this user access history.',
+                ], 403);
+            }
+
+            $history = AuditLog::query()
+                ->with('user:id,name,username,email')
+                ->whereIn('action', ['role_assigned', 'role_removed'])
+                ->where(function ($query) use ($user) {
+                    $query
+                        ->where(function ($auditQuery) use ($user) {
+                            $auditQuery
+                                ->where('auditable_type', User::class)
+                                ->where('auditable_id', $user->id);
+                        })
+                        ->orWhere('new_values->user_id', $user->id);
+                })
+                ->latest()
+                ->limit(30)
+                ->get()
+                ->map(fn (AuditLog $log) => $this->buildRoleHistoryItem($log))
+                ->values();
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'user' => $this->buildUserPayload($user),
+                    'history' => $history,
+                ],
+            ]);
+        }, 'Failed to load user access history.');
     }
 
     /**

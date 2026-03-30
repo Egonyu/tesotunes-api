@@ -1304,6 +1304,10 @@ class User extends Authenticatable implements MustVerifyEmail
 
     protected function loadUserPermissions(): array
     {
+        if ($this->hasRole('super_admin')) {
+            return ['*'];
+        }
+
         $permissions = $this->permissions ?? [];
 
         // Get permissions from active roles
@@ -1312,7 +1316,12 @@ class User extends Authenticatable implements MustVerifyEmail
             $permissions = array_merge($permissions, $role->permissions ?? []);
 
             // Get from role_permissions table
-            $rolePerms = $role->permissions()->pluck('name')->toArray();
+            $rolePerms = $role->permissions()
+                ->get(['permissions.slug', 'permissions.name'])
+                ->map(fn ($permission) => $permission->slug ?: $permission->name)
+                ->filter()
+                ->values()
+                ->all();
             $permissions = array_merge($permissions, $rolePerms);
         }
 
@@ -1348,6 +1357,8 @@ class User extends Authenticatable implements MustVerifyEmail
             throw new \InvalidArgumentException("Role '{$roleName}' not found");
         }
 
+        $beforeRoles = $this->activeRoles()->pluck('roles.name')->values()->all();
+
         $this->roles()->syncWithoutDetaching([
             $role->id => [
                 'assigned_at' => now(),
@@ -1358,10 +1369,25 @@ class User extends Authenticatable implements MustVerifyEmail
         // Clear cache
         $this->clearPermissionCache();
 
-        // Log the activity
-        AuditLog::logActivity($assignedBy ?? $this->id, 'role_assigned', [
-            'user_id' => $this->id,
-            'role' => $roleName,
+        $afterRoles = $this->fresh()->activeRoles()->pluck('roles.name')->values()->all();
+
+        AuditLog::create([
+            'user_id' => $assignedBy ?? $this->id,
+            'action' => 'role_assigned',
+            'auditable_type' => self::class,
+            'auditable_id' => $this->id,
+            'old_values' => [
+                'roles' => $beforeRoles,
+            ],
+            'new_values' => [
+                'user_id' => $this->id,
+                'role' => $roleName,
+                'roles' => $afterRoles,
+                'expires_at' => $expiresAt?->format(DATE_ATOM),
+            ],
+            'ip_address' => request()->ip(),
+            'user_agent' => request()->userAgent(),
+            'url' => request()->fullUrl(),
         ]);
     }
 
@@ -1369,6 +1395,7 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         $role = Role::where('name', $roleName)->first();
         if ($role) {
+            $beforeRoles = $this->activeRoles()->pluck('roles.name')->values()->all();
             $this->roles()->detach($role->id);
 
             // Update is_artist flag if Artist role is removed
@@ -1379,10 +1406,24 @@ class User extends Authenticatable implements MustVerifyEmail
             // Clear cache
             $this->clearPermissionCache();
 
-            // Log the activity
-            AuditLog::logActivity(Auth::id() ?? $this->id, 'role_removed', [
-                'user_id' => $this->id,
-                'role' => $roleName,
+            $afterRoles = $this->fresh()->activeRoles()->pluck('roles.name')->values()->all();
+
+            AuditLog::create([
+                'user_id' => Auth::id() ?? $this->id,
+                'action' => 'role_removed',
+                'auditable_type' => self::class,
+                'auditable_id' => $this->id,
+                'old_values' => [
+                    'roles' => $beforeRoles,
+                ],
+                'new_values' => [
+                    'user_id' => $this->id,
+                    'role' => $roleName,
+                    'roles' => $afterRoles,
+                ],
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+                'url' => request()->fullUrl(),
             ]);
         }
     }
@@ -1411,13 +1452,11 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function getAllPermissions(): array
     {
-        $permissions = $this->permissions ?? [];
-
-        foreach ($this->activeRoles as $role) {
-            $permissions = array_merge($permissions, $role->permissions ?? []);
+        if ($this->hasRole('super_admin')) {
+            return ['*'];
         }
 
-        return array_unique($permissions);
+        return $this->loadUserPermissions();
     }
 
     public function can($ability, $arguments = []): bool

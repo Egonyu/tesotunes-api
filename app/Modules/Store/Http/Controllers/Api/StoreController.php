@@ -9,6 +9,7 @@ use App\Modules\Store\Models\Store;
 use App\Modules\Store\Services\StoreService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Store API Controller
@@ -64,15 +65,20 @@ class StoreController extends Controller
      */
     public function show(Request $request, string $identifier): JsonResponse
     {
-        $store = Store::where('slug', $identifier)
+        $query = Store::where('slug', $identifier)
             ->orWhere('uuid', $identifier)
             ->with([
                 'owner',
                 'user:id,display_name,email',
                 'activeProducts' => fn ($q) => $q->take(8),
             ])
-            ->withCount('products', 'activeProducts', 'reviews')
-            ->firstOrFail();
+            ->withCount('products', 'activeProducts');
+
+        if (Schema::hasTable('reviews')) {
+            $query->withCount('approvedGenericReviews as reviews_count');
+        }
+
+        $store = $query->firstOrFail();
 
         if ($store->status !== Store::STATUS_ACTIVE) {
             $viewer = $request->user();
