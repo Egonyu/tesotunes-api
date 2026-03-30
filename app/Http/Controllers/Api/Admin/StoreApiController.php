@@ -10,6 +10,7 @@ use App\Traits\HandlesApiErrors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class StoreApiController extends Controller
@@ -41,15 +42,20 @@ class StoreApiController extends Controller
 
         return $this->handleApiAction(function () {
             $data = Cache::remember('admin:store:stats', now()->addMinutes(5), function () {
-                $revenueThisMonth = Order::where('status', 'completed')
-                    ->whereMonth('created_at', date('m'))
-                    ->whereYear('created_at', date('Y'))
-                    ->sum('total_amount') ?? 0;
+                $revenueColumn = $this->resolveRevenueColumn();
+                $revenueThisMonth = $revenueColumn
+                    ? Order::where('status', 'completed')
+                        ->whereMonth('created_at', date('m'))
+                        ->whereYear('created_at', date('Y'))
+                        ->sum($revenueColumn)
+                    : 0;
 
-                $lastMonthRevenue = Order::where('status', 'completed')
-                    ->whereMonth('created_at', date('m', strtotime('-1 month')))
-                    ->whereYear('created_at', date('Y', strtotime('-1 month')))
-                    ->sum('total_amount') ?? 0;
+                $lastMonthRevenue = $revenueColumn
+                    ? Order::where('status', 'completed')
+                        ->whereMonth('created_at', date('m', strtotime('-1 month')))
+                        ->whereYear('created_at', date('Y', strtotime('-1 month')))
+                        ->sum($revenueColumn)
+                    : 0;
 
                 $growthPercentage = $lastMonthRevenue > 0
                     ? (($revenueThisMonth - $lastMonthRevenue) / $lastMonthRevenue) * 100
@@ -70,6 +76,17 @@ class StoreApiController extends Controller
                 'data' => $data,
             ]);
         }, 'Failed to fetch store statistics.');
+    }
+
+    protected function resolveRevenueColumn(): ?string
+    {
+        foreach (['total_amount', 'total_ugx'] as $column) {
+            if (Schema::hasColumn('store_orders', $column)) {
+                return $column;
+            }
+        }
+
+        return null;
     }
 
     /**

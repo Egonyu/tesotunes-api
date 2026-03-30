@@ -87,6 +87,7 @@ jobs:
             NEW_RELEASE="$RELEASES_PATH/$TIMESTAMP"
             DEPLOY_LOG_PATH="$SHARED_PATH/deploy-logs"
             MIGRATION_LOG="$DEPLOY_LOG_PATH/tesotunes-migrate-$TIMESTAMP.log"
+            MIGRATION_STATUS_LOG="$DEPLOY_LOG_PATH/tesotunes-migrate-status-$TIMESTAMP.log"
             LIVE_HEALTH_URL="https://api.tesotunes.com/api/health"
             PREVIOUS_RELEASE=""
             SYMLINK_SWITCHED="false"
@@ -257,6 +258,13 @@ jobs:
             if [ "$MIGRATION_EXIT_CODE" -ne 0 ]; then
               echo "⚠️ Production migrate failed. Full migration log:"
               cat "$MIGRATION_LOG" || true
+              exit 1
+            fi
+
+            step "Verifying migration status after migrate"
+            php artisan migrate:status --no-ansi | tee "$MIGRATION_STATUS_LOG"
+            if grep -Eq "\\bPending\\b" "$MIGRATION_STATUS_LOG"; then
+              echo "❌ Pending migrations remain after php artisan migrate --force"
               exit 1
             fi
 

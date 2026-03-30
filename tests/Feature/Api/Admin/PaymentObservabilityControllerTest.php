@@ -54,7 +54,7 @@ class PaymentObservabilityControllerTest extends TestCase
         Sanctum::actingAs($admin);
 
         $this
-            ->getJson('/api/admin/payments/observability')
+            ->getJson('/api/admin/payments/observability?search=TT-OBS-ADMIN-001')
             ->assertOk()
             ->assertJsonPath('data.summary.total', 1)
             ->assertJsonPath('data.summary.open_issues', 1);

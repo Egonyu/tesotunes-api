@@ -75,6 +75,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Log API requests (method, URI, status, duration, user)
         $middleware->appendToGroup('api', \App\Http\Middleware\ApiLoggingMiddleware::class);
 
+        // Local dev convenience: ensure admin users aren't blocked by email verification gating.
+        $middleware->appendToGroup('api', \App\Http\Middleware\DevBypassAdminEmailVerification::class);
+
         // Set CDN-friendly Cache-Control headers on API responses
         $middleware->appendToGroup('api', \App\Http\Middleware\CacheHeadersMiddleware::class);
 

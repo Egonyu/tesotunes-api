@@ -288,7 +288,7 @@ class SystemMonitoringService
     private function getNodeVersion(): string
     {
         try {
-            $output = shell_exec('node --version 2>/dev/null');
+            $output = $this->runQuietCommand('node --version');
 
             return $output ? trim($output) : 'Not installed';
         } catch (Exception $e) {
@@ -333,7 +333,11 @@ class SystemMonitoringService
     private function getSystemUptime(): string
     {
         try {
-            $uptime = shell_exec('uptime -p 2>/dev/null');
+            if ($this->isWindows()) {
+                return 'Unknown';
+            }
+
+            $uptime = $this->runQuietCommand('uptime -p');
 
             return $uptime ? trim(str_replace('up ', '', $uptime)) : 'Unknown';
         } catch (Exception $e) {
@@ -1068,5 +1072,17 @@ class SystemMonitoringService
         } catch (Exception $e) {
             return false;
         }
+    }
+
+    private function runQuietCommand(string $command): ?string
+    {
+        $nullDevice = $this->isWindows() ? 'NUL' : '/dev/null';
+
+        return @shell_exec($command." 2>{$nullDevice}");
+    }
+
+    private function isWindows(): bool
+    {
+        return PHP_OS_FAMILY === 'Windows';
     }
 }

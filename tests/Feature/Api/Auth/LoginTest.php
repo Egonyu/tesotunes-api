@@ -118,6 +118,28 @@ class LoginTest extends TestCase
         $this->assertNotEmpty($response->json('token'));
     }
 
+    public function test_local_admin_login_allows_admin_without_verified_email(): void
+    {
+        $user = User::factory()->create([
+            'password' => bcrypt('password123'),
+            'is_active' => true,
+            'role' => 'admin',
+            'email_verified_at' => null,
+        ]);
+
+        $response = $this->postJson('/api/auth/local-admin-login', [
+            'email' => $user->email,
+            'password' => 'password123',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.email', $user->email)
+            ->assertJsonPath('data.role', 'admin');
+
+        $this->assertNotEmpty($response->json('token'));
+        $this->assertNotNull($user->fresh()->email_verified_at);
+    }
+
     public function test_login_succeeds_when_optional_profile_tables_are_missing(): void
     {
         $user = User::factory()->create([

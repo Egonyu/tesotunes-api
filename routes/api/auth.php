@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('auth')->group(function () {
     // Public API authentication routes (rate limited to prevent brute force)
     Route::middleware('throttle:login')->post('/login', [AuthController::class, 'login']);
+    Route::middleware('throttle:login')->post('/local-admin-login', [AuthController::class, 'localAdminLogin']);
     Route::middleware('throttle:register')->post('/register', [AuthController::class, 'register']);
 
     Route::middleware('throttle:password-recovery')->group(function () {
