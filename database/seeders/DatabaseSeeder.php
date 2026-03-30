@@ -35,7 +35,10 @@ class DatabaseSeeder extends Seeder
         $this->call([ComprehensiveTestDataSeeder::class]);
 
         if (app()->environment(['local', 'testing'])) {
-            $this->call([LocalStoreCatalogSeeder::class]);
+            $this->call([
+                LocalStoreCatalogSeeder::class,
+                PromotionMarketplaceSeeder::class,
+            ]);
         }
     }
 }

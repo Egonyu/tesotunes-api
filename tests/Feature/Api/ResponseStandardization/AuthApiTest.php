@@ -13,6 +13,7 @@ class AuthApiTest extends TestCase
     {
         $user = User::factory()->create([
             'password' => bcrypt('password123'),
+            'email_verified_at' => now(),
         ]);
 
         $response = $this->postJson('/api/auth/login', [
@@ -49,8 +50,8 @@ class AuthApiTest extends TestCase
         $response = $this->postJson('/api/auth/register', [
             'name' => 'Test User',
             'email' => "newuser{$uniqueId}@test.com",
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
         ]);
 
         // Must return JSON, not session redirect

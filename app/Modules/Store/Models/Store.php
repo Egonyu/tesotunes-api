@@ -3,12 +3,14 @@
 namespace App\Modules\Store\Models;
 
 use App\Models\Artist;
+use App\Models\Review;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -164,20 +166,24 @@ class Store extends Model
         return $this->hasMany(Order::class);
     }
 
-    /**
-     * Get all reviews for this store (polymorphic relationship)
-     */
-    public function reviews(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    public function reviews(): MorphMany
     {
-        return $this->morphMany(StoreReview::class, 'reviewable');
+        return $this->morphMany(Review::class, 'reviewable');
     }
 
-    /**
-     * Get approved reviews only
-     */
-    public function approvedReviews(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    public function approvedReviews(): MorphMany
     {
-        return $this->reviews()->where('is_approved', true);
+        return $this->reviews()->where('status', Review::STATUS_APPROVED);
+    }
+
+    public function genericReviews(): MorphMany
+    {
+        return $this->reviews();
+    }
+
+    public function approvedGenericReviews(): MorphMany
+    {
+        return $this->approvedReviews();
     }
 
     /**
@@ -500,8 +506,8 @@ class Store extends Model
      */
     public function updateAverageRating(): void
     {
-        $average = $this->approvedReviews()->avg('rating');
-        $count = $this->approvedReviews()->count();
+        $average = $this->approvedGenericReviews()->avg('rating');
+        $count = $this->approvedGenericReviews()->count();
 
         $this->update([
             'rating' => round($average ?? 0, 2),

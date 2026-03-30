@@ -28,6 +28,7 @@ class AuthObservabilityTest extends TestCase
         $user = User::factory()->create([
             'password' => bcrypt('correct-password'),
             'is_active' => true,
+            'email_verified_at' => now(),
         ]);
 
         $ipAddress = '198.51.100.25';

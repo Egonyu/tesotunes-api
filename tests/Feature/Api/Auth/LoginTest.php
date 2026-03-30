@@ -27,6 +27,7 @@ class LoginTest extends TestCase
         $user = User::factory()->create([
             'password' => bcrypt('SecurePass123!'),
             'is_active' => true,
+            'email_verified_at' => now(),
         ]);
 
         $response = $this->postJson($this->loginUrl, [
@@ -59,6 +60,7 @@ class LoginTest extends TestCase
         $user = User::factory()->create([
             'password' => bcrypt('password123'),
             'is_active' => true,
+            'email_verified_at' => now(),
         ]);
 
         $response = $this->postJson($this->loginUrl, [
@@ -84,6 +86,7 @@ class LoginTest extends TestCase
         $user = User::factory()->create([
             'password' => bcrypt('password123'),
             'is_active' => true,
+            'email_verified_at' => now(),
             'last_login_at' => null,
         ]);
 
@@ -101,6 +104,7 @@ class LoginTest extends TestCase
         $user = User::factory()->create([
             'password' => bcrypt('password123'),
             'is_active' => true,
+            'email_verified_at' => now(),
         ]);
 
         $response = $this->postJson($this->loginUrl, [
@@ -119,6 +123,7 @@ class LoginTest extends TestCase
         $user = User::factory()->create([
             'password' => bcrypt('password123'),
             'is_active' => true,
+            'email_verified_at' => now(),
         ]);
 
         Schema::partialMock()
@@ -141,6 +146,7 @@ class LoginTest extends TestCase
         $user = User::factory()->create([
             'password' => bcrypt('password123'),
             'is_active' => true,
+            'email_verified_at' => now(),
         ]);
 
         $response = $this->postJson($this->loginUrl, [
@@ -159,6 +165,7 @@ class LoginTest extends TestCase
         $user = User::factory()->create([
             'password' => bcrypt('correct-password'),
             'is_active' => true,
+            'email_verified_at' => now(),
         ]);
 
         $response = $this->postJson($this->loginUrl, [
@@ -191,6 +198,7 @@ class LoginTest extends TestCase
         $user = User::factory()->create([
             'password' => bcrypt('correct-password'),
             'is_active' => true,
+            'email_verified_at' => now(),
         ]);
 
         $ipAddress = '198.51.100.10';
@@ -207,11 +215,50 @@ class LoginTest extends TestCase
             ->assertJsonStructure(['message']);
     }
 
+    public function test_successful_login_clears_failed_login_attempts(): void
+    {
+        Setting::set('auth_max_login_attempts', 2, Setting::TYPE_INTEGER, Setting::GROUP_SECURITY);
+
+        $user = User::factory()->create([
+            'password' => bcrypt('correct-password'),
+            'is_active' => true,
+            'email_verified_at' => now(),
+        ]);
+
+        $ipAddress = '198.51.100.11';
+
+        $this->postLoginFromIp([
+            'email' => $user->email,
+            'password' => 'wrong-password',
+        ], $ipAddress)->assertUnauthorized();
+
+        $this->postLoginFromIp([
+            'email' => $user->email,
+            'password' => 'correct-password',
+        ], $ipAddress)->assertOk();
+
+        $this->postLoginFromIp([
+            'email' => $user->email,
+            'password' => 'wrong-password',
+        ], $ipAddress)->assertUnauthorized();
+
+        $this->postLoginFromIp([
+            'email' => $user->email,
+            'password' => 'wrong-password',
+        ], $ipAddress)->assertUnauthorized();
+
+        $this->postLoginFromIp([
+            'email' => $user->email,
+            'password' => 'wrong-password',
+        ], $ipAddress)->assertTooManyRequests();
+    }
+
     public function test_login_fails_with_case_sensitive_password(): void
     {
         $user = User::factory()->create([
             'password' => bcrypt('Password123'),
             'is_active' => true,
+            'email_verified_at' => now(),
         ]);
 
         $response = $this->postJson($this->loginUrl, [
@@ -229,6 +276,7 @@ class LoginTest extends TestCase
         $user = User::factory()->create([
             'password' => bcrypt('password123'),
             'is_active' => false,
+            'email_verified_at' => now(),
         ]);
 
         $response = $this->postJson($this->loginUrl, [
@@ -238,6 +286,26 @@ class LoginTest extends TestCase
 
         $response->assertForbidden()
             ->assertJson(['message' => 'Account is suspended']);
+    }
+
+    public function test_unverified_user_cannot_login(): void
+    {
+        $user = User::factory()->create([
+            'password' => bcrypt('password123'),
+            'is_active' => true,
+            'email_verified_at' => null,
+        ]);
+
+        $response = $this->postJson($this->loginUrl, [
+            'email' => $user->email,
+            'password' => 'password123',
+        ]);
+
+        $response->assertForbidden()
+            ->assertJson([
+                'message' => 'Please verify your email before signing in.',
+                'code' => 'EMAIL_NOT_VERIFIED',
+            ]);
     }
 
     // ━━━ Validation ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -302,6 +370,7 @@ class LoginTest extends TestCase
         $user = User::factory()->create([
             'password' => bcrypt('password123'),
             'is_active' => true,
+            'email_verified_at' => now(),
         ]);
 
         $response = $this->postJson($this->loginUrl, [
@@ -318,6 +387,7 @@ class LoginTest extends TestCase
         $user = User::factory()->create([
             'password' => bcrypt('password123'),
             'is_active' => true,
+            'email_verified_at' => now(),
         ]);
 
         $response = $this->postJson($this->loginUrl, [
@@ -348,6 +418,7 @@ class LoginTest extends TestCase
         $user = User::factory()->create([
             'password' => bcrypt('password123'),
             'is_active' => true,
+            'email_verified_at' => now(),
         ]);
 
         $loginResponse = $this->postJson($this->loginUrl, [
@@ -373,6 +444,7 @@ class LoginTest extends TestCase
         $user = User::factory()->create([
             'password' => bcrypt('password123'),
             'is_active' => true,
+            'email_verified_at' => now(),
         ]);
 
         $loginResponse = $this->postJson($this->loginUrl, [
@@ -403,6 +475,7 @@ class LoginTest extends TestCase
         $user = User::factory()->create([
             'password' => bcrypt('password123'),
             'is_active' => true,
+            'email_verified_at' => now(),
         ]);
 
         $response = $this->postJson($this->loginUrl, [

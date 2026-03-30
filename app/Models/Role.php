@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -37,6 +38,48 @@ class Role extends Model
     {
         return $this->belongsToMany(Permission::class, 'role_permissions')
             ->withTimestamps();
+    }
+
+    /**
+     * Resolve permission records through the relationship without colliding
+     * with the stored JSON `permissions` attribute.
+     */
+    public function permissionRecords(): EloquentCollection
+    {
+        if (! $this->relationLoaded('permissions')) {
+            $this->load('permissions');
+        }
+
+        $permissions = $this->getRelation('permissions');
+
+        return $permissions instanceof EloquentCollection
+            ? $permissions
+            : new EloquentCollection();
+    }
+
+    /**
+     * Return the effective permission keys for API payloads.
+     * Prefer the relation records when present, then fall back to the stored
+     * JSON column so existing data keeps working.
+     *
+     * @return array<int, string>
+     */
+    public function permissionKeys(): array
+    {
+        $keys = $this->permissionRecords()
+            ->map(fn (Permission $permission) => $permission->slug ?: $permission->name)
+            ->filter(fn ($permission) => is_string($permission) && $permission !== '')
+            ->values()
+            ->all();
+
+        if ($keys !== []) {
+            return $keys;
+        }
+
+        return collect($this->getAttribute('permissions') ?? [])
+            ->filter(fn ($permission) => is_string($permission) && $permission !== '')
+            ->values()
+            ->all();
     }
 
     public function userRoles(): HasMany

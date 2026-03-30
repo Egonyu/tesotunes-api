@@ -64,8 +64,8 @@ class ProductService
         return [
             'total_sales' => $product->orderItems()->sum('quantity'),
             'total_revenue' => $product->orderItems()->sum('total_price'),
-            'average_rating' => $product->reviews()->avg('rating') ?? 0,
-            'reviews_count' => $product->reviews()->count(),
+            'average_rating' => $product->approvedReviews()->avg('rating') ?? 0,
+            'reviews_count' => $product->approvedReviews()->count(),
         ];
     }
 

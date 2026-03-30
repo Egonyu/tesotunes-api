@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\Auth\EmailVerificationController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -12,6 +13,9 @@ use Illuminate\Support\Facades\Route;
 | unless an explicit web route is introduced for a deliberate reason.
 |
 */
+
+Route::get('/email/verify/{id}/{hash}', [EmailVerificationController::class, 'redirect'])
+    ->name('verification.verify');
 
 // Fallback: return JSON 404 for undefined read-only web routes.
 Route::get('/{path?}', function () {
