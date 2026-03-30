@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Listeners\VerificationEmailTelemetryListener;
 use App\Models\Album;
 use App\Models\ArtistRevenue;
 use App\Models\Award;
@@ -44,6 +45,8 @@ use App\Observers\UserFollowObserver;
 use App\Services\Payment\ZengaPayService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Notifications\Events\NotificationFailed;
+use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Event as EventFacade;
 use Illuminate\Support\Facades\RateLimiter;
@@ -170,6 +173,14 @@ class AppServiceProvider extends ServiceProvider
         EventFacade::listen(
             \Illuminate\Auth\Events\PasswordReset::class,
             [\App\Listeners\AuditLoggingListener::class, 'handlePasswordReset']
+        );
+        EventFacade::listen(
+            NotificationSent::class,
+            [VerificationEmailTelemetryListener::class, 'handleSent']
+        );
+        EventFacade::listen(
+            NotificationFailed::class,
+            [VerificationEmailTelemetryListener::class, 'handleFailed']
         );
 
         // Register observers for Forum & Polls module (Edula Phase 2)

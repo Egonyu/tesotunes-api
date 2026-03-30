@@ -125,6 +125,14 @@ class AuthController extends Controller
         }
 
         event(new Registered($user));
+        Log::channel('audit')->info('auth.email_verification.dispatch_requested', [
+            'trigger' => 'registration',
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'url' => $request->fullUrl(),
+        ]);
 
         try {
             $user->notify(new WelcomeNotification);

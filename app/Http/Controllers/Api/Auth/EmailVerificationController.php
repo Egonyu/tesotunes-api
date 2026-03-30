@@ -9,6 +9,7 @@ use Illuminate\Auth\Events\Verified;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 
 /**
@@ -124,13 +125,46 @@ class EmailVerificationController extends Controller
             $user = User::query()
                 ->whereRaw('LOWER(email) = ?', [$normalizedEmail])
                 ->first();
+
+            if (! $user) {
+                Log::channel('security')->info('auth.email_verification.resend_ignored', [
+                    'reason' => 'unknown_email',
+                    'email' => $normalizedEmail,
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                    'url' => $request->fullUrl(),
+                ]);
+
+                return response()->json([
+                    'message' => self::RESEND_DISPATCHED_MESSAGE,
+                ]);
+            }
         }
 
-        if (! $user || $user->hasVerifiedEmail()) {
+        if ($user->hasVerifiedEmail()) {
+            Log::channel('audit')->info('auth.email_verification.resend_ignored', [
+                'reason' => 'already_verified',
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'url' => $request->fullUrl(),
+            ]);
+
             return response()->json([
                 'message' => self::RESEND_DISPATCHED_MESSAGE,
             ]);
         }
+
+        Log::channel('audit')->info('auth.email_verification.dispatch_requested', [
+            'trigger' => 'resend',
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'requested_by_user_id' => $request->user()?->id,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'url' => $request->fullUrl(),
+        ]);
 
         $user->notify(new VerifyEmailNotification);
 
