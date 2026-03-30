@@ -1751,7 +1751,17 @@ class ObservabilityService
                 ]
             );
 
-            $event->entities()->syncWithoutDetaching([$entity->id => ['relation' => $entityData['relation']]]);
+            DB::table('observability_event_entities')->upsert(
+                [[
+                    'event_id' => $event->id,
+                    'entity_id' => $entity->id,
+                    'relation' => $entityData['relation'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]],
+                ['event_id', 'entity_id', 'relation'],
+                ['updated_at']
+            );
             $linkedKeys[] = $entity->entity_key;
         });
 

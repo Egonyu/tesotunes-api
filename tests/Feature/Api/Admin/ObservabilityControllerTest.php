@@ -13,6 +13,7 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -362,6 +363,19 @@ class ObservabilityControllerTest extends TestCase
                     'recent_events',
                 ],
             ]);
+
+        $pivotCountAfterFirstSync = DB::table('observability_event_entities')->count();
+
+        $this->getJson('/api/admin/observability/overview')
+            ->assertOk()
+            ->assertJsonPath('success', true)
+            ->assertJsonPath('data.summary.collector_reporting_hosts', 2);
+
+        $this->assertSame(
+            $pivotCountAfterFirstSync,
+            DB::table('observability_event_entities')->count(),
+            'Repeated observability syncs should not duplicate event-entity links.'
+        );
 
         Sanctum::actingAs($admin);
 
