@@ -7,6 +7,7 @@ use App\Models\ObservabilityIntegritySnapshot;
 use App\Models\ObservabilityRollupHourly;
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class ObservabilityMaintainCommand extends Command
 {

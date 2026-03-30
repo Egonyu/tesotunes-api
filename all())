@@ -17,6 +17,5 @@
       Psy\Exception\ParseErrorException::fromParseError(Object(PhpParser\Error))
 
   2   vendor\psy\psysh\src\CodeCleaner.php:269
-      Psy\CodeCleaner::parse("<?php print_r(App\\Models\\Role::where('name','admin')-;
+      Psy\CodeCleaner::parse("<?php dump(DB::table('roles')-;
 ")
-
