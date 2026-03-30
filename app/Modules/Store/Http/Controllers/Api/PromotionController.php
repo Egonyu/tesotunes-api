@@ -9,11 +9,11 @@ use App\Models\Review;
 use App\Models\User;
 use App\Modules\Store\Models\Order;
 use App\Modules\Store\Models\OrderItem;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use App\Modules\Store\Models\Product;
 use App\Modules\Store\Services\PaymentService;
 use App\Services\Store\PromotionSettlementService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -373,7 +373,7 @@ class PromotionController extends Controller
         $payment = null;
 
         DB::transaction(function () use (
-            $request,
+
             $user,
             $promotion,
             $validated,
