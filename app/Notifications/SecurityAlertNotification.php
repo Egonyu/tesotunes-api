@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -11,7 +12,7 @@ use Illuminate\Notifications\Notification;
 
 class SecurityAlertNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use BuildsFrontendUrls, Queueable;
 
     public const NEW_LOGIN = 'new_login';
 
@@ -115,49 +116,6 @@ class SecurityAlertNotification extends Notification implements ShouldQueue
                     'outro' => 'Stay safe!',
                 ]),
         };
-    }
-
-    private function frontendUrl(string $path): string
-    {
-        $raw = rtrim((string) config('app.frontend_url', ''), '/');
-        $parts = parse_url($raw);
-
-        $validFrontendUrl = is_array($parts)
-            && isset($parts['scheme'], $parts['host'])
-            && in_array(strtolower((string) $parts['scheme']), ['http', 'https'], true);
-
-        $base = $validFrontendUrl
-            ? $raw
-            : $this->derivedFrontendBaseUrl();
-
-        return $base.'/'.ltrim($path, '/');
-    }
-
-    private function derivedFrontendBaseUrl(): string
-    {
-        $appUrl = rtrim((string) config('app.url', ''), '/');
-        $parts = parse_url($appUrl);
-
-        $validAppUrl = is_array($parts)
-            && isset($parts['scheme'], $parts['host'])
-            && in_array(strtolower((string) $parts['scheme']), ['http', 'https'], true);
-
-        if (! $validAppUrl) {
-            return 'https://tesotunes.com';
-        }
-
-        $host = (string) $parts['host'];
-        if (str_starts_with($host, 'api.')) {
-            $host = substr($host, 4);
-        }
-
-        $base = strtolower((string) $parts['scheme']).'://'.$host;
-
-        if (isset($parts['port'])) {
-            $base .= ':'.$parts['port'];
-        }
-
-        return $base;
     }
 
     private function normalizeDetails(array $details): array

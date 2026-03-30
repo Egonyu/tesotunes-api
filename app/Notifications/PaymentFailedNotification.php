@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Payment;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -10,7 +11,7 @@ use Illuminate\Notifications\Notification;
 
 class PaymentFailedNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use BuildsFrontendUrls, Queueable;
 
     public function __construct(
         protected Payment $payment
@@ -36,7 +37,7 @@ class PaymentFailedNotification extends Notification implements ShouldQueue
             ->line("- Reference: {$this->payment->transaction_reference}")
             ->line("- Amount: {$currency} {$amount}")
             ->line('- Method: '.ucfirst($this->payment->payment_method ?? 'Mobile Money'))
-            ->action('Retry Payment', url('/payments'))
+            ->action('Retry Payment', $this->frontendUrl('/payments'))
             ->line('If the issue persists, please contact support.');
     }
 

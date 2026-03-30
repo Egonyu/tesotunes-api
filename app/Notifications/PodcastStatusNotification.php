@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Channels\AppNotificationChannel;
 use App\Models\Podcast;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -11,7 +12,7 @@ use Illuminate\Notifications\Notification;
 
 class PodcastStatusNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use BuildsFrontendUrls, Queueable;
 
     protected Podcast $podcast;
 
@@ -50,7 +51,7 @@ class PodcastStatusNotification extends Notification implements ShouldQueue
                 $mail->subject('✅ Your Podcast Has Been Approved!')
                     ->line("Great news! Your podcast **{$this->podcast->title}** has been approved and is now live.")
                     ->line('Your podcast is now visible to listeners and can receive subscriptions.')
-                    ->action('View Your Podcast', url("/podcasts/{$this->podcast->slug}"));
+                    ->action('View Your Podcast', $this->frontendUrl("/podcasts/{$this->podcast->slug}"));
                 break;
 
             case 'rejected':
@@ -58,7 +59,7 @@ class PodcastStatusNotification extends Notification implements ShouldQueue
                     ->line("Unfortunately, your podcast **{$this->podcast->title}** has been rejected.")
                     ->line('**Reason:** '.($this->reason ?? 'No specific reason provided.'))
                     ->line('Please review the feedback and resubmit after making necessary changes.')
-                    ->action('Edit Your Podcast', url("/artist/podcasts/{$this->podcast->id}/edit"));
+                    ->action('Edit Your Podcast', $this->frontendUrl("/artist/podcasts/{$this->podcast->id}/edit"));
                 break;
 
             case 'suspended':
@@ -97,8 +98,8 @@ class PodcastStatusNotification extends Notification implements ShouldQueue
             'status' => $this->status,
             'reason' => $this->reason,
             'action_url' => $this->status === 'published'
-                ? url("/podcasts/{$this->podcast->slug}")
-                : url("/artist/podcasts/{$this->podcast->id}/edit"),
+                ? $this->frontendUrl("/podcasts/{$this->podcast->slug}")
+                : $this->frontendUrl("/artist/podcasts/{$this->podcast->id}/edit"),
         ];
     }
 

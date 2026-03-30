@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use App\Traits\ChecksNotificationPreferences;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -12,7 +13,7 @@ use Illuminate\Notifications\Notification;
 
 class ArtistApplicationNotification extends Notification implements ShouldQueue
 {
-    use ChecksNotificationPreferences, Queueable;
+    use BuildsFrontendUrls, ChecksNotificationPreferences, Queueable;
 
     public const APPROVED = 'approved';
 
@@ -44,7 +45,7 @@ class ArtistApplicationNotification extends Notification implements ShouldQueue
                 ->greeting("Congratulations {$notifiable->display_name}!")
                 ->line('Your artist application has been **approved**!')
                 ->line('You can now upload songs, create albums, and start earning from your music.')
-                ->action('Go to Artist Dashboard', url('/artist/dashboard'))
+                ->action('Go to Artist Dashboard', $this->frontendUrl('/artist/dashboard'))
                 ->line('Welcome to the TesoTunes artist community!'),
 
             self::REJECTED => (new MailMessage)
@@ -53,7 +54,7 @@ class ArtistApplicationNotification extends Notification implements ShouldQueue
                 ->line('Unfortunately, your artist application has been **declined**.')
                 ->line('**Reason:** '.($this->reason ?? 'Your application did not meet our current requirements.'))
                 ->line('You may re-apply after addressing the feedback above.')
-                ->action('Re-apply', url('/become-artist'))
+                ->action('Re-apply', $this->frontendUrl('/become-artist'))
                 ->line('Thank you for your interest in sharing your music!'),
 
             self::SUSPENDED => (new MailMessage)
@@ -61,7 +62,7 @@ class ArtistApplicationNotification extends Notification implements ShouldQueue
                 ->greeting("Hi {$notifiable->display_name},")
                 ->line('Your artist account has been suspended.')
                 ->line('**Reason:** '.($this->reason ?? 'Please contact support for more information.'))
-                ->action('View Account Settings', url('/settings'))
+                ->action('View Account Settings', $this->frontendUrl('/settings'))
                 ->line('Reach out to support if you need help resolving this.'),
 
             default => (new MailMessage)
@@ -69,7 +70,7 @@ class ArtistApplicationNotification extends Notification implements ShouldQueue
                 ->greeting("Hi {$notifiable->display_name},")
                 ->line('We have received your artist application!')
                 ->line('Our team will review it and get back to you shortly.')
-                ->action('View Status', url('/settings/artist-status'))
+                ->action('View Status', $this->frontendUrl('/settings/artist-status'))
                 ->line('Thank you for your patience!'),
         };
     }

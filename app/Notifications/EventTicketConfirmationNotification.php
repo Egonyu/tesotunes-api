@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use App\Traits\ChecksNotificationPreferences;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -12,7 +13,7 @@ use Illuminate\Notifications\Notification;
 
 class EventTicketConfirmationNotification extends Notification implements ShouldQueue
 {
-    use ChecksNotificationPreferences, Queueable;
+    use BuildsFrontendUrls, ChecksNotificationPreferences, Queueable;
 
     public function __construct(
         protected object $attendee,
@@ -46,7 +47,7 @@ class EventTicketConfirmationNotification extends Notification implements Should
             ->line("**Ticket Type**: {$ticketType}")
             ->line("**Event Date**: {$eventDate}")
             ->line("**Ticket Reference**: {$this->attendee->confirmation_code}")
-            ->action('View My Tickets', url('/tickets'))
+            ->action('View My Tickets', $this->frontendUrl('/tickets'))
             ->line('See you there!');
     }
 

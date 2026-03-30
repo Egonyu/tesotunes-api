@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Payment;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -10,7 +11,7 @@ use Illuminate\Notifications\Notification;
 
 class ArtistRevenueNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use BuildsFrontendUrls, Queueable;
 
     public function __construct(
         protected Payment $payment,
@@ -36,7 +37,7 @@ class ArtistRevenueNotification extends Notification implements ShouldQueue
                 ->line("- Amount: {$currency} {$amount}")
                 ->line('- Type: '.ucfirst(str_replace('_', ' ', $this->payment->payment_type ?? 'streaming')))
                 ->line('- Date: '.now()->format('M d, Y'))
-                ->action('View Earnings', url('/artist/earnings'))
+                ->action('View Earnings', $this->frontendUrl('/artist/earnings'))
                 ->line('Keep creating amazing music!'),
 
             'payout_failed' => (new MailMessage)
@@ -45,13 +46,13 @@ class ArtistRevenueNotification extends Notification implements ShouldQueue
                 ->line("Your payout of **{$currency} {$amount}** could not be processed.")
                 ->line('**Reason:** '.($this->payment->failure_reason ?? 'Processing error'))
                 ->line('Our team has been notified and will investigate.')
-                ->action('View Payout Status', url('/artist/earnings'))
+                ->action('View Payout Status', $this->frontendUrl('/artist/earnings'))
                 ->line('Contact support if you need immediate assistance.'),
 
             default => (new MailMessage)
                 ->subject('Revenue Update — TesoTunes')
                 ->line("Revenue update for **{$currency} {$amount}**.")
-                ->action('View Details', url('/artist/earnings')),
+                ->action('View Details', $this->frontendUrl('/artist/earnings')),
         };
     }
 

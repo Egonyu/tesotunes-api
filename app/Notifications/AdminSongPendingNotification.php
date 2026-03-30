@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Channels\AppNotificationChannel;
 use App\Models\Song;
 use App\Models\User;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -16,7 +17,7 @@ use Illuminate\Notifications\Notification;
  */
 class AdminSongPendingNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use BuildsFrontendUrls, Queueable;
 
     public function __construct(
         protected Song $song,
@@ -35,7 +36,7 @@ class AdminSongPendingNotification extends Notification implements ShouldQueue
             ->greeting("Hello {$notifiable->display_name}!")
             ->line("**{$this->artist->name}** uploaded a new song that needs your review:")
             ->line("**Song:** {$this->song->title}")
-            ->action('Review Song', url("/admin/songs/{$this->song->id}"))
+            ->action('Review Song', $this->frontendUrl("/admin/songs/{$this->song->id}"))
             ->line('Please review and approve or reject the submission.');
     }
 

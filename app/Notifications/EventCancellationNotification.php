@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use App\Traits\ChecksNotificationPreferences;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -12,7 +13,7 @@ use Illuminate\Notifications\Notification;
 
 class EventCancellationNotification extends Notification implements ShouldQueue
 {
-    use ChecksNotificationPreferences, Queueable;
+    use BuildsFrontendUrls, ChecksNotificationPreferences, Queueable;
 
     public function __construct(
         protected object $event,
@@ -40,7 +41,7 @@ class EventCancellationNotification extends Notification implements ShouldQueue
             ->line("Your event booking for **{$eventName}** has been cancelled.")
             ->line("**Date**: {$eventDate}")
             ->line('**Ticket Reference**: '.($this->attendee->confirmation_code ?? 'N/A'))
-            ->action('View Event', url("/events/{$this->event->id}"));
+            ->action('View Event', $this->frontendUrl("/events/{$this->event->id}"));
 
         if ($this->reason) {
             $mail->line("Reason: {$this->reason}");

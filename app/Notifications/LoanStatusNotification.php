@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Channels\AppNotificationChannel;
 use App\Models\SaccoLoan;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -11,7 +12,7 @@ use Illuminate\Notifications\Notification;
 
 class LoanStatusNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use BuildsFrontendUrls, Queueable;
 
     protected SaccoLoan $loan;
 
@@ -54,7 +55,7 @@ class LoanStatusNotification extends Notification implements ShouldQueue
                     ->line("- Interest Rate: {$this->loan->interest_rate}%")
                     ->line("- Term: {$this->loan->term_months} months")
                     ->line('- Due Date: '.($this->loan->due_date?->format('M d, Y') ?? 'TBD'))
-                    ->action('View Loan Details', url('/sacco/loans'))
+                    ->action('View Loan Details', $this->frontendUrl('/sacco/loans'))
                     ->line('Funds will be disbursed to your account shortly.');
                 break;
 
@@ -67,7 +68,7 @@ class LoanStatusNotification extends Notification implements ShouldQueue
                 }
 
                 $mail->line('You may reapply after addressing the issues mentioned.')
-                    ->action('Apply Again', url('/sacco/loans/apply'));
+                    ->action('Apply Again', $this->frontendUrl('/sacco/loans/apply'));
                 break;
 
             case 'disbursed':
@@ -75,13 +76,13 @@ class LoanStatusNotification extends Notification implements ShouldQueue
                     ->line('Your approved loan of **UGX '.number_format($this->loan->amount).'** has been disbursed.')
                     ->line('The funds have been credited to your account.')
                     ->line('First repayment due: '.($this->loan->due_date?->format('M d, Y') ?? 'Check your account'))
-                    ->action('View Repayment Schedule', url('/sacco/loans'));
+                    ->action('View Repayment Schedule', $this->frontendUrl('/sacco/loans'));
                 break;
 
             default:
                 $mail->subject('Loan Status Update')
                     ->line("Your loan application status has been updated to: **{$this->status}**")
-                    ->action('View Details', url('/sacco/loans'));
+                    ->action('View Details', $this->frontendUrl('/sacco/loans'));
         }
 
         return $mail->line('Thank you for being a SACCO member!');
@@ -108,7 +109,7 @@ class LoanStatusNotification extends Notification implements ShouldQueue
             'amount' => $this->loan->amount,
             'status' => $this->status,
             'notes' => $this->notes,
-            'action_url' => url('/sacco/loans'),
+            'action_url' => $this->frontendUrl('/sacco/loans'),
         ];
     }
 

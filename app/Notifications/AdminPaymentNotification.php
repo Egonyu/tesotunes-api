@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Payment;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -10,7 +11,7 @@ use Illuminate\Notifications\Notification;
 
 class AdminPaymentNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use BuildsFrontendUrls, Queueable;
 
     public function __construct(
         protected Payment $payment,
@@ -41,7 +42,7 @@ class AdminPaymentNotification extends Notification implements ShouldQueue
                 ->line("- Reference: {$this->payment->transaction_reference}")
                 ->line('- Status: '.ucfirst($this->payment->status))
                 ->line('- Method: '.ucfirst($this->payment->payment_method ?? 'N/A'))
-                ->action('Review Payment', url("/admin/payments/{$this->payment->id}")),
+                ->action('Review Payment', $this->frontendUrl("/admin/payments/{$this->payment->id}")),
 
             'failed' => $mail
                 ->subject("[Admin] Payment Failed: {$currency} {$amount}")
@@ -49,19 +50,19 @@ class AdminPaymentNotification extends Notification implements ShouldQueue
                 ->line('- User: '.($user->display_name ?? 'Unknown'))
                 ->line('- Reason: '.($this->payment->failure_reason ?? 'Unknown'))
                 ->line("- Reference: {$this->payment->transaction_reference}")
-                ->action('Investigate', url("/admin/payments/{$this->payment->id}")),
+                ->action('Investigate', $this->frontendUrl("/admin/payments/{$this->payment->id}")),
 
             'refunded' => $mail
                 ->subject("[Admin] Payment Refunded: {$currency} {$amount}")
                 ->line("A payment of **{$currency} {$amount}** has been refunded.")
                 ->line('- User: '.($user->display_name ?? 'Unknown'))
                 ->line("- Reference: {$this->payment->transaction_reference}")
-                ->action('View Details', url("/admin/payments/{$this->payment->id}")),
+                ->action('View Details', $this->frontendUrl("/admin/payments/{$this->payment->id}")),
 
             default => $mail
                 ->subject("[Admin] Payment Event: {$this->eventType}")
                 ->line("Payment event ({$this->eventType}) for **{$currency} {$amount}**.")
-                ->action('View Payment', url("/admin/payments/{$this->payment->id}")),
+                ->action('View Payment', $this->frontendUrl("/admin/payments/{$this->payment->id}")),
         };
     }
 

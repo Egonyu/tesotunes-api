@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
 use App\Models\CatalogClaimRequest;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use App\Traits\ChecksNotificationPreferences;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -13,7 +14,7 @@ use Illuminate\Notifications\Notification;
 
 class CatalogClaimStatusNotification extends Notification implements ShouldQueue
 {
-    use ChecksNotificationPreferences, Queueable;
+    use BuildsFrontendUrls, ChecksNotificationPreferences, Queueable;
 
     public const SUBMITTED = 'submitted';
 
@@ -48,17 +49,17 @@ class CatalogClaimStatusNotification extends Notification implements ShouldQueue
                 ->subject('Artist Claim Approved')
                 ->line("Your claim for {$artistName} has been approved.")
                 ->line('You can now manage this artist profile from your account.')
-                ->action('Open Artist Dashboard', url('/artist')),
+                ->action('Open Artist Dashboard', $this->frontendUrl('/artist')),
             self::REJECTED => $mail
                 ->subject('Artist Claim Update')
                 ->line("Your claim for {$artistName} was not approved.")
                 ->line('Reason: '.($this->reason ?? 'Additional verification is required.'))
-                ->action('Review Claim Status', url('/settings/claims')),
+                ->action('Review Claim Status', $this->frontendUrl('/settings/claims')),
             default => $mail
                 ->subject('Artist Claim Received')
                 ->line("We received your claim for {$artistName}.")
                 ->line('Our team will review your request and update you once a decision is made.')
-                ->action('Track Claim Status', url('/settings/claims')),
+                ->action('Track Claim Status', $this->frontendUrl('/settings/claims')),
         };
     }
 

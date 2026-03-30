@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Channels\AppNotificationChannel;
 use App\Models\CatalogClaimRequest;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -11,7 +12,7 @@ use Illuminate\Notifications\Notification;
 
 class AdminCatalogClaimPendingNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use BuildsFrontendUrls, Queueable;
 
     public function __construct(
         protected CatalogClaimRequest $claim
@@ -31,7 +32,7 @@ class AdminCatalogClaimPendingNotification extends Notification implements Shoul
             ->subject("Catalog Claim Pending: {$artistName}")
             ->greeting("Hello {$notifiable->display_name}!")
             ->line("{$claimantName} submitted a claim for {$artistName}.")
-            ->action('Review Claim Request', url('/admin/catalog/claims'))
+            ->action('Review Claim Request', $this->frontendUrl('/admin/catalog/claims'))
             ->line('Please review the submitted evidence and make a decision.');
     }
 

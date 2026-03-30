@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Payment;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -10,7 +11,7 @@ use Illuminate\Notifications\Notification;
 
 class PaymentSuccessNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use BuildsFrontendUrls, Queueable;
 
     public function __construct(
         protected Payment $payment
@@ -35,7 +36,7 @@ class PaymentSuccessNotification extends Notification implements ShouldQueue
             ->line("- Amount: {$currency} {$amount}")
             ->line('- Date: '.($this->payment->completed_at?->format('M d, Y H:i') ?? now()->format('M d, Y H:i')))
             ->line('- Method: '.ucfirst($this->payment->payment_method ?? 'Mobile Money'))
-            ->action('View Transaction', url('/payments'))
+            ->action('View Transaction', $this->frontendUrl('/payments'))
             ->line('Thank you for using TesoTunes!');
     }
 

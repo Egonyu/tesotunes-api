@@ -5,13 +5,14 @@ namespace App\Notifications;
 use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
 use App\Models\Song;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
 class StreamMilestoneNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use BuildsFrontendUrls, Queueable;
 
     /** Milestone thresholds to trigger notifications */
     public const MILESTONES = [100, 500, 1_000, 5_000, 10_000, 50_000, 100_000, 500_000, 1_000_000];
@@ -56,7 +57,7 @@ class StreamMilestoneNotification extends Notification implements ShouldQueue
             ->greeting("Congratulations {$notifiable->display_name}!")
             ->line("Your song \"{$this->song->title}\" just reached **{$formatted} plays**!")
             ->line('Your music is reaching more listeners every day.')
-            ->action('View Analytics', url('/artist/analytics'))
+            ->action('View Analytics', $this->frontendUrl('/artist/analytics'))
             ->line('Keep making great music!');
     }
 

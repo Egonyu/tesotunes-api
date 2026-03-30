@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
 use App\Models\Song;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use App\Traits\ChecksNotificationPreferences;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -13,7 +14,7 @@ use Illuminate\Notifications\Notification;
 
 class SongModerationNotification extends Notification implements ShouldQueue
 {
-    use ChecksNotificationPreferences, Queueable;
+    use BuildsFrontendUrls, ChecksNotificationPreferences, Queueable;
 
     public const APPROVED = 'approved';
 
@@ -45,7 +46,7 @@ class SongModerationNotification extends Notification implements ShouldQueue
             self::APPROVED => $mail
                 ->subject('Your Song Has Been Approved!')
                 ->line("Great news! Your song **{$this->song->title}** has been approved and is now live on TesoTunes.")
-                ->action('View Song', url("/songs/{$this->song->slug}"))
+                ->action('View Song', $this->frontendUrl("/songs/{$this->song->slug}"))
                 ->line('Thank you for sharing your music!'),
 
             self::REJECTED => $mail
@@ -53,14 +54,14 @@ class SongModerationNotification extends Notification implements ShouldQueue
                 ->line("Unfortunately, your song **{$this->song->title}** has been rejected.")
                 ->line('**Reason:** '.($this->reason ?? 'No specific reason provided.'))
                 ->line('Please review the feedback and re-upload after making necessary changes.')
-                ->action('Upload New Song', url('/artist/upload'))
+                ->action('Upload New Song', $this->frontendUrl('/artist/upload'))
                 ->line('We look forward to hearing your music!'),
 
             default => $mail
                 ->subject('Song Status Update')
                 ->line("Your song **{$this->song->title}** is pending review.")
                 ->line('Our team will review it shortly. You will be notified once a decision is made.')
-                ->action('View Your Uploads', url('/artist/songs')),
+                ->action('View Your Uploads', $this->frontendUrl('/artist/songs')),
         };
     }
 

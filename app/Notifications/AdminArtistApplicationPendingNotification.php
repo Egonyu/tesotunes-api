@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Channels\AppNotificationChannel;
 use App\Models\Artist;
 use App\Models\User;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -12,7 +13,7 @@ use Illuminate\Notifications\Notification;
 
 class AdminArtistApplicationPendingNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use BuildsFrontendUrls, Queueable;
 
     public function __construct(
         protected User $applicant,
@@ -31,7 +32,7 @@ class AdminArtistApplicationPendingNotification extends Notification implements 
             ->greeting("Hello {$notifiable->display_name}!")
             ->line("{$this->applicant->display_name} submitted a new artist application.")
             ->line("Stage name: {$this->artist->stage_name}")
-            ->action('Review Artist Application', url("/admin/artists/{$this->artist->id}"))
+            ->action('Review Artist Application', $this->frontendUrl("/admin/artists/{$this->artist->id}"))
             ->line('Please review and approve or reject the application.');
     }
 

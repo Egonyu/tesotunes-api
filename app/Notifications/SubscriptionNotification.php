@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -11,7 +12,7 @@ use Illuminate\Notifications\Notification;
 
 class SubscriptionNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use BuildsFrontendUrls, Queueable;
 
     public const SUBSCRIBED = 'subscribed';
 
@@ -50,7 +51,7 @@ class SubscriptionNotification extends Notification implements ShouldQueue
                 ->greeting("Hey {$notifiable->display_name}!")
                 ->line("You've subscribed to **{$this->planName}**.")
                 ->line('Enjoy unlimited downloads, 320kbps streaming, and ad-free listening.')
-                ->action('Explore Premium', url('/premium'))
+                ->action('Explore Premium', $this->frontendUrl('/premium'))
                 ->line('Thank you for supporting African music!'),
 
             self::CANCELLED => (new MailMessage)
@@ -59,7 +60,7 @@ class SubscriptionNotification extends Notification implements ShouldQueue
                 ->line("Your **{$this->planName}** subscription has been cancelled.")
                 ->line('You can continue using premium features until the end of your billing period.')
                 ->line('Expires: '.($this->metadata['expires_at'] ?? 'N/A'))
-                ->action('Resubscribe', url('/pricing'))
+                ->action('Resubscribe', $this->frontendUrl('/pricing'))
                 ->line('We hope to see you back soon!'),
 
             self::PAYMENT_FAILED => (new MailMessage)
@@ -67,7 +68,7 @@ class SubscriptionNotification extends Notification implements ShouldQueue
                 ->greeting("Hi {$notifiable->display_name},")
                 ->line("We couldn't process your payment for **{$this->planName}**.")
                 ->line('Please update your payment method to keep your subscription active.')
-                ->action('Update Payment', url('/settings/billing'))
+                ->action('Update Payment', $this->frontendUrl('/settings/billing'))
                 ->line('Your subscription will be paused if payment is not resolved within 3 days.'),
 
             self::EXPIRING_SOON => (new MailMessage)
@@ -77,14 +78,14 @@ class SubscriptionNotification extends Notification implements ShouldQueue
                 ->line($this->metadata['auto_renew'] ?? false
                     ? 'Don\'t worry — your subscription will auto-renew.'
                     : 'Enable auto-renew or resubscribe to keep your premium features.')
-                ->action('Manage Subscription', url('/settings/subscription'))
+                ->action('Manage Subscription', $this->frontendUrl('/settings/subscription'))
                 ->line('Thank you for supporting African music!'),
 
             default => (new MailMessage)
                 ->subject('Subscription Update — TesoTunes')
                 ->greeting("Hi {$notifiable->display_name},")
                 ->line($this->getEventMessage())
-                ->action('View Subscription', url('/settings/subscription')),
+                ->action('View Subscription', $this->frontendUrl('/settings/subscription')),
         };
     }
 
