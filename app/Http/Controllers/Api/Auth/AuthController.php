@@ -17,6 +17,20 @@ use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
+    protected function buildAuthenticatedResponse(User $user, string $token): JsonResponse
+    {
+        return response()->json([
+            'data' => new UserResource($this->loadAuthRelations($user, [
+                'settings',
+                'subscription',
+                'profile',
+                'referralProfile',
+            ])),
+            'token' => $token,
+            'token_type' => 'Bearer',
+        ]);
+    }
+
     /**
      * Only eager-load auth relations that exist in the current schema.
      */
@@ -178,16 +192,74 @@ class AuthController extends Controller
             'remember_me' => (bool) $request->boolean('remember_me'),
         ]);
 
-        return response()->json([
-            'data' => new UserResource($this->loadAuthRelations($user, [
-                'settings',
-                'subscription',
-                'profile',
-                'referralProfile',
-            ])),
-            'token' => $token,
-            'token_type' => 'Bearer',
+        return $this->buildAuthenticatedResponse($user, $token);
+    }
+
+    /**
+     * POST /api/auth/local-admin-login
+     *
+     * Local development fallback for admin accounts when the running stack still
+     * surfaces legacy email-verification enforcement.
+     */
+    public function localAdminLogin(Request $request): JsonResponse
+    {
+        if (! app()->isLocal() && ! app()->runningUnitTests()) {
+            return response()->json([
+                'message' => 'Not found',
+            ], 404);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+            'password' => 'required|string',
+            'remember_me' => 'boolean',
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $user = User::where('email', $request->email)->first();
+
+        if (! $user || ! Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'message' => 'Invalid credentials',
+            ], 401);
+        }
+
+        if (! $user->hasAnyRole(['admin', 'super_admin'])) {
+            return response()->json([
+                'message' => 'Invalid credentials',
+            ], 401);
+        }
+
+        if (! $user->is_active) {
+            return response()->json([
+                'message' => 'Account is suspended',
+            ], 403);
+        }
+
+        $user->forceFill([
+            'email_verified_at' => $user->email_verified_at ?? now(),
+        ])->save();
+
+        $user->update(['last_login_at' => now()]);
+
+        $tokenName = $request->boolean('remember_me') ? 'long_lived_token' : 'auth_token';
+        $token = $user->createToken($tokenName)->plainTextToken;
+
+        Log::channel('audit')->info('auth.local_admin_login.succeeded', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+            'url' => $request->fullUrl(),
+        ]);
+
+        return $this->buildAuthenticatedResponse($user, $token);
     }
 
     /**

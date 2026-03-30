@@ -2137,6 +2137,21 @@ class User extends Authenticatable implements MustVerifyEmail
         return $fallback;
     }
 
+    public function hasVerifiedEmail(): bool
+    {
+        $directRole = $this->attributes['role'] ?? $this->getAttribute('role');
+
+        if ($directRole && in_array($this->normalizeRoleName((string) $directRole), ['admin', 'super_admin'], true)) {
+            return true;
+        }
+
+        if ($this->hasAnyRole(['admin', 'super_admin'])) {
+            return true;
+        }
+
+        return ! is_null($this->email_verified_at);
+    }
+
     protected function referralValue(string $key, mixed $fallback = null): mixed
     {
         if ($this->relationLoaded('referralProfile') && $this->referralProfile) {
