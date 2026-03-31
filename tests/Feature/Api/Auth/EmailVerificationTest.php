@@ -37,6 +37,23 @@ class EmailVerificationTest extends TestCase
         Notification::assertSentTo($user, VerifyEmailNotification::class);
     }
 
+    public function test_verification_notification_points_to_frontend_verify_page(): void
+    {
+        $user = User::factory()->create([
+            'email_verified_at' => null,
+        ]);
+
+        $notification = new VerifyEmailNotification;
+        $mailMessage = $notification->toMail($user);
+
+        $this->assertIsString($mailMessage->actionUrl);
+        $this->assertStringStartsWith('http://localhost:3000/verify-email?', $mailMessage->actionUrl);
+        $this->assertStringContainsString('id='.$user->id, $mailMessage->actionUrl);
+        $this->assertStringContainsString('hash='.sha1($user->getEmailForVerification()), $mailMessage->actionUrl);
+        $this->assertStringContainsString('expires=', $mailMessage->actionUrl);
+        $this->assertStringContainsString('signature=', $mailMessage->actionUrl);
+    }
+
     public function test_public_resend_returns_generic_success_for_unknown_email(): void
     {
         $this->postJson('/api/auth/email/resend', [
