@@ -19,11 +19,13 @@ use App\Services\Revenue\StreamingRateService;
 use App\Services\SongSlugService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class ArtistApiController extends Controller
 {
@@ -308,6 +310,79 @@ class ArtistApiController extends Controller
     }
 
     /**
+     * POST /api/artist/songs/upload-target
+     */
+    public function createSongUploadTarget(Request $request): JsonResponse
+    {
+        $result = $this->requireArtist($request);
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
+        $artist = $result;
+
+        if (! $artist->can_upload && ! $request->user()->canUpload()) {
+            return response()->json([
+                'message' => 'You are not allowed to upload songs at this time.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'kind' => ['required', 'string', Rule::in(['audio', 'cover'])],
+            'filename' => 'required|string|max:255',
+            'content_type' => 'nullable|string|max:255',
+            'size_bytes' => 'required|integer|min:1',
+        ]);
+
+        $kind = $validated['kind'];
+        $maxBytes = $kind === 'audio' ? $this->maxSongAudioBytes() : $this->maxSongArtworkBytes();
+        $allowedExtensions = $kind === 'audio'
+            ? ['mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg']
+            : ['jpg', 'jpeg', 'png', 'webp'];
+
+        if ((int) $validated['size_bytes'] > $maxBytes) {
+            return response()->json([
+                'message' => sprintf(
+                    '%s files must be %s or smaller.',
+                    Str::headline($kind),
+                    $this->formatBytes($maxBytes)
+                ),
+            ], 422);
+        }
+
+        $extension = Str::lower(pathinfo($validated['filename'], PATHINFO_EXTENSION));
+        if ($extension === '' || ! in_array($extension, $allowedExtensions, true)) {
+            return response()->json([
+                'message' => sprintf(
+                    '%s uploads must use one of: %s.',
+                    Str::headline($kind),
+                    implode(', ', $allowedExtensions)
+                ),
+            ], 422);
+        }
+
+        $target = $this->buildDirectUploadTarget(
+            kind: $kind,
+            userId: (int) $request->user()->id,
+            extension: $extension,
+            contentType: $validated['content_type'] ?? null
+        );
+
+        if (! $target) {
+            return response()->json([
+                'message' => 'Direct cloud uploads are not available for the current storage disk.',
+                'code' => 'DIRECT_UPLOAD_UNAVAILABLE',
+            ], 422);
+        }
+
+        return response()->json([
+            'data' => array_merge($target, [
+                'kind' => $kind,
+                'max_file_size_bytes' => $maxBytes,
+            ]),
+        ]);
+    }
+
+    /**
      * POST /api/artist/songs — Upload a new song
      */
     public function storeSong(Request $request): JsonResponse
@@ -347,11 +422,18 @@ class ArtistApiController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             // Accept both 'audio' and 'audio_file' field names
-            'audio' => 'required_without:audio_file|file|mimes:mp3,wav,flac,aac,m4a,ogg|max:102400',
-            'audio_file' => 'required_without:audio|file|mimes:mp3,wav,flac,aac,m4a,ogg|max:102400',
+            'audio' => 'required_without_all:audio_file,uploaded_audio_key|file|mimes:mp3,wav,flac,aac,m4a,ogg|max:'.$this->maxSongAudioKilobytes(),
+            'audio_file' => 'required_without_all:audio,uploaded_audio_key|file|mimes:mp3,wav,flac,aac,m4a,ogg|max:'.$this->maxSongAudioKilobytes(),
+            'uploaded_audio_key' => 'required_without_all:audio,audio_file|string|max:1024',
+            'uploaded_audio_original_name' => 'required_with:uploaded_audio_key|string|max:255',
+            'uploaded_audio_mime_type' => 'nullable|string|max:255',
+            'uploaded_audio_size_bytes' => 'nullable|integer|min:1|max:'.$this->maxSongAudioBytes(),
             // Accept both 'cover' and 'cover_image' field names
             'cover' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
             'cover_image' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
+            'uploaded_cover_key' => 'nullable|string|max:1024',
+            'uploaded_cover_original_name' => 'required_with:uploaded_cover_key|string|max:255',
+            'uploaded_cover_mime_type' => 'nullable|string|max:255',
             'album_id' => 'nullable|integer|exists:albums,id',
             'genre_id' => 'nullable|string',
             'genre_ids' => 'nullable|array',
@@ -368,61 +450,13 @@ class ArtistApiController extends Controller
             'is_free' => 'nullable',
         ]);
 
-        // Handle audio file (accept either field name) - MOVE IMMEDIATELY to avoid temp file cleanup
-        $audioFile = $request->file('audio') ?? $request->file('audio_file');
-        if (! $audioFile) {
-            return response()->json([
-                'message' => 'Audio file is required.',
-                'errors' => ['audio' => ['An audio file is required.']],
-            ], 422);
-        }
-
-        // Check if file is valid
-        if (! $audioFile->isValid()) {
-            return response()->json([
-                'message' => 'File upload failed: '.$audioFile->getErrorMessage(),
-                'error_code' => $audioFile->getError(),
-            ], 422);
-        }
-
-        // Capture file info BEFORE storing (store invalidates the file object)
-        $audioExt = $audioFile->getClientOriginalExtension();
-        $audioSize = $audioFile->getSize();
-        $audioFileName = Str::uuid().'.'.$audioExt;
-        $audioPath = 'songs/audio/'.$audioFileName;
-
-        // Store audio on the configured disk (works with local, S3, DigitalOcean Spaces)
-        try {
-            $this->uploadDisk()->put($audioPath, fopen($audioFile->getPathname(), 'r'));
-        } catch (\Throwable $e) {
-            Log::error('Song audio upload failed', [
-                'error' => $e->getMessage(),
-                'disk' => $this->uploadDiskName(),
-                'path' => $audioPath,
-            ]);
-
-            return response()->json([
-                'message' => 'Failed to upload audio file. Please try again.',
-            ], 500);
-        }
+        [$audioPath, $audioExt, $audioSize] = $this->resolveSongAudioUpload($request, $validated);
 
         // Handle cover image (accept either field name)
         $artworkPath = null;
-        $coverFile = $request->file('cover') ?? $request->file('cover_image');
-        if ($coverFile && $coverFile->isValid()) {
-            $coverExt = $coverFile->getClientOriginalExtension();
-            $coverFileName = Str::uuid().'.'.$coverExt;
-            $artworkPath = 'songs/artwork/'.$coverFileName;
-
-            try {
-                $this->uploadDisk()->put($artworkPath, fopen($coverFile->getPathname(), 'r'));
-            } catch (\Throwable $e) {
-                Log::warning('Song artwork upload failed', [
-                    'error' => $e->getMessage(),
-                    'path' => $artworkPath,
-                ]);
-                $artworkPath = null;
-            }
+        $coverUpload = $this->resolveSongArtworkUpload($request, $validated);
+        if ($coverUpload !== null) {
+            [$artworkPath] = $coverUpload;
         }
 
         // Generate slug
@@ -517,7 +551,7 @@ class ArtistApiController extends Controller
                 'id' => $song->id,
                 'title' => $song->title,
                 'status' => $song->status,
-                'artwork_url' => $artworkPath ? Storage::disk($this->uploadDiskName())->url($artworkPath) : null,
+                'artwork_url' => $artworkPath ? Storage::disk($this->songUploadDiskName())->url($artworkPath) : null,
             ],
         ], 201);
     }
@@ -1731,6 +1765,238 @@ class ArtistApiController extends Controller
         return [
             'note' => $notes,
         ];
+    }
+
+    private function songUploadDiskName(): string
+    {
+        return StorageHelper::mediaDisk();
+    }
+
+    private function songUploadDisk()
+    {
+        return Storage::disk($this->songUploadDiskName());
+    }
+
+    private function maxSongAudioBytes(): int
+    {
+        return (int) config('music.storage.limits.max_audio_size', 500 * 1024 * 1024);
+    }
+
+    private function maxSongAudioKilobytes(): int
+    {
+        return (int) ceil($this->maxSongAudioBytes() / 1024);
+    }
+
+    private function maxSongArtworkBytes(): int
+    {
+        return (int) config('music.storage.limits.max_artwork_size', 10 * 1024 * 1024);
+    }
+
+    private function buildDirectUploadTarget(string $kind, int $userId, string $extension, ?string $contentType): ?array
+    {
+        $diskName = $this->songUploadDiskName();
+
+        if (app()->environment('testing')) {
+            $key = $this->directUploadKey($kind, $userId, $extension);
+
+            return [
+                'disk' => $diskName,
+                'method' => 'PUT',
+                'key' => $key,
+                'upload_url' => "https://example.test/direct-upload/{$key}",
+                'headers' => array_filter([
+                    'Content-Type' => $contentType,
+                ]),
+                'expires_at' => now()->addMinutes(30)->toIso8601String(),
+            ];
+        }
+
+        $adapter = $this->songUploadDisk()->getAdapter();
+        if (! method_exists($adapter, 'getClient')) {
+            return null;
+        }
+
+        $key = $this->directUploadKey($kind, $userId, $extension);
+        $client = $adapter->getClient();
+        $headers = array_filter([
+            'Content-Type' => $contentType,
+            'x-amz-acl' => 'public-read',
+        ]);
+
+        $command = $client->getCommand('PutObject', array_filter([
+            'Bucket' => config("filesystems.disks.{$diskName}.bucket"),
+            'Key' => $key,
+            'ACL' => 'public-read',
+            'ContentType' => $contentType,
+        ]));
+
+        $signedRequest = $client->createPresignedRequest($command, '+30 minutes');
+
+        return [
+            'disk' => $diskName,
+            'method' => 'PUT',
+            'key' => $key,
+            'upload_url' => (string) $signedRequest->getUri(),
+            'headers' => $headers,
+            'expires_at' => now()->addMinutes(30)->toIso8601String(),
+        ];
+    }
+
+    private function directUploadKey(string $kind, int $userId, string $extension): string
+    {
+        $directory = $kind === 'audio' ? 'songs/audio/direct' : 'songs/artwork/direct';
+
+        return sprintf('%s/%d/%s.%s', $directory, $userId, Str::uuid(), $extension);
+    }
+
+    private function resolveSongAudioUpload(Request $request, array $validated): array
+    {
+        if (! empty($validated['uploaded_audio_key'])) {
+            return $this->resolveDirectSongUpload(
+                kind: 'audio',
+                key: $validated['uploaded_audio_key'],
+                originalName: $validated['uploaded_audio_original_name'] ?? null,
+                declaredSizeBytes: Arr::get($validated, 'uploaded_audio_size_bytes')
+            );
+        }
+
+        $audioFile = $request->file('audio') ?? $request->file('audio_file');
+        if (! $audioFile) {
+            abort(response()->json([
+                'message' => 'Audio file is required.',
+                'errors' => ['audio' => ['An audio file is required.']],
+            ], 422));
+        }
+
+        if (! $audioFile->isValid()) {
+            abort(response()->json([
+                'message' => 'File upload failed: '.$audioFile->getErrorMessage(),
+                'error_code' => $audioFile->getError(),
+            ], 422));
+        }
+
+        $audioExt = $audioFile->getClientOriginalExtension();
+        $audioSize = $audioFile->getSize();
+        $audioFileName = Str::uuid().'.'.$audioExt;
+        $audioPath = 'songs/audio/'.$audioFileName;
+
+        try {
+            $this->songUploadDisk()->put($audioPath, fopen($audioFile->getPathname(), 'r'));
+        } catch (\Throwable $e) {
+            Log::error('Song audio upload failed', [
+                'error' => $e->getMessage(),
+                'disk' => $this->songUploadDiskName(),
+                'path' => $audioPath,
+            ]);
+
+            abort(response()->json([
+                'message' => 'Failed to upload audio file. Please try again.',
+            ], 500));
+        }
+
+        return [$audioPath, $audioExt, $audioSize];
+    }
+
+    private function resolveSongArtworkUpload(Request $request, array $validated): ?array
+    {
+        if (! empty($validated['uploaded_cover_key'])) {
+            return $this->resolveDirectSongUpload(
+                kind: 'cover',
+                key: $validated['uploaded_cover_key'],
+                originalName: $validated['uploaded_cover_original_name'] ?? null,
+                declaredSizeBytes: null
+            );
+        }
+
+        $coverFile = $request->file('cover') ?? $request->file('cover_image');
+        if (! $coverFile || ! $coverFile->isValid()) {
+            return null;
+        }
+
+        $coverExt = $coverFile->getClientOriginalExtension();
+        $coverFileName = Str::uuid().'.'.$coverExt;
+        $artworkPath = 'songs/artwork/'.$coverFileName;
+
+        try {
+            $this->songUploadDisk()->put($artworkPath, fopen($coverFile->getPathname(), 'r'));
+        } catch (\Throwable $e) {
+            Log::warning('Song artwork upload failed', [
+                'error' => $e->getMessage(),
+                'disk' => $this->songUploadDiskName(),
+                'path' => $artworkPath,
+            ]);
+
+            return null;
+        }
+
+        return [$artworkPath, $coverExt, $coverFile->getSize()];
+    }
+
+    private function resolveDirectSongUpload(string $kind, string $key, ?string $originalName, ?int $declaredSizeBytes): array
+    {
+        $allowedPrefixes = [
+            'audio' => 'songs/audio/direct/',
+            'cover' => 'songs/artwork/direct/',
+        ];
+        $allowedExtensions = [
+            'audio' => ['mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg'],
+            'cover' => ['jpg', 'jpeg', 'png', 'webp'],
+        ];
+        $maxBytes = [
+            'audio' => $this->maxSongAudioBytes(),
+            'cover' => $this->maxSongArtworkBytes(),
+        ];
+
+        if (! Str::startsWith($key, $allowedPrefixes[$kind])) {
+            abort(response()->json([
+                'message' => 'Uploaded file reference is invalid.',
+            ], 422));
+        }
+
+        $extension = Str::lower(pathinfo($key, PATHINFO_EXTENSION));
+        if ($extension === '' || ! in_array($extension, $allowedExtensions[$kind], true)) {
+            abort(response()->json([
+                'message' => 'Uploaded file type is not supported.',
+            ], 422));
+        }
+
+        $disk = $this->songUploadDisk();
+        if (! $disk->exists($key)) {
+            abort(response()->json([
+                'message' => 'Uploaded file could not be found in cloud storage. Please upload it again.',
+            ], 422));
+        }
+
+        $actualSizeBytes = (int) $disk->size($key);
+        if ($actualSizeBytes < 1 || $actualSizeBytes > $maxBytes[$kind]) {
+            abort(response()->json([
+                'message' => sprintf(
+                    '%s files must be %s or smaller.',
+                    Str::headline($kind),
+                    $this->formatBytes($maxBytes[$kind])
+                ),
+            ], 422));
+        }
+
+        if ($declaredSizeBytes !== null && $declaredSizeBytes !== $actualSizeBytes) {
+            Log::warning('Artist direct upload size mismatch', [
+                'kind' => $kind,
+                'key' => $key,
+                'declared_size_bytes' => $declaredSizeBytes,
+                'actual_size_bytes' => $actualSizeBytes,
+            ]);
+        }
+
+        return [$key, $extension, $actualSizeBytes, $originalName];
+    }
+
+    private function formatBytes(int $bytes): string
+    {
+        if ($bytes >= 1024 * 1024 * 1024) {
+            return number_format($bytes / (1024 * 1024 * 1024), 1).' GB';
+        }
+
+        return number_format($bytes / (1024 * 1024), 0).' MB';
     }
 
     private function formatDuration(?int $seconds): string

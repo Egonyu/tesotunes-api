@@ -156,6 +156,69 @@ class ArtistSongEditingTest extends TestCase
         ]);
     }
 
+    public function test_artist_can_request_a_direct_song_upload_target(): void
+    {
+        config([
+            'filesystems.default' => 'digitalocean',
+            'filesystems.media_disk' => 'digitalocean',
+        ]);
+
+        $response = $this->actingAs($this->artistUser)->postJson('/api/artist/songs/upload-target', [
+            'kind' => 'audio',
+            'filename' => 'mixtape.mp3',
+            'content_type' => 'audio/mpeg',
+            'size_bytes' => 200 * 1024 * 1024,
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.kind', 'audio')
+            ->assertJsonPath('data.method', 'PUT')
+            ->assertJsonPath('data.disk', 'digitalocean')
+            ->assertJsonPath('data.max_file_size_bytes', config('music.storage.limits.max_audio_size'));
+
+        $this->assertStringContainsString(
+            'songs/audio/direct/'.$this->artistUser->id.'/',
+            (string) $response->json('data.key')
+        );
+    }
+
+    public function test_artist_can_create_song_from_direct_cloud_upload_references(): void
+    {
+        config([
+            'filesystems.default' => 'digitalocean',
+            'filesystems.media_disk' => 'digitalocean',
+        ]);
+        Storage::fake('digitalocean');
+
+        $audioKey = 'songs/audio/direct/'.$this->artistUser->id.'/'.uniqid('audio_', true).'.mp3';
+        $coverKey = 'songs/artwork/direct/'.$this->artistUser->id.'/'.uniqid('cover_', true).'.jpg';
+        Storage::disk('digitalocean')->put($audioKey, str_repeat('a', 1024));
+        Storage::disk('digitalocean')->put($coverKey, str_repeat('b', 512));
+
+        $title = 'Direct Upload Song '.uniqid();
+
+        $response = $this->actingAs($this->artistUser)->postJson('/api/artist/songs', [
+            'title' => $title,
+            'uploaded_audio_key' => $audioKey,
+            'uploaded_audio_original_name' => 'direct-upload-song.mp3',
+            'uploaded_audio_size_bytes' => 1024,
+            'uploaded_cover_key' => $coverKey,
+            'uploaded_cover_original_name' => 'direct-upload-song.jpg',
+            'is_free' => true,
+            'is_downloadable' => true,
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.title', $title);
+
+        $song = Song::query()->where('title', $title)->latest('id')->firstOrFail();
+
+        $this->assertSame($audioKey, $song->audio_file_original);
+        $this->assertSame($audioKey, $song->audio_file_320);
+        $this->assertSame($coverKey, $song->artwork);
+        $this->assertSame(1024, $song->file_size_bytes);
+    }
+
     public function test_artist_can_upload_profile_avatar_via_dedicated_route(): void
     {
         $avatar = UploadedFile::fake()->image('artist-avatar.jpg', 400, 400);

@@ -28,8 +28,10 @@ return [
 
         // File size limits (in bytes)
         'limits' => [
-            'max_audio_size' => env('MAX_AUDIO_FILE_SIZE', 50 * 1024 * 1024), // 50MB
-            'max_artwork_size' => env('MAX_ARTWORK_FILE_SIZE', 10 * 1024 * 1024), // 10MB
+            // Keep the minimum platform default high enough for mixtapes and
+            // long-form audio even when an older environment variable lingers.
+            'max_audio_size' => max((int) env('MAX_AUDIO_FILE_SIZE', 0), 500 * 1024 * 1024), // 500MB
+            'max_artwork_size' => max((int) env('MAX_ARTWORK_FILE_SIZE', 0), 10 * 1024 * 1024), // 10MB
         ],
 
         // Allowed file formats
