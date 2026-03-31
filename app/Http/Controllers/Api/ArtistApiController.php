@@ -339,6 +339,15 @@ class ArtistApiController extends Controller
         $allowedExtensions = $this->allowedDirectUploadExtensions($kind);
 
         if ((int) $validated['size_bytes'] > $maxBytes) {
+            Log::warning('Artist upload target rejected oversized file', [
+                'user_id' => $request->user()?->id,
+                'kind' => $kind,
+                'filename' => $validated['filename'],
+                'content_type' => $validated['content_type'] ?? null,
+                'declared_size_bytes' => (int) $validated['size_bytes'],
+                'max_size_bytes' => $maxBytes,
+            ]);
+
             return response()->json([
                 'message' => sprintf(
                     '%s files must be %s or smaller.',
@@ -378,6 +387,12 @@ class ArtistApiController extends Controller
         );
 
         if (! $target) {
+            Log::warning('Artist upload target unavailable for storage disk', [
+                'user_id' => $request->user()?->id,
+                'kind' => $kind,
+                'disk' => $this->songUploadDiskName(),
+            ]);
+
             return response()->json([
                 'message' => 'Direct cloud uploads are not available for the current storage disk.',
                 'code' => 'DIRECT_UPLOAD_UNAVAILABLE',
@@ -1969,6 +1984,11 @@ class ArtistApiController extends Controller
         ];
 
         if (! Str::startsWith($key, $allowedPrefixes[$kind])) {
+            Log::warning('Artist direct upload rejected invalid key prefix', [
+                'kind' => $kind,
+                'key' => $key,
+            ]);
+
             abort(response()->json([
                 'message' => 'Uploaded file reference is invalid.',
             ], 422));
@@ -1976,6 +1996,12 @@ class ArtistApiController extends Controller
 
         $extension = Str::lower(pathinfo($key, PATHINFO_EXTENSION));
         if ($extension === '' || ! in_array($extension, $allowedExtensions[$kind], true)) {
+            Log::warning('Artist direct upload rejected unsupported stored extension', [
+                'kind' => $kind,
+                'key' => $key,
+                'extension' => $extension,
+            ]);
+
             abort(response()->json([
                 'message' => 'Uploaded file type is not supported.',
             ], 422));
@@ -1983,6 +2009,12 @@ class ArtistApiController extends Controller
 
         $disk = $this->songUploadDisk();
         if (! $disk->exists($key)) {
+            Log::warning('Artist direct upload object missing from storage', [
+                'kind' => $kind,
+                'key' => $key,
+                'disk' => $this->songUploadDiskName(),
+            ]);
+
             abort(response()->json([
                 'message' => 'Uploaded file could not be found in cloud storage. Please upload it again.',
             ], 422));
@@ -1990,6 +2022,13 @@ class ArtistApiController extends Controller
 
         $actualSizeBytes = (int) $disk->size($key);
         if ($actualSizeBytes < 1 || $actualSizeBytes > $maxBytes[$kind]) {
+            Log::warning('Artist direct upload rejected invalid stored size', [
+                'kind' => $kind,
+                'key' => $key,
+                'actual_size_bytes' => $actualSizeBytes,
+                'max_size_bytes' => $maxBytes[$kind],
+            ]);
+
             abort(response()->json([
                 'message' => sprintf(
                     '%s files must be %s or smaller.',

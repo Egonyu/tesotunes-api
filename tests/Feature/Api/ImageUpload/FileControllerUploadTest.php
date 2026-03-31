@@ -283,7 +283,8 @@ class FileControllerUploadTest extends TestCase
 
     public function test_audio_upload_rejects_oversized_file(): void
     {
-        $file = UploadedFile::fake()->create('huge.mp3', 55000, 'audio/mpeg');
+        $oversizedKilobytes = (int) ceil((int) config('music.storage.limits.max_audio_size', 500 * 1024 * 1024) / 1024) + 1;
+        $file = UploadedFile::fake()->create('huge.mp3', $oversizedKilobytes, 'audio/mpeg');
 
         $response = $this->actingAs($this->user)
             ->post('/api/uploads/audio', ['audio' => $file], ['Accept' => 'application/json']);

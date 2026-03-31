@@ -16,6 +16,21 @@ use Illuminate\Validation\Rule;
  */
 class SongUploadRequest extends FormRequest
 {
+    private function maxAudioBytes(): int
+    {
+        return (int) config('music.storage.limits.max_audio_size', 500 * 1024 * 1024);
+    }
+
+    private function maxAudioKilobytes(): int
+    {
+        return (int) ceil($this->maxAudioBytes() / 1024);
+    }
+
+    private function maxAudioLabel(): string
+    {
+        return number_format($this->maxAudioBytes() / (1024 * 1024), 0).'MB';
+    }
+
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -44,8 +59,8 @@ class SongUploadRequest extends FormRequest
             'file' => [
                 'required',
                 'file',
-                'mimes:mp3,wav,flac,aac,m4a,ogg',
-                'max:51200', // 50MB
+                'mimes:mp3,wav,flac,aac,m4a,ogg,mp4,webm,wma,opus',
+                'max:'.$this->maxAudioKilobytes(),
                 'min:1024',  // 1MB minimum
             ],
             'cover_art' => [
@@ -137,8 +152,8 @@ class SongUploadRequest extends FormRequest
             'title.required' => 'Song title is required.',
             'title.max' => 'Song title cannot exceed 255 characters.',
             'file.required' => 'Audio file is required.',
-            'file.mimes' => 'Audio file must be one of: MP3, WAV, FLAC, AAC, M4A, OGG.',
-            'file.max' => 'Audio file size cannot exceed 50MB.',
+            'file.mimes' => 'Audio file must be one of: MP3, WAV, FLAC, AAC, M4A, OGG, MP4, WebM, WMA, OPUS.',
+            'file.max' => 'Audio file size cannot exceed '.$this->maxAudioLabel().'.',
             'file.min' => 'Audio file must be at least 1MB.',
             'cover_art.image' => 'Cover art must be an image file.',
             'cover_art.mimes' => 'Cover art must be JPEG, JPG, PNG, or WebP.',

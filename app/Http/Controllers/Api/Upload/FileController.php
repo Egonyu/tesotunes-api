@@ -12,6 +12,16 @@ use Illuminate\Support\Str;
 
 class FileController extends Controller
 {
+    private function maxAudioBytes(): int
+    {
+        return (int) config('music.storage.limits.max_audio_size', 500 * 1024 * 1024);
+    }
+
+    private function maxAudioKilobytes(): int
+    {
+        return (int) ceil($this->maxAudioBytes() / 1024);
+    }
+
     /**
      * Get the configured storage disk name for uploads.
      * Uses FILESYSTEM_DISK env var, defaults to 'public' for backward compatibility.
@@ -45,7 +55,7 @@ class FileController extends Controller
     {
         try {
             $validator = Validator::make($request->all(), [
-                'audio' => 'required|file|mimes:mp3,wav,flac,m4a,aac|max:51200', // 50MB max
+                'audio' => 'required|file|mimes:mp3,wav,flac,m4a,aac,ogg,mp4,webm,wma,opus|max:'.$this->maxAudioKilobytes(),
                 'compress' => 'boolean',
                 'quality' => 'nullable|in:low,medium,high',
             ]);
