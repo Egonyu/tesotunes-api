@@ -34,6 +34,13 @@ return [
             'max_artwork_size' => max((int) env('MAX_ARTWORK_FILE_SIZE', 0), 10 * 1024 * 1024), // 10MB
         ],
 
+        'multipart' => [
+            // Keep parts above the S3/Spaces 5MB minimum so server-side compose
+            // can promote chunk uploads into the final object without touching local disk.
+            'part_size_bytes' => max((int) env('MUSIC_MULTIPART_PART_SIZE_BYTES', 0), 8 * 1024 * 1024),
+            'session_ttl_hours' => max((int) env('MUSIC_MULTIPART_SESSION_TTL_HOURS', 0), 24),
+        ],
+
         // Allowed file formats
         'allowed_formats' => [
             'audio' => ['mp3', 'wav', 'flac', 'aac', 'm4a'],

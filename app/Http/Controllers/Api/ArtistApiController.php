@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Album;
 use App\Models\Artist;
 use App\Models\ArtistRevenue;
+use App\Models\MediaUploadSession;
 use App\Models\Payment;
 use App\Models\PlayHistory;
 use App\Models\Song;
@@ -17,6 +18,7 @@ use App\Services\NotificationRoutingService;
 use App\Services\PayoutService;
 use App\Services\Revenue\StreamingRateService;
 use App\Services\SongSlugService;
+use App\Services\Uploads\SongMultipartUploadService;
 use Aws\S3\PostObjectV4;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -31,7 +33,8 @@ use Illuminate\Validation\Rule;
 class ArtistApiController extends Controller
 {
     public function __construct(
-        private readonly NotificationRoutingService $notificationRoutingService
+        private readonly NotificationRoutingService $notificationRoutingService,
+        private readonly SongMultipartUploadService $songMultipartUploadService
     ) {}
 
     // ========================================================================
@@ -408,6 +411,128 @@ class ArtistApiController extends Controller
     }
 
     /**
+     * POST /api/artist/songs/upload-sessions
+     */
+    public function createSongUploadSession(Request $request): JsonResponse
+    {
+        $result = $this->requireArtist($request);
+        if ($result instanceof JsonResponse) {
+            return $result;
+        }
+        $artist = $result;
+
+        if (! $artist->can_upload && ! $request->user()->canUpload()) {
+            return response()->json([
+                'message' => 'You are not allowed to upload songs at this time.',
+            ], 403);
+        }
+
+        $validated = $request->validate([
+            'filename' => 'required|string|max:255',
+            'content_type' => 'nullable|string|max:255',
+            'size_bytes' => 'required|integer|min:1|max:'.$this->maxSongAudioBytes(),
+        ]);
+
+        $extension = $this->resolveDirectUploadExtension(
+            kind: 'audio',
+            filename: $validated['filename'],
+            contentType: $validated['content_type'] ?? null
+        );
+
+        if ($extension === null) {
+            return response()->json([
+                'message' => 'Audio uploads must use one of: '.implode(', ', $this->allowedDirectUploadExtensions('audio')).'.',
+            ], 422);
+        }
+
+        $session = $this->songMultipartUploadService->createAudioSession(
+            user: $request->user(),
+            artist: $artist,
+            filename: $validated['filename'],
+            contentType: $validated['content_type'] ?? null,
+            sizeBytes: (int) $validated['size_bytes'],
+            extension: $extension,
+        );
+
+        return response()->json([
+            'data' => [
+                'id' => $session->uuid,
+                'kind' => $session->kind,
+                'part_size_bytes' => $session->part_size_bytes,
+                'total_parts' => $session->total_parts,
+                'max_file_size_bytes' => $this->maxSongAudioBytes(),
+                'expires_at' => $session->expires_at?->toIso8601String(),
+            ],
+        ]);
+    }
+
+    /**
+     * POST /api/artist/songs/upload-sessions/{session}/parts
+     */
+    public function createSongUploadSessionPartTarget(Request $request, string $session): JsonResponse
+    {
+        $uploadSession = $this->findOwnedSongUploadSession($request, $session);
+
+        $validated = $request->validate([
+            'part_number' => 'required|integer|min:1',
+        ]);
+
+        try {
+            $target = $this->songMultipartUploadService->buildPartUploadTarget(
+                $uploadSession,
+                (int) $validated['part_number']
+            );
+        } catch (\RuntimeException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'data' => $target,
+        ]);
+    }
+
+    /**
+     * POST /api/artist/songs/upload-sessions/{session}/complete
+     */
+    public function completeSongUploadSession(Request $request, string $session): JsonResponse
+    {
+        $uploadSession = $this->findOwnedSongUploadSession($request, $session);
+
+        try {
+            $completed = $this->songMultipartUploadService->completeSession($uploadSession);
+        } catch (\RuntimeException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'data' => [
+                'id' => $uploadSession->uuid,
+                'status' => 'completed',
+                'key' => $completed['key'],
+                'size_bytes' => $completed['size_bytes'],
+                'original_filename' => $completed['original_filename'],
+            ],
+        ]);
+    }
+
+    /**
+     * POST /api/artist/songs/upload-sessions/{session}/abort
+     */
+    public function abortSongUploadSession(Request $request, string $session): JsonResponse
+    {
+        $uploadSession = $this->findOwnedSongUploadSession($request, $session);
+        $this->songMultipartUploadService->abortSession($uploadSession);
+
+        return response()->json([
+            'message' => 'Upload session aborted.',
+        ]);
+    }
+
+    /**
      * POST /api/artist/songs — Upload a new song
      */
     public function storeSong(Request $request): JsonResponse
@@ -447,9 +572,10 @@ class ArtistApiController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:255',
             // Accept both 'audio' and 'audio_file' field names
-            'audio' => 'required_without_all:audio_file,uploaded_audio_key|file|mimes:mp3,wav,flac,aac,m4a,ogg|max:'.$this->maxSongAudioKilobytes(),
-            'audio_file' => 'required_without_all:audio,uploaded_audio_key|file|mimes:mp3,wav,flac,aac,m4a,ogg|max:'.$this->maxSongAudioKilobytes(),
-            'uploaded_audio_key' => 'required_without_all:audio,audio_file|string|max:1024',
+            'audio' => 'required_without_all:audio_file,uploaded_audio_key,uploaded_audio_session_id|file|mimes:mp3,wav,flac,aac,m4a,ogg|max:'.$this->maxSongAudioKilobytes(),
+            'audio_file' => 'required_without_all:audio,uploaded_audio_key,uploaded_audio_session_id|file|mimes:mp3,wav,flac,aac,m4a,ogg|max:'.$this->maxSongAudioKilobytes(),
+            'uploaded_audio_key' => 'required_without_all:audio,audio_file,uploaded_audio_session_id|string|max:1024',
+            'uploaded_audio_session_id' => 'required_without_all:audio,audio_file,uploaded_audio_key|string|size:36',
             'uploaded_audio_original_name' => 'required_with:uploaded_audio_key|string|max:255',
             'uploaded_audio_mime_type' => 'nullable|string|max:255',
             'uploaded_audio_size_bytes' => 'nullable|integer|min:1|max:'.$this->maxSongAudioBytes(),
@@ -537,6 +663,17 @@ class ArtistApiController extends Controller
             'visibility' => 'public',
             'duration_seconds' => 0,
         ]);
+
+        if (! empty($validated['uploaded_audio_session_id'])) {
+            $session = MediaUploadSession::query()
+                ->where('uuid', $validated['uploaded_audio_session_id'])
+                ->where('user_id', $request->user()->id)
+                ->first();
+
+            if ($session) {
+                $this->songMultipartUploadService->markConsumed($session);
+            }
+        }
 
         // Sync genres
         if (! empty($validated['genre_ids'])) {
@@ -1896,6 +2033,13 @@ class ArtistApiController extends Controller
             );
         }
 
+        if (! empty($validated['uploaded_audio_session_id'])) {
+            return $this->resolveSongUploadSessionReference(
+                request: $request,
+                sessionUuid: $validated['uploaded_audio_session_id']
+            );
+        }
+
         $audioFile = $request->file('audio') ?? $request->file('audio_file');
         if (! $audioFile) {
             abort(response()->json([
@@ -2048,6 +2192,47 @@ class ArtistApiController extends Controller
         }
 
         return [$key, $extension, $actualSizeBytes, $originalName];
+    }
+
+    private function findOwnedSongUploadSession(Request $request, string $sessionUuid): MediaUploadSession
+    {
+        $session = MediaUploadSession::query()
+            ->where('uuid', $sessionUuid)
+            ->where('user_id', $request->user()->id)
+            ->where('kind', 'audio')
+            ->firstOrFail();
+
+        if ($session->isExpired()) {
+            abort(response()->json([
+                'message' => 'This upload session has expired. Please start the upload again.',
+            ], 422));
+        }
+
+        return $session;
+    }
+
+    private function resolveSongUploadSessionReference(Request $request, string $sessionUuid): array
+    {
+        $session = $this->findOwnedSongUploadSession($request, $sessionUuid);
+
+        if (! $session->isCompleted()) {
+            abort(response()->json([
+                'message' => 'The upload session has not finished uploading yet.',
+            ], 422));
+        }
+
+        if ($session->isConsumed()) {
+            abort(response()->json([
+                'message' => 'This upload session has already been used.',
+            ], 422));
+        }
+
+        return $this->resolveDirectSongUpload(
+            kind: 'audio',
+            key: $session->target_key,
+            originalName: $session->original_filename,
+            declaredSizeBytes: $session->size_bytes
+        );
     }
 
     private function formatBytes(int $bytes): string

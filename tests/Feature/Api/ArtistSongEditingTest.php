@@ -206,6 +206,88 @@ class ArtistSongEditingTest extends TestCase
         $this->assertStringEndsWith('.m4a', (string) $response->json('data.key'));
     }
 
+    public function test_artist_can_create_and_complete_a_multipart_song_upload_session(): void
+    {
+        config([
+            'filesystems.default' => 'digitalocean',
+            'filesystems.media_disk' => 'digitalocean',
+        ]);
+        Storage::fake('digitalocean');
+
+        $sessionResponse = $this->actingAs($this->artistUser)->postJson('/api/artist/songs/upload-sessions', [
+            'filename' => 'big-mixtape.mp3',
+            'content_type' => 'audio/mpeg',
+            'size_bytes' => 12,
+        ]);
+
+        $sessionResponse->assertOk()
+            ->assertJsonPath('data.kind', 'audio')
+            ->assertJsonPath('data.total_parts', 1);
+
+        $sessionId = (string) $sessionResponse->json('data.id');
+
+        $partTarget = $this->actingAs($this->artistUser)->postJson("/api/artist/songs/upload-sessions/{$sessionId}/parts", [
+            'part_number' => 1,
+        ]);
+
+        $partTarget->assertOk();
+
+        $chunkKey = (string) $partTarget->json('data.key');
+        Storage::disk('digitalocean')->put($chunkKey, '123456789012');
+
+        $completeResponse = $this->actingAs($this->artistUser)->postJson("/api/artist/songs/upload-sessions/{$sessionId}/complete");
+
+        $completeResponse->assertOk()
+            ->assertJsonPath('data.id', $sessionId)
+            ->assertJsonPath('data.status', 'completed');
+
+        Storage::disk('digitalocean')->assertExists((string) $completeResponse->json('data.key'));
+        Storage::disk('digitalocean')->assertMissing($chunkKey);
+    }
+
+    public function test_artist_can_create_song_from_completed_upload_session_reference(): void
+    {
+        config([
+            'filesystems.default' => 'digitalocean',
+            'filesystems.media_disk' => 'digitalocean',
+        ]);
+        Storage::fake('digitalocean');
+
+        $sessionResponse = $this->actingAs($this->artistUser)->postJson('/api/artist/songs/upload-sessions', [
+            'filename' => 'session-song.mp3',
+            'content_type' => 'audio/mpeg',
+            'size_bytes' => 11,
+        ]);
+
+        $sessionId = (string) $sessionResponse->json('data.id');
+
+        $partTarget = $this->actingAs($this->artistUser)->postJson("/api/artist/songs/upload-sessions/{$sessionId}/parts", [
+            'part_number' => 1,
+        ]);
+
+        Storage::disk('digitalocean')->put((string) $partTarget->json('data.key'), 'hello-world');
+
+        $this->actingAs($this->artistUser)
+            ->postJson("/api/artist/songs/upload-sessions/{$sessionId}/complete")
+            ->assertOk();
+
+        $title = 'Session Upload Song '.uniqid();
+
+        $response = $this->actingAs($this->artistUser)->postJson('/api/artist/songs', [
+            'title' => $title,
+            'uploaded_audio_session_id' => $sessionId,
+            'is_free' => true,
+            'is_downloadable' => true,
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.title', $title);
+
+        $song = Song::query()->where('title', $title)->latest('id')->firstOrFail();
+        $this->assertStringContainsString('songs/audio/direct/'.$this->artistUser->id.'/', (string) $song->audio_file_original);
+        $this->assertSame(11, $song->file_size_bytes);
+    }
+
     public function test_artist_can_create_song_from_direct_cloud_upload_references(): void
     {
         config([
