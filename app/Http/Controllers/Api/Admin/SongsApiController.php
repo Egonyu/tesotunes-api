@@ -289,7 +289,7 @@ class SongsApiController extends Controller
                 'featured_artists' => 'nullable|array',
                 'featured_artists.*' => 'exists:artists,id',
                 'credits' => 'nullable|json',
-                'audio_file' => 'required|file|mimes:mp3,wav,flac,aac,m4a,ogg|max:51200',
+                'audio_file' => 'required|file|mimes:mp3,wav,flac,aac,m4a,ogg|max:'.(int) ceil((int) config('music.storage.limits.max_audio_size', 500 * 1024 * 1024) / 1024),
                 'cover_image' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
                 'artwork' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
             ]);
@@ -415,7 +415,7 @@ class SongsApiController extends Controller
                 'featured_artists' => 'nullable|array',
                 'featured_artists.*' => 'exists:artists,id',
                 'credits' => 'nullable|json',
-                'audio_file' => 'nullable|file|mimes:mp3,wav,flac,aac,m4a,ogg|max:51200',
+                'audio_file' => 'nullable|file|mimes:mp3,wav,flac,aac,m4a,ogg|max:'.(int) ceil((int) config('music.storage.limits.max_audio_size', 500 * 1024 * 1024) / 1024),
                 'cover_image' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
                 'artwork' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
             ]);
