@@ -336,9 +336,7 @@ class ArtistApiController extends Controller
 
         $kind = $validated['kind'];
         $maxBytes = $kind === 'audio' ? $this->maxSongAudioBytes() : $this->maxSongArtworkBytes();
-        $allowedExtensions = $kind === 'audio'
-            ? ['mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg']
-            : ['jpg', 'jpeg', 'png', 'webp'];
+        $allowedExtensions = $this->allowedDirectUploadExtensions($kind);
 
         if ((int) $validated['size_bytes'] > $maxBytes) {
             return response()->json([
@@ -350,8 +348,19 @@ class ArtistApiController extends Controller
             ], 422);
         }
 
-        $extension = Str::lower(pathinfo($validated['filename'], PATHINFO_EXTENSION));
-        if ($extension === '' || ! in_array($extension, $allowedExtensions, true)) {
+        $extension = $this->resolveDirectUploadExtension(
+            kind: $kind,
+            filename: $validated['filename'],
+            contentType: $validated['content_type'] ?? null
+        );
+
+        if ($extension === null) {
+            Log::warning('Artist upload target rejected unsupported file type', [
+                'kind' => $kind,
+                'filename' => $validated['filename'],
+                'content_type' => $validated['content_type'] ?? null,
+            ]);
+
             return response()->json([
                 'message' => sprintf(
                     '%s uploads must use one of: %s.',
@@ -1951,8 +1960,8 @@ class ArtistApiController extends Controller
             'cover' => 'songs/artwork/direct/',
         ];
         $allowedExtensions = [
-            'audio' => ['mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg'],
-            'cover' => ['jpg', 'jpeg', 'png', 'webp'],
+            'audio' => $this->allowedDirectUploadExtensions('audio'),
+            'cover' => $this->allowedDirectUploadExtensions('cover'),
         ];
         $maxBytes = [
             'audio' => $this->maxSongAudioBytes(),
@@ -2009,6 +2018,58 @@ class ArtistApiController extends Controller
         }
 
         return number_format($bytes / (1024 * 1024), 0).' MB';
+    }
+
+    private function allowedDirectUploadExtensions(string $kind): array
+    {
+        return $kind === 'audio'
+            ? ['mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg', 'mp4', 'webm', 'wma', 'opus']
+            : ['jpg', 'jpeg', 'png', 'webp'];
+    }
+
+    private function resolveDirectUploadExtension(string $kind, string $filename, ?string $contentType): ?string
+    {
+        $extension = Str::lower(pathinfo($filename, PATHINFO_EXTENSION));
+        $allowed = $this->allowedDirectUploadExtensions($kind);
+
+        if ($extension !== '' && in_array($extension, $allowed, true)) {
+            return $extension;
+        }
+
+        $mimeMap = $kind === 'audio'
+            ? [
+                'audio/mpeg' => 'mp3',
+                'audio/mp3' => 'mp3',
+                'audio/wav' => 'wav',
+                'audio/x-wav' => 'wav',
+                'audio/wave' => 'wav',
+                'audio/flac' => 'flac',
+                'audio/x-flac' => 'flac',
+                'audio/aac' => 'aac',
+                'audio/x-aac' => 'aac',
+                'audio/mp4' => 'm4a',
+                'audio/m4a' => 'm4a',
+                'audio/x-m4a' => 'm4a',
+                'video/mp4' => 'm4a',
+                'audio/ogg' => 'ogg',
+                'audio/vorbis' => 'ogg',
+                'audio/webm' => 'webm',
+                'audio/x-ms-wma' => 'wma',
+                'audio/wma' => 'wma',
+                'audio/opus' => 'opus',
+            ]
+            : [
+                'image/jpeg' => 'jpg',
+                'image/jpg' => 'jpg',
+                'image/png' => 'png',
+                'image/webp' => 'webp',
+            ];
+
+        $normalizedContentType = $contentType ? Str::lower(trim($contentType)) : null;
+
+        return $normalizedContentType && isset($mimeMap[$normalizedContentType])
+            ? $mimeMap[$normalizedContentType]
+            : null;
     }
 
     private function formatDuration(?int $seconds): string

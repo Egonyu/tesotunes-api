@@ -186,6 +186,26 @@ class ArtistSongEditingTest extends TestCase
         );
     }
 
+    public function test_artist_can_request_direct_song_upload_target_when_mobile_browser_reports_video_mp4_audio(): void
+    {
+        config([
+            'filesystems.default' => 'digitalocean',
+            'filesystems.media_disk' => 'digitalocean',
+        ]);
+
+        $response = $this->actingAs($this->artistUser)->postJson('/api/artist/songs/upload-target', [
+            'kind' => 'audio',
+            'filename' => 'mix-without-clean-extension',
+            'content_type' => 'video/mp4',
+            'size_bytes' => 140 * 1024 * 1024,
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('data.method', 'POST');
+
+        $this->assertStringEndsWith('.m4a', (string) $response->json('data.key'));
+    }
+
     public function test_artist_can_create_song_from_direct_cloud_upload_references(): void
     {
         config([
