@@ -172,13 +172,17 @@ class ArtistSongEditingTest extends TestCase
 
         $response->assertOk()
             ->assertJsonPath('data.kind', 'audio')
-            ->assertJsonPath('data.method', 'PUT')
+            ->assertJsonPath('data.method', 'POST')
             ->assertJsonPath('data.disk', 'digitalocean')
             ->assertJsonPath('data.max_file_size_bytes', config('music.storage.limits.max_audio_size'));
 
         $this->assertStringContainsString(
             'songs/audio/direct/'.$this->artistUser->id.'/',
             (string) $response->json('data.key')
+        );
+        $this->assertSame(
+            $response->json('data.key'),
+            $response->json('data.fields.key')
         );
     }
 

@@ -17,6 +17,7 @@ use App\Services\NotificationRoutingService;
 use App\Services\PayoutService;
 use App\Services\Revenue\StreamingRateService;
 use App\Services\SongSlugService;
+use Aws\S3\PostObjectV4;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -1801,12 +1802,12 @@ class ArtistApiController extends Controller
 
             return [
                 'disk' => $diskName,
-                'method' => 'PUT',
+                'method' => 'POST',
                 'key' => $key,
                 'upload_url' => "https://example.test/direct-upload/{$key}",
-                'headers' => array_filter([
-                    'Content-Type' => $contentType,
-                ]),
+                'fields' => [
+                    'key' => $key,
+                ],
                 'expires_at' => now()->addMinutes(30)->toIso8601String(),
             ];
         }
@@ -1818,26 +1819,37 @@ class ArtistApiController extends Controller
 
         $key = $this->directUploadKey($kind, $userId, $extension);
         $client = $adapter->getClient();
-        $headers = array_filter([
+        $bucket = config("filesystems.disks.{$diskName}.bucket");
+        $formInputs = array_filter([
+            'key' => $key,
+            'success_action_status' => '201',
             'Content-Type' => $contentType,
-            'x-amz-acl' => 'public-read',
         ]);
+        $conditions = [
+            ['bucket' => $bucket],
+            ['key' => $key],
+            ['success_action_status' => '201'],
+            ['content-length-range', 1, $kind === 'audio' ? $this->maxSongAudioBytes() : $this->maxSongArtworkBytes()],
+        ];
 
-        $command = $client->getCommand('PutObject', array_filter([
-            'Bucket' => config("filesystems.disks.{$diskName}.bucket"),
-            'Key' => $key,
-            'ACL' => 'public-read',
-            'ContentType' => $contentType,
-        ]));
+        if ($contentType) {
+            $conditions[] = ['Content-Type' => $contentType];
+        }
 
-        $signedRequest = $client->createPresignedRequest($command, '+30 minutes');
+        $postObject = new PostObjectV4(
+            $client,
+            $bucket,
+            $formInputs,
+            $conditions,
+            '+30 minutes'
+        );
 
         return [
             'disk' => $diskName,
-            'method' => 'PUT',
+            'method' => 'POST',
             'key' => $key,
-            'upload_url' => (string) $signedRequest->getUri(),
-            'headers' => $headers,
+            'upload_url' => $postObject->getFormAttributes()['action'],
+            'fields' => $postObject->getFormInputs(),
             'expires_at' => now()->addMinutes(30)->toIso8601String(),
         ];
     }
