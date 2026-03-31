@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('media_upload_sessions')) {
+            return;
+        }
+
         Schema::create('media_upload_sessions', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
