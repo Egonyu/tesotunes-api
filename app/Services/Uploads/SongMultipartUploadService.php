@@ -165,6 +165,51 @@ class SongMultipartUploadService
         }
     }
 
+    public function verifyUploadedPart(MediaUploadSession $session, int $partNumber): array
+    {
+        $this->assertSessionIsActive($session);
+
+        if ($partNumber < 1 || $partNumber > $session->total_parts) {
+            throw new RuntimeException('Invalid upload part requested.');
+        }
+
+        $disk = $this->disk($session);
+        $key = $this->chunkKey($session, $partNumber);
+        $expectedBytes = $this->expectedPartSizeBytes($session, $partNumber);
+
+        if (! $disk->exists($key)) {
+            return [
+                'verified' => false,
+                'message' => 'The uploaded chunk is not available in cloud storage yet.',
+                'key' => $key,
+                'part_number' => $partNumber,
+                'size_bytes' => 0,
+                'expected_size_bytes' => $expectedBytes,
+            ];
+        }
+
+        $sizeBytes = (int) $disk->size($key);
+        if ($sizeBytes !== $expectedBytes) {
+            return [
+                'verified' => false,
+                'message' => 'The uploaded chunk size does not match the expected size.',
+                'key' => $key,
+                'part_number' => $partNumber,
+                'size_bytes' => $sizeBytes,
+                'expected_size_bytes' => $expectedBytes,
+            ];
+        }
+
+        return [
+            'verified' => true,
+            'message' => 'Upload chunk verified.',
+            'key' => $key,
+            'part_number' => $partNumber,
+            'size_bytes' => $sizeBytes,
+            'expected_size_bytes' => $expectedBytes,
+        ];
+    }
+
     public function abortSession(MediaUploadSession $session): void
     {
         if ($session->aborted_at !== null) {

@@ -245,6 +245,45 @@ class ArtistSongEditingTest extends TestCase
         Storage::disk('digitalocean')->assertMissing($chunkKey);
     }
 
+    public function test_artist_can_verify_uploaded_session_parts_before_completion(): void
+    {
+        config([
+            'filesystems.default' => 'digitalocean',
+            'filesystems.media_disk' => 'digitalocean',
+        ]);
+        Storage::fake('digitalocean');
+
+        $sessionResponse = $this->actingAs($this->artistUser)->postJson('/api/artist/songs/upload-sessions', [
+            'filename' => 'verify-mixtape.mp3',
+            'content_type' => 'audio/mpeg',
+            'size_bytes' => 12,
+        ]);
+
+        $sessionId = (string) $sessionResponse->json('data.id');
+
+        $partTarget = $this->actingAs($this->artistUser)->postJson("/api/artist/songs/upload-sessions/{$sessionId}/parts", [
+            'part_number' => 1,
+        ]);
+
+        $partTarget->assertOk();
+        $chunkKey = (string) $partTarget->json('data.key');
+
+        $missingResponse = $this->actingAs($this->artistUser)
+            ->postJson("/api/artist/songs/upload-sessions/{$sessionId}/parts/1/verify");
+
+        $missingResponse->assertStatus(409)
+            ->assertJsonPath('data.verified', false);
+
+        Storage::disk('digitalocean')->put($chunkKey, '123456789012');
+
+        $verifiedResponse = $this->actingAs($this->artistUser)
+            ->postJson("/api/artist/songs/upload-sessions/{$sessionId}/parts/1/verify");
+
+        $verifiedResponse->assertOk()
+            ->assertJsonPath('data.verified', true)
+            ->assertJsonPath('data.size_bytes', 12);
+    }
+
     public function test_artist_can_create_song_from_completed_upload_session_reference(): void
     {
         config([

@@ -130,6 +130,7 @@ Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('ar
     Route::post('/songs/upload-target', [\App\Http\Controllers\Api\ArtistApiController::class, 'createSongUploadTarget'])->name('songs.upload-target');
     Route::post('/songs/upload-sessions', [\App\Http\Controllers\Api\ArtistApiController::class, 'createSongUploadSession'])->name('songs.upload-sessions.store');
     Route::post('/songs/upload-sessions/{session}/parts', [\App\Http\Controllers\Api\ArtistApiController::class, 'createSongUploadSessionPartTarget'])->name('songs.upload-sessions.parts');
+    Route::post('/songs/upload-sessions/{session}/parts/{part}/verify', [\App\Http\Controllers\Api\ArtistApiController::class, 'verifySongUploadSessionPart'])->name('songs.upload-sessions.parts.verify');
     Route::post('/songs/upload-sessions/{session}/complete', [\App\Http\Controllers\Api\ArtistApiController::class, 'completeSongUploadSession'])->name('songs.upload-sessions.complete');
     Route::post('/songs/upload-sessions/{session}/abort', [\App\Http\Controllers\Api\ArtistApiController::class, 'abortSongUploadSession'])->name('songs.upload-sessions.abort');
     Route::post('/songs', [\App\Http\Controllers\Api\ArtistApiController::class, 'storeSong'])->name('songs.store');

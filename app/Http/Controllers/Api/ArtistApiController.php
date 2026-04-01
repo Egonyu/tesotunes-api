@@ -495,6 +495,26 @@ class ArtistApiController extends Controller
     }
 
     /**
+     * POST /api/artist/songs/upload-sessions/{session}/parts/{part}/verify
+     */
+    public function verifySongUploadSessionPart(Request $request, string $session, int $part): JsonResponse
+    {
+        $uploadSession = $this->findOwnedSongUploadSession($request, $session);
+
+        try {
+            $result = $this->songMultipartUploadService->verifyUploadedPart($uploadSession, $part);
+        } catch (\RuntimeException $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'data' => $result,
+        ], $result['verified'] ? 200 : 409);
+    }
+
+    /**
      * POST /api/artist/songs/upload-sessions/{session}/complete
      */
     public function completeSongUploadSession(Request $request, string $session): JsonResponse
