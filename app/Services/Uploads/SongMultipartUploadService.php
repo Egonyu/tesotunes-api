@@ -404,11 +404,17 @@ class SongMultipartUploadService
             return $disk->getClient();
         }
 
-        if (method_exists($disk, 'getClient')) {
+        // FilesystemAdapter may expose getClient() through __call().
+        try {
             return $disk->getClient();
-        }
+        } catch (\Throwable $exception) {
+            Log::warning('Unable to resolve multipart upload storage client', [
+                'disk_adapter' => get_class($disk),
+                'error' => $exception->getMessage(),
+            ]);
 
-        throw new RuntimeException('Direct cloud uploads are not available for the current storage disk.');
+            throw new RuntimeException('Direct cloud uploads are not available for the current storage disk.', 0, $exception);
+        }
     }
 
     private function bucketFor(MediaUploadSession $session): string

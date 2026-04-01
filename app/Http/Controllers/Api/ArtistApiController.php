@@ -1966,11 +1966,18 @@ class ArtistApiController extends Controller
             return $disk->getClient();
         }
 
-        if (method_exists($disk, 'getClient')) {
+        // FilesystemAdapter may proxy getClient() via __call, so method_exists()
+        // can return false even when the client is available.
+        try {
             return $disk->getClient();
-        }
+        } catch (\Throwable $exception) {
+            Log::warning('Unable to resolve upload storage client', [
+                'disk' => $this->songUploadDiskName(),
+                'error' => $exception->getMessage(),
+            ]);
 
-        return null;
+            return null;
+        }
     }
 
     private function maxSongAudioBytes(): int
