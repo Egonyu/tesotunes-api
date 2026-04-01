@@ -1343,6 +1343,10 @@ class ObservabilityService
     protected function syncAuditEvents(): void
     {
         AuditLog::query()->with('user:id,name,email')->latest('id')->limit(300)->get()->each(function (AuditLog $log) {
+            if ($this->shouldIgnoreSelfObservabilityRoute($log->url)) {
+                return;
+            }
+
             $action = strtolower((string) $log->action);
             $isWebhook = str_contains($action, 'webhook');
             $domain = $isWebhook
@@ -1398,6 +1402,10 @@ class ObservabilityService
     {
         ApiUsageLog::query()->with('user:id,name,email')->latest('requested_at')->limit(500)->get()->each(function (ApiUsageLog $log) {
             $endpoint = strtolower((string) $log->endpoint);
+            if ($this->shouldIgnoreSelfObservabilityRoute($endpoint)) {
+                return;
+            }
+
             $statusCode = (int) $log->status_code;
             $domain = str_contains($endpoint, '/admin') ? 'admin'
                 : (str_contains($endpoint, '/payments') || str_contains($endpoint, '/webhooks') ? 'payments'
@@ -1768,5 +1776,16 @@ class ObservabilityService
         $event->forceFill([
             'linked_entity_keys' => $linkedKeys,
         ])->save();
+    }
+
+    protected function shouldIgnoreSelfObservabilityRoute(?string $route): bool
+    {
+        if (! is_string($route) || trim($route) === '') {
+            return false;
+        }
+
+        $normalizedRoute = Str::lower($route);
+
+        return str_contains($normalizedRoute, '/observability');
     }
 }

@@ -23,32 +23,28 @@ class AdminRolesApiRegressionTest extends TestCase
             'is_active' => Schema::hasColumn('permissions', 'is_active') ? true : null,
         ], fn ($value) => $value !== null);
 
-        $manageRoles = Permission::query()->create([
+        $manageRoles = Permission::query()->updateOrCreate(['slug' => 'manage-roles'], [
             'name' => 'Manage Roles',
-            'slug' => 'manage-roles',
             'description' => 'Permission to manage roles',
             'group' => 'admin',
             ...$permissionDefaults,
         ]);
 
-        $editContent = Permission::query()->create([
+        $editContent = Permission::query()->updateOrCreate(['slug' => 'edit-content'], [
             'name' => 'Edit Content',
-            'slug' => 'edit-content',
             'description' => 'Permission to edit content',
             'group' => 'content',
             ...$permissionDefaults,
         ]);
 
-        $artistStudio = Permission::query()->create([
+        $artistStudio = Permission::query()->updateOrCreate(['slug' => 'artist.studio'], [
             'name' => 'Artist Studio',
-            'slug' => 'artist.studio',
             'description' => 'Access the artist studio',
             'group' => 'artist',
             ...$permissionDefaults,
         ]);
 
-        $adminRole = Role::query()->create([
-            'name' => 'admin',
+        $adminRole = Role::query()->updateOrCreate(['name' => 'admin'], [
             'display_name' => 'Admin',
             'description' => 'Administrator access',
             'permissions' => ['manage-roles'],
@@ -57,8 +53,7 @@ class AdminRolesApiRegressionTest extends TestCase
         ]);
         $adminRole->permissions()->sync([$manageRoles->id]);
 
-        $moderatorRole = Role::query()->create([
-            'name' => 'moderator',
+        $moderatorRole = Role::query()->updateOrCreate(['name' => 'moderator'], [
             'display_name' => 'Moderator',
             'description' => 'Moderation access',
             'permissions' => ['edit-content'],
@@ -67,8 +62,7 @@ class AdminRolesApiRegressionTest extends TestCase
         ]);
         $moderatorRole->permissions()->sync([$editContent->id]);
 
-        $artistRole = Role::query()->create([
-            'name' => 'artist',
+        $artistRole = Role::query()->updateOrCreate(['name' => 'artist'], [
             'display_name' => 'Artist',
             'description' => 'Artist access',
             'permissions' => ['artist.studio'],

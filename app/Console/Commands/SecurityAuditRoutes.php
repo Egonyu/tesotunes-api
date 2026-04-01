@@ -116,6 +116,8 @@ class SecurityAuditRoutes extends Command
         'api/tickets/discounts/validate',
         'api/tickets/purchase',
         'api/events/{id}/funnel-touch',
+        'api/auth/local-admin-login',
+        'api/auth/email/resend',
     ];
 
     public function handle(Router $router): int
