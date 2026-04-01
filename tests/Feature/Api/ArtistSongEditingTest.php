@@ -267,15 +267,19 @@ class ArtistSongEditingTest extends TestCase
 
         Storage::disk('digitalocean')->put((string) $partTarget->json('data.key'), 'hello-world');
 
-        $this->actingAs($this->artistUser)
+        $completedUpload = $this->actingAs($this->artistUser)
             ->postJson("/api/artist/songs/upload-sessions/{$sessionId}/complete")
-            ->assertOk();
+            ->assertOk()
+            ->json('data');
 
         $title = 'Session Upload Song '.uniqid();
 
         $response = $this->actingAs($this->artistUser)->postJson('/api/artist/songs', [
             'title' => $title,
             'uploaded_audio_session_id' => $sessionId,
+            'uploaded_audio_key' => $completedUpload['key'],
+            'uploaded_audio_original_name' => $completedUpload['original_filename'],
+            'uploaded_audio_size_bytes' => $completedUpload['size_bytes'],
             'is_free' => true,
             'is_downloadable' => true,
         ]);

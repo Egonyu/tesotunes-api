@@ -20,6 +20,7 @@ use App\Services\Revenue\StreamingRateService;
 use App\Services\SongSlugService;
 use App\Services\Uploads\SongMultipartUploadService;
 use Aws\S3\PostObjectV4;
+use Illuminate\Filesystem\AwsS3V3Adapter as LaravelAwsS3V3Adapter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -1939,6 +1940,19 @@ class ArtistApiController extends Controller
         return Storage::disk($this->songUploadDiskName());
     }
 
+    private function songUploadClient($disk)
+    {
+        if ($disk instanceof LaravelAwsS3V3Adapter) {
+            return $disk->getClient();
+        }
+
+        if (method_exists($disk, 'getClient')) {
+            return $disk->getClient();
+        }
+
+        return null;
+    }
+
     private function maxSongAudioBytes(): int
     {
         return (int) config('music.storage.limits.max_audio_size', 500 * 1024 * 1024);
@@ -1973,13 +1987,13 @@ class ArtistApiController extends Controller
             ];
         }
 
-        $adapter = $this->songUploadDisk()->getAdapter();
-        if (! method_exists($adapter, 'getClient')) {
+        $disk = $this->songUploadDisk();
+        $client = $this->songUploadClient($disk);
+        if ($client === null) {
             return null;
         }
 
         $key = $this->directUploadKey($kind, $userId, $extension);
-        $client = $adapter->getClient();
         $bucket = config("filesystems.disks.{$diskName}.bucket");
         $formInputs = array_filter([
             'key' => $key,

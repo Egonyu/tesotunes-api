@@ -7,7 +7,8 @@ use App\Models\Artist;
 use App\Models\MediaUploadSession;
 use App\Models\User;
 use Aws\S3\PostObjectV4;
-use Illuminate\Contracts\Filesystem\Filesystem;
+use Illuminate\Filesystem\AwsS3V3Adapter as LaravelAwsS3V3Adapter;
+use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -80,11 +81,8 @@ class SongMultipartUploadService
             ];
         }
 
-        $adapter = $this->disk($session)->getAdapter();
-        if (! method_exists($adapter, 'getClient')) {
-            throw new RuntimeException('Direct cloud uploads are not available for the current storage disk.');
-        }
-
+        $disk = $this->disk($session);
+        $client = $this->clientFor($disk);
         $bucket = $this->bucketFor($session);
         $formInputs = [
             'key' => $key,
@@ -98,7 +96,7 @@ class SongMultipartUploadService
         ];
 
         $postObject = new PostObjectV4(
-            $adapter->getClient(),
+            $client,
             $bucket,
             $formInputs,
             $conditions,
@@ -228,13 +226,8 @@ class SongMultipartUploadService
     private function composeCloudObject(MediaUploadSession $session): void
     {
         $disk = $this->disk($session);
-        $adapter = $disk->getAdapter();
-        if (! method_exists($adapter, 'getClient')) {
-            throw new RuntimeException('Direct cloud uploads are not available for the current storage disk.');
-        }
-
         $bucket = $this->bucketFor($session);
-        $client = $adapter->getClient();
+        $client = $this->clientFor($disk);
         $multipartArgs = [
             'Bucket' => $bucket,
             'Key' => $session->target_key,
@@ -355,9 +348,22 @@ class SongMultipartUploadService
         return max((int) config('music.storage.multipart.session_ttl_hours', 24), 1);
     }
 
-    private function disk(MediaUploadSession $session): Filesystem
+    private function disk(MediaUploadSession $session): FilesystemAdapter
     {
         return Storage::disk($session->disk);
+    }
+
+    private function clientFor(FilesystemAdapter $disk)
+    {
+        if ($disk instanceof LaravelAwsS3V3Adapter) {
+            return $disk->getClient();
+        }
+
+        if (method_exists($disk, 'getClient')) {
+            return $disk->getClient();
+        }
+
+        throw new RuntimeException('Direct cloud uploads are not available for the current storage disk.');
     }
 
     private function bucketFor(MediaUploadSession $session): string
