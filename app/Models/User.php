@@ -374,9 +374,14 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function likedSongs(): BelongsToMany
     {
-        return $this->belongsToMany(\App\Models\Song::class, 'likes', 'user_id', 'likeable_id')
-            ->wherePivot('likeable_type', \App\Models\Song::class)
-            ->withPivot('liked_at');
+        $relationship = $this->belongsToMany(\App\Models\Song::class, 'likes', 'user_id', 'likeable_id')
+            ->wherePivot('likeable_type', \App\Models\Song::class);
+
+        if (Schema::hasColumn('likes', 'liked_at')) {
+            $relationship->withPivot('liked_at');
+        }
+
+        return $relationship;
     }
 
     public function shares(): HasMany
