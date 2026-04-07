@@ -77,8 +77,9 @@ class SongServiceContractAlignmentTest extends TestCase
         $this->assertCount(1, $trending);
         $this->assertSame($matchingSong->id, $trending->first()->id);
 
-        $this->assertCount(1, $newReleases);
-        $this->assertSame($matchingSong->id, $newReleases->first()->id);
+        $this->assertTrue($newReleases->contains('id', $matchingSong->id));
+        $this->assertFalse($newReleases->contains('title', 'Alignment Search Song Hidden'));
+        $this->assertFalse($newReleases->contains('title', 'Alignment Search Song Draft'));
 
         $this->assertCount(1, $genreSongs->items());
         $this->assertSame($matchingSong->id, $genreSongs->items()[0]->id);

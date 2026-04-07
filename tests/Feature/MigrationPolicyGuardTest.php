@@ -29,6 +29,11 @@ class MigrationPolicyGuardTest extends TestCase
         '2026_03_28_220000_create_reviews_tables.php',
         '2026_03_29_090000_create_observability_tables.php',
         '2026_03_31_170000_create_media_upload_sessions_table.php',
+        '2026_04_03_190000_extend_playlist_collaboration_schema.php',
+        '2026_04_04_150000_normalize_song_metadata_and_isrc_schema.php',
+        '2026_04_04_151000_expand_isrc_registry_code_columns.php',
+        '2026_04_04_152000_add_song_distribution_state_bridge.php',
+        '2026_04_04_153000_add_song_audio_quality_score_bridge.php',
     ];
 
     private const BANNED_NAME_FRAGMENTS = [

@@ -110,7 +110,7 @@ class DashboardController extends Controller
                                     ->whereNotNull('approved_at');
                             });
                     })
-                    ->where(function ($query) {
+                    ->where(function ($query) use ($songHasRightsColumns) {
                         $query
                             ->whereNull('artist_id')
                             ->orWhereNull('title')

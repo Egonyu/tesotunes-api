@@ -17,6 +17,8 @@ class MobileApiTest extends ResponseStandardizationTestCase
             'status' => 'published',
             'visibility' => 'public',
             'duration_seconds' => 185,
+            'play_count' => 999999,
+            'like_count' => 999999,
         ]);
 
         $response = $this->getJson('/api/mobile/trending/songs');
