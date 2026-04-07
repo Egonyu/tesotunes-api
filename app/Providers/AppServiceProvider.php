@@ -389,7 +389,16 @@ class AppServiceProvider extends ServiceProvider
 
         // Registration (prevent spam)
         RateLimiter::for('register', function (Request $request) {
-            return Limit::perHour(3)->by($request->ip());
+            $isLocalEnvironment = $this->app->environment(['local', 'development']);
+            $identifier = Str::lower(trim((string) $request->input('email')));
+            $rateLimitKey = $identifier !== ''
+                ? "register:{$identifier}|{$request->ip()}"
+                : "register-ip:{$request->ip()}";
+
+            return [
+                Limit::perMinutes($isLocalEnvironment ? 1 : 15, $isLocalEnvironment ? 50 : 10)->by($rateLimitKey),
+                Limit::perHour($isLocalEnvironment ? 200 : 60)->by("register-ip:{$request->ip()}"),
+            ];
         });
 
         // Guest-facing UI preference writes should stay lightweight and abuse-resistant.

@@ -455,6 +455,23 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::get('/analytics/api-usage/top-users', [\App\Http\Controllers\Api\Admin\ApiAnalyticsController::class, 'topUsers'])->name('analytics.api-usage.top-users');
 });
 
+Route::middleware(['auth:sanctum', 'role:super_admin', 'admin.exceptions'])->prefix('admin/settings')->name('api.admin.settings.')->group(function () {
+    Route::get('/environment', [\App\Http\Controllers\Api\Admin\SettingsController::class, 'environmentIndex'])->name('environment.index');
+    Route::put('/environment', [\App\Http\Controllers\Api\Admin\SettingsController::class, 'updateEnvironment'])->name('environment.update');
+});
+
+Route::middleware(['auth:sanctum', 'role:admin,super_admin,moderator', 'admin.exceptions'])->prefix('admin')->name('api.admin.')->group(function () {
+    // Moderator-safe read and moderation workflows.
+    Route::get('/users', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'index'])->name('users.index');
+    Route::get('/users/statistics', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'statistics'])->name('users.statistics');
+    Route::get('/users/{id}/access-history', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'accessHistory'])->name('users.access-history');
+    Route::get('/users/{id}', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'show'])->name('users.show');
+
+    Route::get('/reports/stats', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'stats'])->name('reports.stats');
+    Route::get('/reports', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'index'])->name('reports.index');
+    Route::post('/reports/{report}/status', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'updateStatus'])->name('reports.status');
+});
+
 Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin')->name('api.admin.')->group(function () {
     // Base admin route
     Route::get('/', \App\Http\Controllers\Api\Admin\AdminIndexController::class)->name('index');
@@ -471,10 +488,6 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::delete('/feature-flags/{id}', [\App\Http\Controllers\Api\Admin\AdminFeatureFlagController::class, 'destroy'])->name('feature-flags.destroy');
 
     // Users API
-    Route::get('/users', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'index'])->name('users.index');
-    Route::get('/users/statistics', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'statistics'])->name('users.statistics');
-    Route::get('/users/{id}/access-history', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'accessHistory'])->name('users.access-history');
-    Route::get('/users/{id}', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'show'])->name('users.show');
     Route::post('/users', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'store'])->name('users.store');
     Route::put('/users/{id}', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'update'])->name('users.update');
     Route::post('/users/{id}/ban', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'ban'])->name('users.ban');
@@ -664,12 +677,9 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::put('/genres/{id}', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'update'])->name('genres.update');
     Route::delete('/genres/{id}', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'destroy'])->name('genres.destroy');
     Route::post('/genres/{id}/toggle-active', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'toggleActive'])->name('genres.toggle-active');
-    Route::get('/reports/stats', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'stats'])->name('reports.stats');
     Route::get('/reports/export', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'exportReports'])->name('reports.export');
     Route::get('/reports/streaming-payouts', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'streamingPayouts'])->name('reports.streaming-payouts');
     Route::get('/reports/streaming-payouts/export', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'exportStreamingPayouts'])->name('reports.streaming-payouts.export');
-    Route::get('/reports', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'index'])->name('reports.index');
-    Route::post('/reports/{report}/status', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'updateStatus'])->name('reports.status');
     Route::get('/system/health', [\App\Http\Controllers\Api\Admin\AdminSystemController::class, 'health'])->name('system.health');
     Route::get('/system/tests', [\App\Http\Controllers\Api\Admin\AdminSystemController::class, 'tests'])->name('system.tests');
     Route::post('/system/actions', [\App\Http\Controllers\Api\Admin\AdminSystemController::class, 'action'])->name('system.actions');

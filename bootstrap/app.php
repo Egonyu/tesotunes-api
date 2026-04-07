@@ -33,6 +33,15 @@ return Application::configure(basePath: dirname(__DIR__))
         ]
     )
     ->withMiddleware(function (Middleware $middleware) {
+        // Honor the real client IP when the API is behind Nginx, Cloudflare, or a load balancer.
+        $middleware->trustProxies(
+            at: '*',
+            headers: Request::HEADER_X_FORWARDED_FOR
+                | Request::HEADER_X_FORWARDED_HOST
+                | Request::HEADER_X_FORWARDED_PORT
+                | Request::HEADER_X_FORWARDED_PROTO
+        );
+
         // Allow health check even during maintenance mode
         $middleware->preventRequestsDuringMaintenance(except: [
             'api/health',
