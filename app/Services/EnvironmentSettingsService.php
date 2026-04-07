@@ -94,8 +94,7 @@ class EnvironmentSettingsService
 
     public function __construct(
         private readonly ?string $envPath = null
-    ) {
-    }
+    ) {}
 
     public function definitions(): array
     {
@@ -217,7 +216,7 @@ class EnvironmentSettingsService
         };
     }
 
-    private function readEnvValue(string $key): string|null
+    private function readEnvValue(string $key): ?string
     {
         $path = $this->envPath();
 
@@ -253,6 +252,7 @@ class EnvironmentSettingsService
 
             if (preg_match($pattern, $contents) === 1) {
                 $contents = preg_replace($pattern, "{$key}={$encodedValue}", $contents, 1) ?? $contents;
+
                 continue;
             }
 

@@ -96,15 +96,18 @@ class RegisterTest extends TestCase
         ]);
     }
 
-    public function test_register_is_rate_limited_after_three_attempts_per_hour(): void
+    public function test_register_is_rate_limited_after_repeated_attempts_for_same_email_and_ip(): void
     {
         $ipAddress = '198.51.100.20';
+        $payload = $this->validPayload(['email' => 'rate-limit@example.com']);
 
-        $this->postRegisterFromIp($this->validPayload(), $ipAddress)->assertCreated();
-        $this->postRegisterFromIp($this->validPayload(), $ipAddress)->assertCreated();
-        $this->postRegisterFromIp($this->validPayload(), $ipAddress)->assertCreated();
+        $this->postRegisterFromIp($payload, $ipAddress)->assertCreated();
 
-        $this->postRegisterFromIp($this->validPayload(), $ipAddress)
+        for ($attempt = 2; $attempt <= 10; $attempt++) {
+            $this->postRegisterFromIp($payload, $ipAddress)->assertUnprocessable();
+        }
+
+        $this->postRegisterFromIp($payload, $ipAddress)
             ->assertTooManyRequests()
             ->assertJsonStructure(['message']);
     }
