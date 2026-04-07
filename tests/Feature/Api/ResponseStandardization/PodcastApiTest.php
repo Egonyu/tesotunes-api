@@ -3,9 +3,8 @@
 namespace Tests\Feature\Api\ResponseStandardization;
 
 use App\Models\Podcast;
-use Tests\TestCase;
 
-class PodcastApiTest extends TestCase
+class PodcastApiTest extends ResponseStandardizationTestCase
 {
     protected function setUp(): void
     {

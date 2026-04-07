@@ -178,6 +178,8 @@ class ProcessAlbumBatch implements ShouldQueue
     private function updateAlbumMetadata(array $analysis): void
     {
         $this->album->update([
+            'total_tracks' => $analysis['total_tracks'],
+            'total_duration_seconds' => $analysis['total_duration'],
             'primary_language' => $analysis['primary_language'],
             'languages_featured' => $analysis['languages'],
             'cultural_theme' => $analysis['cultural_theme'],
@@ -211,23 +213,23 @@ class ProcessAlbumBatch implements ShouldQueue
         try {
             foreach ($uploads as $upload) {
                 $song = Song::create([
+                    'user_id' => $this->album->artist?->user_id,
                     'artist_id' => $this->album->artist_id,
                     'album_id' => $this->album->id,
                     'title' => $upload->detected_title ?: "Track {$trackNumber}",
                     'slug' => \Illuminate\Support\Str::slug($upload->detected_title ?: "track-{$trackNumber}-".$this->album->title),
-                    'audio_file' => $upload->file_path,
-                    'duration' => $upload->duration_seconds ?? 0,
+                    'audio_file_original' => $upload->file_path,
+                    'duration_seconds' => (int) ($upload->duration_seconds ?? 0),
                     'track_number' => $trackNumber,
                     'status' => 'published',
                     'release_date' => $this->album->release_date ?? now(),
 
                     // Enhanced metadata from upload
-                    'original_filename' => $upload->original_filename,
                     'file_format' => $upload->audio_format,
                     'file_size_bytes' => $upload->file_size_bytes,
-                    'bitrate' => $upload->bitrate,
+                    'bitrate_original' => $upload->bitrate,
                     'sample_rate' => $upload->sample_rate,
-                    'audio_quality' => $this->mapQualityScore($upload->audio_quality_score),
+                    'audio_quality_score' => $upload->audio_quality_score,
                     'file_hash' => $upload->file_hash,
 
                     // Uganda-specific metadata
@@ -237,15 +239,11 @@ class ProcessAlbumBatch implements ShouldQueue
                                                 in_array('Swahili', $upload->detected_languages ?? []),
 
                     // Content flags
-                    'has_explicit_lyrics' => $upload->explicit_content_detected,
                     'is_explicit' => $upload->explicit_content_detected,
 
                     // Distribution status
                     'distribution_status' => 'draft',
                 ]);
-
-                // Generate ISRC code
-                $song->update(['isrc_code' => $song->generateISRCCode()]);
 
                 // Link to music upload
                 $upload->update(['song_id' => $song->id]);
@@ -325,14 +323,17 @@ class ProcessAlbumBatch implements ShouldQueue
 
     private function updateAlbumStatistics(array $songs): void
     {
-        $totalDuration = array_sum(array_column($songs, 'duration'));
+        $songCollection = collect($songs);
+        $totalDuration = (int) $songCollection->sum('duration_seconds');
         $totalSize = 0;
 
-        foreach ($songs as $song) {
+        foreach ($songCollection as $song) {
             $totalSize += $song->file_size_bytes ?? 0;
         }
 
         $this->album->update([
+            'total_tracks' => $songCollection->count(),
+            'total_duration_seconds' => $totalDuration,
             'total_tracks_expected' => count($songs),
             'tracks_uploaded' => count($songs),
             'tracks_processed' => count($songs),

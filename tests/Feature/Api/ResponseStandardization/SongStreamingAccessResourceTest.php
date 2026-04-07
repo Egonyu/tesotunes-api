@@ -44,8 +44,8 @@ it('omits stream and audio urls for users without stream access', function (): v
 
     $payload = SongStreamingAccessResource::make($song)->resolve($request);
 
-    expect($payload)->not->toHaveKey('stream_url');
-    expect($payload)->not->toHaveKey('audio_url');
+    expect($payload['stream_url'])->toBeNull();
+    expect($payload['audio_url'])->toBeNull();
 });
 
 it('includes preview url when preview file exists', function (): void {
@@ -94,7 +94,7 @@ it('omits preview url when preview file does not exist', function (): void {
 
     $payload = SongStreamingAccessResource::make($song)->resolve($request);
 
-    expect($payload)->not->toHaveKey('preview_url');
+    expect($payload['preview_url'])->toBeNull();
 });
 
 it('merges extracted streaming fields into song resource output', function (): void {
@@ -137,6 +137,23 @@ it('omits merged streaming fields in song resource when user cannot stream', fun
 
     $payload = SongResource::make($song)->resolve($request);
 
-    expect($payload)->not->toHaveKey('stream_url');
-    expect($payload)->not->toHaveKey('audio_url');
+    expect($payload['stream_url'])->toBeNull();
+    expect($payload['audio_url'])->toBeNull();
+});
+
+it('includes canonical duration and media keys in song resource output', function (): void {
+    $song = new Song;
+    $song->id = 101;
+    $song->title = 'Canonical Contract';
+    $song->duration_seconds = 185;
+    $song->is_free = true;
+    $song->audio_file_128 = 'songs/128/test-stream.mp3';
+
+    $request = Request::create('/api/songs/test', 'GET');
+
+    $payload = SongResource::make($song)->resolve($request);
+
+    expect($payload['duration_seconds'])->toBe(185);
+    expect($payload['duration_formatted'])->toBe('3:05');
+    expect($payload)->toHaveKeys(['audio_url', 'stream_url', 'preview_url', 'artwork_url']);
 });

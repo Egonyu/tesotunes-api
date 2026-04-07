@@ -84,7 +84,7 @@ class CacheWarmingService
 
             return Song::with(['artist', 'album', 'genres'])
                 ->where('created_at', '>=', now()->subDays(7))
-                ->where('status', 'approved')
+                ->where('status', 'published')
                 ->orderByDesc('play_count')
                 ->limit(50)
                 ->get();
@@ -96,7 +96,7 @@ class CacheWarmingService
 
             return Song::with(['artist', 'album', 'genres'])
                 ->where('created_at', '>=', now()->subDay())
-                ->where('status', 'approved')
+                ->where('status', 'published')
                 ->orderByDesc('play_count')
                 ->limit(30)
                 ->get();
@@ -133,7 +133,7 @@ class CacheWarmingService
             $count++;
 
             return Song::with(['artist', 'album', 'genres'])
-                ->where('status', 'approved')
+                ->where('status', 'published')
                 ->orderByDesc('play_count')
                 ->limit(100)
                 ->get();
@@ -144,7 +144,7 @@ class CacheWarmingService
             $count++;
 
             return Song::with(['artist', 'album'])
-                ->where('status', 'approved')
+                ->where('status', 'published')
                 ->orderByDesc('likes_count')
                 ->limit(50)
                 ->get();
@@ -155,7 +155,7 @@ class CacheWarmingService
             $count++;
 
             return Song::with(['artist', 'album'])
-                ->where('status', 'approved')
+                ->where('status', 'published')
                 ->orderByDesc('downloads_count')
                 ->limit(50)
                 ->get();

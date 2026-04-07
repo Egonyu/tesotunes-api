@@ -26,7 +26,7 @@
 
 | Pattern | Used By | Problem |
 |---------|---------|---------|
-| `{ success: true, data: ..., meta: ... }` | MusicApiController, Admin controllers, Store module (11 controllers) | Non-standard; `success` is redundant |
+| `{ success: true, data: ..., meta: ... }` | Admin controllers, Store module (11 controllers) | Non-standard; `success` is redundant |
 | `{ notifications: [...], pagination: {...} }` | NotificationController | Completely custom keys |
 | Raw paginator / bare model `response()->json($model)` | EpisodeApiController | No consistent envelope |
 | `{ data: [...], meta: {...} }` (no `success`) | PodcastApiController | Close but manually wrapped, no `links` |

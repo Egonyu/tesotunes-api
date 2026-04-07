@@ -8,8 +8,11 @@ use App\Http\Resources\SongResource;
 use App\Models\Song;
 use App\Notifications\AdminSongPendingNotification;
 use App\Notifications\SongModerationNotification;
+use App\Services\Audio\AudioMetadataService;
+use App\Services\Music\ISRCService;
 use App\Services\NotificationRoutingService;
 use App\Traits\HandlesApiErrors;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -25,7 +28,9 @@ class SongsApiController extends Controller
     private static ?array $songTableColumns = null;
 
     public function __construct(
-        private readonly NotificationRoutingService $notificationRoutingService
+        private readonly NotificationRoutingService $notificationRoutingService,
+        private readonly AudioMetadataService $audioMetadataService,
+        private readonly ISRCService $isrcService
     ) {}
 
     private function storeUploadedFile(UploadedFile $file, string $directory): string
@@ -42,6 +47,31 @@ class SongsApiController extends Controller
         $columns = self::$songTableColumns ??= array_flip(Schema::getColumnListing((new Song)->getTable()));
 
         return array_intersect_key($attributes, $columns);
+    }
+
+    private function hasSongTableColumn(string $column): bool
+    {
+        $columns = self::$songTableColumns ??= array_flip(Schema::getColumnListing((new Song)->getTable()));
+
+        return isset($columns[$column]);
+    }
+
+    private function parseDurationInput(null|string|int|float $duration): ?int
+    {
+        if ($duration === null || $duration === '') {
+            return null;
+        }
+
+        if (is_numeric($duration)) {
+            return max(0, (int) round((float) $duration));
+        }
+
+        $parts = explode(':', trim((string) $duration));
+        if (count($parts) !== 2 || ! ctype_digit($parts[0]) || ! ctype_digit($parts[1])) {
+            return null;
+        }
+
+        return ((int) $parts[0] * 60) + (int) $parts[1];
     }
 
     private function assertValidUpload(?UploadedFile $file, string $field): void
@@ -96,6 +126,67 @@ class SongsApiController extends Controller
         }
     }
 
+    private function applyAuthorizedForIsrcScope(Builder $query): Builder
+    {
+        return $query->where(function (Builder $authorizedQuery) {
+            $authorizedQuery
+                ->whereIn('distribution_status', ['approved', 'distributed'])
+                ->orWhere(function (Builder $publishedQuery) {
+                    $publishedQuery
+                        ->where('status', 'published')
+                        ->whereNotNull('approved_at');
+                });
+        });
+    }
+
+    private function applyIsrcReadyScope(Builder $query): Builder
+    {
+        $query = $this->applyAuthorizedForIsrcScope($query)
+            ->whereNull('isrc_code')
+            ->whereNotNull('artist_id')
+            ->whereNotNull('title')
+            ->where('duration_seconds', '>', 0)
+            ->where(function (Builder $audioQuery) {
+                $audioQuery
+                    ->whereNotNull('audio_file_original')
+                    ->orWhereNotNull('audio_file_320')
+                    ->orWhereNotNull('audio_file_128');
+            });
+
+        if ($this->hasSongTableColumn('master_ownership_percentage') && $this->hasSongTableColumn('publishing_ownership_percentage')) {
+            $query->whereRaw('COALESCE(master_ownership_percentage, 0) + COALESCE(publishing_ownership_percentage, 0) <= 200');
+        }
+
+        return $query;
+    }
+
+    private function applyIsrcStatusFilter(Builder $query, string $status): Builder
+    {
+        return match ($status) {
+            'assigned' => $query->whereNotNull('isrc_code'),
+            'ready' => $this->applyIsrcReadyScope($query),
+            'blocked' => $this->applyAuthorizedForIsrcScope($query)
+                ->whereNull('isrc_code')
+                ->where(function (Builder $blockedQuery) {
+                    $blockedQuery
+                        ->whereNull('artist_id')
+                        ->orWhereNull('title')
+                        ->orWhere('duration_seconds', '<=', 0)
+                        ->orWhere(function (Builder $audioMissingQuery) {
+                            $audioMissingQuery
+                                ->whereNull('audio_file_original')
+                                ->whereNull('audio_file_320')
+                                ->whereNull('audio_file_128');
+                        });
+
+                    if ($this->hasSongTableColumn('master_ownership_percentage') && $this->hasSongTableColumn('publishing_ownership_percentage')) {
+                        $blockedQuery->orWhereRaw('COALESCE(master_ownership_percentage, 0) + COALESCE(publishing_ownership_percentage, 0) > 200');
+                    }
+                }),
+            default => $query,
+        };
+    }
+
     private function notifySongStatusTransition(Song $song, ?string $previousStatus, ?string $reason = null): void
     {
         if ($previousStatus === $song->status) {
@@ -138,7 +229,15 @@ class SongsApiController extends Controller
 
             // Filter by status
             if ($status = $request->input('status')) {
-                $query->where('status', $status);
+                if (in_array($status, ['pending', 'pending_review'], true)) {
+                    $query->whereIn('status', ['pending', 'pending_review']);
+                } else {
+                    $query->where('status', $status);
+                }
+            }
+
+            if ($isrcStatus = $request->input('isrc_status')) {
+                $this->applyIsrcStatusFilter($query, (string) $isrcStatus);
             }
 
             // Filter by genre
@@ -170,16 +269,7 @@ class SongsApiController extends Controller
             $perPage = min($request->input('per_page', 20), 100);
             $songs = $query->paginate($perPage);
 
-            return response()->json([
-                'success' => true,
-                'data' => SongResource::collection($songs->items()),
-                'meta' => [
-                    'current_page' => $songs->currentPage(),
-                    'last_page' => $songs->lastPage(),
-                    'per_page' => $songs->perPage(),
-                    'total' => $songs->total(),
-                ],
-            ]);
+            return SongResource::collection($songs)->response();
         }, 'Failed to fetch songs.');
     }
 
@@ -189,18 +279,27 @@ class SongsApiController extends Controller
     public function statistics(): JsonResponse
     {
         return $this->handleApiAction(function () {
+            $pendingReviewCount = Song::whereIn('status', ['pending', 'pending_review'])->count();
+            $isrcAssigned = Song::whereNotNull('isrc_code')->count();
+            $isrcReady = $this->applyIsrcReadyScope(Song::query())->count();
+            $isrcBlocked = $this->applyIsrcStatusFilter(Song::query(), 'blocked')->count();
+
             return response()->json([
                 'success' => true,
                 'data' => [
                     'total' => Song::count(),
                     'published' => Song::where('status', 'published')->count(),
                     'draft' => Song::where('status', 'draft')->count(),
-                    'pending' => Song::where('status', 'pending')->count(),
+                    'pending' => $pendingReviewCount,
+                    'pending_review' => $pendingReviewCount,
                     'rejected' => Song::where('status', 'rejected')->count(),
                     'featured' => Song::where('is_featured', true)->count(),
                     'total_plays' => Song::sum('play_count'),
                     'total_downloads' => Song::sum('download_count'),
                     'total_likes' => Song::sum('like_count'),
+                    'isrc_assigned' => $isrcAssigned,
+                    'isrc_ready' => $isrcReady,
+                    'isrc_blocked' => $isrcBlocked,
                 ],
             ]);
         }, 'Failed to fetch song statistics.');
@@ -235,7 +334,6 @@ class SongsApiController extends Controller
             $data['producer'] = $song->producer;
             $data['copyright_holder'] = $song->copyright_holder;
             $data['copyright_year'] = $song->copyright_year;
-            $data['cover_url'] = StorageHelper::url($song->artwork);
             $data['audio_file_url'] = StorageHelper::url($song->audio_file_320 ?? $song->audio_file_original);
             $data['file_size_bytes'] = $song->file_size_bytes;
             $data['file_format'] = $song->file_format;
@@ -252,7 +350,7 @@ class SongsApiController extends Controller
             $data['primary_genre_id'] = $song->primary_genre_id;
             $data['genre_ids'] = $song->genres->pluck('id')->toArray();
 
-            return response()->json(['success' => true, 'data' => $data]);
+            return response()->json(['data' => $data]);
         }, 'Failed to fetch song details.');
     }
 
@@ -270,7 +368,7 @@ class SongsApiController extends Controller
                 'is_featured' => 'nullable|boolean',
                 'slug' => 'nullable|string|max:255',
                 'album_id' => 'nullable|exists:albums,id',
-                'duration' => 'nullable|string',
+                'duration_seconds' => 'nullable|string',
                 'release_date' => 'nullable|date',
                 'track_number' => 'nullable|integer|min:1',
                 'disc_number' => 'nullable|integer|min:1',
@@ -310,6 +408,10 @@ class SongsApiController extends Controller
                 $audioPath = $this->storeUploadedFile($audioFile, 'songs/audio');
             }
 
+            $audioMetadata = $audioPath
+                ? $this->audioMetadataService->extractFromStoragePath($audioPath, StorageHelper::mediaDisk())
+                : null;
+
             // Handle cover image upload
             $artworkPath = null;
             $coverImage = $request->file('cover_image') ?? $request->file('artwork');
@@ -318,16 +420,10 @@ class SongsApiController extends Controller
                 $artworkPath = $this->storeUploadedFile($coverImage, 'songs/artwork');
             }
 
-            // Parse duration string to seconds
-            $durationSeconds = null;
-            if (! empty($validated['duration'])) {
-                $parts = explode(':', $validated['duration']);
-                if (count($parts) === 2) {
-                    $durationSeconds = (int) $parts[0] * 60 + (int) $parts[1];
-                } elseif (is_numeric($validated['duration'])) {
-                    $durationSeconds = (int) $validated['duration'];
-                }
-            }
+            $requestedDurationSeconds = $this->parseDurationInput($validated['duration_seconds'] ?? null);
+            $durationSeconds = ($audioMetadata['duration_seconds'] ?? 0) > 0
+                ? (int) $audioMetadata['duration_seconds']
+                : ($requestedDurationSeconds ?? 0);
 
             $song = Song::create($this->persistableSongAttributes([
                 'title' => $validated['title'],
@@ -351,12 +447,14 @@ class SongsApiController extends Controller
                 'is_downloadable' => $request->boolean('is_downloadable', true),
                 'credits' => ! empty($validated['credits']) ? json_decode($validated['credits'], true) : null,
                 'featured_artists' => $validated['featured_artists'] ?? null,
-                'duration_seconds' => $durationSeconds ?? 0,
+                'duration_seconds' => $durationSeconds,
                 'audio_file_original' => $audioPath,
                 'audio_file_320' => $audioPath, // In production, transcode separately
                 'artwork' => $artworkPath,
-                'file_format' => $request->hasFile('audio_file') ? $request->file('audio_file')->getClientOriginalExtension() : null,
-                'file_size_bytes' => $request->hasFile('audio_file') ? $request->file('audio_file')->getSize() : null,
+                'file_format' => $audioMetadata['file_format'] ?? ($request->hasFile('audio_file') ? $request->file('audio_file')->getClientOriginalExtension() : null),
+                'file_size_bytes' => $audioMetadata['file_size_bytes'] ?? ($request->hasFile('audio_file') ? $request->file('audio_file')->getSize() : null),
+                'bitrate_original' => $audioMetadata['bitrate_original'] ?? null,
+                'sample_rate' => $audioMetadata['sample_rate'] ?? null,
                 'bpm' => $validated['bpm'] ?? null,
                 'key_signature' => $validated['key'] ?? null,
                 'processing_status' => 'completed',
@@ -396,7 +494,7 @@ class SongsApiController extends Controller
                 'is_featured' => 'nullable|boolean',
                 'slug' => 'nullable|string|max:255',
                 'album_id' => 'nullable|exists:albums,id',
-                'duration' => 'nullable|string',
+                'duration_seconds' => 'nullable|string',
                 'release_date' => 'nullable|date',
                 'track_number' => 'nullable|integer|min:1',
                 'disc_number' => 'nullable|integer|min:1',
@@ -497,14 +595,9 @@ class SongsApiController extends Controller
                 }
             }
 
-            // Parse duration
-            if (! empty($validated['duration'])) {
-                $parts = explode(':', $validated['duration']);
-                if (count($parts) === 2) {
-                    $updateData['duration_seconds'] = (int) $parts[0] * 60 + (int) $parts[1];
-                } elseif (is_numeric($validated['duration'])) {
-                    $updateData['duration_seconds'] = (int) $validated['duration'];
-                }
+            $requestedDurationSeconds = $this->parseDurationInput($validated['duration_seconds'] ?? null);
+            if ($requestedDurationSeconds !== null) {
+                $updateData['duration_seconds'] = $requestedDurationSeconds;
             }
 
             // Handle audio file replacement
@@ -521,10 +614,16 @@ class SongsApiController extends Controller
                 }
 
                 $audioPath = $this->storeUploadedFile($audioFile, 'songs/audio');
+                $audioMetadata = $this->audioMetadataService->extractFromStoragePath($audioPath, StorageHelper::mediaDisk());
                 $updateData['audio_file_original'] = $audioPath;
                 $updateData['audio_file_320'] = $audioPath;
-                $updateData['file_format'] = $audioFile->getClientOriginalExtension();
-                $updateData['file_size_bytes'] = $audioFile->getSize();
+                $updateData['file_format'] = $audioMetadata['file_format'] ?? $audioFile->getClientOriginalExtension();
+                $updateData['file_size_bytes'] = $audioMetadata['file_size_bytes'] ?? $audioFile->getSize();
+                $updateData['bitrate_original'] = $audioMetadata['bitrate_original'] ?? null;
+                $updateData['sample_rate'] = $audioMetadata['sample_rate'] ?? null;
+                $updateData['duration_seconds'] = ($audioMetadata['duration_seconds'] ?? 0) > 0
+                    ? (int) $audioMetadata['duration_seconds']
+                    : ($requestedDurationSeconds ?? 0);
             }
 
             // Handle cover image replacement
@@ -637,27 +736,60 @@ class SongsApiController extends Controller
                 'song_ids.*' => 'exists:songs,id',
             ]);
 
-            // Load songs with their artist/user before updating so we can notify
             $songs = Song::with('artist.user')->whereIn('id', $request->song_ids)->get();
+            $previousStatuses = $songs->mapWithKeys(fn (Song $song) => [$song->id => $song->status]);
 
             $count = Song::whereIn('id', $request->song_ids)
                 ->update([
                     'status' => 'published',
+                    'distribution_status' => 'approved',
                     'approved_at' => now(),
                     'approved_by' => auth()->id(),
                     'published_at' => now(),
                 ]);
 
-            // Notify each artist that their song was approved
-            foreach ($songs as $song) {
-                $song->status = 'published';
-                $this->notifySongStatusTransition($song, 'pending');
+            $approvedSongs = Song::with('artist.user')
+                ->whereIn('id', $request->song_ids)
+                ->get();
+
+            $isrcAssignedCount = 0;
+            $isrcAlreadyAssignedCount = 0;
+            $isrcBlockedCount = 0;
+
+            foreach ($approvedSongs as $song) {
+                $previousStatus = $previousStatuses[$song->id] ?? null;
+
+                if ($song->hasIsrcAssigned()) {
+                    $isrcAlreadyAssignedCount++;
+                } elseif ($song->canAssignIsrc()) {
+                    try {
+                        $this->isrcService->assignToSong($song);
+                        $song->refresh();
+                        $isrcAssignedCount++;
+                    } catch (\Throwable $exception) {
+                        Log::warning('SongsApiController bulkApprove ISRC assignment failed', [
+                            'song_id' => $song->id,
+                            'error' => $exception->getMessage(),
+                        ]);
+                        $isrcBlockedCount++;
+                    }
+                } else {
+                    $isrcBlockedCount++;
+                }
+
+                $this->notifySongStatusTransition($song, $previousStatus);
             }
 
             return response()->json([
                 'success' => true,
                 'message' => "{$count} song(s) approved and published",
-                'data' => ['count' => $count],
+                'data' => [
+                    'count' => $count,
+                    'approved_count' => $count,
+                    'isrc_assigned_count' => $isrcAssignedCount,
+                    'isrc_already_assigned_count' => $isrcAlreadyAssignedCount,
+                    'isrc_blocked_count' => $isrcBlockedCount,
+                ],
             ]);
         }, 'Failed to bulk approve songs.');
     }

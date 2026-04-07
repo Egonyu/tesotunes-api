@@ -439,8 +439,8 @@ class PostController extends Controller
         if ($post->song) {
             return [
                 'type' => 'song',
-                'url' => $post->song->cover_url ?? '',
-                'thumbnail_url' => $post->song->cover_url ?? '',
+                'url' => $post->song->artwork_url,
+                'thumbnail_url' => $post->song->artwork_url,
                 'title' => $post->song->title,
                 'artist' => $post->song->artist?->stage_name ?? $post->song->artist?->name ?? '',
                 'song_id' => $post->song->id,

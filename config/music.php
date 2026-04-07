@@ -139,7 +139,7 @@ return [
         'country_code' => 'UG', // Uganda
         'registrant_code' => env('ISRC_REGISTRANT_CODE', 'A65'), // Official prefix
         'default_registrant_prefix' => env('ISRC_REGISTRANT_PREFIX', 'A65'),
-        'auto_generate' => env('ISRC_AUTO_GENERATE', true),
+        'auto_generate' => env('ISRC_AUTO_GENERATE', false),
         'registrant_name' => env('ISRC_REGISTRANT_NAME', 'Egonyu Daniel / TesoTunes'),
     ],
 

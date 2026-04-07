@@ -26,6 +26,7 @@ class PlaylistResource extends JsonResource
             // Properties
             'visibility' => $this->visibility,
             'is_collaborative' => (bool) $this->is_collaborative,
+            'collaboration_requires_approval' => (bool) ($this->collaboration_requires_approval ?? false),
             'is_featured' => (bool) $this->is_featured,
             'is_system' => (bool) $this->is_system,
 
@@ -56,6 +57,10 @@ class PlaylistResource extends JsonResource
             'can_edit' => $this->when(
                 Auth::check() && method_exists($this->resource, 'canBeEditedBy'),
                 fn () => $this->canBeEditedBy(Auth::user())
+            ),
+            'collaborator_role' => $this->when(
+                Auth::check() && method_exists($this->resource, 'collaboratorRoleFor'),
+                fn () => $this->collaboratorRoleFor(Auth::user())
             ),
 
             // Timestamps

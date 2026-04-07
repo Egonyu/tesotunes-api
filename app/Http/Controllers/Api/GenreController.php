@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\AlbumResource;
+use App\Http\Resources\ArtistResource;
 use App\Http\Resources\GenreResource;
+use App\Http\Resources\SongResource;
 use App\Models\Genre;
 use Illuminate\Http\Request;
 
@@ -68,12 +71,11 @@ class GenreController extends Controller
 
         $songs = $genre->songs()
             ->published()
-            ->with(['artist', 'album'])
+            ->with(['artist', 'album', 'primaryGenre'])
             ->orderByDesc('play_count')
             ->paginate($perPage);
 
-        // Uses SongResource when created; for now return standard paginated JSON
-        return $songs;
+        return SongResource::collection($songs);
     }
 
     /**
@@ -86,12 +88,12 @@ class GenreController extends Controller
         $perPage = $this->getPerPage($request);
 
         $artists = \App\Models\Artist::where('primary_genre_id', $genre->id)
+            ->with('primaryGenre')
             ->approved()
             ->orderByDesc('total_plays')
             ->paginate($perPage);
 
-        // Uses ArtistResource when created; for now return standard paginated JSON
-        return $artists;
+        return ArtistResource::collection($artists);
     }
 
     /**
@@ -105,11 +107,10 @@ class GenreController extends Controller
 
         $albums = \App\Models\Album::where('primary_genre_id', $genre->id)
             ->published()
-            ->with('artist')
+            ->with(['artist', 'primaryGenre'])
             ->orderByDesc('release_date')
             ->paginate($perPage);
 
-        // Uses AlbumResource when created; for now return standard paginated JSON
-        return $albums;
+        return AlbumResource::collection($albums);
     }
 }

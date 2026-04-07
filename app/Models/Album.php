@@ -50,7 +50,7 @@ class Album extends Model
         'is_explicit' => 'boolean',
         'credits' => 'array',
         'total_tracks' => 'integer',
-        'total_duration' => 'integer',
+        'total_duration_seconds' => 'integer',
         'play_count' => 'integer',
         'download_count' => 'integer',
         'release_date' => 'datetime',
@@ -148,9 +148,10 @@ class Album extends Model
 
     public function getTotalDurationFormattedAttribute(): string
     {
-        $hours = floor($this->total_duration / 3600);
-        $minutes = floor(($this->total_duration % 3600) / 60);
-        $seconds = $this->total_duration % 60;
+        $totalDurationSeconds = (int) ($this->total_duration_seconds ?? 0);
+        $hours = floor($totalDurationSeconds / 3600);
+        $minutes = floor(($totalDurationSeconds % 3600) / 60);
+        $seconds = $totalDurationSeconds % 60;
 
         if ($hours > 0) {
             return sprintf('%d:%02d:%02d', $hours, $minutes, $seconds);
@@ -173,7 +174,7 @@ class Album extends Model
     {
         $this->update([
             'total_tracks' => $this->songs()->count(),
-            'total_duration' => $this->songs()->sum('duration'),
+            'total_duration_seconds' => $this->songs()->sum('duration_seconds'),
             'play_count' => $this->songs()->sum('play_count'),
         ]);
     }
@@ -202,7 +203,7 @@ class Album extends Model
                     'audio_url' => $song->audio_url,
                     'compressed_url' => $song->compressed_audio_url,
                     'artwork' => $song->artwork_url,
-                    'duration' => $song->duration,
+                    'duration_seconds' => $song->duration_seconds,
                 ];
             })
             ->toArray();

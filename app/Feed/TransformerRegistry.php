@@ -78,8 +78,8 @@ class TransformerRegistry
             return [
                 'media' => [
                     'type' => 'song',
-                    'url' => $song->artwork_url ?? $song->cover_url,
-                    'thumbnail_url' => $song->artwork_url ?? $song->cover_url,
+                    'url' => $song->artwork_url,
+                    'thumbnail_url' => $song->artwork_url,
                     'duration_seconds' => $song->duration_seconds,
                     'audio_url' => $song->audio_url,
                 ],
@@ -104,8 +104,8 @@ class TransformerRegistry
             return [
                 'media' => [
                     'type' => 'album',
-                    'url' => $album->artwork_url ?? $album->cover_url,
-                    'thumbnail_url' => $album->artwork_url ?? $album->cover_url,
+                    'url' => $album->artwork_url,
+                    'thumbnail_url' => $album->artwork_url,
                 ],
                 'actions' => [
                     ['type' => 'view', 'label' => 'View Album', 'url' => "/albums/{$album->slug}"],

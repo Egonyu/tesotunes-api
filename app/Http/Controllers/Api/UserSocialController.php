@@ -11,6 +11,41 @@ use Illuminate\Http\Request;
 class UserSocialController extends Controller
 {
     /**
+     * GET /api/users/search
+     * Search active users for collaboration and social actions.
+     */
+    public function search(Request $request): JsonResponse
+    {
+        $viewer = $request->user();
+        $query = trim((string) $request->query('q', ''));
+
+        if (mb_strlen($query) < 2) {
+            return response()->json(['data' => []]);
+        }
+
+        $results = User::query()
+            ->where('is_active', true)
+            ->whereKeyNot($viewer?->id)
+            ->where(function ($userQuery) use ($query) {
+                $userQuery
+                    ->where('name', 'like', "%{$query}%")
+                    ->orWhere('username', 'like', "%{$query}%");
+            })
+            ->limit(10)
+            ->get(['id', 'name', 'username', 'avatar'])
+            ->map(fn (User $user) => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'username' => $user->username ?? $user->name,
+                'avatar_url' => $user->avatar_url ?? $user->profile_photo_url ?? '',
+            ]);
+
+        return response()->json([
+            'data' => $results,
+        ]);
+    }
+
+    /**
      * GET /api/users/suggested
      * Get suggested users to follow.
      */

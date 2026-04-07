@@ -8,7 +8,6 @@ use App\Models\Genre;
 use App\Models\Playlist;
 use App\Models\Song;
 use App\Models\User;
-use Tests\TestCase;
 
 /**
  * Cross-cutting tests that verify ALL public endpoints follow the standardized
@@ -21,7 +20,7 @@ use Tests\TestCase;
  * - Always JSON content type
  * - 404s return JSON, not HTML
  */
-class ResponseFormatConsistencyTest extends TestCase
+class ResponseFormatConsistencyTest extends ResponseStandardizationTestCase
 {
     private User $user;
 

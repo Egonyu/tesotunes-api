@@ -55,6 +55,7 @@ Route::middleware('auth:sanctum')->prefix('comments')->name('api.comments.')->gr
 
 // User social endpoints (suggested, follow/unfollow)
 Route::middleware('auth:sanctum')->prefix('users')->name('api.users.')->group(function () {
+    Route::get('/search', [\App\Http\Controllers\Api\UserSocialController::class, 'search'])->name('search');
     Route::get('/suggested', [\App\Http\Controllers\Api\UserSocialController::class, 'suggested'])->name('suggested');
     Route::post('/{user}/follow', [\App\Http\Controllers\Api\UserSocialController::class, 'follow'])->name('follow');
     Route::delete('/{user}/follow', [\App\Http\Controllers\Api\UserSocialController::class, 'unfollow'])->name('unfollow');

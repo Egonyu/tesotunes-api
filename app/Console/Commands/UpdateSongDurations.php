@@ -3,11 +3,18 @@
 namespace App\Console\Commands;
 
 use App\Models\Song;
+use App\Services\Audio\AudioMetadataService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Schema;
 
 class UpdateSongDurations extends Command
 {
+    public function __construct(
+        private readonly AudioMetadataService $audioMetadataService
+    ) {
+        parent::__construct();
+    }
+
     /**
      * The name and signature of the console command.
      *
@@ -20,7 +27,7 @@ class UpdateSongDurations extends Command
      *
      * @var string
      */
-    protected $description = 'Update duration for songs that have 0 or null duration';
+    protected $description = 'Update duration and available audio metadata for songs with source audio files';
 
     /**
      * Execute the console command.
@@ -29,15 +36,36 @@ class UpdateSongDurations extends Command
     {
         $force = $this->option('force');
 
+        $supportsBitrate = Schema::hasColumn('songs', 'bitrate_original');
+        $supportsSampleRate = Schema::hasColumn('songs', 'sample_rate');
+        $supportsFileSize = Schema::hasColumn('songs', 'file_size_bytes');
+        $supportsFormat = Schema::hasColumn('songs', 'file_format');
+
         $query = Song::query();
 
         if (! $force) {
-            $query->where(function ($q) {
-                $q->whereNull('duration')->orWhere('duration', 0);
+            $query->where(function ($q) use ($supportsBitrate, $supportsSampleRate, $supportsFileSize, $supportsFormat) {
+                $q->whereNull('duration_seconds')->orWhere('duration_seconds', 0);
+
+                if ($supportsBitrate) {
+                    $q->orWhereNull('bitrate_original')->orWhere('bitrate_original', 0);
+                }
+
+                if ($supportsSampleRate) {
+                    $q->orWhereNull('sample_rate')->orWhere('sample_rate', 0);
+                }
+
+                if ($supportsFileSize) {
+                    $q->orWhereNull('file_size_bytes')->orWhere('file_size_bytes', 0);
+                }
+
+                if ($supportsFormat) {
+                    $q->orWhereNull('file_format')->orWhere('file_format', '');
+                }
             });
         }
 
-        $songs = $query->whereNotNull('audio_file')->get();
+        $songs = $query->whereNotNull('audio_file_original')->get();
 
         if ($songs->isEmpty()) {
             $this->info('No songs found to update.');
@@ -50,22 +78,59 @@ class UpdateSongDurations extends Command
         $progressBar = $this->output->createProgressBar($songs->count());
         $progressBar->start();
 
-        $updated = 0;
+        $updatedSongs = 0;
         $failed = 0;
+        $updatedFields = [
+            'duration_seconds' => 0,
+            'bitrate_original' => 0,
+            'sample_rate' => 0,
+            'file_size_bytes' => 0,
+            'file_format' => 0,
+        ];
+        $failureReasons = [];
 
         foreach ($songs as $song) {
             try {
-                $duration = $this->extractDuration($song);
+                $inspection = $this->audioMetadataService->inspectFromStoragePath((string) $song->audio_file_original);
+                $metadata = $inspection['metadata'] ?? [];
+                $updateData = [];
 
-                if ($duration > 0) {
-                    $song->update(['duration' => $duration]);
-                    $updated++;
+                if (($force || $this->isMissingInt($song->duration_seconds)) && ($metadata['duration_seconds'] ?? 0) > 0) {
+                    $updateData['duration_seconds'] = (int) $metadata['duration_seconds'];
+                }
+
+                if ($supportsBitrate && ($force || $this->isMissingInt($song->bitrate_original)) && ($metadata['bitrate_original'] ?? 0) > 0) {
+                    $updateData['bitrate_original'] = (int) $metadata['bitrate_original'];
+                }
+
+                if ($supportsSampleRate && ($force || $this->isMissingInt($song->sample_rate)) && ($metadata['sample_rate'] ?? 0) > 0) {
+                    $updateData['sample_rate'] = (int) $metadata['sample_rate'];
+                }
+
+                if ($supportsFileSize && ($force || $this->isMissingInt($song->file_size_bytes)) && ($metadata['file_size_bytes'] ?? 0) > 0) {
+                    $updateData['file_size_bytes'] = (int) $metadata['file_size_bytes'];
+                }
+
+                if ($supportsFormat && ($force || $this->isMissingString($song->file_format)) && ! empty($metadata['file_format'])) {
+                    $updateData['file_format'] = $metadata['file_format'];
+                }
+
+                if ($updateData !== []) {
+                    $song->update($updateData);
+                    $updatedSongs++;
+
+                    foreach (array_keys($updateData) as $field) {
+                        $updatedFields[$field]++;
+                    }
                 } else {
+                    $reason = $inspection['failure_reason'] ?? 'no_updatable_metadata';
+                    $failureReasons[$reason] = ($failureReasons[$reason] ?? 0) + 1;
                     $this->newLine();
-                    $this->warn("Could not extract duration for song: {$song->title} (ID: {$song->id})");
+                    $this->warn("No new metadata extracted for song: {$song->title} (ID: {$song->id}) [reason: {$reason}]");
                     $failed++;
                 }
             } catch (\Exception $e) {
+                $failureReasons['exception'] = ($failureReasons['exception'] ?? 0) + 1;
                 $this->newLine();
                 $this->error("Error processing song {$song->id}: {$e->getMessage()}");
                 $failed++;
@@ -77,88 +142,29 @@ class UpdateSongDurations extends Command
         $progressBar->finish();
         $this->newLine(2);
 
-        $this->info('Duration update complete!');
-        $this->info("Updated: {$updated}");
+        $this->info('Audio metadata update complete!');
+        $this->info("Updated songs: {$updatedSongs}");
         $this->info("Failed: {$failed}");
-
-        return 0;
-    }
-
-    /**
-     * Extract duration from audio file
-     */
-    private function extractDuration(Song $song): int
-    {
-        // Try to find the audio file
-        $filePath = $this->findAudioFile($song);
-
-        if (! $filePath) {
-            return 0;
+        foreach ($updatedFields as $field => $count) {
+            $this->line(" - {$field}: {$count}");
         }
-
-        // Try using getID3 if available
-        if (class_exists('\getID3')) {
-            try {
-                $getID3 = new \getID3;
-                $fileInfo = $getID3->analyze($filePath);
-
-                if (isset($fileInfo['playtime_seconds'])) {
-                    return (int) round($fileInfo['playtime_seconds']);
-                }
-            } catch (\Exception $e) {
-                // Continue to next method
-            }
-        }
-
-        // Try using FFprobe
-        if (function_exists('shell_exec')) {
-            try {
-                $escapedPath = escapeshellarg($filePath);
-                $command = "ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 {$escapedPath} 2>&1";
-
-                $output = shell_exec($command);
-
-                if ($output && is_numeric(trim($output))) {
-                    return (int) round((float) trim($output));
-                }
-            } catch (\Exception $e) {
-                // Continue
+        if ($failureReasons !== []) {
+            $this->line('Failure reasons:');
+            foreach ($failureReasons as $reason => $count) {
+                $this->line(" - {$reason}: {$count}");
             }
         }
 
         return 0;
     }
 
-    /**
-     * Find the actual audio file path
-     */
-    private function findAudioFile(Song $song): ?string
+    private function isMissingInt(mixed $value): bool
     {
-        // Try different disk configurations
-        $disks = ['music_private', 'music', 'public', 'local'];
+        return $value === null || (int) $value === 0;
+    }
 
-        foreach ($disks as $diskName) {
-            try {
-                if (Storage::disk($diskName)->exists($song->audio_file)) {
-                    return Storage::disk($diskName)->path($song->audio_file);
-                }
-            } catch (\Exception $e) {
-                // Disk might not exist, continue
-            }
-        }
-
-        // Try direct path in storage/app
-        $directPath = storage_path('app/'.$song->audio_file);
-        if (file_exists($directPath)) {
-            return $directPath;
-        }
-
-        // Try with 'music/' prefix
-        $musicPath = storage_path('app/music/'.$song->audio_file);
-        if (file_exists($musicPath)) {
-            return $musicPath;
-        }
-
-        return null;
+    private function isMissingString(mixed $value): bool
+    {
+        return $value === null || trim((string) $value) === '';
     }
 }

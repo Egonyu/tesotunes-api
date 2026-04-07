@@ -25,7 +25,7 @@ class ISRCService
     public function __construct()
     {
         $this->countryCode = config('music.isrc.country_code', 'UG');
-        $this->registrantCode = config('music.isrc.registrant_prefix', 'MUS');
+        $this->registrantCode = config('music.isrc.registrant_code', config('music.isrc.registrant_prefix', 'MUS'));
     }
 
     /**
@@ -65,18 +65,38 @@ class ISRCService
         return $isrcCode;
     }
 
+    public function assignToSong(Song $song, bool $force = false): string
+    {
+        if ($song->isrc_code) {
+            return $song->isrc_code;
+        }
+
+        if (! $force) {
+            $blockers = $song->getIsrcAssignmentBlockers();
+            if ($blockers !== []) {
+                throw new Exception('Song is not eligible for ISRC assignment: '.implode(', ', $blockers));
+            }
+        }
+
+        $isrcCode = $this->generate($song);
+        $song->update(['isrc_code' => $isrcCode]);
+
+        return $isrcCode;
+    }
+
     /**
      * Get next designation code for the year
      * Resets annually: 00001, 00002, ..., 99999
      */
     protected function getNextDesignationCode(string $year): string
     {
-        $lastISRC = ISRCCode::where('year', $year)
+        $lastISRC = ISRCCode::query()
+            ->where('year_code', $year)
             ->where('registrant_code', $this->registrantCode)
-            ->orderBy('designation_number', 'desc')
+            ->orderBy('designation_code', 'desc')
             ->first();
 
-        $nextNumber = $lastISRC ? $lastISRC->designation_number + 1 : 1;
+        $nextNumber = $lastISRC ? ((int) $lastISRC->designation_code) + 1 : 1;
 
         if ($nextNumber > 99999) {
             throw new Exception('ISRC designation limit reached for year '.$year);
@@ -101,8 +121,14 @@ class ISRCService
      */
     public function exists(string $isrcCode): bool
     {
-        return ISRCCode::where('code', $isrcCode)->exists() ||
-               Song::where('isrc_code', $isrcCode)->exists();
+        return ISRCCode::query()
+            ->where('isrc_code', $isrcCode)
+            ->orWhere('code', $isrcCode)
+            ->exists() ||
+            Song::query()
+                ->where('isrc_code', $isrcCode)
+                ->orWhere('isrc', $isrcCode)
+                ->exists();
     }
 
     /**
@@ -114,15 +140,16 @@ class ISRCService
         [$country, $registrant, $year, $designation] = explode('-', $isrcCode);
 
         ISRCCode::create([
-            'code' => $isrcCode,
+            'isrc_code' => $isrcCode,
+            'formatted_isrc' => $isrcCode,
             'country_code' => $country,
             'registrant_code' => $registrant,
-            'year' => $year,
-            'designation_number' => (int) $designation,
+            'year_code' => $year,
+            'designation_code' => $designation,
             'song_id' => $song->id,
             'artist_id' => $song->artist_id,
-            'issued_at' => now(),
-            'status' => 'active',
+            'generated_at' => now(),
+            'status' => 'pending',
         ]);
 
         \Log::info('ISRC registered', [
@@ -180,7 +207,7 @@ class ISRCService
 
         foreach ($songs as $song) {
             try {
-                $isrcCodes[$song->id] = $this->generate($song);
+                $isrcCodes[$song->id] = $this->assignToSong($song);
             } catch (Exception $e) {
                 \Log::error('Failed to generate ISRC', [
                     'song_id' => $song->id,

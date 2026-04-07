@@ -382,13 +382,13 @@ class DistributionService
         }
 
         // Check file quality requirements
-        $fileSize = $song->file_size_bytes ?? $song->file_size ?? 0;
+        $fileSize = $song->file_size_bytes ?? 0;
         if ($fileSize < 1000000) { // 1MB minimum
             throw new Exception('Audio file too small for distribution');
         }
 
         // Check duration requirements
-        $duration = $song->duration_seconds ?? $song->duration ?? 0;
+        $duration = $song->duration_seconds ?? 0;
         if ($duration < 30) { // 30 seconds minimum
             throw new Exception('Song too short for distribution (minimum 30 seconds)');
         }

@@ -6,9 +6,8 @@ use App\Models\Artist;
 use App\Models\Genre;
 use App\Models\Song;
 use App\Models\User;
-use Tests\TestCase;
 
-class GenreApiTest extends TestCase
+class GenreApiTest extends ResponseStandardizationTestCase
 {
     private Genre $genre;
 
@@ -91,26 +90,39 @@ class GenreApiTest extends TestCase
     {
         $user = User::factory()->create();
         $artist = Artist::factory()->create(['user_id' => $user->id]);
-        Song::factory()->count(3)->create([
+        $songs = Song::factory()->count(3)->create([
             'user_id' => $user->id,
             'artist_id' => $artist->id,
-            'primary_genre_id' => $this->genre->id,
             'status' => 'published',
+            'duration_seconds' => 195,
+            'audio_file_128' => 'songs/128/genre-test.mp3',
         ]);
+
+        foreach ($songs as $song) {
+            $song->genres()->syncWithoutDetaching([$this->genre->id]);
+        }
 
         $response = $this->getJson("/api/genres/{$this->genre->id}/songs");
 
-        $response->assertOk();
-        $json = $response->json();
-
-        // Must have 'data' key with songs array
-        $this->assertArrayHasKey('data', $json, 'Genre songs should have data key');
-        $this->assertIsArray($json['data']);
-
-        // Pagination can be in 'meta' key (standardized) or at root level (raw paginator)
-        $hasMeta = isset($json['meta']['current_page']);
-        $hasRootPagination = isset($json['current_page']);
-        $this->assertTrue($hasMeta || $hasRootPagination, 'Genre songs should have pagination info');
+        $response->assertOk()
+            ->assertJsonStructure([
+                'data' => [[
+                    'id',
+                    'title',
+                    'slug',
+                    'duration_seconds',
+                    'duration_formatted',
+                    'audio_url',
+                    'stream_url',
+                    'preview_url',
+                    'artwork_url',
+                    'artist',
+                    'links',
+                ]],
+                'meta' => ['current_page', 'per_page', 'total'],
+                'links',
+            ])
+            ->assertJsonMissing(['success' => true]);
     }
 
     public function test_genre_artists_returns_paginated_response(): void
@@ -120,7 +132,10 @@ class GenreApiTest extends TestCase
         $response->assertOk()
             ->assertJsonStructure([
                 'data',
-            ]);
+                'meta' => ['current_page', 'per_page', 'total'],
+                'links',
+            ])
+            ->assertJsonMissing(['success' => true]);
     }
 
     public function test_genre_albums_returns_paginated_response(): void
@@ -130,7 +145,10 @@ class GenreApiTest extends TestCase
         $response->assertOk()
             ->assertJsonStructure([
                 'data',
-            ]);
+                'meta' => ['current_page', 'per_page', 'total'],
+                'links',
+            ])
+            ->assertJsonMissing(['success' => true]);
     }
 
     // ─── No "success" key anywhere ───────────────────────────────

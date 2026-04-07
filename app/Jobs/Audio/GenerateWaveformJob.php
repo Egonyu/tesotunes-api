@@ -53,7 +53,7 @@ class GenerateWaveformJob implements ShouldQueue
             }
 
             // Prepare output path for waveform image
-            $waveformPath = "songs/{$this->song->user_id}/{$this->song->id}/waveform.png";
+            $waveformPath = $storage->getSongPath($this->song, 'waveform');
 
             // Ensure directory exists
             $waveformDir = dirname(Storage::disk('local')->path($waveformPath));
@@ -88,9 +88,12 @@ class GenerateWaveformJob implements ShouldQueue
                 ]);
             }
 
-            // Update song with waveform URL
+            $processingStatus = $this->song->processing_status ?? [];
+            $processingStatus['waveform'] = 'completed';
+            $processingStatus['waveform_path'] = $waveformPath;
+
             $this->song->update([
-                'waveform_url' => Storage::disk('public')->url($waveformPath),
+                'processing_status' => $processingStatus,
             ]);
 
             Log::info('Waveform generation completed', [

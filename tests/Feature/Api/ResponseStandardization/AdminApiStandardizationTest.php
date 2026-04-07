@@ -2,12 +2,14 @@
 
 namespace Tests\Feature\Api\ResponseStandardization;
 
+use App\Models\Album;
+use App\Models\Artist;
 use App\Models\Role;
+use App\Models\Song;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
-use Tests\TestCase;
 
-class AdminApiStandardizationTest extends TestCase
+class AdminApiStandardizationTest extends ResponseStandardizationTestCase
 {
     private User $admin;
 
@@ -47,6 +49,26 @@ class AdminApiStandardizationTest extends TestCase
         } else {
             // Dashboard queries several tables that may not exist — verify JSON not HTML
             $this->assertStringNotContainsString('<!DOCTYPE', $response->getContent());
+        }
+    }
+
+    public function test_dashboard_stats_includes_song_isrc_moderation_counts(): void
+    {
+        $response = $this->actingAs($this->admin)->getJson('/api/admin/dashboard/stats');
+
+        if ($response->status() === 200) {
+            $response->assertJsonStructure([
+                'success',
+                'data' => [
+                    'songs' => [
+                        'isrc_assigned',
+                        'isrc_ready',
+                        'isrc_blocked',
+                    ],
+                ],
+            ]);
+        } else {
+            $response->assertHeader('Content-Type', 'application/json');
         }
     }
 
@@ -98,6 +120,182 @@ class AdminApiStandardizationTest extends TestCase
             $hasRootPagination = isset($json['current_page']);
             $this->assertTrue($hasMeta || $hasRootPagination, 'Admin artists should have pagination info');
         }
+    }
+
+    public function test_admin_songs_index_returns_paginated_song_resource_without_success_wrapper(): void
+    {
+        $artist = Artist::factory()->create([
+            'user_id' => $this->admin->id,
+            'status' => 'active',
+        ]);
+
+        Song::factory()->create([
+            'user_id' => $this->admin->id,
+            'artist_id' => $artist->id,
+            'status' => 'published',
+            'duration_seconds' => 205,
+            'audio_file_128' => 'songs/128/admin-index.mp3',
+        ]);
+
+        $response = $this->actingAs($this->admin)->getJson('/api/admin/songs');
+
+        $response->assertOk()
+            ->assertJsonStructure([
+                'data' => [[
+                    'id',
+                    'title',
+                    'slug',
+                    'duration_seconds',
+                    'duration_formatted',
+                    'audio_url',
+                    'stream_url',
+                    'preview_url',
+                    'artwork_url',
+                    'artist',
+                    'links',
+                ]],
+                'meta' => ['current_page', 'last_page', 'per_page', 'total'],
+                'links',
+            ]);
+
+        $this->assertArrayNotHasKey('success', $response->json());
+    }
+
+    public function test_admin_song_show_returns_canonical_media_keys_without_success_wrapper(): void
+    {
+        $artist = Artist::factory()->create([
+            'user_id' => $this->admin->id,
+            'status' => 'active',
+        ]);
+
+        $song = Song::factory()->create([
+            'user_id' => $this->admin->id,
+            'artist_id' => $artist->id,
+            'status' => 'published',
+            'duration_seconds' => 205,
+            'audio_file_128' => 'songs/128/admin-show.mp3',
+        ]);
+
+        $response = $this->actingAs($this->admin)->getJson("/api/admin/songs/{$song->id}");
+
+        $response->assertOk()
+            ->assertJsonStructure([
+                'data' => [
+                    'id',
+                    'title',
+                    'slug',
+                    'duration_seconds',
+                    'duration_formatted',
+                    'audio_url',
+                    'stream_url',
+                    'preview_url',
+                    'artwork_url',
+                    'artist',
+                    'links',
+                    'status',
+                    'audio_file_url',
+                    'file_size_bytes',
+                    'file_format',
+                    'bitrate_original',
+                    'sample_rate',
+                ],
+            ]);
+
+        $this->assertArrayNotHasKey('success', $response->json());
+    }
+
+    public function test_admin_album_show_returns_canonical_song_duration_fields(): void
+    {
+        $artist = Artist::factory()->create([
+            'user_id' => $this->admin->id,
+            'status' => 'active',
+        ]);
+
+        $album = Album::factory()->create([
+            'artist_id' => $artist->id,
+            'status' => 'published',
+        ]);
+
+        Song::factory()->create([
+            'user_id' => $this->admin->id,
+            'artist_id' => $artist->id,
+            'album_id' => $album->id,
+            'status' => 'published',
+            'duration_seconds' => 205,
+            'track_number' => 1,
+        ]);
+
+        $response = $this->actingAs($this->admin)->getJson("/api/admin/albums/{$album->id}");
+
+        $response->assertOk()
+            ->assertJsonPath('data.songs.0.duration_seconds', 205)
+            ->assertJsonMissingPath('data.songs.0.duration');
+    }
+
+    public function test_admin_song_pending_review_filter_includes_pending_and_pending_review_statuses(): void
+    {
+        $artist = Artist::factory()->create([
+            'user_id' => $this->admin->id,
+            'status' => 'active',
+        ]);
+
+        $pendingSong = Song::factory()->create([
+            'user_id' => $this->admin->id,
+            'artist_id' => $artist->id,
+            'title' => 'Pending review filter pending',
+            'status' => 'pending',
+            'audio_file_128' => 'songs/128/pending.mp3',
+        ]);
+
+        $pendingReviewSong = Song::factory()->create([
+            'user_id' => $this->admin->id,
+            'artist_id' => $artist->id,
+            'title' => 'Pending review filter pending review',
+            'status' => 'pending_review',
+            'audio_file_128' => 'songs/128/pending-review.mp3',
+        ]);
+
+        Song::factory()->create([
+            'user_id' => $this->admin->id,
+            'artist_id' => $artist->id,
+            'title' => 'Pending review filter published',
+            'status' => 'published',
+            'audio_file_128' => 'songs/128/published.mp3',
+        ]);
+
+        $response = $this->actingAs($this->admin)->getJson('/api/admin/songs?status=pending_review&search=Pending%20review%20filter');
+
+        $response->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonFragment(['id' => $pendingSong->id])
+            ->assertJsonFragment(['id' => $pendingReviewSong->id]);
+    }
+
+    public function test_admin_song_statistics_fold_pending_and_pending_review_together(): void
+    {
+        $artist = Artist::factory()->create([
+            'user_id' => $this->admin->id,
+            'status' => 'active',
+        ]);
+        $baselinePendingReviewCount = Song::whereIn('status', ['pending', 'pending_review'])->count();
+
+        Song::factory()->create([
+            'user_id' => $this->admin->id,
+            'artist_id' => $artist->id,
+            'status' => 'pending',
+        ]);
+
+        Song::factory()->create([
+            'user_id' => $this->admin->id,
+            'artist_id' => $artist->id,
+            'status' => 'pending_review',
+        ]);
+
+        $response = $this->actingAs($this->admin)->getJson('/api/admin/songs/statistics');
+
+        $response->assertOk()
+            ->assertJsonPath('data.pending', $baselinePendingReviewCount + 2)
+            ->assertJsonPath('data.pending_review', $baselinePendingReviewCount + 2);
     }
 
     // ─── Settings ────────────────────────────────────────────────

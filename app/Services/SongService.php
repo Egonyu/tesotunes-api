@@ -83,9 +83,11 @@ class SongService
      */
     public function getTrendingSongs(int $days = 7, int $limit = 20): Collection
     {
-        return Song::with(['artist', 'album'])
-            ->where('status', 'published')
-            ->where('is_active', true)
+        return Song::with(['artist', 'album', 'primaryGenre'])
+            ->published()
+            ->whereHas('artist', function ($query) {
+                $query->where('status', 'active');
+            })
             ->whereHas('playHistory', function ($query) use ($days) {
                 $query->where('played_at', '>=', now()->subDays($days));
             })
@@ -93,6 +95,7 @@ class SongService
                 $query->where('played_at', '>=', now()->subDays($days));
             }])
             ->orderBy('recent_plays', 'desc')
+            ->orderBy('play_count', 'desc')
             ->limit($limit)
             ->get();
     }
@@ -102,9 +105,11 @@ class SongService
      */
     public function getNewReleases(int $days = 30, int $limit = 20): Collection
     {
-        return Song::with(['artist', 'album'])
-            ->where('status', 'published')
-            ->where('is_active', true)
+        return Song::with(['artist', 'album', 'primaryGenre'])
+            ->published()
+            ->whereHas('artist', function ($query) {
+                $query->where('status', 'active');
+            })
             ->where('created_at', '>=', now()->subDays($days))
             ->orderBy('created_at', 'desc')
             ->limit($limit)
@@ -116,10 +121,12 @@ class SongService
      */
     public function getSongsByGenre(string $genreSlug, int $perPage = 20): LengthAwarePaginator
     {
-        return Song::with(['artist', 'album', 'genre'])
-            ->where('status', 'published')
-            ->where('is_active', true)
-            ->whereHas('genre', function ($query) use ($genreSlug) {
+        return Song::with(['artist', 'album', 'primaryGenre'])
+            ->published()
+            ->whereHas('artist', function ($query) {
+                $query->where('status', 'active');
+            })
+            ->whereHas('primaryGenre', function ($query) use ($genreSlug) {
                 $query->where('slug', $genreSlug);
             })
             ->orderBy('created_at', 'desc')
@@ -131,9 +138,11 @@ class SongService
      */
     public function searchSongs(string $query, int $perPage = 20): LengthAwarePaginator
     {
-        return Song::with(['artist', 'album'])
-            ->where('status', 'published')
-            ->where('is_active', true)
+        return Song::with(['artist', 'album', 'primaryGenre'])
+            ->published()
+            ->whereHas('artist', function ($artistQuery) {
+                $artistQuery->where('status', 'active');
+            })
             ->where(function ($q) use ($query) {
                 $escaped = escape_like($query);
                 $q->where('title', 'LIKE', "%{$escaped}%")
@@ -290,6 +299,8 @@ class SongService
 
             // Process file upload
             $fileData = $this->storageService->uploadSong($songData['file'], $user);
+            $durationSeconds = (int) ($fileData['duration_seconds'] ?? $fileData['duration'] ?? 0);
+            $audioPath = $fileData['storage_path'] ?? $fileData['file_path'] ?? null;
 
             // Create song record
             $song = Song::create([
@@ -299,9 +310,8 @@ class SongService
                 'artist_id' => $user->artist->id,
                 'album_id' => $songData['album_id'] ?? null,
                 'primary_genre_id' => $songData['genre_id'] ?? null,
-                'duration' => $fileData['duration'],
-                'duration_seconds' => $fileData['duration'],
-                'audio_file_original' => $fileData['file_path'],
+                'duration_seconds' => $durationSeconds,
+                'audio_file_original' => $audioPath,
                 'file_size_bytes' => $fileData['file_size'] ?? $fileData['file_size_bytes'] ?? 0,
                 'file_format' => $fileData['file_format'],
                 'is_free' => $songData['is_free'] ?? false,
@@ -312,8 +322,9 @@ class SongService
             ]);
 
             // Handle cover art if provided
-            if (isset($songData['cover_art'])) {
-                $coverData = $this->storageService->uploadCoverArt($songData['cover_art'], $song);
+            $coverImage = $songData['cover_image'] ?? $songData['artwork'] ?? $songData['cover_art'] ?? null;
+            if ($coverImage) {
+                $coverData = $this->storageService->uploadCoverArt($coverImage, $song);
                 $song->update(['artwork' => $coverData['file_path']]);
             }
 

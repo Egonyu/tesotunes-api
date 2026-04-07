@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Artist;
+use App\Models\Song;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
@@ -174,6 +175,24 @@ class MusicStorageService
                 'error' => $e->getMessage(),
             ];
         }
+    }
+
+    /**
+     * Build a canonical local storage path for a song asset.
+     */
+    public function getSongPath(Song $song, string $variant): string
+    {
+        $extension = strtolower((string) ($song->file_format ?: pathinfo((string) $song->audio_file_original, PATHINFO_EXTENSION) ?: 'mp3'));
+        $baseDirectory = "songs/{$song->user_id}/{$song->id}";
+
+        return match ($variant) {
+            'original' => $song->audio_file_original ?: "{$baseDirectory}/original.{$extension}",
+            '320kbps' => $song->audio_file_320 ?: "{$baseDirectory}/320kbps.{$extension}",
+            '128kbps' => $song->audio_file_128 ?: "{$baseDirectory}/128kbps.{$extension}",
+            'preview' => $song->audio_file_preview ?: "{$baseDirectory}/preview.mp3",
+            'waveform' => "{$baseDirectory}/waveform.png",
+            default => "{$baseDirectory}/{$variant}.{$extension}",
+        };
     }
 
     /**

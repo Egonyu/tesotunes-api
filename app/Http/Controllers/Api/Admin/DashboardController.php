@@ -23,6 +23,15 @@ class DashboardController extends Controller
 {
     use HandlesApiErrors;
 
+    private function hasSongColumn(string $column): bool
+    {
+        static $songColumns = null;
+
+        $songColumns ??= array_flip(Schema::getColumnListing('songs'));
+
+        return isset($songColumns[$column]);
+    }
+
     /**
      * Get dashboard statistics
      */
@@ -58,8 +67,67 @@ class DashboardController extends Controller
                 // Songs stats
                 $totalSongs = Song::count();
                 $publishedSongs = Song::where('status', 'published')->count();
-                $pendingReview = Song::where('status', 'pending_review')->count();
+                $pendingReview = Song::whereIn('status', ['pending', 'pending_review'])->count();
                 $draftSongs = Song::where('status', 'draft')->count();
+                $isrcAssignedSongs = Song::whereNotNull('isrc_code')->count();
+                $songHasRightsColumns = $this->hasSongColumn('master_ownership_percentage') && $this->hasSongColumn('publishing_ownership_percentage');
+
+                $isrcReadySongsQuery = Song::query()
+                    ->whereNull('isrc_code')
+                    ->whereNotNull('artist_id')
+                    ->whereNotNull('title')
+                    ->where('duration_seconds', '>', 0)
+                    ->where(function ($query) {
+                        $query
+                            ->whereNotNull('audio_file_original')
+                            ->orWhereNotNull('audio_file_320')
+                            ->orWhereNotNull('audio_file_128');
+                    });
+
+                if ($songHasRightsColumns) {
+                    $isrcReadySongsQuery->whereRaw('COALESCE(master_ownership_percentage, 0) + COALESCE(publishing_ownership_percentage, 0) <= 200');
+                }
+
+                $isrcReadySongs = $isrcReadySongsQuery
+                    ->where(function ($query) {
+                        $query
+                            ->whereIn('distribution_status', ['approved', 'distributed'])
+                            ->orWhere(function ($publishedQuery) {
+                                $publishedQuery
+                                    ->where('status', 'published')
+                                    ->whereNotNull('approved_at');
+                            });
+                    })
+                    ->count();
+                $isrcBlockedSongsQuery = Song::query()
+                    ->whereNull('isrc_code')
+                    ->where(function ($query) {
+                        $query
+                            ->whereIn('distribution_status', ['approved', 'distributed'])
+                            ->orWhere(function ($publishedQuery) {
+                                $publishedQuery
+                                    ->where('status', 'published')
+                                    ->whereNotNull('approved_at');
+                            });
+                    })
+                    ->where(function ($query) {
+                        $query
+                            ->whereNull('artist_id')
+                            ->orWhereNull('title')
+                            ->orWhere('duration_seconds', '<=', 0)
+                            ->orWhere(function ($audioMissingQuery) {
+                                $audioMissingQuery
+                                    ->whereNull('audio_file_original')
+                                    ->whereNull('audio_file_320')
+                                    ->whereNull('audio_file_128');
+                            });
+
+                        if ($songHasRightsColumns) {
+                            $query->orWhereRaw('COALESCE(master_ownership_percentage, 0) + COALESCE(publishing_ownership_percentage, 0) > 200');
+                        }
+                    });
+
+                $isrcBlockedSongs = $isrcBlockedSongsQuery->count();
 
                 $totalPlays = PlayHistory::count();
                 $playsToday = PlayHistory::whereDate($playHistoryTimestampColumn, $today)->count();
@@ -214,6 +282,9 @@ class DashboardController extends Controller
                         'published' => $publishedSongs,
                         'pending_review' => $pendingReview,
                         'draft' => $draftSongs,
+                        'isrc_assigned' => $isrcAssignedSongs,
+                        'isrc_ready' => $isrcReadySongs,
+                        'isrc_blocked' => $isrcBlockedSongs,
                         'total_plays' => $totalPlays,
                         'plays_today' => $playsToday,
                         'change_percentage' => round((float) $songsChange, 1),

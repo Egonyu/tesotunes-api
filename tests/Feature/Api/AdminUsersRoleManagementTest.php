@@ -218,4 +218,38 @@ class AdminUsersRoleManagementTest extends TestCase
 
         $this->assertNotSame($firstArtist->slug, $secondArtist->slug);
     }
+
+    public function test_moderator_can_view_users_but_not_mutate_them(): void
+    {
+        Role::query()->firstOrCreate(
+            ['name' => 'moderator'],
+            ['display_name' => 'Moderator', 'description' => 'Moderator access', 'is_active' => true, 'priority' => 4]
+        );
+
+        $moderator = User::factory()->create();
+        $moderator->assignRole('moderator', $this->admin->id);
+        $moderator->clearPermissionCache();
+
+        $managedUser = User::factory()->create();
+        $managedUser->assignRole('user', $this->admin->id);
+        $managedUser->clearPermissionCache();
+
+        $this->actingAs($moderator)
+            ->getJson('/api/admin/users')
+            ->assertOk();
+
+        $this->actingAs($moderator)
+            ->getJson("/api/admin/users/{$managedUser->id}")
+            ->assertOk();
+
+        $this->actingAs($moderator)
+            ->postJson('/api/admin/users', [
+                'name' => 'Blocked Create',
+                'email' => 'blocked-create@example.com',
+                'password' => 'password123',
+                'role' => 'user',
+                'is_active' => true,
+            ])
+            ->assertForbidden();
+    }
 }

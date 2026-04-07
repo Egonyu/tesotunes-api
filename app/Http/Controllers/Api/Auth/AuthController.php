@@ -280,7 +280,7 @@ class AuthController extends Controller
             ], 401);
         }
 
-        if (! $user->hasAnyRole(['admin', 'super_admin'])) {
+        if (! $user->hasAnyRole(['admin', 'super_admin', 'moderator'])) {
             return response()->json([
                 'message' => 'Invalid credentials',
             ], 401);

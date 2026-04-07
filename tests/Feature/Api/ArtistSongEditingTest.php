@@ -331,6 +331,50 @@ class ArtistSongEditingTest extends TestCase
         $this->assertSame(11, $song->file_size_bytes);
     }
 
+    public function test_artist_song_endpoints_return_numeric_and_formatted_duration_fields(): void
+    {
+        $song = Song::factory()->create([
+            'artist_id' => $this->artist->id,
+            'user_id' => $this->artistUser->id,
+            'title' => 'Duration Contract Song',
+            'duration_seconds' => 185,
+        ]);
+
+        $this->actingAs($this->artistUser)
+            ->getJson('/api/artist/songs')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', $song->id)
+            ->assertJsonPath('data.0.slug', $song->slug)
+            ->assertJsonPath('data.0.duration_seconds', 185)
+            ->assertJsonPath('data.0.duration_formatted', '3:05')
+            ->assertJsonPath('data.0.artist.id', $this->artist->id)
+            ->assertJsonPath('data.0.artist.slug', $this->artist->slug);
+
+        $this->actingAs($this->artistUser)
+            ->getJson("/api/artist/songs/{$song->id}")
+            ->assertOk()
+            ->assertJsonPath('data.slug', $song->slug)
+            ->assertJsonPath('data.duration_seconds', 185)
+            ->assertJsonPath('data.duration_formatted', '3:05')
+            ->assertJsonPath('data.artist.id', $this->artist->id)
+            ->assertJsonPath('data.artist.slug', $this->artist->slug);
+    }
+
+    public function test_artist_song_create_requires_canonical_audio_field_name(): void
+    {
+        $audio = UploadedFile::fake()->create('legacy-field.mp3', 1024, 'audio/mpeg');
+
+        $response = $this->actingAs($this->artistUser)->post('/api/artist/songs', [
+            'title' => 'Legacy Alias Upload',
+            'audio_file' => $audio,
+            'is_free' => '1',
+            'is_downloadable' => '1',
+        ], ['Accept' => 'application/json']);
+
+        $response->assertStatus(422)
+            ->assertJsonValidationErrors(['audio']);
+    }
+
     public function test_artist_can_create_song_from_direct_cloud_upload_references(): void
     {
         config([
@@ -339,9 +383,10 @@ class ArtistSongEditingTest extends TestCase
         ]);
         Storage::fake('digitalocean');
 
-        $audioKey = 'songs/audio/direct/'.$this->artistUser->id.'/'.uniqid('audio_', true).'.mp3';
+        $wavBinary = $this->tinyWavBinary();
+        $audioKey = 'songs/audio/direct/'.$this->artistUser->id.'/'.uniqid('audio_', true).'.wav';
         $coverKey = 'songs/artwork/direct/'.$this->artistUser->id.'/'.uniqid('cover_', true).'.jpg';
-        Storage::disk('digitalocean')->put($audioKey, str_repeat('a', 1024));
+        Storage::disk('digitalocean')->put($audioKey, $wavBinary);
         Storage::disk('digitalocean')->put($coverKey, str_repeat('b', 512));
 
         $title = 'Direct Upload Song '.uniqid();
@@ -349,8 +394,8 @@ class ArtistSongEditingTest extends TestCase
         $response = $this->actingAs($this->artistUser)->postJson('/api/artist/songs', [
             'title' => $title,
             'uploaded_audio_key' => $audioKey,
-            'uploaded_audio_original_name' => 'direct-upload-song.mp3',
-            'uploaded_audio_size_bytes' => 1024,
+            'uploaded_audio_original_name' => 'direct-upload-song.wav',
+            'uploaded_audio_size_bytes' => strlen($wavBinary),
             'uploaded_cover_key' => $coverKey,
             'uploaded_cover_original_name' => 'direct-upload-song.jpg',
             'is_free' => true,
@@ -365,7 +410,8 @@ class ArtistSongEditingTest extends TestCase
         $this->assertSame($audioKey, $song->audio_file_original);
         $this->assertSame($audioKey, $song->audio_file_320);
         $this->assertSame($coverKey, $song->artwork);
-        $this->assertSame(1024, $song->file_size_bytes);
+        $this->assertGreaterThan(0, (int) $song->duration_seconds);
+        $this->assertSame(strlen($wavBinary), $song->file_size_bytes);
     }
 
     public function test_artist_can_upload_profile_avatar_via_dedicated_route(): void
@@ -385,5 +431,22 @@ class ArtistSongEditingTest extends TestCase
         $this->assertNotNull($this->artist->avatar);
         Storage::disk('public')->assertExists($this->artist->avatar);
         $this->assertStringContainsString($this->artist->avatar, (string) $response->json('data.url'));
+    }
+
+    private function tinyWavBinary(int $durationSeconds = 1, int $sampleRate = 8000): string
+    {
+        $sampleCount = max(1, $durationSeconds) * $sampleRate;
+        $dataSize = $sampleCount * 2;
+        $byteRate = $sampleRate * 2;
+        $blockAlign = 2;
+        $chunkSize = 36 + $dataSize;
+
+        return 'RIFF'
+            .pack('V', $chunkSize)
+            .'WAVEfmt '
+            .pack('VvvVVvv', 16, 1, 1, $sampleRate, $byteRate, $blockAlign, 16)
+            .'data'
+            .pack('V', $dataSize)
+            .str_repeat("\x00\x00", $sampleCount);
     }
 }

@@ -4,6 +4,7 @@ namespace App\Services\Settings;
 
 use App\Models\Artist;
 use App\Models\Setting;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -91,7 +92,7 @@ class ArtistSettingsService
             $this->clearCache();
 
             Log::info('Artist verification settings updated', [
-                'admin_id' => auth()->id(),
+                'admin_id' => Auth::id(),
                 'settings' => array_keys($settings),
             ]);
 
@@ -141,9 +142,12 @@ class ArtistSettingsService
 
             // Save settings
             foreach ($settings as $key => $value) {
-                $type = is_bool($value)
-                    ? Setting::TYPE_BOOLEAN
-                    : (is_numeric($value) ? Setting::TYPE_NUMBER : Setting::TYPE_STRING);
+                $type = match ($key) {
+                    'artist_revenue_share', 'artist_min_payout' => 'float',
+                    default => is_bool($value)
+                        ? Setting::TYPE_BOOLEAN
+                        : (is_numeric($value) ? Setting::TYPE_NUMBER : Setting::TYPE_STRING),
+                };
                 Setting::set($key, $value, $type, Setting::GROUP_ARTISTS);
             }
 
@@ -151,7 +155,7 @@ class ArtistSettingsService
             $this->clearCache();
 
             Log::info('Artist monetization settings updated', [
-                'admin_id' => auth()->id(),
+                'admin_id' => Auth::id(),
                 'settings' => array_keys($settings),
                 'revenue_share' => $settings['artist_revenue_share'],
             ]);
@@ -208,7 +212,7 @@ class ArtistSettingsService
             $this->clearCache();
 
             Log::info('Artist restrictions settings updated', [
-                'admin_id' => auth()->id(),
+                'admin_id' => Auth::id(),
                 'settings' => array_keys($settings),
             ]);
 

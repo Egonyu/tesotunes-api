@@ -212,6 +212,32 @@ class AdminReportsApiTest extends TestCase
         $this->assertNotNull($report->reviewed_at);
     }
 
+    public function test_moderator_can_access_report_workflow(): void
+    {
+        $moderator = $this->createUserWithRole('moderator');
+
+        $report = ModerationReport::create([
+            'type' => ModerationReport::TYPE_CONTENT,
+            'reason' => 'Unsafe content',
+            'description' => 'Needs review',
+            'status' => ModerationReport::STATUS_PENDING,
+            'priority' => ModerationReport::PRIORITY_HIGH,
+            'reported_item' => 'Community post',
+        ]);
+
+        $this->actingAs($moderator)
+            ->getJson('/api/admin/reports/stats')
+            ->assertOk()
+            ->assertJsonPath('success', true);
+
+        $this->actingAs($moderator)
+            ->postJson("/api/admin/reports/{$report->id}/status", [
+                'status' => ModerationReport::STATUS_REVIEWING,
+            ])
+            ->assertOk()
+            ->assertJsonPath('success', true);
+    }
+
     private function seedStreamingPayoutReportRecords(): array
     {
         Setting::set('platform_commissions', [

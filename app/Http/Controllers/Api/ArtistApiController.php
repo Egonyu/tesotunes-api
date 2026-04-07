@@ -14,6 +14,7 @@ use App\Models\Song;
 use App\Models\User;
 use App\Notifications\AdminSongPendingNotification;
 use App\Notifications\SongModerationNotification;
+use App\Services\Audio\AudioMetadataService;
 use App\Services\NotificationRoutingService;
 use App\Services\PayoutService;
 use App\Services\Revenue\StreamingRateService;
@@ -27,15 +28,19 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class ArtistApiController extends Controller
 {
+    private static ?array $songTableColumns = null;
+
     public function __construct(
         private readonly NotificationRoutingService $notificationRoutingService,
-        private readonly SongMultipartUploadService $songMultipartUploadService
+        private readonly SongMultipartUploadService $songMultipartUploadService,
+        private readonly AudioMetadataService $audioMetadataService
     ) {}
 
     // ========================================================================
@@ -86,6 +91,13 @@ class ArtistApiController extends Controller
         }
 
         return $artist;
+    }
+
+    private function persistableSongAttributes(array $attributes): array
+    {
+        $columns = self::$songTableColumns ??= array_flip(Schema::getColumnListing((new Song)->getTable()));
+
+        return array_intersect_key($attributes, $columns);
     }
 
     // ========================================================================
@@ -247,16 +259,26 @@ class ArtistApiController extends Controller
 
         return response()->json([
             'data' => $songs->map(fn ($song) => [
+                'duration_seconds' => (int) ($song->duration_seconds ?? 0),
+                'duration_formatted' => $this->formatDuration((int) ($song->duration_seconds ?? 0)),
                 'id' => $song->id,
                 'title' => $song->title,
-                'cover' => StorageHelper::url($song->artwork),
+                'slug' => $song->slug,
                 'artwork_url' => StorageHelper::url($song->artwork),
+                'audio_url' => StorageHelper::streamingUrl($song->audio_file_320, $song->audio_file_128, $song->audio_file_original),
+                'stream_url' => StorageHelper::streamingUrl($song->audio_file_320, $song->audio_file_128, $song->audio_file_original),
+                'preview_url' => StorageHelper::temporaryUrl($song->audio_file_preview),
+                'artist' => [
+                    'id' => $artist->id,
+                    'name' => $artist->stage_name ?? $artist->name,
+                    'slug' => $artist->slug,
+                ],
                 'album' => $song->album ? $song->album->title : null,
                 'plays' => (int) ($song->play_count ?? 0),
                 'downloads' => (int) ($song->download_count ?? 0),
-                'duration' => $this->formatDuration($song->duration_seconds),
                 'status' => $song->status ?? 'draft',
                 'release_date' => $song->release_date ?? $song->created_at->toDateString(),
+                'created_at' => optional($song->created_at)?->toIso8601String(),
             ]),
             'pagination' => [
                 'current_page' => $songs->currentPage(),
@@ -285,15 +307,24 @@ class ArtistApiController extends Controller
 
         return response()->json([
             'data' => [
+                'duration_seconds' => (int) ($song->duration_seconds ?? 0),
+                'duration_formatted' => $this->formatDuration((int) ($song->duration_seconds ?? 0)),
                 'id' => $song->id,
                 'title' => $song->title,
-                'cover' => StorageHelper::url($song->artwork),
+                'slug' => $song->slug,
                 'artwork_url' => StorageHelper::url($song->artwork),
+                'audio_url' => StorageHelper::streamingUrl($song->audio_file_320, $song->audio_file_128, $song->audio_file_original),
+                'stream_url' => StorageHelper::streamingUrl($song->audio_file_320, $song->audio_file_128, $song->audio_file_original),
+                'preview_url' => StorageHelper::temporaryUrl($song->audio_file_preview),
+                'artist' => [
+                    'id' => $artist->id,
+                    'name' => $artist->stage_name ?? $artist->name,
+                    'slug' => $artist->slug,
+                ],
                 'album' => $song->album ? $song->album->title : null,
                 'album_id' => $song->album_id,
                 'plays' => (int) ($song->play_count ?? 0),
                 'downloads' => (int) ($song->download_count ?? 0),
-                'duration' => $this->formatDuration($song->duration_seconds),
                 'status' => $song->status ?? 'draft',
                 'release_date' => $song->release_date ?? $song->created_at->toDateString(),
                 'lyrics' => $song->lyrics,
@@ -305,11 +336,15 @@ class ArtistApiController extends Controller
                 'price' => $song->price,
                 'is_free' => (bool) $song->is_free,
                 'is_downloadable' => (bool) $song->is_downloadable,
+                'isrc' => $song->isrc_code,
+                'isrc_assignment' => $song->getIsrcAssignmentSummary(),
                 'featured_artists' => is_array($song->featured_artists)
                     ? implode(', ', array_filter($song->featured_artists))
                     : $song->featured_artists,
                 'composer' => $song->composer,
                 'producer' => $song->producer,
+                'created_at' => optional($song->created_at)?->toIso8601String(),
+                'updated_at' => optional($song->updated_at)?->toIso8601String(),
             ],
         ]);
     }
@@ -592,17 +627,13 @@ class ArtistApiController extends Controller
 
         $validated = $request->validate([
             'title' => 'required|string|max:255',
-            // Accept both 'audio' and 'audio_file' field names
-            'audio' => 'required_without_all:audio_file,uploaded_audio_key,uploaded_audio_session_id|file|mimes:mp3,wav,flac,aac,m4a,ogg|max:'.$this->maxSongAudioKilobytes(),
-            'audio_file' => 'required_without_all:audio,uploaded_audio_key,uploaded_audio_session_id|file|mimes:mp3,wav,flac,aac,m4a,ogg|max:'.$this->maxSongAudioKilobytes(),
-            'uploaded_audio_key' => 'required_without_all:audio,audio_file,uploaded_audio_session_id|string|max:1024',
-            'uploaded_audio_session_id' => 'required_without_all:audio,audio_file,uploaded_audio_key|string|size:36',
+            'audio' => 'required_without_all:uploaded_audio_key,uploaded_audio_session_id|file|mimes:mp3,wav,flac,aac,m4a,ogg|max:'.$this->maxSongAudioKilobytes(),
+            'uploaded_audio_key' => 'required_without_all:audio,uploaded_audio_session_id|string|max:1024',
+            'uploaded_audio_session_id' => 'required_without_all:audio,uploaded_audio_key|string|size:36',
             'uploaded_audio_original_name' => 'required_with:uploaded_audio_key|string|max:255',
             'uploaded_audio_mime_type' => 'nullable|string|max:255',
             'uploaded_audio_size_bytes' => 'nullable|integer|min:1|max:'.$this->maxSongAudioBytes(),
-            // Accept both 'cover' and 'cover_image' field names
             'cover' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
-            'cover_image' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
             'uploaded_cover_key' => 'nullable|string|max:1024',
             'uploaded_cover_original_name' => 'required_with:uploaded_cover_key|string|max:255',
             'uploaded_cover_mime_type' => 'nullable|string|max:255',
@@ -623,6 +654,7 @@ class ArtistApiController extends Controller
         ]);
 
         [$audioPath, $audioExt, $audioSize] = $this->resolveSongAudioUpload($request, $validated);
+        $audioMetadata = $this->audioMetadataService->extractFromStoragePath($audioPath, $this->songUploadDiskName());
 
         // Handle cover image (accept either field name)
         $artworkPath = null;
@@ -656,7 +688,7 @@ class ArtistApiController extends Controller
             $status = 'pending';
         }
 
-        $song = Song::create([
+        $song = Song::create($this->persistableSongAttributes([
             'title' => $validated['title'],
             'slug' => $slug,
             'artist_id' => $artist->id,
@@ -678,12 +710,14 @@ class ArtistApiController extends Controller
             'audio_file_original' => $audioPath,
             'audio_file_320' => $audioPath,
             'artwork' => $artworkPath,
-            'file_format' => $audioExt,
-            'file_size_bytes' => $audioSize,
+            'file_format' => $audioMetadata['file_format'] ?? $audioExt,
+            'file_size_bytes' => $audioMetadata['file_size_bytes'] ?? $audioSize,
+            'bitrate_original' => $audioMetadata['bitrate_original'] ?? null,
+            'sample_rate' => $audioMetadata['sample_rate'] ?? null,
             'processing_status' => ['status' => 'completed', 'progress' => 100],
             'visibility' => 'public',
-            'duration_seconds' => 0,
-        ]);
+            'duration_seconds' => (int) ($audioMetadata['duration_seconds'] ?? 0),
+        ]));
 
         if (! empty($validated['uploaded_audio_session_id'])) {
             $session = MediaUploadSession::query()
@@ -735,6 +769,8 @@ class ArtistApiController extends Controller
                 'title' => $song->title,
                 'status' => $song->status,
                 'artwork_url' => $artworkPath ? Storage::disk($this->songUploadDiskName())->url($artworkPath) : null,
+                'duration_seconds' => (int) ($song->duration_seconds ?? 0),
+                'duration_formatted' => $this->formatDuration((int) ($song->duration_seconds ?? 0)),
             ],
         ], 201);
     }
@@ -767,7 +803,7 @@ class ArtistApiController extends Controller
             'is_downloadable' => 'sometimes',
             'is_free' => 'sometimes',
             'cover' => 'sometimes|nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
-            'cover_image' => 'sometimes|nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
+            'cover' => 'sometimes|nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
         ]);
 
         $updateData = [];
@@ -816,7 +852,7 @@ class ArtistApiController extends Controller
             $updateData['primary_genre_id'] = $genreId;
         }
 
-        $coverFile = $request->file('cover') ?? $request->file('cover_image');
+        $coverFile = $request->file('cover');
         if ($coverFile && $coverFile->isValid()) {
             $coverFileName = Str::uuid().'.'.$coverFile->getClientOriginalExtension();
             $artworkPath = 'songs/artwork/'.$coverFileName;
@@ -2081,7 +2117,7 @@ class ArtistApiController extends Controller
             );
         }
 
-        $audioFile = $request->file('audio') ?? $request->file('audio_file');
+        $audioFile = $request->file('audio');
         if (! $audioFile) {
             abort(response()->json([
                 'message' => 'Audio file is required.',
@@ -2129,7 +2165,7 @@ class ArtistApiController extends Controller
             );
         }
 
-        $coverFile = $request->file('cover') ?? $request->file('cover_image');
+        $coverFile = $request->file('cover');
         if (! $coverFile || ! $coverFile->isValid()) {
             return null;
         }

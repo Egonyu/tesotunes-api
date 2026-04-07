@@ -38,7 +38,7 @@ class MobileContentController extends Controller
                     'artist' => $song->artist->name ?? 'Unknown Artist',
                     'artist_id' => $song->artist_id,
                     'artwork' => $song->artwork_url,
-                    'duration' => $song->duration_seconds,
+                    'duration_seconds' => $song->duration_seconds,
                     'duration_formatted' => $this->formatDuration($song->duration_seconds),
                     'play_count' => $song->play_count ?? 0,
                     'like_count' => $song->like_count ?? 0,
@@ -130,10 +130,13 @@ class MobileContentController extends Controller
         $limit = $request->input('limit', 10);
 
         $stations = Playlist::with(['user'])
-            ->where('is_public', true)
+            ->public()
             ->where(function ($query) {
-                $query->where('type', 'radio')
-                    ->orWhere('is_featured', true);
+                $query->where('is_featured', true)
+                    ->orWhere('name', 'like', '%radio%')
+                    ->orWhere('name', 'like', '%mix%')
+                    ->orWhere('description', 'like', '%radio%')
+                    ->orWhere('description', 'like', '%station%');
             })
             ->withCount('songs')
             ->orderByDesc('is_featured')
@@ -143,11 +146,12 @@ class MobileContentController extends Controller
             ->map(function ($playlist) {
                 return [
                     'id' => $playlist->id,
-                    'title' => $playlist->title,
+                    'name' => $playlist->name,
                     'description' => $playlist->description ? (strlen($playlist->description) > 100 ? substr($playlist->description, 0, 100).'...' : $playlist->description) : null,
-                    'artwork' => $playlist->artwork ? \App\Helpers\StorageHelper::url($playlist->artwork) : asset('images/default-playlist.png'),
+                    'artwork' => $playlist->artwork_url,
                     'curator' => $playlist->user->name ?? 'Music App',
                     'songs_count' => $playlist->songs_count ?? 0,
+                    'play_count' => $playlist->play_count ?? 0,
                     'is_featured' => $playlist->is_featured ?? false,
                     'slug' => $playlist->slug,
                 ];

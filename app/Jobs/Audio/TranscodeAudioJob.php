@@ -93,7 +93,7 @@ class TranscodeAudioJob implements ShouldQueue
             }
 
             // Update song metadata
-            $this->updateSongMetadata();
+            $this->updateSongMetadata($outputPath);
 
             Log::info('Audio transcoding completed', [
                 'song_id' => $this->song->id,
@@ -115,12 +115,15 @@ class TranscodeAudioJob implements ShouldQueue
     /**
      * Update song metadata after transcoding
      */
-    private function updateSongMetadata(): void
+    private function updateSongMetadata(string $outputPath): void
     {
         $processingStatus = $this->song->processing_status ?? [];
         $processingStatus[$this->quality] = 'completed';
 
+        $field = $this->quality === '320kbps' ? 'audio_file_320' : 'audio_file_128';
+
         $this->song->update([
+            $field => $outputPath,
             'processing_status' => $processingStatus,
         ]);
     }

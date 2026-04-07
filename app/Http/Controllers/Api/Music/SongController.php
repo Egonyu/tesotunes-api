@@ -32,7 +32,20 @@ class SongController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = min((int) $request->get('per_page', 20), 100);
+        $perPage = min((int) $request->get('per_page', $request->get('limit', 20)), 100);
+        $sort = (string) $request->get('sort', '-created_at');
+        $sortField = ltrim($sort, '-');
+        $sortDirection = str_starts_with($sort, '-') ? 'desc' : 'asc';
+        $allowedSortFields = [
+            'created_at',
+            'updated_at',
+            'play_count',
+            'like_count',
+            'download_count',
+            'title',
+            'release_date',
+        ];
+        $sortField = in_array($sortField, $allowedSortFields, true) ? $sortField : 'created_at';
 
         $songs = Song::with(['artist', 'album', 'primaryGenre'])
             ->published()
@@ -44,7 +57,21 @@ class SongController extends Controller
             ->when($request->filled('search'), function ($q) use ($request) {
                 $q->where('title', 'like', '%'.escape_like($request->search).'%');
             })
-            ->orderByDesc('created_at')
+            ->when($request->filled('period'), function ($q) use ($request) {
+                $days = match ((string) $request->get('period')) {
+                    'day', 'today' => 1,
+                    'week' => 7,
+                    'month' => 30,
+                    'year' => 365,
+                    default => null,
+                };
+
+                if ($days !== null) {
+                    $q->where('created_at', '>=', now()->subDays($days));
+                }
+            })
+            ->orderBy($sortField, $sortDirection)
+            ->orderByDesc('id')
             ->paginate($perPage);
 
         return SongResource::collection($songs);
@@ -76,16 +103,11 @@ class SongController extends Controller
                 $request->get('limit', 20)
             );
 
-            return response()->json([
-                'success' => true,
-                'data' => $songs,
-            ]);
+            return SongResource::collection($songs)->response();
 
         } catch (\Exception $e) {
             return response()->json([
-                'success' => false,
                 'message' => 'Failed to fetch trending songs',
-                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -98,16 +120,11 @@ class SongController extends Controller
                 $request->get('limit', 20)
             );
 
-            return response()->json([
-                'success' => true,
-                'data' => $songs,
-            ]);
+            return SongResource::collection($songs)->response();
 
         } catch (\Exception $e) {
             return response()->json([
-                'success' => false,
                 'message' => 'Failed to fetch new releases',
-                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -120,16 +137,11 @@ class SongController extends Controller
                 $request->get('per_page', 20)
             );
 
-            return response()->json([
-                'success' => true,
-                'data' => $songs,
-            ]);
+            return SongResource::collection($songs)->response();
 
         } catch (\Exception $e) {
             return response()->json([
-                'success' => false,
                 'message' => 'Failed to fetch songs by genre',
-                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -141,7 +153,6 @@ class SongController extends Controller
 
             if (! $query) {
                 return response()->json([
-                    'success' => false,
                     'message' => 'Search query is required',
                 ], 400);
             }
@@ -151,16 +162,11 @@ class SongController extends Controller
                 $request->get('per_page', 20)
             );
 
-            return response()->json([
-                'success' => true,
-                'data' => $songs,
-            ]);
+            return SongResource::collection($songs)->response();
 
         } catch (\Exception $e) {
             return response()->json([
-                'success' => false,
                 'message' => 'Search failed',
-                'error' => $e->getMessage(),
             ], 500);
         }
     }

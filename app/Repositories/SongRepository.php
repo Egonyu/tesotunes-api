@@ -288,7 +288,7 @@ class SongRepository implements SongRepositoryInterface
     {
         return $this->model
             ->with(['artist', 'user'])
-            ->where('status', 'pending')
+            ->whereIn('status', ['pending', 'pending_review'])
             ->orderBy('created_at', 'asc')
             ->paginate($perPage);
     }

@@ -25,9 +25,10 @@ class ISRCController extends Controller
     {
         try {
             $user = $request->user();
+            $isAdmin = $user?->hasAnyRole(['admin', 'super_admin']) ?? false;
 
             // Ownership check
-            if ($song->user_id !== $user->id && $song->artist_id !== $user->artist?->id) {
+            if (! $isAdmin && $song->user_id !== $user->id && $song->artist_id !== $user->artist?->id) {
                 return response()->json([
                     'success' => false,
                     'message' => 'You do not own this song.',
@@ -43,8 +44,17 @@ class ISRCController extends Controller
                 ], 422);
             }
 
-            $isrcCode = $this->isrcService->generate($song);
-            $song->update(['isrc_code' => $isrcCode]);
+            if (! $song->canAssignIsrc()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Song is not eligible for ISRC assignment.',
+                    'data' => [
+                        'blockers' => $song->getIsrcAssignmentBlockers(),
+                    ],
+                ], 422);
+            }
+
+            $isrcCode = $this->isrcService->assignToSong($song);
 
             return response()->json([
                 'success' => true,
@@ -71,25 +81,27 @@ class ISRCController extends Controller
     {
         try {
             $user = $request->user();
+            $isAdmin = $user?->hasAnyRole(['admin', 'super_admin']) ?? false;
 
-            if ($album->artist_id !== $user->artist?->id) {
+            if (! $isAdmin && $album->artist_id !== $user->artist?->id) {
                 return response()->json([
                     'success' => false,
                     'message' => 'You do not own this album.',
                 ], 403);
             }
 
-            $song = $album->songs()->whereNull('isrc_code')->first();
+            $song = $album->songs()
+                ->get()
+                ->first(fn (Song $candidate) => ! $candidate->isrc_code && $candidate->canAssignIsrc());
 
             if (! $song) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'All songs in this album already have ISRC codes.',
+                    'message' => 'No eligible songs in this album are ready for ISRC assignment.',
                 ], 422);
             }
 
-            $isrcCode = $this->isrcService->generate($song);
-            $song->update(['isrc_code' => $isrcCode]);
+            $isrcCode = $this->isrcService->assignToSong($song);
 
             return response()->json([
                 'success' => true,
@@ -117,20 +129,24 @@ class ISRCController extends Controller
     {
         try {
             $user = $request->user();
+            $isAdmin = $user?->hasAnyRole(['admin', 'super_admin']) ?? false;
 
-            if ($album->artist_id !== $user->artist?->id) {
+            if (! $isAdmin && $album->artist_id !== $user->artist?->id) {
                 return response()->json([
                     'success' => false,
                     'message' => 'You do not own this album.',
                 ], 403);
             }
 
-            $songs = $album->songs()->whereNull('isrc_code')->get();
+            $songs = $album->songs()
+                ->get()
+                ->filter(fn (Song $song) => ! $song->isrc_code && $song->canAssignIsrc())
+                ->values();
 
             if ($songs->isEmpty()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'All songs in this album already have ISRC codes.',
+                    'message' => 'No songs in this album are eligible for ISRC assignment.',
                 ], 422);
             }
 
@@ -140,7 +156,6 @@ class ISRCController extends Controller
             $generated = [];
             foreach ($results as $songId => $code) {
                 if ($code) {
-                    Song::where('id', $songId)->update(['isrc_code' => $code]);
                     $generated[] = ['song_id' => $songId, 'isrc_code' => $code];
                 }
             }
@@ -264,24 +279,30 @@ class ISRCController extends Controller
             ]);
 
             $user = $request->user();
-            $songs = Song::whereIn('id', $validated['song_ids'])
-                ->where('user_id', $user->id)
-                ->whereNull('isrc_code')
-                ->get();
+            $songsQuery = Song::whereIn('id', $validated['song_ids']);
 
-            if ($songs->isEmpty()) {
+            if (! ($user?->hasAnyRole(['admin', 'super_admin']) ?? false)) {
+                $songsQuery->where('user_id', $user->id);
+            }
+
+            $songs = $songsQuery->get();
+
+            $eligibleSongs = $songs
+                ->filter(fn (Song $song) => ! $song->isrc_code && $song->canAssignIsrc())
+                ->values();
+
+            if ($eligibleSongs->isEmpty()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No eligible songs found (must be owned by you and lack an ISRC code).',
+                    'message' => 'No eligible songs found (songs must be owned by you, approved for release/distribution, and lack an ISRC code).',
                 ], 422);
             }
 
-            $results = $this->isrcService->bulkGenerate($songs->all());
+            $results = $this->isrcService->bulkGenerate($eligibleSongs->all());
 
             $generated = [];
             foreach ($results as $songId => $code) {
                 if ($code) {
-                    Song::where('id', $songId)->update(['isrc_code' => $code]);
                     $generated[] = ['song_id' => $songId, 'isrc_code' => $code];
                 }
             }
@@ -291,7 +312,7 @@ class ISRCController extends Controller
                 'message' => count($generated).' ISRC codes generated.',
                 'data' => [
                     'requested' => count($validated['song_ids']),
-                    'eligible' => $songs->count(),
+                    'eligible' => $eligibleSongs->count(),
                     'generated' => count($generated),
                     'codes' => $generated,
                 ],

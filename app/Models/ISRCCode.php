@@ -14,6 +14,7 @@ class ISRCCode extends Model
     protected $table = 'isrc_codes';
 
     protected $fillable = [
+        'code',
         'isrc_code',
         'formatted_isrc',
         'song_id',
@@ -57,6 +58,7 @@ class ISRCCode extends Model
     ];
 
     protected $casts = [
+        'verified_at' => 'datetime',
         'recording_date' => 'date',
         'recording_details' => 'array',
         'master_ownership_percentage' => 'decimal:2',
@@ -78,6 +80,43 @@ class ISRCCode extends Model
         'distribution_restrictions' => 'array',
         'territorial_restrictions' => 'array',
     ];
+
+    public function getIsrcCodeAttribute($value): ?string
+    {
+        if (is_string($value) && $value !== '') {
+            return $value;
+        }
+
+        $legacyValue = $this->attributes['code'] ?? null;
+
+        return is_string($legacyValue) && $legacyValue !== '' ? $legacyValue : null;
+    }
+
+    public function setIsrcCodeAttribute($value): void
+    {
+        $normalized = is_string($value) ? trim($value) : $value;
+        $normalized = $normalized === '' ? null : $normalized;
+
+        $this->attributes['isrc_code'] = $normalized;
+        $this->attributes['code'] = $normalized;
+
+        if (empty($this->attributes['formatted_isrc'])) {
+            $this->attributes['formatted_isrc'] = $normalized;
+        }
+    }
+
+    public function setCodeAttribute($value): void
+    {
+        $normalized = is_string($value) ? trim($value) : $value;
+        $normalized = $normalized === '' ? null : $normalized;
+
+        $this->attributes['code'] = $normalized;
+        $this->attributes['isrc_code'] = $normalized;
+
+        if (empty($this->attributes['formatted_isrc'])) {
+            $this->attributes['formatted_isrc'] = $normalized;
+        }
+    }
 
     // Relationships
     public function song(): BelongsTo

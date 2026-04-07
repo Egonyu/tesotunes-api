@@ -16,26 +16,15 @@ class SongStreamingAccessResource extends JsonResource
         $user = $request->user();
         $canStream = $this->canStreamFor($user);
         $streamingUrl = $canStream ? $this->streamingUrlFor($user) : null;
+        $previewUrl = ! empty($this->audio_file_preview)
+            ? StorageHelper::temporaryUrl($this->audio_file_preview, 30)
+            : null;
 
         return [
-            // stream_url: pre-signed CDN URL valid for 15 minutes (Spotify-style).
-            // Only included when the user has streaming access.
-            'stream_url' => $this->when(
-                $canStream,
-                fn () => $streamingUrl
-            ),
-
-            // audio_url kept for backward compatibility — same value as stream_url.
-            'audio_url' => $this->when(
-                $canStream,
-                fn () => $streamingUrl
-            ),
-
-            // preview_url: 30-second preview clip, no auth required for free tracks.
-            'preview_url' => $this->when(
-                ! empty($this->audio_file_preview),
-                fn () => StorageHelper::temporaryUrl($this->audio_file_preview, 30)
-            ),
+            // Emit the keys consistently so clients can rely on a stable contract.
+            'stream_url' => $streamingUrl,
+            'audio_url' => $streamingUrl,
+            'preview_url' => $previewUrl,
         ];
     }
 

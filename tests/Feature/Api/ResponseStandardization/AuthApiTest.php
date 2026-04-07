@@ -3,9 +3,8 @@
 namespace Tests\Feature\Api\ResponseStandardization;
 
 use App\Models\User;
-use Tests\TestCase;
 
-class AuthApiTest extends TestCase
+class AuthApiTest extends ResponseStandardizationTestCase
 {
     // ─── Login ───────────────────────────────────────────────────
 

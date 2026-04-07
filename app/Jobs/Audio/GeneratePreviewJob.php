@@ -93,7 +93,7 @@ class GeneratePreviewJob implements ShouldQueue
             $processingStatus['preview'] = 'completed';
 
             $this->song->update([
-                'preview_file' => $previewPath,
+                'audio_file_preview' => $previewPath,
                 'processing_status' => $processingStatus,
             ]);
 

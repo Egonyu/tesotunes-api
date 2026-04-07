@@ -15,12 +15,16 @@ class Setting extends Model
 
     public const TYPE_NUMBER = 'integer';  // Alias for TYPE_INTEGER
 
+    public const TYPE_FLOAT = 'float';
+
     public const TYPE_JSON = 'json';
 
     public const TYPE_ARRAY = 'array';
 
     // Group constants
     public const GROUP_GENERAL = 'general';
+
+    public const GROUP_EMAIL = 'email';
 
     public const GROUP_USERS = 'users';
 
@@ -80,6 +84,8 @@ class Setting extends Model
                 return filter_var($setting->value, FILTER_VALIDATE_BOOLEAN);
             case self::TYPE_INTEGER:
                 return (int) $setting->value;
+            case self::TYPE_FLOAT:
+                return (float) $setting->value;
             case self::TYPE_JSON:
             case self::TYPE_ARRAY:
                 return json_decode($setting->value, true) ?? $default;
@@ -116,7 +122,7 @@ class Setting extends Model
      */
     public static function getGroup(string $group): array
     {
-        $settings = static::where('group', $group)->get();
+        $settings = static::query()->where('group', $group)->getModels();
         $result = [];
 
         foreach ($settings as $setting) {

@@ -123,7 +123,7 @@ class MusicController extends Controller
                     'artist_name' => e($song->artist->stage_name ?? $song->artist->name ?? 'Unknown Artist'),
                     'artwork_url' => $song->artwork_url,
                     'duration_seconds' => (int) ($song->duration_seconds ?? 0),
-                    'duration_formatted' => $song->duration_formatted ?? '0:00',
+                    'duration_formatted' => (string) $song->duration_formatted,
                 ],
             ]);
 

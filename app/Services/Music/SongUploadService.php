@@ -77,10 +77,7 @@ class SongUploadService
                 $this->processArtwork($song, $metadata['artwork'], $artist);
             }
 
-            // Step 5: Generate ISRC code
-            $this->generateISRC($song);
-
-            // Step 6: Queue background jobs for transcoding
+            // Step 5: Queue background jobs for transcoding
             $this->queueBackgroundProcessing($song);
 
             DB::commit();
@@ -238,7 +235,7 @@ class SongUploadService
             'artwork' => null, // Set later if provided
 
             // File metadata
-            'duration_seconds' => $audioMetadata['duration'] ?? 0,
+            'duration_seconds' => $audioMetadata['duration_seconds'] ?? 0,
             'file_format' => $audioMetadata['format'] ?? pathinfo($audioResult['storage_path'], PATHINFO_EXTENSION),
             'file_size_bytes' => $audioResult['file_info']['size'],
             'file_hash' => $audioResult['file_info']['hash'],
@@ -305,22 +302,6 @@ class SongUploadService
             \Log::warning('Artwork upload failed for song', [
                 'song_id' => $song->id,
                 'error' => $artworkResult['error'],
-            ]);
-        }
-    }
-
-    /**
-     * Generate ISRC code for song
-     */
-    protected function generateISRC(Song $song): void
-    {
-        if (config('music.isrc.auto_generate', true)) {
-            $isrcCode = $this->isrcService->generate($song);
-            $song->update(['isrc_code' => $isrcCode]);
-
-            \Log::info('ISRC generated', [
-                'song_id' => $song->id,
-                'isrc_code' => $isrcCode,
             ]);
         }
     }

@@ -23,7 +23,7 @@ class PlaylistPolicy
     public function view(?User $user, Playlist $playlist): bool
     {
         // Public playlists are viewable by everyone
-        if ($playlist->privacy === 'public') {
+        if ($playlist->visibility === 'public') {
             return true;
         }
 
@@ -38,7 +38,7 @@ class PlaylistPolicy
         }
 
         // Collaborators can view
-        if ($playlist->collaborators()->where('user_id', $user->id)->exists()) {
+        if ($playlist->collaborators()->where('user_id', $user->id)->where('status', 'accepted')->exists()) {
             return true;
         }
 
@@ -85,18 +85,7 @@ class PlaylistPolicy
             return true;
         }
 
-        // Owner can edit their own playlist
-        if ($user->id === $playlist->user_id) {
-            return true;
-        }
-
-        // Collaborators with edit permission can edit
-        $collaborator = $playlist->collaborators()
-            ->where('user_id', $user->id)
-            ->where('can_edit', true)
-            ->first();
-
-        return $collaborator !== null;
+        return $playlist->canBeEditedBy($user);
     }
 
     /**
@@ -133,18 +122,7 @@ class PlaylistPolicy
      */
     public function addSongs(User $user, Playlist $playlist): bool
     {
-        // Owner can add songs
-        if ($user->id === $playlist->user_id) {
-            return true;
-        }
-
-        // Collaborators with edit permission can add songs
-        $collaborator = $playlist->collaborators()
-            ->where('user_id', $user->id)
-            ->where('can_edit', true)
-            ->first();
-
-        return $collaborator !== null;
+        return $playlist->canBeEditedBy($user);
     }
 
     /**

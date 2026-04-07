@@ -6,9 +6,8 @@ use App\Models\Album;
 use App\Models\Artist;
 use App\Models\Song;
 use App\Models\User;
-use Tests\TestCase;
 
-class ArtistApiTest extends TestCase
+class ArtistApiTest extends ResponseStandardizationTestCase
 {
     private User $user;
 
@@ -88,16 +87,31 @@ class ArtistApiTest extends TestCase
             'user_id' => $this->user->id,
             'artist_id' => $this->artist->id,
             'status' => 'published',
+            'duration_seconds' => 180,
+            'audio_file_128' => 'songs/128/artist-test.mp3',
         ]);
 
         $response = $this->getJson("/api/artists/{$this->artist->id}/songs");
 
         $response->assertOk()
             ->assertJsonStructure([
-                'data',
+                'data' => [[
+                    'id',
+                    'title',
+                    'slug',
+                    'duration_seconds',
+                    'duration_formatted',
+                    'audio_url',
+                    'stream_url',
+                    'preview_url',
+                    'artwork_url',
+                    'artist',
+                    'links',
+                ]],
                 'meta' => ['current_page', 'per_page', 'total'],
                 'links',
-            ]);
+            ])
+            ->assertJsonMissing(['success' => true]);
     }
 
     public function test_artist_albums_returns_paginated_response(): void

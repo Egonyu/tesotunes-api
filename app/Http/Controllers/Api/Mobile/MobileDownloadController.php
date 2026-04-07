@@ -36,7 +36,7 @@ class MobileDownloadController extends Controller
 
         // Free user - check daily limit
         $downloadsToday = Download::where('user_id', $user->id)
-            ->whereDate('created_at', today())
+            ->whereDate('downloaded_at', today())
             ->count();
 
         $limit = 10;
@@ -97,12 +97,12 @@ class MobileDownloadController extends Controller
             // Record download
             Download::create([
                 'user_id' => $user->id,
-                'song_id' => $song->id,
+                'downloadable_type' => Song::class,
+                'downloadable_id' => $song->id,
                 'quality' => $quality,
                 'file_size_bytes' => Storage::disk('digitalocean')->size($audioFile),
                 'downloaded_at' => now(),
                 'ip_address' => $request->ip(),
-                'device_type' => 'mobile',
             ]);
 
             // Increment song download count
@@ -119,7 +119,7 @@ class MobileDownloadController extends Controller
                     'title' => $song->title,
                     'artist' => $song->artist->stage_name ?? 'Unknown Artist',
                     'artwork' => $song->artwork ? Storage::disk('digitalocean')->url($song->artwork) : null,
-                    'duration' => $song->duration_seconds,
+                    'duration_seconds' => $song->duration_seconds,
                 ],
             ]);
         } catch (\Exception $e) {
@@ -187,12 +187,12 @@ class MobileDownloadController extends Controller
                 // Record download
                 Download::create([
                     'user_id' => $user->id,
-                    'song_id' => $song->id,
+                    'downloadable_type' => Song::class,
+                    'downloadable_id' => $song->id,
                     'quality' => $quality,
                     'file_size_bytes' => Storage::disk('digitalocean')->size($audioFile),
                     'downloaded_at' => now(),
                     'ip_address' => $request->ip(),
-                    'device_type' => 'mobile',
                 ]);
 
                 $song->increment('download_count');
@@ -208,7 +208,7 @@ class MobileDownloadController extends Controller
                         'title' => $song->title,
                         'artist' => $song->artist->stage_name ?? 'Unknown Artist',
                         'artwork' => $song->artwork ? Storage::disk('digitalocean')->url($song->artwork) : null,
-                        'duration' => $song->duration_seconds,
+                        'duration_seconds' => $song->duration_seconds,
                     ],
                 ];
             } catch (\Exception $e) {
@@ -239,7 +239,7 @@ class MobileDownloadController extends Controller
 
         $downloads = Download::where('user_id', $user->id)
             ->with(['song.artist:id,stage_name'])
-            ->orderBy('created_at', 'desc')
+            ->orderBy('downloaded_at', 'desc')
             ->paginate(50);
 
         return response()->json([
@@ -247,12 +247,12 @@ class MobileDownloadController extends Controller
             'downloads' => $downloads->map(function ($download) {
                 return [
                     'id' => $download->id,
-                    'song_id' => $download->song_id,
+                    'song_id' => $download->downloadable_id,
                     'song_title' => $download->song->title ?? 'Unknown',
                     'artist_name' => $download->song->artist->stage_name ?? 'Unknown Artist',
-                    'downloaded_at' => $download->created_at->toISOString(),
-                    'file_size' => $download->file_size,
-                    'download_type' => $download->download_type,
+                    'downloaded_at' => $download->downloaded_at?->toISOString(),
+                    'file_size' => $download->file_size_bytes,
+                    'download_type' => $download->quality,
                 ];
             }),
             'pagination' => [

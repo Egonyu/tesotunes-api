@@ -27,6 +27,9 @@ class Playlist extends Model
         'artwork',
         'visibility',
         'is_collaborative',
+        'collaboration_requires_approval',
+        'collaboration_invite_token',
+        'collaboration_invite_expires_at',
         'is_featured',
         'is_system',
         'total_tracks',
@@ -37,6 +40,8 @@ class Playlist extends Model
 
     protected $casts = [
         'is_collaborative' => 'boolean',
+        'collaboration_requires_approval' => 'boolean',
+        'collaboration_invite_expires_at' => 'datetime',
         'is_featured' => 'boolean',
         'is_system' => 'boolean',
         'total_tracks' => 'integer',
@@ -148,7 +153,13 @@ class Playlist extends Model
     public function activeCollaborators(): HasMany
     {
         return $this->hasMany(PlaylistCollaborator::class)
-            ->where('status', 'accepted');
+            ->where('status', PlaylistCollaborator::STATUS_ACCEPTED);
+    }
+
+    public function pendingCollaborators(): HasMany
+    {
+        return $this->hasMany(PlaylistCollaborator::class)
+            ->where('status', PlaylistCollaborator::STATUS_PENDING);
     }
 
     // Polymorphic relationships
@@ -195,7 +206,7 @@ class Playlist extends Model
                 ->orWhere('user_id', $user->id)
                 ->orWhereHas('collaborators', function ($collab) use ($user) {
                     $collab->where('user_id', $user->id)
-                        ->where('status', 'accepted');
+                        ->where('status', PlaylistCollaborator::STATUS_ACCEPTED);
                 });
         });
     }
@@ -247,8 +258,9 @@ class Playlist extends Model
 
     public function getTotalDurationFormattedAttribute(): string
     {
-        $hours = floor($this->total_duration / 3600);
-        $minutes = floor(($this->total_duration % 3600) / 60);
+        $totalDurationSeconds = (int) ($this->total_duration_seconds ?? 0);
+        $hours = floor($totalDurationSeconds / 3600);
+        $minutes = floor(($totalDurationSeconds % 3600) / 60);
 
         if ($hours > 0) {
             return sprintf('%d hr %d min', $hours, $minutes);
@@ -288,7 +300,7 @@ class Playlist extends Model
 
         return $this->collaborators()
             ->where('user_id', $user->id)
-            ->where('status', 'accepted')
+            ->where('status', PlaylistCollaborator::STATUS_ACCEPTED)
             ->exists();
     }
 
@@ -302,11 +314,45 @@ class Playlist extends Model
             return false;
         }
 
+        $collaborator = $this->collaborators()
+            ->where('user_id', $user->id)
+            ->where('status', PlaylistCollaborator::STATUS_ACCEPTED)
+            ->first();
+
+        return $collaborator?->canEdit() ?? false;
+    }
+
+    public function canManageCollaborators(User $user): bool
+    {
+        if ($this->user_id === $user->id) {
+            return true;
+        }
+
+        if (! $this->is_collaborative) {
+            return false;
+        }
+
+        $collaborator = $this->collaborators()
+            ->where('user_id', $user->id)
+            ->where('status', PlaylistCollaborator::STATUS_ACCEPTED)
+            ->first();
+
+        return $collaborator?->canManageCollaborators() ?? false;
+    }
+
+    public function collaboratorRoleFor(?User $user): ?string
+    {
+        if (! $user) {
+            return null;
+        }
+
+        if ($this->user_id === $user->id) {
+            return 'owner';
+        }
+
         return $this->collaborators()
             ->where('user_id', $user->id)
-            ->where('status', 'accepted')
-            ->whereIn('permission', ['edit', 'admin'])
-            ->exists();
+            ->value('role');
     }
 
     public function addSong(Song $song, User $addedBy, ?int $position = null): void
@@ -400,7 +446,7 @@ class Playlist extends Model
                     'audio_url' => $song->audio_url,
                     'compressed_url' => $song->compressed_audio_url,
                     'artwork' => $song->artwork_url,
-                    'duration' => $song->duration,
+                    'duration_seconds' => $song->duration_seconds,
                 ];
             })
             ->toArray();

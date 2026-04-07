@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Models\Song;
 use App\Services\ActivityService;
 use App\Services\FeedItemService;
+use App\Services\Music\ISRCService;
 
 class SongObserver
 {
@@ -13,8 +14,8 @@ class SongObserver
      */
     public function created(Song $song): void
     {
-        // Only log activity if song is approved/published
-        if ($song->status === 'approved' && $song->artist && $song->artist->user) {
+        // Only log activity if the song has entered the active published release state.
+        if ($song->status === 'published' && $song->artist && $song->artist->user) {
             ActivityService::log(
                 actor: $song->artist->user,
                 action: 'uploaded_song',
@@ -63,8 +64,20 @@ class SongObserver
      */
     public function updated(Song $song): void
     {
-        // Log activity when song gets approved
-        if ($song->isDirty('status') && $song->status === 'approved') {
+        if (
+            ! $song->isrc_code &&
+            $song->canAssignIsrc() &&
+            (
+                ($song->isDirty('distribution_status') && in_array($song->distribution_status, ['approved', 'distributed'], true)) ||
+                ($song->isDirty('approved_at') && $song->approved_at !== null)
+            )
+        ) {
+            app(ISRCService::class)->assignToSong($song);
+            $song->refresh();
+        }
+
+        // Log activity when a song is published as an approved release.
+        if ($song->isDirty('status') && $song->status === 'published') {
             if ($song->artist && $song->artist->user) {
                 ActivityService::log(
                     actor: $song->artist->user,
@@ -73,7 +86,7 @@ class SongObserver
                     metadata: [
                         'song_title' => $song->title,
                         'artist_name' => $song->artist->stage_name ?? $song->artist->name,
-                        'genre' => $song->genre?->name,
+                        'genre' => $song->primaryGenre?->name,
                     ],
                     actorType: 'Artist'
                 );

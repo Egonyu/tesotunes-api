@@ -28,7 +28,6 @@ class AlbumResource extends JsonResource
 
             // Media
             'artwork_url' => $resolvedArtworkUrl,
-            'cover_url' => $resolvedArtworkUrl,
 
             // Metadata
             'album_type' => $this->album_type,

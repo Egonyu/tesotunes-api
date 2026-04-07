@@ -38,13 +38,18 @@ class SongResource extends JsonResource
 
             // Media
             'artwork_url' => $resolvedArtworkUrl,
-            'cover_url' => $resolvedArtworkUrl,
 
             ...$streamingAccess,
 
             // Metadata
             'status' => $this->status,
-            'duration_seconds' => $this->duration_seconds,
+            'isrc' => $this->isrc_code,
+            'isrc_assignment' => $this->when(
+                method_exists($this->resource, 'getIsrcAssignmentSummary'),
+                fn () => $this->resource->getIsrcAssignmentSummary()
+            ),
+            'duration_seconds' => (int) ($this->duration_seconds ?? 0),
+            'duration_formatted' => $this->duration_formatted,
             'is_explicit' => (bool) $this->is_explicit,
             'is_featured' => (bool) $this->is_featured,
             'is_free' => (bool) $this->is_free,

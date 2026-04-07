@@ -5,9 +5,8 @@ namespace Tests\Feature\Api\ResponseStandardization;
 use App\Models\Artist;
 use App\Models\Song;
 use App\Models\User;
-use Tests\TestCase;
 
-class PlayerApiStandardizationTest extends TestCase
+class PlayerApiStandardizationTest extends ResponseStandardizationTestCase
 {
     private User $user;
 

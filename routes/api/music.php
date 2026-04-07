@@ -4,7 +4,6 @@ use App\Http\Controllers\Api\Music\AlbumController;
 use App\Http\Controllers\Api\Music\ArtistController;
 use App\Http\Controllers\Api\Music\PlaylistController;
 use App\Http\Controllers\Api\Music\SongController;
-use App\Http\Controllers\Api\MusicApiController;
 use Illuminate\Support\Facades\Route;
 
 // Public Music API Endpoints
@@ -26,13 +25,16 @@ Route::prefix('')->group(function () {
     Route::get('/albums/{album}/tracks', [AlbumController::class, 'tracks'])->name('api.music.album.tracks');
 
     // Trending
-    Route::get('/trending', [MusicApiController::class, 'trending'])->name('api.music.trending');
+    Route::get('/trending', [SongController::class, 'trending'])->name('api.music.trending');
 
     // Playlists — standardized via PlaylistController + PlaylistResource
     Route::get('/playlists/featured', [PlaylistController::class, 'featured'])->name('api.music.playlists.featured');
     Route::get('/playlists', [PlaylistController::class, 'index'])->name('api.music.playlists');
+    Route::get('/playlists/invites/{token}', [PlaylistController::class, 'invitePreview'])->name('api.music.playlists.invites.show');
+    Route::middleware('auth:sanctum')->get('/playlists/mine', [PlaylistController::class, 'myPlaylists'])->name('api.music.playlists.mine');
     Route::get('/playlists/{playlist}', [PlaylistController::class, 'show'])->name('api.music.playlist');
     Route::get('/playlists/{playlist}/tracks', [PlaylistController::class, 'tracks'])->name('api.music.playlist.tracks');
+    Route::get('/playlists/{playlist}/suggested-songs', [PlaylistController::class, 'suggestedSongs'])->name('api.music.playlists.suggested');
 });
 
 // Playlist CRUD — authenticated users
@@ -40,8 +42,22 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/playlists', [PlaylistController::class, 'store'])->name('api.music.playlists.store');
     Route::put('/playlists/{playlist}', [PlaylistController::class, 'update'])->name('api.music.playlists.update');
     Route::delete('/playlists/{playlist}', [PlaylistController::class, 'destroy'])->name('api.music.playlists.destroy');
+    Route::delete('/playlists/{playlist}/artwork', [PlaylistController::class, 'removeArtwork'])->name('api.music.playlists.artwork.destroy');
     Route::post('/playlists/{playlist}/songs/{song}', [PlaylistController::class, 'addSong'])->name('api.music.playlists.add-song');
+    Route::post('/playlists/{playlist}/tracks', [PlaylistController::class, 'addSongFromBody'])->name('api.music.playlists.add-track');
     Route::delete('/playlists/{playlist}/songs/{song}', [PlaylistController::class, 'removeSong'])->name('api.music.playlists.remove-song');
+    Route::post('/playlists/{playlist}/reorder', [PlaylistController::class, 'reorderSongs'])->name('api.music.playlists.reorder');
+    Route::get('/playlists/{playlist}/follow/status', [PlaylistController::class, 'followStatus'])->name('api.music.playlists.follow.status');
+    Route::post('/playlists/{playlist}/follow', [PlaylistController::class, 'toggleFollow'])->name('api.music.playlists.follow');
+    Route::delete('/playlists/{playlist}/follow', [PlaylistController::class, 'toggleFollow'])->name('api.music.playlists.unfollow');
+    Route::get('/playlists/{playlist}/collaborators', [PlaylistController::class, 'collaborators'])->name('api.music.playlists.collaborators');
+    Route::post('/playlists/{playlist}/collaborators', [PlaylistController::class, 'addCollaborator'])->name('api.music.playlists.collaborators.store');
+    Route::post('/playlists/{playlist}/collaborators/{collaborator}/approve', [PlaylistController::class, 'approveCollaborator'])->name('api.music.playlists.collaborators.approve');
+    Route::post('/playlists/{playlist}/collaborators/{collaborator}/role', [PlaylistController::class, 'updateCollaboratorRole'])->name('api.music.playlists.collaborators.role');
+    Route::delete('/playlists/{playlist}/collaborators/{collaborator}', [PlaylistController::class, 'removeCollaborator'])->name('api.music.playlists.collaborators.destroy');
+    Route::post('/playlists/{playlist}/collaborative', [PlaylistController::class, 'setCollaborative'])->name('api.music.playlists.collaborative');
+    Route::post('/playlists/{playlist}/invite-link', [PlaylistController::class, 'generateInviteLink'])->name('api.music.playlists.invite-link');
+    Route::post('/playlists/invites/{token}/join', [PlaylistController::class, 'joinInvite'])->name('api.music.playlists.invites.join');
 });
 
 // Admin routes for artists management — SECURED with auth + role middleware

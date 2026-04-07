@@ -9,9 +9,8 @@ use App\Models\EventTicket;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Tests\TestCase;
 
-class EventsApiStandardizationTest extends TestCase
+class EventsApiStandardizationTest extends ResponseStandardizationTestCase
 {
     use RefreshDatabase;
 

@@ -2,9 +2,7 @@
 
 namespace Tests\Feature\Api\ResponseStandardization;
 
-use Tests\TestCase;
-
-class HealthCheckApiTest extends TestCase
+class HealthCheckApiTest extends ResponseStandardizationTestCase
 {
     public function test_health_check_returns_json(): void
     {

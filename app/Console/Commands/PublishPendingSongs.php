@@ -17,7 +17,7 @@ class PublishPendingSongs extends Command
         $dryRun = $this->option('dry-run');
 
         // 1. Find and publish pending songs
-        $pendingSongs = Song::where('status', 'pending')->get();
+        $pendingSongs = Song::whereIn('status', ['pending', 'pending_review'])->get();
         $this->info("Found {$pendingSongs->count()} pending songs");
 
         if ($pendingSongs->isEmpty()) {
@@ -28,7 +28,12 @@ class PublishPendingSongs extends Command
             }
 
             if (! $dryRun) {
-                Song::where('status', 'pending')->update(['status' => 'published']);
+                Song::whereIn('status', ['pending', 'pending_review'])->update([
+                    'status' => 'published',
+                    'distribution_status' => 'approved',
+                    'approved_at' => now(),
+                    'published_at' => now(),
+                ]);
                 $this->info("Published {$pendingSongs->count()} songs.");
             } else {
                 $this->warn('Dry run — no changes made.');

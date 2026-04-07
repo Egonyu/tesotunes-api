@@ -2,9 +2,9 @@
 
 namespace App\Services\Settings;
 
-use App\Models\Event;
 use App\Models\Setting;
 use App\Models\User;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -72,12 +72,16 @@ class EventSettingsService
             }
 
             foreach ($settings as $key => $value) {
-                $type = is_bool($value) ? Setting::TYPE_BOOLEAN : Setting::TYPE_NUMBER;
+                $type = match ($key) {
+                    'min_ticket_price', 'max_ticket_price' => 'float',
+                    'platform_commission', 'processing_fee', 'refund_fee' => 'float',
+                    default => is_bool($value) ? Setting::TYPE_BOOLEAN : Setting::TYPE_NUMBER,
+                };
                 Setting::set($key, $value, $type, Setting::GROUP_EVENTS);
             }
 
             Log::info('Event general settings updated successfully', [
-                'admin_id' => auth()->id(),
+                'admin_id' => Auth::id(),
                 'settings' => array_keys($settings),
             ]);
 
@@ -122,12 +126,16 @@ class EventSettingsService
             }
 
             foreach ($settings as $key => $value) {
-                $type = is_bool($value) ? Setting::TYPE_BOOLEAN : Setting::TYPE_NUMBER;
+                $type = match ($key) {
+                    'min_ticket_price', 'max_ticket_price' => 'float',
+                    'platform_commission', 'processing_fee', 'refund_fee' => 'float',
+                    default => is_bool($value) ? Setting::TYPE_BOOLEAN : Setting::TYPE_NUMBER,
+                };
                 Setting::set($key, $value, $type, Setting::GROUP_EVENTS);
             }
 
             Log::info('Event ticketing settings updated successfully', [
-                'admin_id' => auth()->id(),
+                'admin_id' => Auth::id(),
                 'settings' => array_keys($settings),
             ]);
 
@@ -185,12 +193,15 @@ class EventSettingsService
             }
 
             foreach ($settings as $key => $value) {
-                $type = is_bool($value) ? Setting::TYPE_BOOLEAN : Setting::TYPE_NUMBER;
+                $type = match ($key) {
+                    'platform_commission', 'processing_fee', 'refund_fee' => 'float',
+                    default => is_bool($value) ? Setting::TYPE_BOOLEAN : Setting::TYPE_NUMBER,
+                };
                 Setting::set($key, $value, $type, Setting::GROUP_EVENTS);
             }
 
             Log::info('Event fee settings updated successfully', [
-                'admin_id' => auth()->id(),
+                'admin_id' => Auth::id(),
                 'settings' => array_keys($settings),
             ]);
 

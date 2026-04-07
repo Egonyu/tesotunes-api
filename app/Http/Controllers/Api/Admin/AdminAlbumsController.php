@@ -93,8 +93,8 @@ class AdminAlbumsController extends Controller
             'id' => (string) $song->id,
             'title' => $song->title,
             'slug' => $song->slug,
-            'duration' => (int) ($song->duration_seconds ?? 0),
             'duration_seconds' => (int) ($song->duration_seconds ?? 0),
+            'duration_formatted' => $song->duration_formatted,
             'track_number' => (int) ($song->track_number ?? 0),
             'disc_number' => (int) ($song->disc_number ?? 1),
             'plays' => (int) ($song->play_count ?? 0),
@@ -126,7 +126,6 @@ class AdminAlbumsController extends Controller
             'status' => $album->status,
             'is_featured' => (bool) $album->is_featured,
             'explicit' => (bool) $album->is_explicit,
-            'cover_url' => StorageHelper::artworkUrl($album->artwork),
             'artwork_url' => StorageHelper::artworkUrl($album->artwork),
             'artist' => [
                 'id' => (string) $album->artist?->id,

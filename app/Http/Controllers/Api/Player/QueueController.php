@@ -30,8 +30,10 @@ class QueueController extends Controller
                 'data' => [
                     'queue' => $queue,
                     'current_playing' => $currentPlaying,
-                    'total_duration' => $queue->sum('song.duration'),
-                    'remaining_duration' => $queue->where('position', '>', $currentPlaying?->position ?? 0)->sum('song.duration'),
+                    'total_duration_seconds' => $queue->sum(fn (PlayQueue $item) => (int) ($item->song?->duration_seconds ?? 0)),
+                    'remaining_duration_seconds' => $queue
+                        ->where('position', '>', $currentPlaying?->position ?? 0)
+                        ->sum(fn (PlayQueue $item) => (int) ($item->song?->duration_seconds ?? 0)),
                 ],
             ]);
 
@@ -88,7 +90,10 @@ class QueueController extends Controller
 
                 case 'playlist':
                     $playlist = Playlist::findOrFail($id);
-                    $songs = $playlist->songs()->where('is_active', true)->get();
+                    $songs = $playlist->songs()
+                        ->where('status', 'published')
+                        ->where('is_streamable', true)
+                        ->get();
 
                     foreach ($songs as $song) {
                         if ($position === 'next') {
@@ -102,7 +107,11 @@ class QueueController extends Controller
 
                 case 'album':
                     $album = Album::findOrFail($id);
-                    $songs = $album->songs()->where('is_active', true)->orderBy('track_number')->get();
+                    $songs = $album->songs()
+                        ->where('status', 'published')
+                        ->where('is_streamable', true)
+                        ->orderBy('track_number')
+                        ->get();
 
                     foreach ($songs as $song) {
                         if ($position === 'next') {

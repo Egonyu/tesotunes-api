@@ -6,9 +6,8 @@ use App\Models\Album;
 use App\Models\Artist;
 use App\Models\Song;
 use App\Models\User;
-use Tests\TestCase;
 
-class AlbumApiTest extends TestCase
+class AlbumApiTest extends ResponseStandardizationTestCase
 {
     private User $user;
 
@@ -108,12 +107,31 @@ class AlbumApiTest extends TestCase
             'artist_id' => $this->artist->id,
             'album_id' => $this->album->id,
             'status' => 'published',
+            'duration_seconds' => 210,
+            'audio_file_128' => 'songs/128/album-test.mp3',
         ]);
 
         $response = $this->getJson("/api/albums/{$this->album->id}/tracks");
 
         $response->assertOk()
-            ->assertJsonStructure(['data']);
+            ->assertJsonStructure([
+                'data' => [[
+                    'id',
+                    'title',
+                    'slug',
+                    'duration_seconds',
+                    'duration_formatted',
+                    'audio_url',
+                    'stream_url',
+                    'preview_url',
+                    'artwork_url',
+                    'artist',
+                    'links',
+                ]],
+                'meta' => ['current_page', 'per_page', 'total'],
+                'links',
+            ])
+            ->assertJsonMissing(['success' => true]);
     }
 
     // ─── Response Format ─────────────────────────────────────────

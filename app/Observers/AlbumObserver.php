@@ -39,7 +39,7 @@ class AlbumObserver
                 'subject_type' => Album::class,
                 'subject_id' => $album->id,
                 'media_type' => 'album',
-                'media_url' => $album->artwork_url ?? $album->cover_url,
+                'media_url' => $album->artwork_url,
                 'has_celebration' => true,
                 'actions' => [
                     ['type' => 'view', 'label' => 'View Album', 'url' => "/albums/{$album->slug}"],

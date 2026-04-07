@@ -38,7 +38,7 @@ class PlaylistObserver
                 'subject_type' => Playlist::class,
                 'subject_id' => $playlist->id,
                 'media_type' => 'image',
-                'media_url' => $playlist->cover_url ?? null,
+                'media_url' => $playlist->artwork_url,
                 'actions' => [
                     ['type' => 'view', 'label' => 'View Playlist', 'url' => "/playlists/{$playlist->slug}"],
                 ],

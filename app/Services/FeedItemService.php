@@ -501,9 +501,10 @@ class FeedItemService
         }
 
         return match (true) {
-            $subject instanceof \App\Models\Song => $subject->artwork_url ?? $subject->cover_url ?? null,
-            $subject instanceof \App\Models\Album => $subject->artwork_url ?? $subject->cover_url ?? null,
+            $subject instanceof \App\Models\Song => $subject->artwork_url ?? null,
+            $subject instanceof \App\Models\Album => $subject->artwork_url ?? null,
             $subject instanceof \App\Models\Event => $subject->banner_url ?? $subject->image_url ?? null,
+            $subject instanceof \App\Models\Playlist => $subject->artwork_url ?? null,
             default => null,
         };
     }

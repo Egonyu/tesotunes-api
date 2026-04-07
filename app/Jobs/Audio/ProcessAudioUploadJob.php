@@ -3,6 +3,7 @@
 namespace App\Jobs\Audio;
 
 use App\Models\Song;
+use App\Services\Audio\AudioMetadataService;
 use App\Services\Audio\FFmpegService;
 use App\Services\MusicStorageService;
 use Illuminate\Bus\Queueable;
@@ -36,35 +37,18 @@ class ProcessAudioUploadJob implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(FFmpegService $ffmpeg, MusicStorageService $storage): void
-    {
+    public function handle(
+        FFmpegService $ffmpeg,
+        MusicStorageService $storage,
+        AudioMetadataService $audioMetadataService
+    ): void {
         try {
             Log::info('Starting audio upload processing', [
                 'song_id' => $this->song->id,
                 'temp_path' => $this->tempFilePath,
             ]);
 
-            // 1. Extract metadata from uploaded file
-            $metadata = $ffmpeg->extractMetadata(
-                Storage::disk('local')->path($this->tempFilePath)
-            );
-
-            if ($metadata) {
-                $this->song->update([
-                    'duration' => (int) $metadata['duration'],
-                    'bitrate' => $metadata['bitrate'],
-                    'sample_rate' => $metadata['sample_rate'],
-                    'file_size' => $metadata['size'],
-                ]);
-
-                Log::info('Extracted audio metadata', [
-                    'song_id' => $this->song->id,
-                    'duration' => $metadata['duration'],
-                    'bitrate' => $metadata['bitrate'],
-                ]);
-            }
-
-            // 2. Move to permanent storage as original
+            // 1. Move to permanent storage as canonical original
             $originalPath = $storage->getSongPath($this->song, 'original');
 
             // Ensure directory exists
@@ -75,11 +59,26 @@ class ProcessAudioUploadJob implements ShouldQueue
 
             Storage::disk('local')->move($this->tempFilePath, $originalPath);
 
+            $metadata = $audioMetadataService->extractFromAbsolutePath(
+                Storage::disk('local')->path($originalPath)
+            );
+
             $this->song->update([
-                'audio_file' => $originalPath,
+                'audio_file_original' => $originalPath,
+                'duration_seconds' => (int) ($metadata['duration_seconds'] ?? 0),
+                'bitrate_original' => $metadata['bitrate_original'] ?? null,
+                'sample_rate' => $metadata['sample_rate'] ?? null,
+                'file_size_bytes' => $metadata['file_size_bytes'] ?? null,
+                'file_format' => $metadata['file_format'] ?? $this->song->file_format,
             ]);
 
-            // 3. Upload original to DigitalOcean Spaces (if configured)
+            Log::info('Extracted audio metadata', [
+                'song_id' => $this->song->id,
+                'duration_seconds' => $metadata['duration_seconds'] ?? 0,
+                'bitrate_original' => $metadata['bitrate_original'] ?? null,
+            ]);
+
+            // 2. Upload original to DigitalOcean Spaces (if configured)
             if (config('filesystems.disks.digitalocean')) {
                 $doPath = "songs/{$this->song->user_id}/{$this->song->id}/original/".basename($originalPath);
 
@@ -94,7 +93,7 @@ class ProcessAudioUploadJob implements ShouldQueue
                 ]);
             }
 
-            // 4. Queue transcoding jobs
+            // 3. Queue transcoding jobs
             Log::info('Queueing transcoding jobs', ['song_id' => $this->song->id]);
 
             TranscodeAudioJob::dispatch($this->song, '320kbps')
@@ -103,15 +102,15 @@ class ProcessAudioUploadJob implements ShouldQueue
             TranscodeAudioJob::dispatch($this->song, '128kbps')
                 ->onQueue('high');
 
-            // 5. Queue preview generation
+            // 4. Queue preview generation
             GeneratePreviewJob::dispatch($this->song, 0, 30)
                 ->onQueue('default');
 
-            // 6. Queue waveform generation (low priority)
+            // 5. Queue waveform generation (low priority)
             GenerateWaveformJob::dispatch($this->song, '1920x200', '#3b82f6')
                 ->onQueue('low');
 
-            // 7. Update song status
+            // 6. Update song status
             $this->song->update([
                 'status' => 'processing',
                 'processing_status' => [

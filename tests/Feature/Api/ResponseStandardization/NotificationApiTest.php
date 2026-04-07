@@ -3,9 +3,8 @@
 namespace Tests\Feature\Api\ResponseStandardization;
 
 use App\Models\User;
-use Tests\TestCase;
 
-class NotificationApiTest extends TestCase
+class NotificationApiTest extends ResponseStandardizationTestCase
 {
     private User $user;
 

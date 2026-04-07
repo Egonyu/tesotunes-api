@@ -82,6 +82,7 @@ class Song extends Model
         'distribution_platforms',
 
         // Rights management (ISRC critical for distribution)
+        'isrc',
         'isrc_code',
         'upc_code',
         'master_ownership_percentage',
@@ -193,6 +194,38 @@ class Song extends Model
         'distribution_requested_at' => 'datetime',
         'distributed_at' => 'datetime',
     ];
+
+    public function getIsrcCodeAttribute($value): ?string
+    {
+        if (is_string($value) && $value !== '') {
+            return $value;
+        }
+
+        $legacyValue = $this->attributes['isrc'] ?? null;
+
+        return is_string($legacyValue) && $legacyValue !== '' ? $legacyValue : null;
+    }
+
+    public function setIsrcCodeAttribute($value): void
+    {
+        $normalized = is_string($value) ? trim($value) : $value;
+        $normalized = $normalized === '' ? null : $normalized;
+
+        $this->attributes['isrc_code'] = $normalized;
+
+        if (array_key_exists('isrc', $this->attributes)) {
+            $this->attributes['isrc'] = $normalized;
+        }
+    }
+
+    public function setIsrcAttribute($value): void
+    {
+        $normalized = is_string($value) ? trim($value) : $value;
+        $normalized = $normalized === '' ? null : $normalized;
+
+        $this->attributes['isrc'] = $normalized;
+        $this->attributes['isrc_code'] = $normalized;
+    }
 
     // Relationships
     public function user(): BelongsTo
@@ -385,7 +418,13 @@ class Song extends Model
 
     public function scopeByAudioQuality($query, string $quality)
     {
-        return $query->where('audio_quality', $quality);
+        return match ($quality) {
+            'studio' => $query->where('audio_quality_score', '>=', 95),
+            'high' => $query->whereBetween('audio_quality_score', [85, 94]),
+            'standard' => $query->whereBetween('audio_quality_score', [70, 84]),
+            'compressed', 'mobile' => $query->whereBetween('audio_quality_score', [1, 69]),
+            default => $query->whereNull('audio_quality_score'),
+        };
     }
 
     public function scopeHighEarning($query, float $threshold = 1000.00)
@@ -534,11 +573,11 @@ class Song extends Model
 
     public function getAudioQualityBadgeAttribute(): string
     {
-        return match ($this->audio_quality) {
-            'studio' => '🔊 Studio Quality',
-            'high' => '🎵 High Quality',
-            'standard' => '🎶 Standard',
-            'compressed' => '📱 Mobile Optimized',
+        return match (true) {
+            $this->audio_quality_score >= 95 => '🔊 Studio Quality',
+            $this->audio_quality_score >= 85 => '🎵 High Quality',
+            $this->audio_quality_score >= 70 => '🎶 Standard',
+            $this->audio_quality_score > 0 => '📱 Mobile Optimized',
             default => '❓ Unknown'
         };
     }
@@ -568,6 +607,105 @@ class Song extends Model
         return $this->status === 'published' &&
                $this->distribution_status === 'approved' &&
                $this->isrc_code !== null;
+    }
+
+    public function hasIsrcAssigned(): bool
+    {
+        return filled($this->isrc_code);
+    }
+
+    public function hasAudioAssetForIsrc(): bool
+    {
+        return filled($this->audio_file_original)
+            || filled($this->audio_file_320)
+            || filled($this->audio_file_128);
+    }
+
+    public function isAuthorizedForIsrcAssignment(): bool
+    {
+        return in_array($this->distribution_status, ['approved', 'distributed'], true)
+            || ($this->status === 'published' && $this->approved_at !== null);
+    }
+
+    public function getIsrcAssignmentBlockers(bool $ignoreExisting = false): array
+    {
+        $blockers = [];
+
+        if (! $ignoreExisting && $this->hasIsrcAssigned()) {
+            $blockers[] = 'already_assigned';
+        }
+
+        if (! $this->artist_id) {
+            $blockers[] = 'missing_artist';
+        }
+
+        if (! filled($this->title)) {
+            $blockers[] = 'missing_title';
+        }
+
+        if (! $this->hasAudioAssetForIsrc()) {
+            $blockers[] = 'missing_audio';
+        }
+
+        if ((int) $this->duration_seconds <= 0) {
+            $blockers[] = 'missing_duration';
+        }
+
+        if (! $this->hasValidRightsSplits()) {
+            $blockers[] = 'invalid_rights';
+        }
+
+        if (! $this->isAuthorizedForIsrcAssignment()) {
+            $blockers[] = 'not_authorized';
+        }
+
+        return array_values(array_unique($blockers));
+    }
+
+    public function canAssignIsrc(bool $ignoreExisting = false): bool
+    {
+        return $this->getIsrcAssignmentBlockers($ignoreExisting) === [];
+    }
+
+    public function getIsrcAssignmentBlockerMessages(bool $ignoreExisting = false): array
+    {
+        return array_map(
+            fn (string $blocker) => self::isrcAssignmentBlockerMessage($blocker),
+            $this->getIsrcAssignmentBlockers($ignoreExisting)
+        );
+    }
+
+    public static function isrcAssignmentBlockerMessage(string $blocker): string
+    {
+        return match ($blocker) {
+            'already_assigned' => 'This song already has an ISRC assigned.',
+            'missing_artist' => 'Assign an artist before generating an ISRC.',
+            'missing_title' => 'Add a song title before generating an ISRC.',
+            'missing_audio' => 'Upload a source audio file before generating an ISRC.',
+            'missing_duration' => 'Duration metadata must be captured before generating an ISRC.',
+            'invalid_rights' => 'Ownership and rights splits must be valid before generating an ISRC.',
+            'not_authorized' => 'This song must be approved for release or distribution before an ISRC can be assigned.',
+            default => 'This song is not yet eligible for ISRC assignment.',
+        };
+    }
+
+    public function getIsrcAssignmentSummary(): array
+    {
+        $blockers = $this->getIsrcAssignmentBlockers();
+        $assigned = $this->hasIsrcAssigned();
+        $eligible = ! $assigned && $blockers === [];
+
+        return [
+            'assigned' => $assigned,
+            'eligible' => $eligible,
+            'status' => $assigned ? 'assigned' : ($eligible ? 'eligible' : 'blocked'),
+            'code' => $this->isrc_code,
+            'blockers' => $blockers,
+            'blocker_messages' => array_map(
+                fn (string $blocker) => self::isrcAssignmentBlockerMessage($blocker),
+                $blockers
+            ),
+        ];
     }
 
     public function has_content_violations(): bool
@@ -639,25 +777,29 @@ class Song extends Model
     public function approve(User $approver, ?string $notes = null): void
     {
         $this->update([
+            'status' => 'published',
             'distribution_status' => 'approved',
             'approved_by' => $approver->id,
             'approved_at' => now(),
+            'published_at' => $this->published_at ?? now(),
             'review_notes' => $notes,
         ]);
 
         // Generate ISRC if not exists
-        if (! $this->isrc_code) {
-            $this->update(['isrc_code' => $this->generateISRCCode()]);
+        if ($this->canAssignIsrc()) {
+            app(\App\Services\Music\ISRCService::class)->assignToSong($this);
         }
     }
 
     public function reject(User $reviewer, string $reason): void
     {
         $this->update([
+            'status' => 'rejected',
             'distribution_status' => 'rejected',
             'approved_by' => $reviewer->id,
             'approved_at' => now(),
             'review_notes' => $reason,
+            'rejection_reason' => $reason,
         ]);
     }
 
@@ -768,8 +910,8 @@ class Song extends Model
     public function scopeForApi($query)
     {
         return $query->select([
-            'id', 'title', 'slug', 'duration', 'play_count', 'price', 'is_free',
-            'status', 'artwork', 'audio_file', 'artist_id', 'album_id', 'created_at',
+            'id', 'title', 'slug', 'duration_seconds', 'play_count', 'price', 'is_free',
+            'status', 'artwork', 'audio_file_original', 'artist_id', 'album_id', 'created_at',
         ])->with([
             'artist:id,stage_name,avatar,is_verified',
             'album:id,title,artwork',
