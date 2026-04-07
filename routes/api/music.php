@@ -60,24 +60,27 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/playlists/invites/{token}/join', [PlaylistController::class, 'joinInvite'])->name('api.music.playlists.invites.join');
 });
 
-// Admin routes for artists management — SECURED with auth + role middleware
-Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin')->group(function () {
+// Admin and moderator-safe routes for artist management.
+Route::middleware(['auth:sanctum', 'role:admin,super_admin,moderator', 'admin.exceptions'])->prefix('admin')->group(function () {
     Route::get('/artists', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'index']);
     Route::get('/artists/statistics', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'statistics']);
     Route::get('/artists/{id}', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'show']);
     Route::post('/artists/{id}', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'update']);
-    Route::delete('/artists/{id}', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'destroy']);
     Route::post('/artists/{id}/verify', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'verify']);
     Route::post('/artists/{id}/toggle-verify', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'toggleVerify']);
-    Route::post('/artists/{id}/toggle-featured', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'toggleFeatured']);
     Route::post('/artists/{id}/status', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'updateStatus']);
     Route::post('/artists/{id}/approve', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'approve']);
     Route::post('/artists/{id}/reject', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'reject']);
     Route::post('/artists/{id}/suspend', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'suspend']);
 });
 
-// Admin users routes — SECURED with auth + role middleware
 Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin')->group(function () {
+    Route::delete('/artists/{id}', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'destroy']);
+    Route::post('/artists/{id}/toggle-featured', [\App\Http\Controllers\Api\Admin\AdminArtistsController::class, 'toggleFeatured']);
+});
+
+// Admin users routes — SECURED with auth + role middleware
+Route::middleware(['auth:sanctum', 'role:admin,super_admin,moderator', 'admin.exceptions'])->prefix('admin')->group(function () {
     Route::get('/users', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'index']);
     Route::get('/users/statistics', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'statistics']);
     Route::get('/users/{id}', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'show']);

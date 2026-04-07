@@ -29,6 +29,11 @@ class AdminArtistsController extends Controller
         return substr(sha1($field.'|'.$path.'|'.$stamp), 0, 16);
     }
 
+    private function isModeratorOnly(): bool
+    {
+        return (bool) request()->user()?->isModeratorOnly();
+    }
+
     /**
      * Get all artists for admin panel.
      */
@@ -305,6 +310,13 @@ class AdminArtistsController extends Controller
     public function destroy($id): JsonResponse
     {
         return $this->handleApiAction(function () use ($id) {
+            if ($this->isModeratorOnly()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Moderators cannot delete artists.',
+                ], 403);
+            }
+
             $artist = Artist::findOrFail($id);
             $artist->update(['status' => 'suspended']);
             $artist->delete();

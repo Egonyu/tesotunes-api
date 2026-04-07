@@ -51,6 +51,7 @@ require __DIR__.'/api/campaigns.php';
 
 // Homepage featured content
 Route::get('/featured', [\App\Http\Controllers\Api\FeaturedContentController::class, 'index'])->name('api.featured');
+Route::get('/homepage', [\App\Http\Controllers\Api\HomepageController::class, 'index'])->name('api.homepage');
 
 // Public Events API Routes (no auth required)
 Route::prefix('events')->name('api.events.')->group(function () {
@@ -470,6 +471,16 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin,moderator', 'admin.ex
     Route::get('/reports/stats', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'stats'])->name('reports.stats');
     Route::get('/reports', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'index'])->name('reports.index');
     Route::post('/reports/{report}/status', [\App\Http\Controllers\Api\Admin\AdminReportsController::class, 'updateStatus'])->name('reports.status');
+
+    Route::get('/songs/statistics', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'statistics'])->name('songs.statistics');
+    Route::post('/songs/bulk-approve', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'bulkApprove'])->name('songs.bulk-approve');
+    Route::post('/songs/bulk-reject', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'bulkReject'])->name('songs.bulk-reject');
+    Route::get('/songs', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'index'])->name('songs.index');
+    Route::get('/songs/{id}', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'show'])->name('songs.show');
+    Route::post('/songs', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'store'])->name('songs.store');
+    Route::put('/songs/{id}', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'update'])->name('songs.update');
+    Route::post('/songs/{id}/toggle-status', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'toggleStatus'])->name('songs.toggle-status');
+    Route::get('/songs/{id}/play-history', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'playHistory'])->name('songs.play-history');
 });
 
 Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin')->name('api.admin.')->group(function () {
@@ -584,18 +595,9 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::get('/sacco/meetings/{meeting}/attendance', [\App\Http\Controllers\Api\Admin\SaccoGovernanceController::class, 'attendance'])->name('sacco.meetings.attendance');
     Route::post('/sacco/meetings/{meeting}/attendance', [\App\Http\Controllers\Api\Admin\SaccoGovernanceController::class, 'markAttendance'])->name('sacco.meetings.attendance.mark');
 
-    // Songs API
-    Route::get('/songs/statistics', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'statistics'])->name('songs.statistics');
-    Route::post('/songs/bulk-approve', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'bulkApprove'])->name('songs.bulk-approve');
-    Route::post('/songs/bulk-reject', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'bulkReject'])->name('songs.bulk-reject');
-    Route::get('/songs', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'index'])->name('songs.index');
-    Route::get('/songs/{id}', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'show'])->name('songs.show');
-    Route::post('/songs', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'store'])->name('songs.store');
-    Route::put('/songs/{id}', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'update'])->name('songs.update');
+    // Song destructive/curation routes remain administrator-only.
     Route::delete('/songs/{id}', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'destroy'])->name('songs.destroy');
-    Route::post('/songs/{id}/toggle-status', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'toggleStatus'])->name('songs.toggle-status');
     Route::post('/songs/{id}/toggle-featured', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'toggleFeatured'])->name('songs.toggle-featured');
-    Route::get('/songs/{id}/play-history', [\App\Http\Controllers\Api\Admin\SongsApiController::class, 'playHistory'])->name('songs.play-history');
 
     // Albums API
     Route::get('/albums/statistics', [\App\Http\Controllers\Api\Admin\AdminAlbumsController::class, 'statistics'])->name('albums.statistics');

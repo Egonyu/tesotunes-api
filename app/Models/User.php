@@ -1488,6 +1488,13 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasAnyRole(['Moderator', 'Admin', 'Super Admin', 'moderator', 'admin', 'super_admin']);
     }
 
+    public function isModeratorOnly(): bool
+    {
+        return $this->hasAnyRole(['Moderator', 'moderator'])
+            && ! $this->isAdmin()
+            && ! $this->isSuperAdmin();
+    }
+
     public function isArtist(): bool
     {
         return $this->hasRole('Artist') || $this->hasRole('artist') || $this->artist !== null;

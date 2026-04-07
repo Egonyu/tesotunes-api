@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\Role;
 use App\Models\User;
 use App\Traits\HandlesApiErrors;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +25,8 @@ class AdminUsersController extends Controller
     use HandlesApiErrors;
 
     private const MANAGED_ROLE_NAMES = ['user', 'artist', 'moderator', 'admin', 'super_admin'];
+
+    private const PRIVILEGED_ROLE_NAMES = ['admin', 'super_admin', 'super admin', 'Admin', 'Super Admin'];
 
     private const MANAGED_ROLE_DEFAULTS = [
         Role::USER => [
@@ -57,6 +60,43 @@ class AdminUsersController extends Controller
             'is_active' => true,
         ],
     ];
+
+    private function isPrivilegedUser(User $user): bool
+    {
+        $directRole = strtolower(str_replace(' ', '_', (string) $user->role));
+
+        return in_array($directRole, [Role::ADMIN, Role::SUPER_ADMIN], true)
+            || $user->hasAnyRole(self::PRIVILEGED_ROLE_NAMES);
+    }
+
+    private function applyModeratorUserVisibility(Request $request, Builder $query): void
+    {
+        if (! $request->user()?->isModeratorOnly()) {
+            return;
+        }
+
+        $query
+            ->where(function (Builder $roleQuery) {
+                $roleQuery
+                    ->whereNull('role')
+                    ->orWhereNotIn('role', self::PRIVILEGED_ROLE_NAMES);
+            })
+            ->whereDoesntHave('activeRoles', function (Builder $roleQuery) {
+                $roleQuery->whereIn('name', self::PRIVILEGED_ROLE_NAMES);
+            });
+    }
+
+    private function moderatorHiddenUserResponse(Request $request, User $user): ?JsonResponse
+    {
+        if (! $request->user()?->isModeratorOnly() || ! $this->isPrivilegedUser($user)) {
+            return null;
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'User not found.',
+        ], 404);
+    }
 
     private function resolveManagedRole(string $roleName): Role
     {
@@ -215,6 +255,7 @@ class AdminUsersController extends Controller
     {
         return $this->handleApiAction(function () use ($request) {
             $query = User::query()->with(['activeRoles.permissions']);
+            $this->applyModeratorUserVisibility($request, $query);
 
             // Search
             if ($request->filled('search')) {
@@ -312,15 +353,19 @@ class AdminUsersController extends Controller
     /**
      * Get user statistics for the admin dashboard.
      */
-    public function statistics(): JsonResponse
+    public function statistics(Request $request): JsonResponse
     {
-        return $this->handleApiAction(function () {
+        return $this->handleApiAction(function () use ($request) {
+            $baseQuery = User::query();
+            $this->applyModeratorUserVisibility($request, $baseQuery);
+            $visibleUserIds = (clone $baseQuery)->select('users.id');
+
             $stats = [
-                'total' => User::count(),
-                'active' => User::where('is_active', true)->count(),
-                'inactive' => User::where('is_active', false)->count(),
-                'verified' => User::whereNotNull('email_verified_at')->count(),
-                'new_this_month' => User::whereMonth('created_at', now()->month)
+                'total' => (clone $baseQuery)->count(),
+                'active' => (clone $baseQuery)->where('is_active', true)->count(),
+                'inactive' => (clone $baseQuery)->where('is_active', false)->count(),
+                'verified' => (clone $baseQuery)->whereNotNull('email_verified_at')->count(),
+                'new_this_month' => (clone $baseQuery)->whereMonth('created_at', now()->month)
                     ->whereYear('created_at', now()->year)
                     ->count(),
                 'users_by_role' => DB::table('roles')
@@ -328,10 +373,15 @@ class AdminUsersController extends Controller
                         $join->on('roles.id', '=', 'user_roles.role_id')
                             ->where('user_roles.is_active', true);
                     })
+                    ->when($request->user()?->isModeratorOnly(), function ($query) use ($visibleUserIds) {
+                        $query
+                            ->whereNotIn('roles.name', self::PRIVILEGED_ROLE_NAMES)
+                            ->whereIn('user_roles.user_id', $visibleUserIds);
+                    })
                     ->selectRaw('roles.name, count(user_roles.user_id) as count')
                     ->groupBy('roles.name')
                     ->pluck('count', 'name'),
-                'users_by_country' => User::selectRaw('country, count(*) as count')
+                'users_by_country' => (clone $baseQuery)->selectRaw('country, count(*) as count')
                     ->whereNotNull('country')
                     ->groupBy('country')
                     ->orderByDesc('count')
@@ -349,10 +399,14 @@ class AdminUsersController extends Controller
     /**
      * Show a single user with detailed information.
      */
-    public function show($id): JsonResponse
+    public function show(Request $request, $id): JsonResponse
     {
-        return $this->handleApiAction(function () use ($id) {
+        return $this->handleApiAction(function () use ($request, $id) {
             $user = User::with('artist')->findOrFail($id);
+
+            if ($response = $this->moderatorHiddenUserResponse($request, $user)) {
+                return $response;
+            }
 
             return response()->json([
                 'success' => true,
@@ -369,6 +423,10 @@ class AdminUsersController extends Controller
         return $this->handleApiAction(function () use ($request, $id) {
             $user = User::with(['artist', 'activeRoles.permissions'])->findOrFail($id);
             $currentUser = $request->user();
+
+            if ($response = $this->moderatorHiddenUserResponse($request, $user)) {
+                return $response;
+            }
 
             if (! $currentUser->canManageUser($user)) {
                 return response()->json([
@@ -431,6 +489,13 @@ class AdminUsersController extends Controller
 
             $currentUser = $request->user();
 
+            if ($currentUser->isModeratorOnly()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Moderators cannot create user accounts.',
+                ], 403);
+            }
+
             // Prevent non-super admins from creating admin users
             if (in_array($request->role, ['admin', 'super_admin']) && ! $currentUser->isSuperAdmin()) {
                 return response()->json([
@@ -486,6 +551,13 @@ class AdminUsersController extends Controller
         return $this->handleApiAction(function () use ($request, $id) {
             $user = User::findOrFail($id);
             $currentUser = $request->user();
+
+            if ($currentUser->isModeratorOnly()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Moderators cannot update user accounts.',
+                ], 403);
+            }
 
             // Permission check
             if (! $currentUser->canManageUser($user)) {
@@ -587,6 +659,13 @@ class AdminUsersController extends Controller
             $user = User::findOrFail($id);
             $currentUser = $request->user();
 
+            if ($currentUser->isModeratorOnly()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Moderators cannot activate user accounts.',
+                ], 403);
+            }
+
             if (! $currentUser->canManageUser($user)) {
                 return response()->json([
                     'success' => false,
@@ -611,6 +690,13 @@ class AdminUsersController extends Controller
         return $this->handleApiAction(function () use ($request, $id) {
             $user = User::findOrFail($id);
             $currentUser = $request->user();
+
+            if ($currentUser->isModeratorOnly()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Moderators cannot ban user accounts.',
+                ], 403);
+            }
 
             if (! $currentUser->canManageUser($user)) {
                 return response()->json([
@@ -643,6 +729,13 @@ class AdminUsersController extends Controller
         return $this->handleApiAction(function () use ($request, $id) {
             $user = User::findOrFail($id);
             $currentUser = $request->user();
+
+            if ($currentUser->isModeratorOnly()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Moderators cannot deactivate user accounts.',
+                ], 403);
+            }
 
             if (! $currentUser->canManageUser($user)) {
                 return response()->json([

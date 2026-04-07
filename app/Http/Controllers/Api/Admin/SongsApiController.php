@@ -56,6 +56,11 @@ class SongsApiController extends Controller
         return isset($columns[$column]);
     }
 
+    private function isModeratorOnly(): bool
+    {
+        return (bool) request()->user()?->isModeratorOnly();
+    }
+
     private function parseDurationInput(null|string|int|float $duration): ?int
     {
         if ($duration === null || $duration === '') {
@@ -661,6 +666,13 @@ class SongsApiController extends Controller
     public function destroy(int $id): JsonResponse
     {
         return $this->handleApiAction(function () use ($id) {
+            if ($this->isModeratorOnly()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Moderators cannot delete songs.',
+                ], 403);
+            }
+
             $song = Song::findOrFail($id);
 
             // Delete associated files
