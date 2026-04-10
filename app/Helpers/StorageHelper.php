@@ -9,6 +9,14 @@ use Illuminate\Support\Str;
 class StorageHelper
 {
     /**
+     * Resolve the public base URL used for externally-consumable media links.
+     */
+    private static function publicBaseUrl(): string
+    {
+        return rtrim((string) config('app.public_url', config('app.url')), '/');
+    }
+
+    /**
      * Resolve the configured media disk, falling back safely for local/private disks.
      */
     public static function resolvedMediaDisk(): string
@@ -194,12 +202,12 @@ class StorageHelper
         try {
             $storageUrl = Storage::url($path);
             if (str_starts_with($storageUrl, '/')) {
-                return config('app.url').$storageUrl;
+                return static::publicBaseUrl().$storageUrl;
             }
 
             return $storageUrl;
         } catch (\Exception $e) {
-            return url('storage/'.$path);
+            return static::publicBaseUrl().'/storage/'.$path;
         }
     }
 
@@ -216,7 +224,7 @@ class StorageHelper
         }
 
         if ($default) {
-            return url($default);
+            return static::publicBaseUrl().'/'.ltrim($default, '/');
         }
 
         return null;

@@ -8,10 +8,13 @@ use App\Models\User;
 use App\Modules\Store\Models\Order;
 use App\Modules\Store\Models\OrderItem;
 use App\Modules\Store\Models\Product;
+use App\Modules\Store\Models\Store;
+use App\Modules\Store\Services\StoreService;
 use App\Services\Store\PromotionSettlementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Throwable;
 
 class SellerPromotionController extends Controller
@@ -62,12 +65,10 @@ class SellerPromotionController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $this->validatePromotionPayload($request);
-        $store = $request->user()?->store;
+        $store = $this->resolveSellerStore($request);
 
-        if (! $store) {
-            return response()->json([
-                'message' => 'Create a store profile before listing promotion services.',
-            ], 422);
+        if ($store instanceof JsonResponse) {
+            return $store;
         }
 
         $promotion = Product::create([
@@ -77,7 +78,6 @@ class SellerPromotionController extends Controller
             'description' => $validated['description'],
             'short_description' => $validated['short_description'],
             'product_type' => Product::TYPE_PROMOTION,
-            'type' => Product::TYPE_SERVICE,
             'status' => Product::STATUS_DRAFT,
             'is_active' => false,
             'is_featured' => false,
@@ -458,6 +458,46 @@ class SellerPromotionController extends Controller
     protected function getPerPage(Request $request, int $default = 20, int $max = 100): int
     {
         return parent::getPerPage($request, $default, $max);
+    }
+
+    private function resolveSellerStore(Request $request): Store|JsonResponse
+    {
+        $user = $request->user();
+        $store = $user?->store;
+
+        if ($store) {
+            return $store;
+        }
+
+        if (! $user) {
+            return response()->json([
+                'message' => 'You must be signed in to create a promotion service.',
+            ], 401);
+        }
+
+        try {
+            return app(StoreService::class)->create($user, [
+                'name' => $this->defaultStoreName($user),
+                'description' => 'Auto-created seller storefront for promotion services.',
+                'owner_mode' => $user->artist ? 'artist' : 'user',
+                'metadata' => [
+                    'created_from' => 'promotion_listing',
+                    'auto_created' => true,
+                    'auto_created_at' => now()->toIso8601String(),
+                ],
+            ]);
+        } catch (\Exception $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
+    }
+
+    private function defaultStoreName(User $user): string
+    {
+        $baseName = trim((string) ($user->artist?->stage_name ?? $user->name ?? $user->username ?? 'Seller'));
+
+        return Str::limit($baseName.' Promotions', 255, '');
     }
 
     private function validatePromotionPayload(Request $request, ?Product $product = null): array

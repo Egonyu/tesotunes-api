@@ -155,6 +155,7 @@ class AdminUsersController extends Controller
                 'permissions' => $role->permissionKeys(),
             ])->values()->all(),
             'permissions' => $user->getAllPermissions(),
+            'event_organizer' => $user->getEventOrganizerProfile(),
             'is_active' => (bool) $user->is_active,
             'email_verified_at' => $user->email_verified_at,
             'last_login_at' => $user->last_login_at ?? null,
@@ -473,10 +474,24 @@ class AdminUsersController extends Controller
                 'name' => 'required|string|max:255',
                 'email' => 'required|email|unique:users,email',
                 'password' => 'required|string|min:8',
+                'username' => 'nullable|string|max:100|unique:users,username',
                 'phone' => 'nullable|string|max:20',
                 'role' => 'nullable|string|in:user,artist,moderator,admin',
                 'country' => 'nullable|string|max:2',
+                'city' => 'nullable|string|max:255',
+                'bio' => 'nullable|string|max:500',
                 'is_active' => 'nullable|boolean',
+                'email_verified' => 'nullable|boolean',
+                'is_event_organizer' => 'nullable|boolean',
+                'organizer_business_name' => 'nullable|string|max:255',
+                'organizer_support_email' => 'nullable|email|max:255',
+                'organizer_support_phone' => 'nullable|string|max:30',
+                'organizer_notes' => 'nullable|string|max:2000',
+                'organizer_payout_method' => 'nullable|string|in:mobile_money,bank_transfer',
+                'organizer_mobile_money_provider' => 'nullable|string|max:50',
+                'organizer_mobile_money_number' => 'nullable|string|max:50',
+                'organizer_bank_name' => 'nullable|string|max:120',
+                'organizer_bank_account' => 'nullable|string|max:120',
             ]);
 
             if ($validator->fails()) {
@@ -508,11 +523,14 @@ class AdminUsersController extends Controller
                 $user = User::create([
                     'name' => $request->name,
                     'email' => $request->email,
+                    'username' => $request->username,
                     'password' => Hash::make($request->password),
                     'phone' => $request->phone,
                     'country' => $request->country ?? 'UG',
+                    'city' => $request->city,
+                    'bio' => $request->bio,
                     'is_active' => $request->boolean('is_active', true),
-                    'email_verified_at' => now(),
+                    'email_verified_at' => $request->boolean('email_verified', true) ? now() : null,
                 ]);
 
                 $role = $request->role ?? 'user';
@@ -531,6 +549,19 @@ class AdminUsersController extends Controller
                         'is_verified' => false,
                     ]);
                 }
+
+                $user->syncEventOrganizerProfile([
+                    'enabled' => $request->boolean('is_event_organizer', false),
+                    'business_name' => $request->input('organizer_business_name'),
+                    'support_email' => $request->input('organizer_support_email'),
+                    'support_phone' => $request->input('organizer_support_phone'),
+                    'notes' => $request->input('organizer_notes'),
+                    'payout_method' => $request->input('organizer_payout_method', 'mobile_money'),
+                    'mobile_money_provider' => $request->input('organizer_mobile_money_provider'),
+                    'mobile_money_number' => $request->input('organizer_mobile_money_number'),
+                    'bank_name' => $request->input('organizer_bank_name'),
+                    'bank_account' => $request->input('organizer_bank_account'),
+                ]);
 
                 return $user->fresh(['artist']);
             });
@@ -578,6 +609,16 @@ class AdminUsersController extends Controller
                 'bio' => 'nullable|string|max:500',
                 'city' => 'nullable|string|max:255',
                 'is_active' => 'nullable|boolean',
+                'is_event_organizer' => 'nullable|boolean',
+                'organizer_business_name' => 'nullable|string|max:255',
+                'organizer_support_email' => 'nullable|email|max:255',
+                'organizer_support_phone' => 'nullable|string|max:30',
+                'organizer_notes' => 'nullable|string|max:2000',
+                'organizer_payout_method' => 'nullable|string|in:mobile_money,bank_transfer',
+                'organizer_mobile_money_provider' => 'nullable|string|max:50',
+                'organizer_mobile_money_number' => 'nullable|string|max:50',
+                'organizer_bank_name' => 'nullable|string|max:120',
+                'organizer_bank_account' => 'nullable|string|max:120',
             ]);
 
             if ($validator->fails()) {
@@ -637,6 +678,21 @@ class AdminUsersController extends Controller
                             $user->update(['is_artist' => false]);
                         }
                     }
+                }
+
+                if ($request->has('is_event_organizer')) {
+                    $user->syncEventOrganizerProfile([
+                        'enabled' => $request->boolean('is_event_organizer'),
+                        'business_name' => $request->input('organizer_business_name'),
+                        'support_email' => $request->input('organizer_support_email'),
+                        'support_phone' => $request->input('organizer_support_phone'),
+                        'notes' => $request->input('organizer_notes'),
+                        'payout_method' => $request->input('organizer_payout_method', 'mobile_money'),
+                        'mobile_money_provider' => $request->input('organizer_mobile_money_provider'),
+                        'mobile_money_number' => $request->input('organizer_mobile_money_number'),
+                        'bank_name' => $request->input('organizer_bank_name'),
+                        'bank_account' => $request->input('organizer_bank_account'),
+                    ]);
                 }
 
                 return $user->fresh(['artist']);

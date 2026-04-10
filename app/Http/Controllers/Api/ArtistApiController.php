@@ -74,7 +74,42 @@ class ArtistApiController extends Controller
      */
     private function artist(Request $request): ?Artist
     {
-        return Artist::where('user_id', $request->user()->id)->first();
+        $user = $request->user();
+        $artist = Artist::where('user_id', $user->id)->first();
+
+        if ($artist) {
+            return $artist;
+        }
+
+        if (! $this->shouldEnsureArtistProfile($user)) {
+            return null;
+        }
+
+        return DB::transaction(function () use ($user) {
+            $existingArtist = Artist::where('user_id', $user->id)->lockForUpdate()->first();
+
+            if ($existingArtist) {
+                return $existingArtist;
+            }
+
+            if (! $user->is_artist) {
+                $user->forceFill(['is_artist' => true])->save();
+            }
+
+            return Artist::create([
+                'user_id' => $user->id,
+                'stage_name' => $this->defaultArtistStageName($user),
+                'slug' => $this->generateUniqueArtistSlug(
+                    $this->defaultArtistStageName($user),
+                    $user->id
+                ),
+                'bio' => $user->bio,
+                'status' => 'active',
+                'is_verified' => (bool) $user->is_verified,
+                'verification_status' => $user->is_verified ? 'approved' : 'pending',
+                'can_upload' => true,
+            ]);
+        });
     }
 
     /**
@@ -98,6 +133,38 @@ class ArtistApiController extends Controller
         $columns = self::$songTableColumns ??= array_flip(Schema::getColumnListing((new Song)->getTable()));
 
         return array_intersect_key($attributes, $columns);
+    }
+
+    private function shouldEnsureArtistProfile(User $user): bool
+    {
+        return (bool) $user->is_artist || $user->hasRole('artist');
+    }
+
+    private function defaultArtistStageName(User $user): string
+    {
+        return $user->stage_name
+            ?? $user->display_name
+            ?? $user->name
+            ?? $user->username
+            ?? 'Artist';
+    }
+
+    private function generateUniqueArtistSlug(string $name, int $userId): string
+    {
+        $baseSlug = Str::slug($name);
+        if ($baseSlug === '') {
+            $baseSlug = 'artist-'.$userId;
+        }
+
+        $slug = $baseSlug;
+        $suffix = 2;
+
+        while (Artist::where('slug', $slug)->exists()) {
+            $slug = $baseSlug.'-'.$suffix;
+            $suffix++;
+        }
+
+        return $slug;
     }
 
     // ========================================================================

@@ -96,4 +96,51 @@ class EventTicketContractTest extends TestCase
             'payment_status' => 'completed',
         ]);
     }
+
+    public function test_credit_purchase_completes_and_deducts_credit_wallet_balance(): void
+    {
+        $user = User::factory()->create();
+        $user->ensureCreditWallet()->update(['balance' => 300]);
+
+        $event = Event::factory()->published()->create();
+        $ticket = EventTicket::create([
+            'uuid' => (string) \Str::uuid(),
+            'event_id' => $event->id,
+            'name' => 'Credits Pass',
+            'price_ugx' => 0,
+            'price_credits' => 120,
+            'quantity_total' => 10,
+            'quantity_sold' => 0,
+            'quantity_reserved' => 0,
+            'min_per_order' => 1,
+            'max_per_order' => 4,
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($user)->postJson('/api/tickets/purchase', [
+            'event_id' => $event->id,
+            'ticket_tier_id' => $ticket->id,
+            'quantity' => 2,
+            'payment_method' => 'credits',
+            'holder_name' => 'Credits Buyer',
+            'holder_email' => $user->email,
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.status', 'completed')
+            ->assertJsonPath('data.payment_method', 'credits');
+
+        $this->assertSame(60, $user->fresh()->credits);
+        $this->assertDatabaseHas('event_attendees', [
+            'ticket_id' => $ticket->id,
+            'payment_method' => 'credits',
+            'payment_status' => 'completed',
+            'price_paid_credits' => 120,
+        ]);
+        $this->assertDatabaseHas('credit_transactions', [
+            'user_id' => $user->id,
+            'source' => 'event_ticket_purchase',
+            'amount' => 240,
+        ]);
+    }
 }

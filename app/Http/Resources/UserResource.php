@@ -37,6 +37,9 @@ class UserResource extends JsonResource
                 ? $this->resource->getAllPermissions()
                 : [],
             'is_artist' => (bool) $this->is_artist,
+            'event_organizer' => method_exists($this->resource, 'getEventOrganizerProfile')
+                ? $this->resource->getEventOrganizerProfile()
+                : ['enabled' => false],
             'is_active' => (bool) $this->is_active,
             'is_verified' => (bool) $this->is_verified,
             'is_premium' => (bool) $this->is_premium,

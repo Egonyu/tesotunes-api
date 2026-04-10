@@ -634,6 +634,105 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(UserActivityCredit::class);
     }
 
+    public function getEventOrganizerAttribute(): array
+    {
+        return $this->getEventOrganizerProfile();
+    }
+
+    public function getEventOrganizerProfile(): array
+    {
+        return $this->normalizeEventOrganizerProfile($this->eventOrganizerProfileAttributes());
+    }
+
+    public function isEventOrganizer(): bool
+    {
+        return (bool) ($this->getEventOrganizerProfile()['enabled'] ?? false);
+    }
+
+    public function syncEventOrganizerProfile(array $attributes): void
+    {
+        $profile = $this->normalizeEventOrganizerProfile($attributes);
+
+        $settings = $this->rawJsonSettings();
+        $settings['event_organizer'] = $profile;
+
+        $this->forceFill(['settings' => $settings])->save();
+
+        $userSetting = $this->settings()->firstOrCreate(['user_id' => $this->id]);
+        $privacySettings = $userSetting->privacy_settings;
+
+        if (! is_array($privacySettings)) {
+            $privacySettings = [];
+        }
+
+        $privacySettings['event_organizer'] = $profile;
+
+        $userSetting->forceFill([
+            'privacy_settings' => $privacySettings,
+        ])->save();
+
+        $this->unsetRelation('settings');
+    }
+
+    private function eventOrganizerProfileAttributes(): array
+    {
+        $settings = $this->rawJsonSettings();
+        $profile = $settings['event_organizer'] ?? null;
+
+        if (is_array($profile)) {
+            return $profile;
+        }
+
+        $settingsRelation = $this->relationLoaded('settings')
+            ? $this->getRelation('settings')
+            : $this->settings()->first();
+
+        if ($settingsRelation instanceof UserSetting) {
+            $privacySettings = $settingsRelation->privacy_settings;
+
+            if (is_array($privacySettings) && isset($privacySettings['event_organizer']) && is_array($privacySettings['event_organizer'])) {
+                return $privacySettings['event_organizer'];
+            }
+        }
+
+        return [];
+    }
+
+    private function rawJsonSettings(): array
+    {
+        $rawSettings = $this->getRawOriginal('settings');
+
+        if (is_string($rawSettings) && $rawSettings !== '') {
+            $decoded = json_decode($rawSettings, true);
+
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        if (is_array($rawSettings)) {
+            return $rawSettings;
+        }
+
+        $attribute = $this->getAttributeFromArray('settings');
+
+        return is_array($attribute) ? $attribute : [];
+    }
+
+    private function normalizeEventOrganizerProfile(array $profile): array
+    {
+        return [
+            'enabled' => (bool) ($profile['enabled'] ?? false),
+            'business_name' => $profile['business_name'] ?? null,
+            'support_email' => $profile['support_email'] ?? null,
+            'support_phone' => $profile['support_phone'] ?? null,
+            'notes' => $profile['notes'] ?? null,
+            'payout_method' => $profile['payout_method'] ?? 'mobile_money',
+            'mobile_money_provider' => $profile['mobile_money_provider'] ?? null,
+            'mobile_money_number' => $profile['mobile_money_number'] ?? null,
+            'bank_name' => $profile['bank_name'] ?? null,
+            'bank_account' => $profile['bank_account'] ?? null,
+        ];
+    }
+
     public function deviceTokens(): HasMany
     {
         return $this->hasMany(DeviceToken::class);

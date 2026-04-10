@@ -79,6 +79,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Public Application URL
+    |--------------------------------------------------------------------------
+    |
+    | Mobile clients and external devices may need a different public-facing
+    | host than the one used for local desktop development. When provided,
+    | media URLs and other externally-consumed links should prefer this value.
+    |
+    */
+
+    'public_url' => env('APP_PUBLIC_URL', env('APP_URL', 'http://localhost')),
+
+    /*
+    |--------------------------------------------------------------------------
     | Frontend URL
     |--------------------------------------------------------------------------
     |

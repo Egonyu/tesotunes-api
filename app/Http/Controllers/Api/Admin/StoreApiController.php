@@ -161,6 +161,19 @@ class StoreApiController extends Controller
 
             $shops = Store::with('user:id,username,email')
                 ->withCount('products')
+                ->when($request->filled('search'), function ($query) use ($request) {
+                    $search = addcslashes((string) $request->get('search'), '%_');
+
+                    $query->where(function ($builder) use ($search) {
+                        $builder->where('name', 'LIKE', "%{$search}%")
+                            ->orWhere('description', 'LIKE', "%{$search}%")
+                            ->orWhere('city', 'LIKE', "%{$search}%")
+                            ->orWhereHas('user', function ($userQuery) use ($search) {
+                                $userQuery->where('username', 'LIKE', "%{$search}%")
+                                    ->orWhere('email', 'LIKE', "%{$search}%");
+                            });
+                    });
+                })
                 ->latest()
                 ->paginate($perPage);
 

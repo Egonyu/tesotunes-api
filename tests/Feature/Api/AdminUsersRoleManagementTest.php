@@ -219,6 +219,33 @@ class AdminUsersRoleManagementTest extends TestCase
         $this->assertNotSame($firstArtist->slug, $secondArtist->slug);
     }
 
+    public function test_admin_can_create_event_organizer_profile_without_artist_role(): void
+    {
+        $response = $this->actingAs($this->admin)->postJson('/api/admin/users', [
+            'name' => 'Event Organizer',
+            'email' => 'organizer@example.com',
+            'password' => 'password123',
+            'role' => 'user',
+            'is_event_organizer' => true,
+            'organizer_business_name' => 'Tesotunes Live',
+            'organizer_support_email' => 'events@example.com',
+            'organizer_support_phone' => '+256700000000',
+            'organizer_payout_method' => 'mobile_money',
+            'organizer_mobile_money_provider' => 'mtn',
+            'organizer_mobile_money_number' => '256700000000',
+        ]);
+
+        $response->assertCreated()
+            ->assertJsonPath('data.role', 'user')
+            ->assertJsonPath('data.event_organizer.enabled', true)
+            ->assertJsonPath('data.event_organizer.business_name', 'Tesotunes Live');
+
+        $user = User::where('email', 'organizer@example.com')->firstOrFail();
+
+        $this->assertTrue($user->isEventOrganizer());
+        $this->assertSame('Tesotunes Live', $user->getEventOrganizerProfile()['business_name']);
+    }
+
     public function test_moderator_can_view_users_but_not_mutate_them(): void
     {
         Role::query()->firstOrCreate(

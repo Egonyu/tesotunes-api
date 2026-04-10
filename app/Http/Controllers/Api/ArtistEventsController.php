@@ -21,7 +21,10 @@ use App\Services\Events\EventTicketCaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
+use Throwable;
 
 class ArtistEventsController extends Controller
 {
@@ -208,7 +211,7 @@ class ArtistEventsController extends Controller
 
         $resource = (new EventResource($event))->toArray(request());
         $resource['attendees'] = TicketResource::collection($event->attendees)->resolve();
-        $resource['payout_center'] = $this->buildPayoutCenter($user, $event);
+        $resource['payout_center'] = $this->safeBuildPayoutCenter($user, $event);
 
         return response()->json(['data' => $resource]);
     }
@@ -618,8 +621,20 @@ class ArtistEventsController extends Controller
             ->ownedByUser($user)
             ->findOrFail($id);
 
+        try {
+            $summary = $this->eventRevenueAnalyticsService->summarize($event);
+        } catch (Throwable $exception) {
+            Log::warning('ArtistEventsController analytics fallback engaged', [
+                'event_id' => $event->id,
+                'user_id' => $user?->id,
+                'error' => $exception->getMessage(),
+            ]);
+
+            $summary = $this->buildAnalyticsFallback($event);
+        }
+
         return response()->json([
-            'data' => $this->eventRevenueAnalyticsService->summarize($event),
+            'data' => $summary,
         ]);
     }
 
@@ -666,11 +681,7 @@ class ArtistEventsController extends Controller
         $user = auth()->user();
         $event = $this->findAccessibleEventForOps($user, $id);
 
-        $orders = EventAttendee::with('ticket')
-            ->where('event_id', $event->id)
-            ->where('payment_method', 'manual_offline')
-            ->orderByDesc('created_at')
-            ->get()
+        $orders = $this->manualOfflineAttendeesForEvent($event->id)
             ->groupBy(fn (EventAttendee $attendee) => data_get($attendee->attendee_metadata, 'order_id') ?? ('offline-attendee-'.$attendee->id))
             ->map(fn ($group, $orderId) => $this->serializeOfflineSaleOrder($group, (string) $orderId))
             ->values();
@@ -1022,10 +1033,7 @@ class ArtistEventsController extends Controller
             'validation_notes' => 'nullable|string|max:500',
         ]);
 
-        $orderAttendees = EventAttendee::with('ticket')
-            ->where('event_id', $event->id)
-            ->where('payment_method', 'manual_offline')
-            ->get()
+        $orderAttendees = $this->manualOfflineAttendeesForEvent($event->id)
             ->filter(function (EventAttendee $attendee) use ($orderId) {
                 return data_get($attendee->attendee_metadata, 'order_id') === $orderId
                     && (bool) data_get($attendee->attendee_metadata, 'printed_ticket_import', false);
@@ -1094,10 +1102,7 @@ class ArtistEventsController extends Controller
         return response()->json([
             'message' => 'Printed ticket batch synced successfully.',
             'data' => $this->serializeOfflineSaleOrder(
-                EventAttendee::with('ticket')
-                    ->where('event_id', $event->id)
-                    ->where('payment_method', 'manual_offline')
-                    ->get()
+                $this->manualOfflineAttendeesForEvent($event->id)
                     ->filter(fn (EventAttendee $attendee) => data_get($attendee->attendee_metadata, 'order_id') === $orderId)
                     ->values(),
                 $orderId
@@ -1113,10 +1118,7 @@ class ArtistEventsController extends Controller
             'reason' => 'nullable|string|max:500',
         ]);
 
-        $orderAttendees = EventAttendee::with('ticket')
-            ->where('event_id', $event->id)
-            ->where('payment_method', 'manual_offline')
-            ->get()
+        $orderAttendees = $this->manualOfflineAttendeesForEvent($event->id)
             ->filter(fn (EventAttendee $attendee) => data_get($attendee->attendee_metadata, 'order_id') === $orderId)
             ->values();
 
@@ -1396,6 +1398,230 @@ class ArtistEventsController extends Controller
             'latest_ready_at' => $summary['latest_ready_at'] ?? null,
             'latest_paid_out_at' => $summary['latest_paid_out_at'] ?? null,
         ];
+    }
+
+    private function safeBuildPayoutCenter(User $user, Event $event): array
+    {
+        try {
+            return $this->buildPayoutCenter($user, $event);
+        } catch (Throwable $exception) {
+            Log::warning('ArtistEventsController payout center fallback engaged', [
+                'event_id' => $event->id,
+                'user_id' => $user->id,
+                'error' => $exception->getMessage(),
+            ]);
+
+            $summary = $this->safePayoutSummary($event);
+
+            return [
+                'setup_complete' => false,
+                'money_payout_enabled' => false,
+                'minimum_payout' => 0.0,
+                'verification_status' => User::hasArtistProfilesTable() ? 'pending' : 'unavailable',
+                'method' => null,
+                'method_label' => User::hasArtistProfilesTable() ? 'Not Set' : 'Unavailable on current local schema',
+                'mobile_money_provider' => null,
+                'mobile_money_number' => null,
+                'bank_name' => null,
+                'bank_account_masked' => null,
+                'pending_balance' => $summary['pending_balance'] ?? 0,
+                'ready_balance' => $summary['ready_balance'] ?? 0,
+                'settled_balance' => $summary['settled_balance'] ?? 0,
+                'failed_balance' => $summary['failed_balance'] ?? 0,
+                'entry_count' => $summary['entry_count'] ?? 0,
+                'latest_ready_at' => $summary['latest_ready_at'] ?? null,
+                'latest_paid_out_at' => $summary['latest_paid_out_at'] ?? null,
+            ];
+        }
+    }
+
+    private function safePayoutSummary(Event $event): array
+    {
+        try {
+            return $this->eventPayoutLedgerService->summarizeForEvent($event);
+        } catch (Throwable $exception) {
+            Log::warning('ArtistEventsController payout summary fallback engaged', [
+                'event_id' => $event->id,
+                'error' => $exception->getMessage(),
+            ]);
+
+            return [
+                'pending_balance' => 0.0,
+                'ready_balance' => 0.0,
+                'settled_balance' => 0.0,
+                'failed_balance' => 0.0,
+                'entry_count' => 0,
+                'latest_ready_at' => null,
+                'latest_paid_out_at' => null,
+            ];
+        }
+    }
+
+    private function buildAnalyticsFallback(Event $event): array
+    {
+        $event->loadMissing(['tickets', 'attendees.ticket']);
+
+        $confirmedAttendees = $event->attendees
+            ->whereIn('status', [EventAttendee::STATUS_CONFIRMED, EventAttendee::STATUS_ATTENDED])
+            ->values();
+
+        $ticketsSold = (int) $event->tickets->sum('quantity_sold');
+        $grossRevenue = round((float) $confirmedAttendees->sum(function (EventAttendee $attendee) {
+            return $attendee->price_paid_ugx ?? $attendee->amount_paid ?? 0;
+        }), 2);
+        $totalInventory = (int) $event->tickets->sum('quantity_total');
+        $byTier = $event->tickets->map(function (EventTicket $ticket) use ($confirmedAttendees) {
+            $tierAttendees = $confirmedAttendees->where('ticket_id', $ticket->id);
+
+            return [
+                'id' => $ticket->id,
+                'name' => $ticket->name,
+                'sold' => (int) ($ticket->quantity_sold ?? 0),
+                'total' => $ticket->quantity_total,
+                'revenue' => round((float) $tierAttendees->sum(function (EventAttendee $attendee) {
+                    return $attendee->price_paid_ugx ?? $attendee->amount_paid ?? 0;
+                }), 2),
+                'estimated_organizer_payout' => round((float) $tierAttendees->sum(function (EventAttendee $attendee) {
+                    return $attendee->price_paid_ugx ?? $attendee->amount_paid ?? 0;
+                }), 2),
+                'tesotunes_fee_revenue' => 0.0,
+                'available' => (int) ($ticket->quantity_available ?? 0),
+                'external_allocated' => (int) ($ticket->external_allocated_quantity ?? 0),
+            ];
+        })->values();
+
+        return [
+            'event_id' => $event->id,
+            'status' => $event->status,
+            'tickets_sold' => $ticketsSold,
+            'total_attendees' => (int) $confirmedAttendees->count(),
+            'confirmed_orders' => (int) $confirmedAttendees->count(),
+            'interested_count' => 0,
+            'check_ins' => (int) $confirmedAttendees->whereNotNull('checked_in_at')->count(),
+            'revenue' => $grossRevenue,
+            'gross_revenue' => $grossRevenue,
+            'customer_paid_total' => $grossRevenue,
+            'revenue_credits' => 0.0,
+            'tesotunes_fee_revenue' => 0.0,
+            'platform_commission_revenue' => 0.0,
+            'processing_fee_revenue' => 0.0,
+            'estimated_organizer_payout' => $grossRevenue,
+            'average_order_value' => $confirmedAttendees->count() > 0 ? round($grossRevenue / max(1, $confirmedAttendees->count()), 2) : 0.0,
+            'fee_contract_coverage' => [
+                'orders_with_fee_breakdown' => 0,
+                'legacy_orders_without_fee_breakdown' => (int) $confirmedAttendees->count(),
+            ],
+            'payouts' => $this->safePayoutSummary($event),
+            'marketing' => [
+                'attributed_orders' => 0,
+                'unattributed_orders' => (int) $confirmedAttendees->count(),
+                'attributed_revenue' => 0.0,
+                'top_sources' => [],
+            ],
+            'funnel' => [
+                'totals' => [
+                    'visits' => 0,
+                    'checkout_starts' => 0,
+                    'paid_orders' => (int) $confirmedAttendees->count(),
+                    'tickets_sold' => $ticketsSold,
+                ],
+                'by_source' => [],
+            ],
+            'sales_channels' => [
+                'channels' => [],
+            ],
+            'roi' => [
+                'total_spend' => 0.0,
+                'total_gross_revenue' => $grossRevenue,
+                'total_organizer_payout' => $grossRevenue,
+                'total_net_profit' => $grossRevenue,
+                'tracked_sources' => 0,
+                'by_source' => [],
+            ],
+            'inventory_allocations' => [
+                'external_allocated_total' => (int) $byTier->sum('external_allocated'),
+                'by_tier' => $byTier->map(fn (array $tier) => [
+                    'id' => $tier['id'],
+                    'name' => $tier['name'],
+                    'quantity_total' => $tier['total'],
+                    'quantity_sold' => $tier['sold'],
+                    'quantity_reserved' => 0,
+                    'quantity_external_allocated' => $tier['external_allocated'],
+                    'available' => $tier['available'],
+                ])->all(),
+            ],
+            'settlements' => [
+                'event_totals' => [
+                    'gross_revenue' => $grossRevenue,
+                    'organizer_net_amount' => $grossRevenue,
+                    'settled_balance' => 0.0,
+                    'failed_balance' => 0.0,
+                ],
+                'by_tier' => $byTier->map(fn (array $tier) => [
+                    'tier' => $tier['name'],
+                    'sold' => $tier['sold'],
+                    'gross_revenue' => $tier['revenue'],
+                    'organizer_net_amount' => $tier['estimated_organizer_payout'],
+                    'tesotunes_fee_revenue' => $tier['tesotunes_fee_revenue'],
+                ])->all(),
+                'by_campaign' => [],
+                'by_payout_cycle' => [],
+            ],
+            'support_cases' => [
+                'open' => 0,
+                'approved' => 0,
+                'rejected' => 0,
+                'refund_requests' => 0,
+                'payment_disputes' => 0,
+                'open_payment_disputes' => 0,
+                'chargeback_review_cases' => 0,
+                'chargeback_exposure_amount' => 0.0,
+                'approved_refund_amount' => 0.0,
+            ],
+            'conversion_rate' => 0.0,
+            'sell_through_rate' => $totalInventory > 0 ? round(($ticketsSold / max(1, $totalInventory)) * 100, 2) : 0.0,
+            'by_tier' => $byTier->all(),
+            'by_date' => [],
+        ];
+    }
+
+    private function manualOfflineAttendeesForEvent(int $eventId): \Illuminate\Support\Collection
+    {
+        $query = EventAttendee::with('ticket')
+            ->where('event_id', $eventId)
+            ->orderByDesc('created_at');
+
+        if ($this->eventAttendeesHasColumn('payment_method')) {
+            return $query
+                ->where('payment_method', 'manual_offline')
+                ->get();
+        }
+
+        return $query
+            ->get()
+            ->filter(function (EventAttendee $attendee) {
+                $metadata = is_array($attendee->attendee_metadata ?? null) ? $attendee->attendee_metadata : [];
+                $salesChannel = strtolower((string) data_get($metadata, 'sales_channel', data_get($metadata, 'ticket_source', '')));
+
+                return $salesChannel === 'manual_offline'
+                    || $salesChannel === 'printed_ticket'
+                    || (bool) data_get($metadata, 'offline_sale', false)
+                    || (bool) data_get($metadata, 'is_manual_ticket', false);
+            })
+            ->values();
+    }
+
+    private function eventAttendeesHasColumn(string $column): bool
+    {
+        static $columns = null;
+
+        if ($columns === null) {
+            $columns = Schema::hasTable('event_attendees')
+                ? Schema::getColumnListing('event_attendees')
+                : [];
+        }
+
+        return in_array($column, $columns, true);
     }
 
     private function findAccessibleEventForOps(User $user, int $eventId): Event

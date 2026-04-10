@@ -15,6 +15,8 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->group(function () {
     Route::post('/polls/{poll}/vote', [\App\Http\Controllers\Api\PollVoteController::class, 'vote'])
         ->name('api.polls.vote');
+    Route::post('/tips', [\App\Http\Controllers\Api\TipController::class, 'store'])
+        ->name('api.tips.store');
 });
 
 // Poll listing & results (public)

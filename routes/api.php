@@ -87,7 +87,7 @@ Route::middleware('auth:sanctum')->prefix('tickets')->name('api.tickets.account.
 });
 
 // Artist Events API Routes (auth + artist role required)
-Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('artist/events')->name('api.artist.events.')->group(function () {
+Route::middleware(['auth:sanctum', 'artist.events.access'])->prefix('artist/events')->name('api.artist.events.')->group(function () {
     Route::get('/', [\App\Http\Controllers\Api\ArtistEventsController::class, 'index'])->name('index');
     Route::post('/', [\App\Http\Controllers\Api\ArtistEventsController::class, 'store'])->name('store');
     Route::get('/{id}', [\App\Http\Controllers\Api\ArtistEventsController::class, 'show'])->name('show');
