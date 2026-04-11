@@ -66,7 +66,7 @@ class PromotionStoreProvisioningTest extends TestCase
         $this->assertSame($artist->id, $store->owner_id);
         $this->assertSame(Artist::class, $store->owner_type);
 
-        $this->assertDatabaseHas((new Product())->getTable(), [
+        $this->assertDatabaseHas((new Product)->getTable(), [
             'store_id' => $store->id,
             'name' => 'Instagram Reel Push',
             'product_type' => Product::TYPE_PROMOTION,
