@@ -108,6 +108,13 @@ class SecurityAuditRoutes extends Command
     ];
 
     /**
+     * Custom middleware aliases that satisfy artist access requirements.
+     */
+    private array $artistAccessMiddlewareAliases = [
+        'artist.events.access',
+    ];
+
+    /**
      * Public state-changing routes that are intentionally exposed for
      * guest flows such as ticket checkout.
      */
@@ -202,7 +209,7 @@ class SecurityAuditRoutes extends Command
                         'middleware' => $middlewareStr,
                     ];
                 }
-                if (! $this->hasMiddleware($middleware, 'role')) {
+                if (! $this->hasRoleProtection($middleware, $this->artistAccessMiddlewareAliases)) {
                     $issues[] = [
                         'severity' => 'HIGH',
                         'uri' => $uri,
@@ -296,6 +303,21 @@ class SecurityAuditRoutes extends Command
     {
         foreach ($middleware as $m) {
             if (str_contains($m, $search)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function hasRoleProtection(array $middleware, array $customAliases = []): bool
+    {
+        if ($this->hasMiddleware($middleware, 'role')) {
+            return true;
+        }
+
+        foreach ($customAliases as $alias) {
+            if ($this->hasMiddleware($middleware, $alias)) {
                 return true;
             }
         }
