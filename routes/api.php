@@ -670,7 +670,7 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::delete('/podcasts/{id}', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'destroy'])->name('podcasts.destroy');
     Route::post('/podcasts/{id}/approve', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'approve'])->name('podcasts.approve');
     Route::post('/podcasts/{id}/suspend', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'suspend'])->name('podcasts.suspend');
-    Route::get('/podcasts/{$id}/episodes', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'episodes'])->name('podcasts.episodes');
+    Route::get('/podcasts/{id}/episodes', [\App\Http\Controllers\Api\Admin\AdminPodcastsController::class, 'episodes'])->name('podcasts.episodes');
 
     // Genres API — full CRUD
     Route::get('/genres', [\App\Http\Controllers\Api\Admin\AdminGenreController::class, 'index'])->name('genres.index');

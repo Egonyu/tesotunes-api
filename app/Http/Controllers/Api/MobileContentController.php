@@ -59,10 +59,15 @@ class MobileContentController extends Controller
     {
         $limit = $request->input('limit', 10);
 
-        $artists = Artist::withCount(['followers', 'songs'])
+        $artists = Artist::select('artists.*')
+            ->withCount([
+                'followers',
+                'songs' => function ($query) {
+                    $query->where('status', 'published');
+                },
+            ])
             ->with(['user'])
             ->where('is_verified', true)
-            ->select('artists.*')
             ->selectRaw('(followers_count * 0.6 + songs_count * 0.4) as popularity_score')
             ->orderByDesc('popularity_score')
             ->limit($limit)
@@ -75,7 +80,7 @@ class MobileContentController extends Controller
                     'avatar' => $artist->avatar_url,
                     'cover_image' => $artist->banner_url,
                     'is_verified' => $artist->is_verified,
-                    'followers_count' => $artist->follower_count ?? 0,
+                    'followers_count' => $artist->followers_count ?? $artist->follower_count ?? 0,
                     'songs_count' => $artist->songs_count ?? 0,
                     'slug' => $artist->slug,
                 ];
