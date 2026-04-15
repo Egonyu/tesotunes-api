@@ -34,6 +34,8 @@ class AdminEnvironmentSettingsTest extends TestCase
             'APP_NAME=OldName',
             'APP_DEBUG=false',
             'MAIL_PASSWORD=secret123',
+            'GOOGLE_CLIENT_ID=old-google-client-id',
+            'GOOGLE_CLIENT_SECRET=old-google-secret',
             'QUEUE_CONNECTION=database',
             '',
         ]));
@@ -68,10 +70,19 @@ class AdminEnvironmentSettingsTest extends TestCase
             ->flatMap(fn (array $group) => $group['fields'])
             ->firstWhere('key', 'MAIL_PASSWORD');
 
+        $googleClientSecretField = collect($response->json('data.groups'))
+            ->flatMap(fn (array $group) => $group['fields'])
+            ->firstWhere('key', 'GOOGLE_CLIENT_SECRET');
+
         $this->assertNotNull($mailPasswordField);
         $this->assertTrue($mailPasswordField['secret']);
         $this->assertNull($mailPasswordField['value']);
         $this->assertTrue($mailPasswordField['configured']);
+
+        $this->assertNotNull($googleClientSecretField);
+        $this->assertTrue($googleClientSecretField['secret']);
+        $this->assertNull($googleClientSecretField['value']);
+        $this->assertTrue($googleClientSecretField['configured']);
     }
 
     public function test_super_admin_can_update_environment_settings(): void
@@ -85,6 +96,8 @@ class AdminEnvironmentSettingsTest extends TestCase
                 'APP_NAME' => 'New Platform Name',
                 'APP_DEBUG' => true,
                 'MAIL_PASSWORD' => 'rotated-secret',
+                'GOOGLE_CLIENT_ID' => 'new-google-client-id',
+                'GOOGLE_CLIENT_SECRET' => 'new-google-secret',
             ],
         ])->assertOk()
             ->assertJsonPath('success', true)
@@ -95,6 +108,8 @@ class AdminEnvironmentSettingsTest extends TestCase
         $this->assertStringContainsString('APP_NAME="New Platform Name"', $contents);
         $this->assertStringContainsString('APP_DEBUG=true', $contents);
         $this->assertStringContainsString('MAIL_PASSWORD=rotated-secret', $contents);
+        $this->assertStringContainsString('GOOGLE_CLIENT_ID=new-google-client-id', $contents);
+        $this->assertStringContainsString('GOOGLE_CLIENT_SECRET=new-google-secret', $contents);
     }
 
     public function test_admin_cannot_manage_environment_settings(): void

@@ -90,6 +90,19 @@ class EnvironmentSettingsService
                 ['key' => 'SENTRY_TRACES_SAMPLE_RATE', 'label' => 'Trace Sample Rate', 'type' => 'number', 'secret' => false, 'description' => 'Trace sample rate between 0 and 1.'],
             ],
         ],
+        [
+            'id' => 'oauth',
+            'label' => 'OAuth Credentials',
+            'description' => 'Social authentication provider credentials used by API token exchange endpoints.',
+            'fields' => [
+                ['key' => 'GOOGLE_CLIENT_ID', 'label' => 'Google Client ID', 'type' => 'string', 'secret' => false, 'description' => 'Google OAuth client identifier used by API social auth.'],
+                ['key' => 'GOOGLE_CLIENT_SECRET', 'label' => 'Google Client Secret', 'type' => 'string', 'secret' => true, 'description' => 'Google OAuth client secret used by API social auth.'],
+                ['key' => 'GOOGLE_REDIRECT_URI', 'label' => 'Google Redirect URI', 'type' => 'string', 'secret' => false, 'description' => 'Redirect URI for Google OAuth callbacks (optional for token exchange flow).'],
+                ['key' => 'FACEBOOK_CLIENT_ID', 'label' => 'Facebook Client ID', 'type' => 'string', 'secret' => false, 'description' => 'Facebook app client identifier used by API social auth.'],
+                ['key' => 'FACEBOOK_CLIENT_SECRET', 'label' => 'Facebook Client Secret', 'type' => 'string', 'secret' => true, 'description' => 'Facebook app client secret used by API social auth.'],
+                ['key' => 'FACEBOOK_REDIRECT_URI', 'label' => 'Facebook Redirect URI', 'type' => 'string', 'secret' => false, 'description' => 'Redirect URI for Facebook OAuth callbacks (optional for token exchange flow).'],
+            ],
+        ],
     ];
 
     public function __construct(
