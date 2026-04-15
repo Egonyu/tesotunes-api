@@ -68,7 +68,9 @@ class AdminEnvironmentSettingsTest extends TestCase
             ->assertJsonPath('data.file', '.env')
             ->assertJsonPath('data.groups.0.id', 'application');
 
-        $this->assertNotNull($response->json('data.last_updated_at'));
+        $lastUpdatedAt = $response->json('data.last_updated_at');
+        $this->assertNotNull($lastUpdatedAt);
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+\d{2}:\d{2}$/', $lastUpdatedAt);
 
         $mailPasswordField = collect($response->json('data.groups'))
             ->flatMap(fn (array $group) => $group['fields'])
