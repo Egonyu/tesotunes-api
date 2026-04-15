@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\LegalPage;
-use App\Models\LegalPageAcceptance;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -31,6 +30,14 @@ class LegalPagesController
                 $query->appliesTo($role);
             } else {
                 $query->where('applies_to', LegalPage::APPLIES_TO_ALL);
+            }
+
+            if ($request->get('search')) {
+                $search = escape_like((string) $request->get('search'));
+                $query->where(function ($q) use ($search) {
+                    $q->where('title', 'like', '%'.$search.'%')
+                        ->orWhere('slug', 'like', '%'.$search.'%');
+                });
             }
 
             $pages = $query->select('id', 'title', 'slug', 'type', 'applies_to', 'requires_acceptance')
@@ -144,7 +151,7 @@ class LegalPagesController
 
             return response()->json([
                 'success' => true,
-                'message' => 'You have accepted the ' . $page->title,
+                'message' => 'You have accepted the '.$page->title,
                 'data' => [
                     'page_id' => $page->id,
                     'version' => $page->version,

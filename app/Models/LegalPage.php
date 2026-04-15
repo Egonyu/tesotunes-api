@@ -13,6 +13,42 @@ class LegalPage extends Model
 {
     use HasFactory, SoftDeletes;
 
+    const TYPE_TERMS_OF_SERVICE = 'terms';
+
+    const TYPE_PRIVACY_POLICY = 'privacy';
+
+    const TYPE_ACCEPTABLE_USE = 'acceptable_use';
+
+    const TYPE_ARTIST_AGREEMENT = 'artist_agreement';
+
+    const TYPE_COPYRIGHT = 'copyright';
+
+    const TYPE_COOKIES = 'cookies';
+
+    const TYPE_DISCLAIMER = 'disclaimer';
+
+    const TYPE_PAYMENT_TERMS = 'payment_terms';
+
+    const TYPE_DMCA = 'dmca';
+
+    const TYPE_ACCESSIBILITY = 'accessibility';
+
+    const STATUS_DRAFT = 'draft';
+
+    const STATUS_PUBLISHED = 'published';
+
+    const STATUS_ARCHIVED = 'archived';
+
+    const APPLIES_TO_ALL = 'all';
+
+    const APPLIES_TO_USERS = 'users';
+
+    const APPLIES_TO_ARTISTS = 'artists';
+
+    const APPLIES_TO_LABELS = 'labels';
+
+    const APPLIES_TO_EVENT_ORGANIZERS = 'event_organizers';
+
     protected $fillable = [
         'uuid',
         'slug',
@@ -43,30 +79,6 @@ class LegalPage extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
-
-    // Type constants
-    const TYPE_TERMS_OF_SERVICE = 'terms';
-    const TYPE_PRIVACY_POLICY = 'privacy';
-    const TYPE_ACCEPTABLE_USE = 'acceptable_use';
-    const TYPE_ARTIST_AGREEMENT = 'artist_agreement';
-    const TYPE_COPYRIGHT = 'copyright';
-    const TYPE_COOKIES = 'cookies';
-    const TYPE_DISCLAIMER = 'disclaimer';
-    const TYPE_PAYMENT_TERMS = 'payment_terms';
-    const TYPE_DMCA = 'dmca';
-    const TYPE_ACCESSIBILITY = 'accessibility';
-
-    // Status constants
-    const STATUS_DRAFT = 'draft';
-    const STATUS_PUBLISHED = 'published';
-    const STATUS_ARCHIVED = 'archived';
-
-    // Applies to constants
-    const APPLIES_TO_ALL = 'all';
-    const APPLIES_TO_USERS = 'users';
-    const APPLIES_TO_ARTISTS = 'artists';
-    const APPLIES_TO_LABELS = 'labels';
-    const APPLIES_TO_EVENT_ORGANIZERS = 'event_organizers';
 
     protected static function booted(): void
     {
@@ -168,7 +180,7 @@ class LegalPage extends Model
             ->exists();
     }
 
-    public function recordAcceptance(User $user, string $ipAddress = null, string $userAgent = null): LegalPageAcceptance
+    public function recordAcceptance(User $user, ?string $ipAddress = null, ?string $userAgent = null): LegalPageAcceptance
     {
         return $this->acceptances()->create([
             'user_id' => $user->id,
@@ -196,7 +208,7 @@ class LegalPage extends Model
         ]);
     }
 
-    public function createNewVersion(User $user, string $changelog = null): LegalPageVersion
+    public function createNewVersion(User $user, ?string $changelog = null): LegalPageVersion
     {
         $this->increment('version');
 

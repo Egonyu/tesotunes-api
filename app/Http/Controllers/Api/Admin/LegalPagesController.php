@@ -6,7 +6,6 @@ use App\Models\LegalPage;
 use App\Models\LegalPageVersion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class LegalPagesController
 {
