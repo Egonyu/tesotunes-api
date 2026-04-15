@@ -7,8 +7,15 @@
 
 set -e
 
-SITE_DIR="/var/www/api.tesotunes.com"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SITE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+PUBLIC_DIR="/var/www/api.tesotunes.com"
 cd "$SITE_DIR"
+
+PREVIOUS_PUBLIC_TARGET=""
+if [ -L "$PUBLIC_DIR" ]; then
+    PREVIOUS_PUBLIC_TARGET="$(readlink -f "$PUBLIC_DIR")"
+fi
 
 echo "▸ Pulling latest code..."
 git pull origin main
@@ -53,14 +60,23 @@ systemctl reload php8.4-fpm 2>/dev/null || systemctl reload php-fpm 2>/dev/null 
 nginx -t && systemctl reload nginx
 
 echo ""
+echo "▸ Clearing Laravel optimization caches..."
+php artisan optimize:clear
+
+echo "▸ Switching public site to the synced checkout..."
+ln -sfnT "$SITE_DIR" "$PUBLIC_DIR"
+
+echo ""
 echo "▸ Running post-deployment security smoke test..."
 bash "$SITE_DIR/scripts/security-smoke-test.sh" "https://api.tesotunes.com/api" || {
     echo "⚠️  WARNING: Post-deployment security smoke test had failures!"
+    if [ -n "$PREVIOUS_PUBLIC_TARGET" ]; then
+        ln -sfnT "$PREVIOUS_PUBLIC_TARGET" "$PUBLIC_DIR"
+        echo "↩ Restored previous public symlink target: $PREVIOUS_PUBLIC_TARGET"
+    fi
     echo "Check the output above and fix immediately."
+    exit 1
 }
-
-echo "▸ Clearing Laravel optimization caches..."
-php artisan optimize:clear
 
 echo ""
 echo "✓ Redeployed! Check:"
