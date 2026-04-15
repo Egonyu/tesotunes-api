@@ -10,6 +10,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SITE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PUBLIC_DIR="/var/www/api.tesotunes.com"
+SHARED_DIR="/var/www/tesotunes-shared"
 cd "$SITE_DIR"
 
 PREVIOUS_PUBLIC_TARGET=""
@@ -19,6 +20,36 @@ fi
 
 echo "▸ Pulling latest code..."
 git pull origin main
+
+echo "▸ Linking shared runtime config..."
+if [ -f "$SHARED_DIR/.env" ]; then
+    if [ -e "$SITE_DIR/.env" ] && [ ! -L "$SITE_DIR/.env" ]; then
+        mv "$SITE_DIR/.env" "$SITE_DIR/.env.bak.$(date +%Y%m%d_%H%M%S)"
+    fi
+    ln -sfn "$SHARED_DIR/.env" "$SITE_DIR/.env"
+else
+    echo "❌ Missing shared env file at $SHARED_DIR/.env"
+    exit 1
+fi
+
+if [ -d "$SHARED_DIR/storage" ]; then
+    RESOLVED_SHARED_STORAGE="$(readlink -f "$SHARED_DIR/storage")"
+    case "$RESOLVED_SHARED_STORAGE" in
+        /var/www/tesotunes-shared/*) ;;
+        *)
+            echo "❌ Shared storage resolved outside expected directory: $RESOLVED_SHARED_STORAGE"
+            exit 1
+            ;;
+    esac
+
+    if [ -e "$SITE_DIR/storage" ] && [ ! -L "$SITE_DIR/storage" ]; then
+        mv "$SITE_DIR/storage" "$SITE_DIR/storage.bak.$(date +%Y%m%d_%H%M%S)"
+    fi
+    ln -sfn "$SHARED_DIR/storage" "$SITE_DIR/storage"
+else
+    echo "❌ Missing shared storage directory at $SHARED_DIR/storage"
+    exit 1
+fi
 
 echo "▸ Updating Laravel..."
 composer install --no-dev --optimize-autoloader --no-interaction
