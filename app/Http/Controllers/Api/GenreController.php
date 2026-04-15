@@ -9,6 +9,8 @@ use App\Http\Resources\GenreResource;
 use App\Http\Resources\SongResource;
 use App\Models\Genre;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class GenreController extends Controller
 {
@@ -19,14 +21,23 @@ class GenreController extends Controller
      */
     public function index(Request $request)
     {
-        $genres = Genre::active()
-            ->ordered()
-            ->withCount(['songs' => function ($q) {
-                $q->where('status', 'published');
-            }])
-            ->get();
+        try {
+            $genres = Genre::active()
+                ->ordered()
+                ->withCount(['songs' => function ($q) {
+                    $q->where('status', 'published');
+                }])
+                ->get();
 
-        return GenreResource::collection($genres);
+            return GenreResource::collection($genres);
+        } catch (Throwable $exception) {
+            Log::error('Failed to load public genres list', [
+                'message' => $exception->getMessage(),
+                'path' => $request->path(),
+            ]);
+
+            return GenreResource::collection(collect());
+        }
     }
 
     /**

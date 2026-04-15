@@ -11,6 +11,9 @@ use App\Models\Event;
 use App\Notifications\NewFollowerNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class ArtistController extends Controller
 {
@@ -20,25 +23,43 @@ class ArtistController extends Controller
      */
     public function index(Request $request)
     {
-        $perPage = min((int) $request->get('per_page', 20), 100);
+        try {
+            $perPage = min((int) $request->get('per_page', 20), 100);
 
-        $artists = Artist::with('primaryGenre')
-            ->where('status', 'active')
-            ->when($request->boolean('claimable_only'), fn ($q) => $q->where('is_placeholder', true)->where('claim_status', 'unclaimed'))
-            ->when($request->filled('verified_only'), fn ($q) => $q->where('is_verified', $request->boolean('verified_only')))
-            ->when($request->filled('country'), fn ($q) => $q->where('country', $request->country))
-            ->when($request->filled('genre'), fn ($q) => $q->where('primary_genre_id', $request->genre))
-            ->when($request->filled('search'), function ($q) use ($request) {
-                $search = '%'.escape_like($request->search).'%';
-                $q->where(function ($artistQuery) use ($search) {
-                    $artistQuery->where('stage_name', 'like', $search)
-                        ->orWhere('name', 'like', $search);
-                });
-            })
-            ->orderByDesc('followers_count')
-            ->paginate($perPage);
+            $artists = Artist::with('primaryGenre')
+                ->where('status', 'active')
+                ->when($request->boolean('claimable_only'), fn ($q) => $q->where('is_placeholder', true)->where('claim_status', 'unclaimed'))
+                ->when($request->filled('verified_only'), fn ($q) => $q->where('is_verified', $request->boolean('verified_only')))
+                ->when($request->filled('country'), fn ($q) => $q->where('country', $request->country))
+                ->when($request->filled('genre'), fn ($q) => $q->where('primary_genre_id', $request->genre))
+                ->when($request->filled('search'), function ($q) use ($request) {
+                    $search = '%'.escape_like($request->search).'%';
+                    $q->where(function ($artistQuery) use ($search) {
+                        $artistQuery->where('stage_name', 'like', $search)
+                            ->orWhere('name', 'like', $search);
+                    });
+                })
+                ->orderByDesc('followers_count')
+                ->paginate($perPage);
 
-        return ArtistResource::collection($artists);
+            return ArtistResource::collection($artists);
+        } catch (Throwable $exception) {
+            Log::error('Failed to load public artists list', [
+                'message' => $exception->getMessage(),
+                'path' => $request->path(),
+            ]);
+
+            $perPage = min((int) $request->get('per_page', 20), 100);
+            $emptyPaginator = new LengthAwarePaginator(
+                collect(),
+                0,
+                $perPage,
+                1,
+                ['path' => $request->url(), 'query' => $request->query()]
+            );
+
+            return ArtistResource::collection($emptyPaginator);
+        }
     }
 
     /**
