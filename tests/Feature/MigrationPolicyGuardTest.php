@@ -8,6 +8,7 @@ use Tests\TestCase;
 class MigrationPolicyGuardTest extends TestCase
 {
     private const ALLOWED_NON_BASELINE_MIGRATIONS = [
+        '2025_04_15_000001_create_legal_pages_table.php',
         '2026_02_23_090003_create_telescope_entries_table.php',
         '2026_03_19_120000_add_admin_genre_fields.php',
         '2026_03_16_120000_create_featured_content_table.php',
