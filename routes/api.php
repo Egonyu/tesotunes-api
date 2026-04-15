@@ -28,6 +28,9 @@ require __DIR__.'/api/music.php';
 // Engagement API Routes
 require __DIR__.'/api/engagement.php';
 
+// Legal Pages API Routes (Terms, Privacy, Policies)
+require __DIR__.'/api/legal-pages.php';
+
 // Payment API Routes (Day 4)
 require __DIR__.'/api/payment.php';
 
