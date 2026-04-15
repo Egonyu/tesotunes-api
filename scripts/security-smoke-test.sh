@@ -42,7 +42,16 @@ test_endpoint() {
         actual_code=$(curl -s -o /dev/null -w "%{http_code}" -X "$method" -H "Accept: application/json" -H "Content-Type: application/json" "$url" 2>/dev/null || echo "000")
     fi
 
-    if [ "$actual_code" = "$expected_code" ]; then
+    local is_expected="false"
+    if [[ "$expected_code" == *"|"* ]]; then
+        if [[ "$actual_code" =~ ^(${expected_code})$ ]]; then
+            is_expected="true"
+        fi
+    elif [ "$actual_code" = "$expected_code" ]; then
+        is_expected="true"
+    fi
+
+    if [ "$is_expected" = "true" ]; then
         echo -e "${GREEN}[PASS]${NC} $description (${method} ${path} → ${actual_code})"
         PASS=$((PASS + 1))
     elif [ "$actual_code" = "000" ]; then
@@ -108,8 +117,9 @@ test_endpoint "POST" "/artist/earnings/withdraw" "401" "Artist withdrawal requir
 
 echo ""
 echo "=== Debug/Test Endpoints (Must not exist) ==="
-# test-upload should return 404 now (removed)
-test_endpoint "POST" "/test-upload" "401" "Test upload endpoint removed or protected"
+# A removed endpoint may return 404 (not found) or 405 (method not allowed) depending on route table shape.
+# 401 is still acceptable if explicitly protected by auth middleware.
+test_endpoint "POST" "/test-upload" "401|404|405" "Test upload endpoint removed or protected"
 
 echo ""
 echo "=== Public Endpoints (Should work without auth) ==="
