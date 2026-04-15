@@ -14,11 +14,8 @@ use App\Services\Settings\ArtistSettingsService;
 use App\Services\SongService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Throwable;
 
 class SongController extends Controller
 {
@@ -35,67 +32,49 @@ class SongController extends Controller
      */
     public function index(Request $request)
     {
-        try {
-            $perPage = min((int) $request->get('per_page', $request->get('limit', 20)), 100);
-            $sort = (string) $request->get('sort', '-created_at');
-            $sortField = ltrim($sort, '-');
-            $sortDirection = str_starts_with($sort, '-') ? 'desc' : 'asc';
-            $allowedSortFields = [
-                'created_at',
-                'updated_at',
-                'play_count',
-                'like_count',
-                'download_count',
-                'title',
-                'release_date',
-            ];
-            $sortField = in_array($sortField, $allowedSortFields, true) ? $sortField : 'created_at';
+        $perPage = min((int) $request->get('per_page', $request->get('limit', 20)), 100);
+        $sort = (string) $request->get('sort', '-created_at');
+        $sortField = ltrim($sort, '-');
+        $sortDirection = str_starts_with($sort, '-') ? 'desc' : 'asc';
+        $allowedSortFields = [
+            'created_at',
+            'updated_at',
+            'play_count',
+            'like_count',
+            'download_count',
+            'title',
+            'release_date',
+        ];
+        $sortField = in_array($sortField, $allowedSortFields, true) ? $sortField : 'created_at';
 
-            $songs = Song::with(['artist', 'album', 'primaryGenre'])
-                ->published()
-                ->whereHas('artist', fn ($q) => $q->where('status', 'active'))
-                ->when($request->filled('genre'), fn ($q) => $q->where('primary_genre_id', $request->genre))
-                ->when($request->filled('artist'), fn ($q) => $q->where('artist_id', $request->artist))
-                ->when($request->filled('album'), fn ($q) => $q->where('album_id', $request->album))
-                ->when($request->filled('is_free'), fn ($q) => $q->where('is_free', $request->boolean('is_free')))
-                ->when($request->filled('search'), function ($q) use ($request) {
-                    $q->where('title', 'like', '%'.escape_like($request->search).'%');
-                })
-                ->when($request->filled('period'), function ($q) use ($request) {
-                    $days = match ((string) $request->get('period')) {
-                        'day', 'today' => 1,
-                        'week' => 7,
-                        'month' => 30,
-                        'year' => 365,
-                        default => null,
-                    };
+        $songs = Song::with(['artist', 'album', 'primaryGenre'])
+            ->published()
+            ->whereHas('artist', fn ($q) => $q->where('status', 'active'))
+            ->when($request->filled('genre'), fn ($q) => $q->where('primary_genre_id', $request->genre))
+            ->when($request->filled('artist'), fn ($q) => $q->where('artist_id', $request->artist))
+            ->when($request->filled('album'), fn ($q) => $q->where('album_id', $request->album))
+            ->when($request->filled('is_free'), fn ($q) => $q->where('is_free', $request->boolean('is_free')))
+            ->when($request->filled('search'), function ($q) use ($request) {
+                $q->where('title', 'like', '%'.escape_like($request->search).'%');
+            })
+            ->when($request->filled('period'), function ($q) use ($request) {
+                $days = match ((string) $request->get('period')) {
+                    'day', 'today' => 1,
+                    'week' => 7,
+                    'month' => 30,
+                    'year' => 365,
+                    default => null,
+                };
 
-                    if ($days !== null) {
-                        $q->where('created_at', '>=', now()->subDays($days));
-                    }
-                })
-                ->orderBy($sortField, $sortDirection)
-                ->orderByDesc('id')
-                ->paginate($perPage);
+                if ($days !== null) {
+                    $q->where('created_at', '>=', now()->subDays($days));
+                }
+            })
+            ->orderBy($sortField, $sortDirection)
+            ->orderByDesc('id')
+            ->paginate($perPage);
 
-            return SongResource::collection($songs);
-        } catch (Throwable $exception) {
-            Log::error('Failed to load public songs list', [
-                'message' => $exception->getMessage(),
-                'path' => $request->path(),
-            ]);
-
-            $perPage = min((int) $request->get('per_page', $request->get('limit', 20)), 100);
-            $emptyPaginator = new LengthAwarePaginator(
-                collect(),
-                0,
-                $perPage,
-                1,
-                ['path' => $request->url(), 'query' => $request->query()]
-            );
-
-            return SongResource::collection($emptyPaginator);
-        }
+        return SongResource::collection($songs);
     }
 
     /**
