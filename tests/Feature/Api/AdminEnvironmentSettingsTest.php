@@ -36,6 +36,8 @@ class AdminEnvironmentSettingsTest extends TestCase
             'MAIL_PASSWORD=secret123',
             'GOOGLE_CLIENT_ID=old-google-client-id',
             'GOOGLE_CLIENT_SECRET=old-google-secret',
+            'FACEBOOK_CLIENT_ID=old-facebook-client-id',
+            'FACEBOOK_CLIENT_SECRET=old-facebook-secret',
             'QUEUE_CONNECTION=database',
             '',
         ]));
@@ -74,6 +76,10 @@ class AdminEnvironmentSettingsTest extends TestCase
             ->flatMap(fn (array $group) => $group['fields'])
             ->firstWhere('key', 'GOOGLE_CLIENT_SECRET');
 
+        $facebookClientSecretField = collect($response->json('data.groups'))
+            ->flatMap(fn (array $group) => $group['fields'])
+            ->firstWhere('key', 'FACEBOOK_CLIENT_SECRET');
+
         $this->assertNotNull($mailPasswordField);
         $this->assertTrue($mailPasswordField['secret']);
         $this->assertNull($mailPasswordField['value']);
@@ -83,6 +89,11 @@ class AdminEnvironmentSettingsTest extends TestCase
         $this->assertTrue($googleClientSecretField['secret']);
         $this->assertNull($googleClientSecretField['value']);
         $this->assertTrue($googleClientSecretField['configured']);
+
+        $this->assertNotNull($facebookClientSecretField);
+        $this->assertTrue($facebookClientSecretField['secret']);
+        $this->assertNull($facebookClientSecretField['value']);
+        $this->assertTrue($facebookClientSecretField['configured']);
     }
 
     public function test_super_admin_can_update_environment_settings(): void
@@ -98,6 +109,8 @@ class AdminEnvironmentSettingsTest extends TestCase
                 'MAIL_PASSWORD' => 'rotated-secret',
                 'GOOGLE_CLIENT_ID' => 'new-google-client-id',
                 'GOOGLE_CLIENT_SECRET' => 'new-google-secret',
+                'FACEBOOK_CLIENT_ID' => 'new-facebook-client-id',
+                'FACEBOOK_CLIENT_SECRET' => 'new-facebook-secret',
             ],
         ])->assertOk()
             ->assertJsonPath('success', true)
@@ -110,6 +123,8 @@ class AdminEnvironmentSettingsTest extends TestCase
         $this->assertStringContainsString('MAIL_PASSWORD=rotated-secret', $contents);
         $this->assertStringContainsString('GOOGLE_CLIENT_ID=new-google-client-id', $contents);
         $this->assertStringContainsString('GOOGLE_CLIENT_SECRET=new-google-secret', $contents);
+        $this->assertStringContainsString('FACEBOOK_CLIENT_ID=new-facebook-client-id', $contents);
+        $this->assertStringContainsString('FACEBOOK_CLIENT_SECRET=new-facebook-secret', $contents);
     }
 
     public function test_admin_cannot_manage_environment_settings(): void

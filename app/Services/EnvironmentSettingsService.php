@@ -166,7 +166,7 @@ class EnvironmentSettingsService
             }
 
             $field = $definitions->get($key);
-            $normalized[$key] = $this->normalizeForStorage($field['type'], $value);
+            $normalized[$key] = $this->normalizeForStorage($field['type'], $value, (bool) ($field['secret'] ?? false));
         }
 
         if ($normalized === []) {
@@ -219,13 +219,13 @@ class EnvironmentSettingsService
         };
     }
 
-    private function normalizeForStorage(string $type, mixed $value): string
+    private function normalizeForStorage(string $type, mixed $value, bool $isSecret = false): string
     {
         return match ($type) {
             'boolean' => filter_var($value, FILTER_VALIDATE_BOOLEAN) ? 'true' : 'false',
             'integer' => (string) ((int) $value),
             'number' => (string) ((float) $value),
-            default => trim((string) $value),
+            default => $isSecret ? (string) $value : trim((string) $value),
         };
     }
 
