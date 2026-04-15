@@ -6,11 +6,14 @@ use App\Models\AuditLog;
 use App\Models\Notification as AppNotification;
 use App\Models\User;
 use App\Services\ProfileCompletionService;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Str;
+use InvalidArgumentException;
 use Laravel\Socialite\Facades\Socialite;
+use RuntimeException;
 
 /**
  * Social Authentication Service
@@ -20,11 +23,51 @@ use Laravel\Socialite\Facades\Socialite;
  */
 class SocialAuthService
 {
+    /**
+     * @var array<int, string>
+     */
+    private const SUPPORTED_PROVIDERS = ['google', 'facebook'];
+
     protected ProfileCompletionService $profileService;
 
     public function __construct(ProfileCompletionService $profileService)
     {
         $this->profileService = $profileService;
+    }
+
+    public function isProviderSupported(string $provider): bool
+    {
+        return in_array($provider, self::SUPPORTED_PROVIDERS, true);
+    }
+
+    /**
+     * Authenticate a user from a provider token and return resolution metadata.
+     *
+     * @return array{user: User, linked_existing_email: bool, is_new_user: bool}
+     */
+    public function authenticateWithProviderToken(string $provider, string $providerToken): array
+    {
+        if (! $this->isProviderSupported($provider)) {
+            throw new InvalidArgumentException('UNSUPPORTED_PROVIDER');
+        }
+
+        try {
+            $driver = Socialite::driver($provider);
+            if (method_exists($driver, 'stateless')) {
+                $driver = call_user_func([$driver, 'stateless']);
+            }
+
+            $socialUser = $driver->userFromToken($providerToken);
+        } catch (\Throwable $e) {
+            Log::warning('Social provider token exchange failed', [
+                'provider' => $provider,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new RuntimeException('Provider token validation failed.', 0, $e);
+        }
+
+        return $this->resolveUserFromSocial($socialUser, $provider);
     }
 
     /**
@@ -77,6 +120,88 @@ class SocialAuthService
     }
 
     /**
+     * @return array{user: User, linked_existing_email: bool, is_new_user: bool}
+     */
+    protected function resolveUserFromSocial($socialUser, string $provider): array
+    {
+        $existingByProvider = User::where('provider', $provider)
+            ->where('provider_id', $socialUser->getId())
+            ->first();
+
+        if ($existingByProvider) {
+            if (! $existingByProvider->is_active) {
+                throw new RuntimeException('ACCOUNT_SUSPENDED');
+            }
+
+            $existingByProvider->update([
+                'provider_token' => $this->protectSensitiveToken($socialUser->token),
+                'provider_refresh_token' => $this->protectSensitiveToken($socialUser->refreshToken ?? null),
+            ]);
+
+            $existingByProvider->updateLastLogin('web');
+            $existingByProvider->updateOnlineStatus();
+            $this->profileService->updateCompletion($existingByProvider);
+
+            return [
+                'user' => $existingByProvider,
+                'linked_existing_email' => false,
+                'is_new_user' => false,
+            ];
+        }
+
+        if (blank($socialUser->getEmail())) {
+            throw new InvalidArgumentException('SOCIAL_EMAIL_REQUIRED');
+        }
+
+        if (! $this->isProviderEmailVerified($socialUser, $provider)) {
+            throw new InvalidArgumentException('SOCIAL_EMAIL_UNVERIFIED');
+        }
+
+        $existingByEmail = User::where('email', $socialUser->getEmail())->first();
+
+        if ($existingByEmail) {
+            if (! $existingByEmail->is_active) {
+                throw new RuntimeException('ACCOUNT_SUSPENDED');
+            }
+
+            $existingByEmail->update([
+                'provider' => $provider,
+                'provider_id' => $socialUser->getId(),
+                'provider_token' => $this->protectSensitiveToken($socialUser->token),
+                'provider_refresh_token' => $this->protectSensitiveToken($socialUser->refreshToken ?? null),
+            ]);
+
+            if (! $existingByEmail->hasVerifiedEmail()) {
+                $existingByEmail->forceFill(['email_verified_at' => now()])->save();
+            }
+
+            $existingByEmail->updateLastLogin('web');
+            $existingByEmail->updateOnlineStatus();
+            $this->profileService->updateCompletion($existingByEmail);
+
+            return [
+                'user' => $existingByEmail,
+                'linked_existing_email' => true,
+                'is_new_user' => false,
+            ];
+        }
+
+        $newUser = $this->createUserFromSocial($socialUser, $provider);
+        if (! $newUser->hasVerifiedEmail()) {
+            $newUser->forceFill(['email_verified_at' => now()])->save();
+        }
+        $newUser->updateLastLogin('web');
+        $newUser->updateOnlineStatus();
+        $this->profileService->updateCompletion($newUser);
+
+        return [
+            'user' => $newUser,
+            'linked_existing_email' => false,
+            'is_new_user' => true,
+        ];
+    }
+
+    /**
      * Find existing user or create new one from social data
      */
     protected function findOrCreateUser($socialUser, string $provider): User
@@ -89,8 +214,8 @@ class SocialAuthService
         if ($user) {
             // Update social token
             $user->update([
-                'provider_token' => $socialUser->token,
-                'provider_refresh_token' => $socialUser->refreshToken ?? null,
+                'provider_token' => $this->protectSensitiveToken($socialUser->token),
+                'provider_refresh_token' => $this->protectSensitiveToken($socialUser->refreshToken ?? null),
             ]);
 
             return $user;
@@ -105,8 +230,8 @@ class SocialAuthService
                 $user->update([
                     'provider' => $provider,
                     'provider_id' => $socialUser->getId(),
-                    'provider_token' => $socialUser->token,
-                    'provider_refresh_token' => $socialUser->refreshToken ?? null,
+                    'provider_token' => $this->protectSensitiveToken($socialUser->token),
+                    'provider_refresh_token' => $this->protectSensitiveToken($socialUser->refreshToken ?? null),
                     'email_verified_at' => $user->email_verified_at ?? now(), // Verify if not already
                 ]);
 
@@ -146,8 +271,8 @@ class SocialAuthService
                 'avatar' => $socialUser->getAvatar(),
                 'provider' => $provider,
                 'provider_id' => $socialUser->getId(),
-                'provider_token' => $socialUser->token,
-                'provider_refresh_token' => $socialUser->refreshToken ?? null,
+                'provider_token' => $this->protectSensitiveToken($socialUser->token),
+                'provider_refresh_token' => $this->protectSensitiveToken($socialUser->refreshToken ?? null),
                 'email_verified_at' => now(), // Social accounts are pre-verified
                 'password' => bcrypt(Str::random(32)), // Random password (not usable)
                 'role' => 'user', // Default role
@@ -271,13 +396,23 @@ class SocialAuthService
         }
 
         try {
-            $socialUser = Socialite::driver($user->provider)
-                ->refreshToken($user->provider_refresh_token)
+            $driver = Socialite::driver($user->provider);
+            if (! method_exists($driver, 'refreshToken')) {
+                return null;
+            }
+
+            $refreshToken = $this->unprotectSensitiveToken($user->provider_refresh_token);
+            if (blank($refreshToken)) {
+                return null;
+            }
+
+            $socialUser = $driver
+                ->{'refreshToken'}($refreshToken)
                 ->user();
 
             $user->update([
-                'provider_token' => $socialUser->token,
-                'provider_refresh_token' => $socialUser->refreshToken ?? $user->provider_refresh_token,
+                'provider_token' => $this->protectSensitiveToken($socialUser->token),
+                'provider_refresh_token' => $this->protectSensitiveToken($socialUser->refreshToken ?? $refreshToken),
             ]);
 
             return $socialUser->token;
@@ -298,5 +433,47 @@ class SocialAuthService
         return Route::has($name)
             ? route($name, ...$parameters)
             : url($fallback);
+    }
+
+    private function protectSensitiveToken(?string $token): ?string
+    {
+        if (blank($token)) {
+            return null;
+        }
+
+        return Crypt::encryptString($token);
+    }
+
+    private function unprotectSensitiveToken(?string $token): ?string
+    {
+        if (blank($token)) {
+            return null;
+        }
+
+        try {
+            return Crypt::decryptString($token);
+        } catch (\Throwable) {
+            // Backward compatibility for records created before encryption.
+            return $token;
+        }
+    }
+
+    private function isProviderEmailVerified($socialUser, string $provider): bool
+    {
+        if ($provider !== 'google') {
+            return true;
+        }
+
+        $rawUser = $socialUser->user ?? null;
+        if (! is_array($rawUser)) {
+            return true;
+        }
+
+        $verified = $rawUser['email_verified'] ?? null;
+        if ($verified === null) {
+            return true;
+        }
+
+        return (bool) $verified;
     }
 }
