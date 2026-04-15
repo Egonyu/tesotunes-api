@@ -464,4 +464,52 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
         $this->assertSame('rejected', $rejectedSong->distribution_status);
         $this->assertSame('Rights metadata incomplete', $rejectedSong->rejection_reason);
     }
+
+    public function test_song_approve_does_not_auto_assign_isrc_when_auto_generate_is_disabled(): void
+    {
+        config()->set('music.isrc.auto_generate', false);
+
+        $admin = User::factory()->create();
+
+        $song = Song::factory()->create([
+            'status' => 'pending',
+            'distribution_status' => 'pending_review',
+            'approved_at' => null,
+            'published_at' => null,
+            'audio_file_original' => 'songs/audio/no-auto-isrc.mp3',
+            'duration_seconds' => 199,
+            'isrc_code' => null,
+        ]);
+
+        $song->approve($admin, 'Approved with auto-generate disabled');
+        $song->refresh();
+
+        $this->assertSame('published', $song->status);
+        $this->assertSame('approved', $song->distribution_status);
+        $this->assertNull($song->isrc_code);
+    }
+
+    public function test_song_approve_auto_assigns_isrc_when_auto_generate_is_enabled(): void
+    {
+        config()->set('music.isrc.auto_generate', true);
+
+        $admin = User::factory()->create();
+
+        $song = Song::factory()->create([
+            'status' => 'pending',
+            'distribution_status' => 'pending_review',
+            'approved_at' => null,
+            'published_at' => null,
+            'audio_file_original' => 'songs/audio/auto-isrc.mp3',
+            'duration_seconds' => 211,
+            'isrc_code' => null,
+        ]);
+
+        $song->approve($admin, 'Approved with auto-generate enabled');
+        $song->refresh();
+
+        $this->assertSame('published', $song->status);
+        $this->assertSame('approved', $song->distribution_status);
+        $this->assertNotNull($song->isrc_code);
+    }
 }

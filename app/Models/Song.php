@@ -785,8 +785,8 @@ class Song extends Model
             'review_notes' => $notes,
         ]);
 
-        // Generate ISRC if not exists
-        if ($this->canAssignIsrc()) {
+        // Auto-assign only when explicitly enabled in configuration.
+        if (config('music.isrc.auto_generate', false) && $this->canAssignIsrc()) {
             app(\App\Services\Music\ISRCService::class)->assignToSong($this);
         }
     }

@@ -65,6 +65,7 @@ class SongObserver
     public function updated(Song $song): void
     {
         if (
+            config('music.isrc.auto_generate', false) &&
             ! $song->isrc_code &&
             $song->canAssignIsrc() &&
             (
