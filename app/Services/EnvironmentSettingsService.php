@@ -152,6 +152,17 @@ class EnvironmentSettingsService
         }, $this->definitions());
     }
 
+    public function environmentLastUpdatedAt(): ?string
+    {
+        $path = $this->envPath();
+
+        if (! File::exists($path)) {
+            return null;
+        }
+
+        return gmdate('c', File::lastModified($path));
+    }
+
     public function update(array $values): array
     {
         $definitions = collect($this->definitions())

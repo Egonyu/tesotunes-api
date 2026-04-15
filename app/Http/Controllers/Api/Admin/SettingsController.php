@@ -206,6 +206,7 @@ class SettingsController extends Controller
                 'data' => [
                     'scope' => 'api',
                     'file' => '.env',
+                    'last_updated_at' => $environmentSettings->environmentLastUpdatedAt(),
                     'restart_required' => true,
                     'frontend_note' => 'This editor updates the Laravel API environment file only. Next.js public environment variables still require a rebuild or redeploy.',
                     'groups' => $environmentSettings->getEditableSettings(),
