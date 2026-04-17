@@ -75,6 +75,9 @@ class SettingsController extends Controller
     public function publicIndex()
     {
         return $this->handleApiAction(function () {
+            $userSettings = $this->getUserSettings();
+            $securitySettings = $this->getSecuritySettings();
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -83,6 +86,14 @@ class SettingsController extends Controller
                         'tagline' => $this->getGeneralSettings()['tagline'],
                     ],
                     'appearance' => $this->getAppearanceSettings(),
+                    'users' => [
+                        'social_login_enabled' => $userSettings['social_login_enabled'],
+                    ],
+                    'security' => [
+                        'google_login_enabled' => $securitySettings['google_login_enabled'],
+                        'facebook_login_enabled' => $securitySettings['facebook_login_enabled'],
+                        'apple_login_enabled' => $securitySettings['apple_login_enabled'],
+                    ],
                 ],
             ]);
         }, 'Failed to retrieve public platform settings.');
@@ -291,7 +302,7 @@ class SettingsController extends Controller
             'user_registration_enabled' => $this->getStoredSetting('users', 'user_registration_enabled', true, 'boolean'),
             'email_verification_required' => $this->getStoredSetting('users', 'email_verification_required', true, 'boolean'),
             'artist_approval_required' => $this->getStoredSetting('users', 'artist_approval_required', false, 'boolean'),
-            'social_login_enabled' => $this->getStoredSetting('users', 'social_login_enabled', false, 'boolean'),
+            'social_login_enabled' => $this->getStoredSetting('users', 'social_login_enabled', $this->defaultSocialLoginEnabled(), 'boolean'),
             'phone_verification_enabled' => $this->getStoredSetting('users', 'phone_verification_enabled', true, 'boolean'),
             'default_user_role' => $this->getStoredSetting('users', 'default_user_role', 'user'),
             'registration_limit_per_ip' => $this->getStoredSetting('users', 'registration_limit_per_ip', 5, 'integer'),
@@ -404,6 +415,9 @@ class SettingsController extends Controller
 
     private function getSecuritySettings()
     {
+        $googleDefault = ! empty(config('services.google.client_id'));
+        $facebookDefault = ! empty(config('services.facebook.client_id'));
+
         return [
             'two_factor_required' => $this->getStoredSetting('security', 'two_factor_required', false, 'boolean'),
             'password_min_length' => $this->getStoredSetting('security', 'password_min_length', 8, 'integer'),
@@ -414,6 +428,9 @@ class SettingsController extends Controller
             'log_security_events' => $this->getStoredSetting('security', 'log_security_events', true, 'boolean'),
             'log_failed_logins' => $this->getStoredSetting('security', 'log_failed_logins', true, 'boolean'),
             'log_password_changes' => $this->getStoredSetting('security', 'log_password_changes', true, 'boolean'),
+            'google_login_enabled' => (bool) (Setting::get('auth_google_login_enabled', $this->getStoredSetting('security', 'google_login_enabled', $googleDefault, 'boolean')) ?? false),
+            'facebook_login_enabled' => (bool) (Setting::get('auth_facebook_login_enabled', $this->getStoredSetting('security', 'facebook_login_enabled', $facebookDefault, 'boolean')) ?? false),
+            'apple_login_enabled' => (bool) (Setting::get('auth_apple_login_enabled', $this->getStoredSetting('security', 'apple_login_enabled', false, 'boolean')) ?? false),
         ];
     }
 
@@ -538,6 +555,18 @@ class SettingsController extends Controller
             $type = is_bool($value) ? Setting::TYPE_BOOLEAN : Setting::TYPE_INTEGER;
             $this->storeSetting('security', $key, $value, $type);
 
+            if ($key === 'google_login_enabled') {
+                Setting::set('auth_google_login_enabled', (bool) $value, Setting::TYPE_BOOLEAN, Setting::GROUP_SECURITY);
+            }
+
+            if ($key === 'facebook_login_enabled') {
+                Setting::set('auth_facebook_login_enabled', (bool) $value, Setting::TYPE_BOOLEAN, Setting::GROUP_SECURITY);
+            }
+
+            if ($key === 'apple_login_enabled') {
+                Setting::set('auth_apple_login_enabled', (bool) $value, Setting::TYPE_BOOLEAN, Setting::GROUP_SECURITY);
+            }
+
             if ($key === 'max_login_attempts') {
                 Setting::set('auth_max_login_attempts', (int) $value, Setting::TYPE_INTEGER, Setting::GROUP_SECURITY);
             }
@@ -658,5 +687,17 @@ class SettingsController extends Controller
         });
 
         Cache::put("settings.{$section}.{$key}", $value, now()->addYears(1));
+    }
+
+    private function defaultSocialLoginEnabled(): bool
+    {
+        return (bool) (
+            Setting::get('auth_google_login_enabled', false)
+            || Setting::get('auth_facebook_login_enabled', false)
+            || Setting::get('auth_apple_login_enabled', false)
+            || ! empty(config('services.google.client_id'))
+            || ! empty(config('services.facebook.client_id'))
+            || ! empty(env('APPLE_CLIENT_ID'))
+        );
     }
 }
