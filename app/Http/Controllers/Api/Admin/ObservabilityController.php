@@ -22,6 +22,15 @@ class ObservabilityController extends Controller
         return $this->wrap($request, fn (array $filters) => $this->observability->overview($filters));
     }
 
+    /**
+     * Lean posture endpoint — only the four KPIs the v2 Overview section renders.
+     * Cheaper than overview(); see rebuild plan §4 item 2.
+     */
+    public function posture(Request $request): JsonResponse
+    {
+        return $this->wrap($request, fn (array $filters) => $this->observability->posture($filters));
+    }
+
     public function events(Request $request): JsonResponse
     {
         return $this->handleApiAction(function () use ($request) {

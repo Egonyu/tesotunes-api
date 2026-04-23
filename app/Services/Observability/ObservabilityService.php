@@ -149,6 +149,30 @@ class ObservabilityService
         ];
     }
 
+    /**
+     * Lean posture KPIs for the v2 Overview section. Returns only the four numbers
+     * the section actually renders — cheap to compute, avoids the full overview()
+     * payload (top routes, recent events, etc). See OBSERVABILITY_REBUILD_PLAN.md
+     * §4 item 2.
+     */
+    public function posture(array $filters): array
+    {
+        $collectorSummary = $this->collectorSummary($filters);
+        $dbSummary = $this->databaseCollectorSummary($filters);
+
+        return [
+            'summary' => [
+                'unresolved_incidents' => ObservabilityIncident::query()
+                    ->whereNotIn('status', ['resolved', 'closed'])
+                    ->count(),
+                'collector_stale_sources' => $collectorSummary['summary']['stale_sources'] ?? 0,
+                'db_auth_failures' => $dbSummary['summary']['auth_failures'] ?? 0,
+                'critical_system_signals' => $collectorSummary['summary']['critical_system_signals'] ?? 0,
+            ],
+            'generated_at' => now()->toIso8601String(),
+        ];
+    }
+
     public function events(array $filters, int $perPage = 25): LengthAwarePaginator
     {
         return $this->eventsQuery($filters)->orderByDesc('occurred_at')->paginate($perPage);
@@ -1017,15 +1041,24 @@ class ObservabilityService
                 $missingSignals = collect($coverageTargets)->reject(fn (string $type) => $presentSignals->contains($type))->values();
                 $coverageScore = (int) round(($presentSignals->count() / max(1, count($coverageTargets))) * 100);
 
+                $maxSeverity = (string) ($hostEvents->sortByDesc('risk_score')->first()?->severity ?? 'low');
+                $status = $isStale ? 'stale' : 'healthy';
+                // Item 5: derive presentational state server-side so the UI does not recompute.
+                $state = $isStale
+                    ? 'stale'
+                    : (in_array($maxSeverity, ['critical', 'high'], true) ? 'down' : 'ok');
+
                 return [
                     'host' => $host,
                     'events' => $hostEvents->count(),
                     'domains' => $hostEvents->pluck('domain')->filter()->unique()->values()->all(),
                     'streams' => $hostEvents->map(fn (ObservabilityEvent $event) => $event->raw_ref['stream'] ?? null)->filter()->unique()->values()->all(),
                     'max_risk_score' => (int) ($hostEvents->max('risk_score') ?? 0),
-                    'max_severity' => (string) ($hostEvents->sortByDesc('risk_score')->first()?->severity ?? 'low'),
+                    'max_severity' => $maxSeverity,
                     'last_seen_at' => optional($lastSeenAt)->toIso8601String(),
-                    'status' => $isStale ? 'stale' : 'healthy',
+                    'last_heartbeat_at' => optional($lastSeenAt)->toIso8601String(),
+                    'status' => $status,
+                    'state' => $state,
                     'coverage_score' => $coverageScore,
                     'missing_signals' => $missingSignals->all(),
                 ];
