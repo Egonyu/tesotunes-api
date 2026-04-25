@@ -14,6 +14,25 @@ class Poll extends Model
 {
     use HasComments, HasFactory;
 
+    // Poll types
+    public const TYPE_GENERAL = 'general';
+    public const TYPE_SONG_BATTLE = 'song_battle';
+    public const TYPE_ARTIST_CONTEST = 'artist_contest';
+
+    // Teso-region community categories
+    public const CATEGORIES = [
+        'general'               => 'General',
+        'song_battle'           => 'Song Battle',
+        'artist_contest'        => 'Artist Contest',
+        'ateso_vs_english'      => 'Ateso vs English',
+        'district_showdown'     => 'District Showdown',
+        'traditional_vs_modern' => 'Traditional vs Modern',
+        'rising_star'           => 'Rising Star',
+        'weekly_favorite'       => 'Weekly Favorite',
+        'genre_face_off'        => 'Genre Face-Off',
+        'fan_choice'            => 'Fan Choice',
+    ];
+
     protected $fillable = [
         'user_id',
         'pollable_type',
@@ -27,15 +46,19 @@ class Poll extends Model
         'ends_at',
         'total_votes',
         'status',
+        'poll_type',
+        'category',
+        'credits_reward',
     ];
 
     protected $casts = [
-        'allow_multiple_votes' => 'boolean',
-        'show_results_before_vote' => 'boolean',
-        'is_anonymous' => 'boolean',
-        'starts_at' => 'datetime',
-        'ends_at' => 'datetime',
-        'total_votes' => 'integer',
+        'allow_multiple_votes'    => 'boolean',
+        'show_results_before_vote'=> 'boolean',
+        'is_anonymous'            => 'boolean',
+        'starts_at'               => 'datetime',
+        'ends_at'                 => 'datetime',
+        'total_votes'             => 'integer',
+        'credits_reward'          => 'integer',
     ];
 
     // ── Relationships ─────────────────────────────────────────
@@ -72,11 +95,18 @@ class Poll extends Model
         return $query->where('status', 'closed');
     }
 
+    public function scopeByType($query, string $type)
+    {
+        return $query->where('poll_type', $type);
+    }
+
+    public function scopeByCategory($query, string $category)
+    {
+        return $query->where('category', $category);
+    }
+
     // ── Helpers ───────────────────────────────────────────────
 
-    /**
-     * Whether the poll is currently accepting votes.
-     */
     public function isActive(): bool
     {
         if ($this->status !== 'active') {
@@ -96,27 +126,28 @@ class Poll extends Model
         return true;
     }
 
-    /**
-     * Check whether a user has already voted on this poll.
-     */
     public function userHasVoted(User $user): bool
     {
         return $this->votes()->where('user_id', $user->id)->exists();
     }
 
-    /**
-     * Get a specific user's vote(s).
-     */
     public function getUserVote(User $user)
     {
         return $this->votes()->where('user_id', $user->id)->get();
     }
 
-    /**
-     * Close the poll.
-     */
     public function close(): void
     {
         $this->update(['status' => 'closed']);
+    }
+
+    public function isSongBattle(): bool
+    {
+        return $this->poll_type === self::TYPE_SONG_BATTLE;
+    }
+
+    public function isArtistContest(): bool
+    {
+        return $this->poll_type === self::TYPE_ARTIST_CONTEST;
     }
 }

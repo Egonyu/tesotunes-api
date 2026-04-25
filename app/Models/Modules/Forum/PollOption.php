@@ -2,6 +2,8 @@
 
 namespace App\Models\Modules\Forum;
 
+use App\Models\Artist;
+use App\Models\Song;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,6 +17,8 @@ class PollOption extends Model
 
     protected $fillable = [
         'poll_id',
+        'song_id',
+        'artist_id',
         'option_text',
         'image',
         'vote_count',
@@ -23,7 +27,7 @@ class PollOption extends Model
 
     protected $casts = [
         'vote_count' => 'integer',
-        'position' => 'integer',
+        'position'   => 'integer',
     ];
 
     // ── Relationships ─────────────────────────────────────────
@@ -33,6 +37,16 @@ class PollOption extends Model
         return $this->belongsTo(Poll::class);
     }
 
+    public function song(): BelongsTo
+    {
+        return $this->belongsTo(Song::class);
+    }
+
+    public function artist(): BelongsTo
+    {
+        return $this->belongsTo(Artist::class);
+    }
+
     public function votes(): HasMany
     {
         return $this->hasMany(PollVote::class, 'option_id');
@@ -40,9 +54,6 @@ class PollOption extends Model
 
     // ── Helpers ───────────────────────────────────────────────
 
-    /**
-     * Percentage of total votes.
-     */
     public function getPercentageAttribute(): float
     {
         $total = $this->poll?->total_votes ?? 0;

@@ -265,6 +265,23 @@ Schedule::command('observability:maintain')
 
 /*
 |--------------------------------------------------------------------------
+| Poll Auto-Close
+|--------------------------------------------------------------------------
+|
+| Close active polls whose ends_at has passed. Runs hourly so polls expire
+| within ~60 minutes of their scheduled end time.
+|
+*/
+
+Schedule::command('polls:close-expired')
+    ->hourly()
+    ->name('polls-close-expired')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
+/*
+|--------------------------------------------------------------------------
 | Weekly Music Digest Notifications
 |--------------------------------------------------------------------------
 |

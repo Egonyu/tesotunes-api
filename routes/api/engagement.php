@@ -11,8 +11,10 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// Poll voting (auth required)
+// Poll creation + voting (auth required)
 Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/polls', [\App\Http\Controllers\Api\UserPollController::class, 'store'])
+        ->name('api.polls.store');
     Route::post('/polls/{poll}/vote', [\App\Http\Controllers\Api\PollVoteController::class, 'vote'])
         ->name('api.polls.vote');
     Route::post('/tips', [\App\Http\Controllers\Api\TipController::class, 'store'])
@@ -24,6 +26,10 @@ Route::get('/polls', [\App\Http\Controllers\Api\PollVoteController::class, 'inde
     ->name('api.polls.index');
 Route::get('/polls/{poll}/results', [\App\Http\Controllers\Api\PollVoteController::class, 'results'])
     ->name('api.polls.results');
+
+// Artists search (public)
+Route::get('/artists', [\App\Http\Controllers\Api\Music\ArtistController::class, 'index'])
+    ->name('api.artists.index');
 
 // Awards API Routes (public)
 Route::prefix('awards')->name('api.awards.')->group(function () {

@@ -16,13 +16,16 @@ class PollFactory extends Factory
             'user_id' => User::factory(),
             'pollable_type' => null,
             'pollable_id' => null,
-            'question' => $this->faker->sentence().'?',
+            'title' => $this->faker->sentence().'?',
             'description' => $this->faker->optional()->paragraph(),
-            'allow_multiple_choices' => false,
+            'poll_type' => Poll::TYPE_GENERAL,
+            'category' => null,
+            'credits_reward' => 3,
+            'allow_multiple_votes' => false,
             'show_results_before_vote' => false,
             'is_anonymous' => false,
             'starts_at' => null,
-            'ends_at' => $this->faker->optional()->dateTimeBetween('now', '+30 days'),
+            'ends_at' => $this->faker->dateTimeBetween('now', '+30 days'),
             'total_votes' => 0,
             'status' => 'active',
         ];
@@ -30,22 +33,34 @@ class PollFactory extends Factory
 
     public function multipleChoice(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'allow_multiple_choices' => true,
-        ]);
+        return $this->state(fn () => ['allow_multiple_votes' => true]);
     }
 
     public function anonymous(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'is_anonymous' => true,
-        ]);
+        return $this->state(fn () => ['is_anonymous' => true]);
     }
 
     public function closed(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'status' => 'closed',
+        return $this->state(fn () => ['status' => 'closed']);
+    }
+
+    public function expired(): static
+    {
+        return $this->state(fn () => [
+            'status' => 'active',
+            'ends_at' => now()->subHour(),
         ]);
+    }
+
+    public function songBattle(): static
+    {
+        return $this->state(fn () => ['poll_type' => Poll::TYPE_SONG_BATTLE]);
+    }
+
+    public function artistContest(): static
+    {
+        return $this->state(fn () => ['poll_type' => Poll::TYPE_ARTIST_CONTEST]);
     }
 }

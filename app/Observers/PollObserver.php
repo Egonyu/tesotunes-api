@@ -5,98 +5,91 @@ namespace App\Observers;
 use App\Models\Activity;
 use App\Models\Modules\Forum\Poll;
 use App\Services\FeedItemService;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class PollObserver
 {
-    /**
-     * Handle the Poll "created" event.
-     */
     public function created(Poll $poll): void
     {
         try {
             Activity::create([
-                'actor_id' => $poll->user_id,
-                'actor_type' => 'App\Models\User',
-                'action' => 'created_poll',
-                'subject_type' => 'App\Models\Modules\Forum\Poll',
-                'subject_id' => $poll->id,
-                'metadata' => [
-                    'pollable_type' => $poll->pollable_type,
-                    'pollable_id' => $poll->pollable_id,
-                    'is_multiple_choice' => $poll->allow_multiple_choices,
-                    'is_anonymous' => $poll->anonymous_voting,
-                    'ends_at' => $poll->ends_at?->toIso8601String(),
+                'actor_id'    => $poll->user_id,
+                'actor_type'  => 'App\Models\User',
+                'action'      => 'created_poll',
+                'subject_type'=> 'App\Models\Modules\Forum\Poll',
+                'subject_id'  => $poll->id,
+                'metadata'    => [
+                    'poll_type'      => $poll->poll_type,
+                    'category'       => $poll->category,
+                    'is_multiple'    => $poll->allow_multiple_votes,
+                    'is_anonymous'   => $poll->is_anonymous,
+                    'ends_at'        => $poll->ends_at?->toIso8601String(),
                 ],
             ]);
 
             $user = $poll->user;
             FeedItemService::create([
-                'type' => 'poll_created',
-                'module' => 'forum',
-                'title' => ($user->name ?? 'Someone').' created a poll: '.$poll->title,
-                'actor_id' => $poll->user_id,
-                'actor_type' => 'user',
-                'actor_name' => $user->name ?? null,
+                'type'             => 'poll_created',
+                'module'           => 'forum',
+                'title'            => ($user->name ?? 'Someone').' created a poll: '.$poll->title,
+                'actor_id'         => $poll->user_id,
+                'actor_type'       => 'user',
+                'actor_name'       => $user->name ?? null,
                 'actor_avatar_url' => $user->avatar_url ?? null,
-                'subject_type' => Poll::class,
-                'subject_id' => $poll->id,
-                'actions' => [
-                    ['type' => 'vote', 'label' => 'Vote Now', 'url' => "/forum/polls/{$poll->id}"],
+                'subject_type'     => Poll::class,
+                'subject_id'       => $poll->id,
+                'actions'          => [
+                    ['type' => 'vote', 'label' => 'Vote Now', 'url' => "/polls/{$poll->id}"],
                 ],
-                'extras' => [
-                    'ends_at' => $poll->ends_at?->toIso8601String(),
-                    'allow_multiple' => $poll->allow_multiple_choices,
-                    'option_count' => $poll->options?->count() ?? 0,
+                'extras'           => [
+                    'poll_type'      => $poll->poll_type,
+                    'category'       => $poll->category,
+                    'credits_reward' => $poll->credits_reward,
+                    'ends_at'        => $poll->ends_at?->toIso8601String(),
+                    'option_count'   => $poll->options?->count() ?? 0,
                 ],
             ]);
 
-            // Clear feed cache
             $this->clearFeedCache($poll->user_id);
         } catch (\Exception $e) {
             Log::error('Failed to create activity for poll', [
                 'poll_id' => $poll->id,
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ]);
         }
     }
 
-    /**
-     * Handle the Poll "updated" event.
-     */
     public function updated(Poll $poll): void
     {
-        // If poll status changes to closed, create activity
         if ($poll->isDirty('status') && $poll->status === 'closed') {
             try {
                 Activity::create([
-                    'actor_id' => $poll->user_id,
-                    'actor_type' => 'App\Models\User',
-                    'action' => 'closed_poll',
-                    'subject_type' => 'App\Models\Modules\Forum\Poll',
-                    'subject_id' => $poll->id,
-                    'metadata' => [
-                        'total_votes' => $poll->votes()->count(),
+                    'actor_id'    => $poll->user_id,
+                    'actor_type'  => 'App\Models\User',
+                    'action'      => 'closed_poll',
+                    'subject_type'=> 'App\Models\Modules\Forum\Poll',
+                    'subject_id'  => $poll->id,
+                    'metadata'    => [
+                        'total_votes'  => $poll->votes()->count(),
                         'total_voters' => $poll->votes()->distinct('user_id')->count('user_id'),
                     ],
                 ]);
 
                 FeedItemService::create([
-                    'type' => 'poll_ended',
-                    'module' => 'forum',
-                    'title' => 'Poll ended: '.$poll->title,
-                    'actor_id' => $poll->user_id,
-                    'actor_type' => 'user',
-                    'actor_name' => $poll->user->name ?? null,
+                    'type'             => 'poll_ended',
+                    'module'           => 'forum',
+                    'title'            => 'Poll ended: '.$poll->title,
+                    'actor_id'         => $poll->user_id,
+                    'actor_type'       => 'user',
+                    'actor_name'       => $poll->user->name ?? null,
                     'actor_avatar_url' => $poll->user->avatar_url ?? null,
-                    'subject_type' => Poll::class,
-                    'subject_id' => $poll->id,
-                    'actions' => [
-                        ['type' => 'view', 'label' => 'View Results', 'url' => "/forum/polls/{$poll->id}"],
+                    'subject_type'     => Poll::class,
+                    'subject_id'       => $poll->id,
+                    'actions'          => [
+                        ['type' => 'view', 'label' => 'View Results', 'url' => "/polls/{$poll->id}"],
                     ],
-                    'extras' => [
-                        'total_votes' => $poll->votes()->count(),
+                    'extras'           => [
+                        'total_votes'  => $poll->votes()->count(),
                         'total_voters' => $poll->votes()->distinct('user_id')->count('user_id'),
                     ],
                 ]);
@@ -105,18 +98,14 @@ class PollObserver
             } catch (\Exception $e) {
                 Log::error('Failed to create closed poll activity', [
                     'poll_id' => $poll->id,
-                    'error' => $e->getMessage(),
+                    'error'   => $e->getMessage(),
                 ]);
             }
         }
     }
 
-    /**
-     * Handle the Poll "deleted" event.
-     */
     public function deleted(Poll $poll): void
     {
-        // Remove associated activities
         try {
             Activity::where('subject_type', 'App\Models\Modules\Forum\Poll')
                 ->where('subject_id', $poll->id)
@@ -126,20 +115,16 @@ class PollObserver
         } catch (\Exception $e) {
             Log::error('Failed to delete poll activities', [
                 'poll_id' => $poll->id,
-                'error' => $e->getMessage(),
+                'error'   => $e->getMessage(),
             ]);
         }
     }
 
-    /**
-     * Clear feed cache for user and followers
-     */
     protected function clearFeedCache(int $userId): void
     {
         try {
             \App\Helpers\CacheHelper::flush(['feed', "user:{$userId}"]);
 
-            // Also clear cache for users following this user
             $followerIds = \DB::table('follows')
                 ->where('followable_type', 'App\Models\User')
                 ->where('followable_id', $userId)
@@ -149,10 +134,7 @@ class PollObserver
                 \App\Helpers\CacheHelper::flush(['feed', "user:{$followerId}"]);
             }
         } catch (\Exception $e) {
-            Log::error('Failed to clear feed cache', [
-                'user_id' => $userId,
-                'error' => $e->getMessage(),
-            ]);
+            Log::error('Failed to clear feed cache', ['user_id' => $userId, 'error' => $e->getMessage()]);
         }
     }
 }
