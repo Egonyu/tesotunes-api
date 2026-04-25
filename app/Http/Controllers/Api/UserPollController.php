@@ -42,54 +42,54 @@ class UserPollController extends Controller
             $pollType = $request->input('poll_type', Poll::TYPE_GENERAL);
 
             $validated = $request->validate([
-                'title'                    => 'required|string|max:255',
-                'description'              => 'nullable|string|max:1000',
-                'poll_type'                => 'in:general,song_battle,artist_contest',
-                'category'                 => 'nullable|string|max:100',
-                'credits_reward'           => 'integer|min:1|max:10',
-                'allow_multiple_votes'     => 'boolean',
+                'title' => 'required|string|max:255',
+                'description' => 'nullable|string|max:1000',
+                'poll_type' => 'in:general,song_battle,artist_contest',
+                'category' => 'nullable|string|max:100',
+                'credits_reward' => 'integer|min:1|max:10',
+                'allow_multiple_votes' => 'boolean',
                 'show_results_before_vote' => 'boolean',
-                'ends_at'                  => 'nullable|date|after:now',
+                'ends_at' => 'nullable|date|after:now',
 
                 // General
-                'options'                  => 'required_if:poll_type,general|array|min:2|max:10',
-                'options.*'                => 'required_if:poll_type,general|string|max:255',
+                'options' => 'required_if:poll_type,general|array|min:2|max:10',
+                'options.*' => 'required_if:poll_type,general|string|max:255',
 
                 // Song battle
-                'song_options'             => 'required_if:poll_type,song_battle|array|min:2|max:8',
-                'song_options.*.song_id'   => 'required_if:poll_type,song_battle|exists:songs,id',
+                'song_options' => 'required_if:poll_type,song_battle|array|min:2|max:8',
+                'song_options.*.song_id' => 'required_if:poll_type,song_battle|exists:songs,id',
 
                 // Artist contest
-                'artist_options'              => 'required_if:poll_type,artist_contest|array|min:2|max:8',
-                'artist_options.*.artist_id'  => 'required_if:poll_type,artist_contest|exists:artists,id',
+                'artist_options' => 'required_if:poll_type,artist_contest|array|min:2|max:8',
+                'artist_options.*.artist_id' => 'required_if:poll_type,artist_contest|exists:artists,id',
             ]);
 
             return DB::transaction(function () use ($validated, $user, $pollType) {
                 $poll = Poll::create([
-                    'user_id'                  => $user->id,
-                    'title'                    => $validated['title'],
-                    'description'              => $validated['description'] ?? null,
-                    'poll_type'                => $pollType,
-                    'category'                 => $validated['category'] ?? null,
-                    'credits_reward'           => min((int) ($validated['credits_reward'] ?? 3), 10),
-                    'allow_multiple_votes'     => $validated['allow_multiple_votes'] ?? false,
+                    'user_id' => $user->id,
+                    'title' => $validated['title'],
+                    'description' => $validated['description'] ?? null,
+                    'poll_type' => $pollType,
+                    'category' => $validated['category'] ?? null,
+                    'credits_reward' => min((int) ($validated['credits_reward'] ?? 3), 10),
+                    'allow_multiple_votes' => $validated['allow_multiple_votes'] ?? false,
                     'show_results_before_vote' => $validated['show_results_before_vote'] ?? true,
-                    'is_anonymous'             => false,
-                    'starts_at'                => now(),
-                    'ends_at'                  => $validated['ends_at'] ?? now()->addDays(7),
-                    'status'                   => 'active',
+                    'is_anonymous' => false,
+                    'starts_at' => now(),
+                    'ends_at' => $validated['ends_at'] ?? now()->addDays(7),
+                    'status' => 'active',
                 ]);
 
                 match ($pollType) {
-                    Poll::TYPE_SONG_BATTLE    => $this->createSongOptions($poll, $validated['song_options']),
+                    Poll::TYPE_SONG_BATTLE => $this->createSongOptions($poll, $validated['song_options']),
                     Poll::TYPE_ARTIST_CONTEST => $this->createArtistOptions($poll, $validated['artist_options']),
-                    default                   => $this->createTextOptions($poll, $validated['options']),
+                    default => $this->createTextOptions($poll, $validated['options']),
                 };
 
                 return response()->json([
                     'success' => true,
                     'message' => 'Poll created successfully',
-                    'data'    => new PollResource($poll->load(['options.song.artist', 'options.artist', 'user'])),
+                    'data' => new PollResource($poll->load(['options.song.artist', 'options.artist', 'user'])),
                 ], 201);
             });
         }, 'Failed to create poll.');
@@ -111,10 +111,10 @@ class UserPollController extends Controller
         foreach ($options as $index => $item) {
             $song = $songs->get($item['song_id']);
             PollOption::create([
-                'poll_id'     => $poll->id,
-                'song_id'     => $item['song_id'],
+                'poll_id' => $poll->id,
+                'song_id' => $item['song_id'],
                 'option_text' => $song ? "{$song->title} – {$song->artist?->stage_name}" : "Track {$index}",
-                'position'    => $index,
+                'position' => $index,
             ]);
         }
     }
@@ -126,10 +126,10 @@ class UserPollController extends Controller
         foreach ($options as $index => $item) {
             $artist = $artists->get($item['artist_id']);
             PollOption::create([
-                'poll_id'     => $poll->id,
-                'artist_id'   => $item['artist_id'],
+                'poll_id' => $poll->id,
+                'artist_id' => $item['artist_id'],
                 'option_text' => $artist?->stage_name ?? "Artist {$index}",
-                'position'    => $index,
+                'position' => $index,
             ]);
         }
     }

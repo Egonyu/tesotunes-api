@@ -25,12 +25,12 @@ class PollsApiController extends Controller
         return $this->handleApiAction(function () {
             $data = Cache::remember('admin:polls:stats', now()->addMinutes(5), function () {
                 return [
-                    'total_polls'      => Poll::count(),
-                    'active_polls'     => Poll::where('status', 'active')->count(),
-                    'closed_polls'     => Poll::where('status', 'closed')->count(),
-                    'song_battles'     => Poll::where('poll_type', Poll::TYPE_SONG_BATTLE)->count(),
-                    'artist_contests'  => Poll::where('poll_type', Poll::TYPE_ARTIST_CONTEST)->count(),
-                    'total_votes'      => PollVote::count(),
+                    'total_polls' => Poll::count(),
+                    'active_polls' => Poll::where('status', 'active')->count(),
+                    'closed_polls' => Poll::where('status', 'closed')->count(),
+                    'song_battles' => Poll::where('poll_type', Poll::TYPE_SONG_BATTLE)->count(),
+                    'artist_contests' => Poll::where('poll_type', Poll::TYPE_ARTIST_CONTEST)->count(),
+                    'total_votes' => PollVote::count(),
                     'recent_polls_30d' => Poll::where('created_at', '>=', now()->subDays(30))->count(),
                 ];
             });
@@ -58,12 +58,12 @@ class PollsApiController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data'    => $polls->items(),
-                'meta'    => [
+                'data' => $polls->items(),
+                'meta' => [
                     'current_page' => $polls->currentPage(),
-                    'last_page'    => $polls->lastPage(),
-                    'per_page'     => $polls->perPage(),
-                    'total'        => $polls->total(),
+                    'last_page' => $polls->lastPage(),
+                    'per_page' => $polls->perPage(),
+                    'total' => $polls->total(),
                 ],
             ]);
         }, 'Failed to retrieve polls.');
@@ -92,55 +92,55 @@ class PollsApiController extends Controller
     {
         return $this->handleApiAction(function () use ($request) {
             $validated = $request->validate([
-                'title'                    => 'required|string|max:255',
-                'description'              => 'nullable|string|max:1000',
-                'poll_type'                => 'in:general,song_battle,artist_contest',
-                'category'                 => 'nullable|string|max:100',
-                'credits_reward'           => 'integer|min:1|max:20',
-                'allow_multiple_votes'     => 'boolean',
+                'title' => 'required|string|max:255',
+                'description' => 'nullable|string|max:1000',
+                'poll_type' => 'in:general,song_battle,artist_contest',
+                'category' => 'nullable|string|max:100',
+                'credits_reward' => 'integer|min:1|max:20',
+                'allow_multiple_votes' => 'boolean',
                 'show_results_before_vote' => 'boolean',
-                'is_anonymous'             => 'boolean',
-                'starts_at'                => 'nullable|date',
-                'ends_at'                  => 'nullable|date|after:starts_at',
-                'status'                   => 'in:active,draft,closed',
+                'is_anonymous' => 'boolean',
+                'starts_at' => 'nullable|date',
+                'ends_at' => 'nullable|date|after:starts_at',
+                'status' => 'in:active,draft,closed',
 
                 // General poll options
-                'options'                  => 'required_if:poll_type,general|array|min:2|max:10',
-                'options.*'                => 'required_if:poll_type,general|string|max:255',
+                'options' => 'required_if:poll_type,general|array|min:2|max:10',
+                'options.*' => 'required_if:poll_type,general|string|max:255',
 
                 // Song battle options
-                'song_options'             => 'required_if:poll_type,song_battle|array|min:2|max:10',
-                'song_options.*.song_id'   => 'required_if:poll_type,song_battle|exists:songs,id',
-                'song_options.*.label'     => 'nullable|string|max:255',
+                'song_options' => 'required_if:poll_type,song_battle|array|min:2|max:10',
+                'song_options.*.song_id' => 'required_if:poll_type,song_battle|exists:songs,id',
+                'song_options.*.label' => 'nullable|string|max:255',
 
                 // Artist contest options
-                'artist_options'                => 'required_if:poll_type,artist_contest|array|min:2|max:10',
-                'artist_options.*.artist_id'    => 'required_if:poll_type,artist_contest|exists:artists,id',
-                'artist_options.*.label'        => 'nullable|string|max:255',
+                'artist_options' => 'required_if:poll_type,artist_contest|array|min:2|max:10',
+                'artist_options.*.artist_id' => 'required_if:poll_type,artist_contest|exists:artists,id',
+                'artist_options.*.label' => 'nullable|string|max:255',
             ]);
 
             return DB::transaction(function () use ($validated, $request) {
                 $pollType = $validated['poll_type'] ?? Poll::TYPE_GENERAL;
 
                 $poll = Poll::create([
-                    'user_id'                  => $request->user()->id,
-                    'title'                    => $validated['title'],
-                    'description'              => $validated['description'] ?? null,
-                    'poll_type'                => $pollType,
-                    'category'                 => $validated['category'] ?? null,
-                    'credits_reward'           => $validated['credits_reward'] ?? 3,
-                    'allow_multiple_votes'     => $validated['allow_multiple_votes'] ?? false,
+                    'user_id' => $request->user()->id,
+                    'title' => $validated['title'],
+                    'description' => $validated['description'] ?? null,
+                    'poll_type' => $pollType,
+                    'category' => $validated['category'] ?? null,
+                    'credits_reward' => $validated['credits_reward'] ?? 3,
+                    'allow_multiple_votes' => $validated['allow_multiple_votes'] ?? false,
                     'show_results_before_vote' => $validated['show_results_before_vote'] ?? true,
-                    'is_anonymous'             => $validated['is_anonymous'] ?? false,
-                    'starts_at'                => $validated['starts_at'] ?? now(),
-                    'ends_at'                  => $validated['ends_at'] ?? null,
-                    'status'                   => $validated['status'] ?? 'active',
+                    'is_anonymous' => $validated['is_anonymous'] ?? false,
+                    'starts_at' => $validated['starts_at'] ?? now(),
+                    'ends_at' => $validated['ends_at'] ?? null,
+                    'status' => $validated['status'] ?? 'active',
                 ]);
 
                 match ($pollType) {
-                    Poll::TYPE_SONG_BATTLE   => $this->createSongOptions($poll, $validated['song_options']),
-                    Poll::TYPE_ARTIST_CONTEST=> $this->createArtistOptions($poll, $validated['artist_options']),
-                    default                  => $this->createTextOptions($poll, $validated['options']),
+                    Poll::TYPE_SONG_BATTLE => $this->createSongOptions($poll, $validated['song_options']),
+                    Poll::TYPE_ARTIST_CONTEST => $this->createArtistOptions($poll, $validated['artist_options']),
+                    default => $this->createTextOptions($poll, $validated['options']),
                 };
 
                 Cache::forget('admin:polls:stats');
@@ -148,7 +148,7 @@ class PollsApiController extends Controller
                 return response()->json([
                     'success' => true,
                     'message' => 'Poll created successfully',
-                    'data'    => $poll->load(['options.song.artist', 'options.artist']),
+                    'data' => $poll->load(['options.song.artist', 'options.artist']),
                 ], 201);
             });
         }, 'Failed to create poll.');
@@ -163,18 +163,18 @@ class PollsApiController extends Controller
             $poll = Poll::findOrFail($id);
 
             $validated = $request->validate([
-                'title'                    => 'sometimes|string|max:255',
-                'description'              => 'nullable|string|max:1000',
-                'category'                 => 'nullable|string|max:100',
-                'credits_reward'           => 'integer|min:1|max:20',
-                'allow_multiple_votes'     => 'boolean',
+                'title' => 'sometimes|string|max:255',
+                'description' => 'nullable|string|max:1000',
+                'category' => 'nullable|string|max:100',
+                'credits_reward' => 'integer|min:1|max:20',
+                'allow_multiple_votes' => 'boolean',
                 'show_results_before_vote' => 'boolean',
-                'is_anonymous'             => 'boolean',
-                'starts_at'                => 'nullable|date',
-                'ends_at'                  => 'nullable|date',
-                'status'                   => 'in:active,draft,closed',
-                'options'                  => 'sometimes|array|min:2|max:10',
-                'options.*'                => 'required|string|max:255',
+                'is_anonymous' => 'boolean',
+                'starts_at' => 'nullable|date',
+                'ends_at' => 'nullable|date',
+                'status' => 'in:active,draft,closed',
+                'options' => 'sometimes|array|min:2|max:10',
+                'options.*' => 'required|string|max:255',
             ]);
 
             $poll->update(collect($validated)->except('options')->toArray());
@@ -196,7 +196,7 @@ class PollsApiController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Poll updated successfully',
-                'data'    => $poll->fresh(['options.song.artist', 'options.artist']),
+                'data' => $poll->fresh(['options.song.artist', 'options.artist']),
             ]);
         }, 'Failed to update poll.');
     }
@@ -244,9 +244,9 @@ class PollsApiController extends Controller
     {
         foreach ($options as $index => $text) {
             PollOption::create([
-                'poll_id'     => $poll->id,
+                'poll_id' => $poll->id,
                 'option_text' => $text,
-                'position'    => $index,
+                'position' => $index,
             ]);
         }
     }
@@ -264,10 +264,10 @@ class PollsApiController extends Controller
             $label = $item['label'] ?? ($song ? "{$song->title} – {$song->artist?->stage_name}" : "Song {$index}");
 
             PollOption::create([
-                'poll_id'     => $poll->id,
-                'song_id'     => $item['song_id'],
+                'poll_id' => $poll->id,
+                'song_id' => $item['song_id'],
                 'option_text' => $label,
-                'position'    => $index,
+                'position' => $index,
             ]);
         }
     }
@@ -282,10 +282,10 @@ class PollsApiController extends Controller
             $label = $item['label'] ?? ($artist?->stage_name ?? "Artist {$index}");
 
             PollOption::create([
-                'poll_id'     => $poll->id,
-                'artist_id'   => $item['artist_id'],
+                'poll_id' => $poll->id,
+                'artist_id' => $item['artist_id'],
                 'option_text' => $label,
-                'position'    => $index,
+                'position' => $index,
             ]);
         }
     }

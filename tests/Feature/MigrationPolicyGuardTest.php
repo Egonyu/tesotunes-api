@@ -35,6 +35,7 @@ class MigrationPolicyGuardTest extends TestCase
         '2026_04_04_151000_expand_isrc_registry_code_columns.php',
         '2026_04_04_152000_add_song_distribution_state_bridge.php',
         '2026_04_04_153000_add_song_audio_quality_score_bridge.php',
+        '2026_04_25_000001_add_gamification_to_polls.php',
     ];
 
     private const BANNED_NAME_FRAGMENTS = [

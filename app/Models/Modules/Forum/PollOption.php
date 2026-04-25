@@ -27,7 +27,7 @@ class PollOption extends Model
 
     protected $casts = [
         'vote_count' => 'integer',
-        'position'   => 'integer',
+        'position' => 'integer',
     ];
 
     // ── Relationships ─────────────────────────────────────────

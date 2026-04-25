@@ -16,21 +16,23 @@ class Poll extends Model
 
     // Poll types
     public const TYPE_GENERAL = 'general';
+
     public const TYPE_SONG_BATTLE = 'song_battle';
+
     public const TYPE_ARTIST_CONTEST = 'artist_contest';
 
     // Teso-region community categories
     public const CATEGORIES = [
-        'general'               => 'General',
-        'song_battle'           => 'Song Battle',
-        'artist_contest'        => 'Artist Contest',
-        'ateso_vs_english'      => 'Ateso vs English',
-        'district_showdown'     => 'District Showdown',
+        'general' => 'General',
+        'song_battle' => 'Song Battle',
+        'artist_contest' => 'Artist Contest',
+        'ateso_vs_english' => 'Ateso vs English',
+        'district_showdown' => 'District Showdown',
         'traditional_vs_modern' => 'Traditional vs Modern',
-        'rising_star'           => 'Rising Star',
-        'weekly_favorite'       => 'Weekly Favorite',
-        'genre_face_off'        => 'Genre Face-Off',
-        'fan_choice'            => 'Fan Choice',
+        'rising_star' => 'Rising Star',
+        'weekly_favorite' => 'Weekly Favorite',
+        'genre_face_off' => 'Genre Face-Off',
+        'fan_choice' => 'Fan Choice',
     ];
 
     protected $fillable = [
@@ -52,13 +54,13 @@ class Poll extends Model
     ];
 
     protected $casts = [
-        'allow_multiple_votes'    => 'boolean',
-        'show_results_before_vote'=> 'boolean',
-        'is_anonymous'            => 'boolean',
-        'starts_at'               => 'datetime',
-        'ends_at'                 => 'datetime',
-        'total_votes'             => 'integer',
-        'credits_reward'          => 'integer',
+        'allow_multiple_votes' => 'boolean',
+        'show_results_before_vote' => 'boolean',
+        'is_anonymous' => 'boolean',
+        'starts_at' => 'datetime',
+        'ends_at' => 'datetime',
+        'total_votes' => 'integer',
+        'credits_reward' => 'integer',
     ];
 
     // ── Relationships ─────────────────────────────────────────

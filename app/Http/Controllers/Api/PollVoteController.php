@@ -44,9 +44,9 @@ class PollVoteController extends Controller
         DB::transaction(function () use ($poll, $user, $optionIds) {
             foreach ($optionIds as $optionId) {
                 PollVote::create([
-                    'poll_id'  => $poll->id,
-                    'option_id'=> $optionId,
-                    'user_id'  => $user->id,
+                    'poll_id' => $poll->id,
+                    'option_id' => $optionId,
+                    'user_id' => $user->id,
                     'voted_at' => now(),
                 ]);
 
@@ -61,8 +61,8 @@ class PollVoteController extends Controller
         $fresh = $poll->fresh()->load(['options.song.artist', 'options.artist', 'user', 'votes']);
 
         return response()->json([
-            'data'           => new PollResource($fresh),
-            'message'        => 'Vote recorded successfully.',
+            'data' => new PollResource($fresh),
+            'message' => 'Vote recorded successfully.',
             'credits_earned' => $creditsEarned,
         ]);
     }
