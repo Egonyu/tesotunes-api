@@ -425,6 +425,10 @@ class PaymentObserver
             return;
         }
 
+        if (! class_exists(PaymentLoyaltyService::class)) {
+            return;
+        }
+
         try {
             $loyaltyService = app(PaymentLoyaltyService::class);
             $result = $loyaltyService->awardPointsForPayment($payment);
@@ -449,6 +453,10 @@ class PaymentObserver
      */
     protected function handleArtistEarningsDeposit(Payment $payment): void
     {
+        if (! class_exists(SavingsAutoDepositService::class)) {
+            return;
+        }
+
         try {
             $autoDepositService = app(SavingsAutoDepositService::class);
             $result = $autoDepositService->processAutoDeposit($payment);
