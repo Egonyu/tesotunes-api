@@ -48,7 +48,7 @@ jobs:
             --exclude="tests" \
             --exclude=".env" \
             --exclude="storage/logs" \
-            ./ deployment/
+            ./ deployment/ || { rc=$?; [ $rc -eq 24 ] && echo "rsync: files vanished mid-transfer (code 24) — non-fatal, continuing" || exit $rc; }
 
       - name: Compress artifact
         run: tar -czf deployment.tar.gz -C deployment .
