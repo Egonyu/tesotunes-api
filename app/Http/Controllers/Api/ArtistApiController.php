@@ -1541,10 +1541,43 @@ class ArtistApiController extends Controller
             ];
         }
 
+        $user = $request->user();
+        $walletBalance = (float) ($user->ugx_balance ?? 0);
+
+        $walletTopups = Payment::where('user_id', $user->id)
+            ->whereIn('payment_type', ['wallet_topup', 'withdrawal'])
+            ->where('status', Payment::STATUS_COMPLETED)
+            ->orderByDesc('completed_at')
+            ->limit(20)
+            ->get()
+            ->map(fn (Payment $payment) => [
+                'id' => 'wallet_'.$payment->id,
+                'type' => $payment->payment_type === 'wallet_topup' ? 'topup' : 'withdrawal',
+                'description' => $payment->description ?? ($payment->payment_type === 'wallet_topup' ? 'Wallet Top-up' : 'Wallet Withdrawal'),
+                'amount' => $payment->payment_type === 'wallet_topup' ? (float) $payment->amount : -((float) $payment->amount),
+                'status' => $payment->status,
+                'date' => optional($payment->completed_at ?? $payment->created_at)->toIso8601String(),
+                'sort_timestamp' => ($payment->completed_at ?? $payment->created_at)?->timestamp ?? 0,
+            ]);
+
+        $allTransactions = collect($transactions)
+            ->concat($walletTopups)
+            ->sortByDesc('sort_timestamp')
+            ->take(20)
+            ->values()
+            ->map(function (array $transaction) {
+                unset($transaction['sort_timestamp']);
+
+                return $transaction;
+            })
+            ->all();
+
         return response()->json([
             'data' => [
                 'stats' => [
-                    'balance' => (float) ($artist->earnings_balance ?? 0),
+                    'balance' => (float) ($artist->earnings_balance ?? 0) + $walletBalance,
+                    'earnings_balance' => (float) ($artist->earnings_balance ?? 0),
+                    'wallet_balance' => $walletBalance,
                     'pending_earnings' => 0,
                     'total_earnings' => $totalRevenue > 0 ? $totalRevenue : (float) ($artist->total_revenue ?? 0),
                     'this_month' => $thisMonthRevenue,
@@ -1552,7 +1585,7 @@ class ArtistApiController extends Controller
                 ],
                 'earnings_sources' => $sources,
                 'streaming_configuration' => app(StreamingRateService::class)->getStreamingConfigurationSummary(),
-                'transactions' => $transactions,
+                'transactions' => $allTransactions,
                 'monthly_chart' => $monthlyChart,
             ],
         ]);
@@ -1575,10 +1608,25 @@ class ArtistApiController extends Controller
             'phone_number' => 'nullable|string',
         ]);
 
-        if ($validated['amount'] > ($artist->earnings_balance ?? 0)) {
+        $withdrawUser = $request->user();
+        $earningsBalance = (float) ($artist->earnings_balance ?? 0);
+        $walletBalance = (float) ($withdrawUser->ugx_balance ?? 0);
+        $combinedBalance = $earningsBalance + $walletBalance;
+
+        if ($validated['amount'] > $combinedBalance) {
             return response()->json([
                 'message' => 'Insufficient balance.',
             ], 422);
+        }
+
+        // If the withdrawal exceeds artist earnings, transfer the shortfall from the user's wallet
+        $walletContribution = max(0.0, $validated['amount'] - $earningsBalance);
+        if ($walletContribution > 0) {
+            DB::transaction(function () use ($withdrawUser, $artist, $walletContribution) {
+                $withdrawUser->decrement('ugx_balance', $walletContribution);
+                $artist->increment('earnings_balance', $walletContribution);
+            });
+            $artist->refresh();
         }
 
         try {
