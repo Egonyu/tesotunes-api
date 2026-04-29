@@ -126,6 +126,9 @@ class SecurityAuditRoutes extends Command
         'api/auth/local-admin-login',
         'api/auth/email/resend',
         'api/auth/social/{provider}/exchange',
+        // Polls support guest responses when allow_guests_respond=true on the poll;
+        // auth is enforced at the application layer inside PollResponseController.
+        'api/polls/{poll}/respond',
     ];
 
     public function handle(Router $router): int

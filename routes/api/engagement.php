@@ -28,7 +28,7 @@ Route::prefix('polls')->name('api.polls.')->group(function () {
     // Wildcard routes come after all static segments
     Route::get('/{poll}', [PollController::class, 'show'])->name('show');
     Route::get('/{poll}/results', [PollController::class, 'results'])->name('results');
-    Route::middleware('auth:sanctum')->post('/{poll}/respond', [PollResponseController::class, 'respond'])->name('respond');
+    Route::post('/{poll}/respond', [PollResponseController::class, 'respond'])->name('respond');
 });
 
 // ── Tips — Authenticated ──────────────────────────────────────────────────
