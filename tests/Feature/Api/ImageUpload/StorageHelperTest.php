@@ -169,10 +169,10 @@ class StorageHelperTest extends TestCase
         $this->assertNull(StorageHelper::artworkUrl(null, null));
     }
 
-    public function test_avatar_url_returns_null_when_no_avatar(): void
+    public function test_avatar_url_returns_ui_avatars_fallback(): void
     {
         $url = StorageHelper::avatarUrl(null, 'John Doe');
-        $this->assertNull($url);
+        $this->assertStringContainsString('ui-avatars.com', $url);
     }
 
     public function test_media_disk_defaults_to_public(): void
