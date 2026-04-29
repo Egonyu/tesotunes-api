@@ -271,7 +271,7 @@ class Artist extends Model implements HasMedia
     /**
      * Get the avatar URL with fallback to default image
      */
-    public function getAvatarUrlAttribute(): string
+    public function getAvatarUrlAttribute(): ?string
     {
         return \App\Helpers\StorageHelper::avatarUrl($this->avatar, $this->stage_name ?? 'Artist');
     }

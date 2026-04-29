@@ -981,7 +981,7 @@ class User extends Authenticatable implements MustVerifyEmail
         return (bool) $this->settingsValue('sms_notifications', $value ?? true);
     }
 
-    public function getAvatarUrlAttribute(): string
+    public function getAvatarUrlAttribute(): ?string
     {
         $avatar = $this->attributes['avatar'] ?? null;
 

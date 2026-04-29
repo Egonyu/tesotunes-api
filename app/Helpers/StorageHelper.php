@@ -236,16 +236,13 @@ class StorageHelper
      * @param  string|null  $avatar  The avatar path
      * @param  string  $name  The name to use for generating default avatar
      */
-    public static function avatarUrl(?string $avatar, string $name = 'User'): string
+    public static function avatarUrl(?string $avatar, string $name = 'User'): ?string
     {
         if (! empty($avatar)) {
-            return static::url($avatar) ?? '';
+            return static::url($avatar) ?? null;
         }
 
-        // Generate a default avatar URL using UI Avatars
-        $encodedName = urlencode($name);
-
-        return "https://ui-avatars.com/api/?name={$encodedName}&background=random&size=200";
+        return null;
     }
 
     /**
