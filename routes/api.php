@@ -567,6 +567,8 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::delete('/polls/{id}', [\App\Http\Controllers\Api\Admin\PollsApiController::class, 'destroy'])->name('polls.destroy');
     Route::post('/polls/{id}/close', [\App\Http\Controllers\Api\Admin\PollsApiController::class, 'close'])->name('polls.close');
     Route::post('/polls/{id}/reopen', [\App\Http\Controllers\Api\Admin\PollsApiController::class, 'reopen'])->name('polls.reopen');
+    Route::get('/polls/{id}/analytics', [\App\Http\Controllers\Api\Admin\PollsApiController::class, 'analytics'])->name('polls.analytics');
+    Route::get('/polls/{id}/export', [\App\Http\Controllers\Api\Admin\PollsApiController::class, 'export'])->name('polls.export');
 
     // SACCO API
     Route::get('/sacco/stats', [\App\Http\Controllers\Api\Admin\SaccoApiController::class, 'stats'])->name('sacco.stats');

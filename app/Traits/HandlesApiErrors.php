@@ -2,6 +2,7 @@
 
 namespace App\Traits;
 
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
@@ -20,6 +21,8 @@ trait HandlesApiErrors
             return $callback();
         } catch (ValidationException $e) {
             // Let Laravel handle this — returns 422 with { message, errors }
+            throw $e;
+        } catch (ModelNotFoundException $e) {
             throw $e;
         } catch (HttpExceptionInterface $e) {
             throw $e;

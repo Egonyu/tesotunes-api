@@ -37,11 +37,17 @@ Route::get('/songs/{song}/purchase-status', [App\Http\Controllers\Api\Music\Song
 // Guests can use player, but play tracking requires authentication
 Route::prefix('player')->middleware(['api.rate_limit:20:1'])->group(function () {
     Route::post('/update-now-playing', [App\Http\Controllers\Api\PlayerController::class, 'updateNowPlaying'])
-        ->middleware('auth:sanctum') // Requires API authentication
+        ->middleware('auth:sanctum')
         ->name('api.player.update-now-playing');
     Route::post('/record-play', [App\Http\Controllers\Api\PlayerController::class, 'recordPlay'])
-        ->middleware('auth:sanctum') // Requires API authentication
+        ->middleware('auth:sanctum')
         ->name('api.player.record-play');
+    Route::post('/save-position', [App\Http\Controllers\Api\PlayerController::class, 'savePosition'])
+        ->middleware('auth:sanctum')
+        ->name('api.player.save-position');
+    Route::get('/resume-position/{songId}', [App\Http\Controllers\Api\PlayerController::class, 'getResumePosition'])
+        ->middleware('auth:sanctum')
+        ->name('api.player.resume-position');
 });
 
 // Public music discovery routes (read-only, limited rate limiting)

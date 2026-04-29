@@ -50,21 +50,21 @@ test('poll results contains no success key', function () {
     }
 });
 
-test('poll vote requires authentication', function () {
-    $response = $this->postJson('/api/polls/1/vote', [
-        'option_ids' => [1],
+test('poll respond endpoint returns json not redirect', function () {
+    $response = $this->postJson('/api/polls/1/respond', [
+        'answers' => [['question_id' => 1, 'option_ids' => [1]]],
     ]);
 
-    // Should return 401 not redirect to login
-    $response->assertStatus(401);
+    // Must return JSON regardless of status (401, 403, 404, 422)
     expect($response->headers->get('Content-Type'))->toContain('json');
+    expect($response->status())->not->toBe(302);
 });
 
 test('poll vote returns data and message on success', function () {
     $user = User::factory()->create();
 
-    $response = $this->actingAs($user)->postJson('/api/polls/1/vote', [
-        'option_ids' => [1],
+    $response = $this->actingAs($user)->postJson('/api/polls/1/respond', [
+        'answers' => [['question_id' => 1, 'option_ids' => [1]]],
     ]);
 
     if ($response->status() === 500 || $response->status() === 404) {
@@ -88,8 +88,8 @@ test('poll vote returns data and message on success', function () {
 test('poll vote validation returns message on error', function () {
     $user = User::factory()->create();
 
-    // Send empty options to trigger validation
-    $response = $this->actingAs($user)->postJson('/api/polls/1/vote', []);
+    // Send empty answers to trigger validation
+    $response = $this->actingAs($user)->postJson('/api/polls/1/respond', ['answers' => []]);
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');

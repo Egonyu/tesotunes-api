@@ -8,20 +8,35 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Poll extends Model
 {
-    use HasComments, HasFactory;
+    use HasComments, HasFactory, SoftDeletes;
 
-    // Poll types
     public const TYPE_GENERAL = 'general';
 
     public const TYPE_SONG_BATTLE = 'song_battle';
 
     public const TYPE_ARTIST_CONTEST = 'artist_contest';
 
-    // Teso-region community categories
+    public const TYPE_RESEARCH_SURVEY = 'research_survey';
+
+    public const STATUS_DRAFT = 'draft';
+
+    public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_CLOSED = 'closed';
+
+    public const STATUS_ARCHIVED = 'archived';
+
+    public const AUDIENCE_ALL = 'all';
+
+    public const AUDIENCE_USERS = 'users';
+
+    public const AUDIENCE_ARTISTS = 'artists';
+
     public const CATEGORIES = [
         'general' => 'General',
         'song_battle' => 'Song Battle',
@@ -33,85 +48,100 @@ class Poll extends Model
         'weekly_favorite' => 'Weekly Favorite',
         'genre_face_off' => 'Genre Face-Off',
         'fan_choice' => 'Fan Choice',
+        'research' => 'Research Survey',
     ];
 
     protected $fillable = [
         'user_id',
-        'pollable_type',
-        'pollable_id',
         'title',
         'description',
-        'allow_multiple_votes',
-        'show_results_before_vote',
-        'is_anonymous',
-        'starts_at',
-        'ends_at',
-        'total_votes',
-        'status',
         'poll_type',
         'category',
+        'audience',
+        'allow_guest_responses',
+        'show_results_before_completion',
+        'is_anonymous',
         'credits_reward',
+        'starts_at',
+        'ends_at',
+        'total_responses',
+        'status',
+        'settings',
     ];
 
-    protected $casts = [
-        'allow_multiple_votes' => 'boolean',
-        'show_results_before_vote' => 'boolean',
-        'is_anonymous' => 'boolean',
-        'starts_at' => 'datetime',
-        'ends_at' => 'datetime',
-        'total_votes' => 'integer',
-        'credits_reward' => 'integer',
-    ];
+    protected function casts(): array
+    {
+        return [
+            'allow_guest_responses' => 'boolean',
+            'show_results_before_completion' => 'boolean',
+            'is_anonymous' => 'boolean',
+            'credits_reward' => 'integer',
+            'total_responses' => 'integer',
+            'starts_at' => 'datetime',
+            'ends_at' => 'datetime',
+            'settings' => 'array',
+        ];
+    }
 
-    // ── Relationships ─────────────────────────────────────────
+    // ── Relationships ──────────────────────────────────────────────
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
-    public function pollable(): MorphTo
+    public function questions(): HasMany
     {
-        return $this->morphTo();
+        return $this->hasMany(PollQuestion::class)->orderBy('position');
     }
 
-    public function options(): HasMany
+    public function responses(): HasMany
     {
-        return $this->hasMany(PollOption::class)->orderBy('position');
+        return $this->hasMany(PollResponse::class);
     }
 
-    public function votes(): HasMany
+    public function answers(): HasManyThrough
     {
-        return $this->hasMany(PollVote::class);
+        return $this->hasManyThrough(PollAnswer::class, PollResponse::class, 'poll_id', 'response_id');
     }
 
-    // ── Scopes ────────────────────────────────────────────────
+    // ── Scopes ────────────────────────────────────────────────────
 
-    public function scopeActive($query)
+    public function scopeActive($query): void
     {
-        return $query->where('status', 'active');
+        $query->where('status', self::STATUS_ACTIVE);
     }
 
-    public function scopeClosed($query)
+    public function scopePublished($query): void
     {
-        return $query->where('status', 'closed');
+        $query->whereIn('status', [self::STATUS_ACTIVE, self::STATUS_CLOSED]);
     }
 
-    public function scopeByType($query, string $type)
+    public function scopeByType($query, string $type): void
     {
-        return $query->where('poll_type', $type);
+        $query->where('poll_type', $type);
     }
 
-    public function scopeByCategory($query, string $category)
+    public function scopeByCategory($query, string $category): void
     {
-        return $query->where('category', $category);
+        $query->where('category', $category);
     }
 
-    // ── Helpers ───────────────────────────────────────────────
+    public function scopeForAudience($query, ?string $audience): void
+    {
+        if ($audience) {
+            $query->where(function ($q) use ($audience) {
+                $q->where('audience', self::AUDIENCE_ALL)
+                    ->orWhere('audience', $audience);
+            });
+        }
+    }
+
+    // ── State checks ──────────────────────────────────────────────
 
     public function isActive(): bool
     {
-        if ($this->status !== 'active') {
+        if ($this->status !== self::STATUS_ACTIVE) {
             return false;
         }
 
@@ -128,19 +158,18 @@ class Poll extends Model
         return true;
     }
 
-    public function userHasVoted(User $user): bool
+    public function isResearchSurvey(): bool
     {
-        return $this->votes()->where('user_id', $user->id)->exists();
+        return $this->poll_type === self::TYPE_RESEARCH_SURVEY;
     }
 
-    public function getUserVote(User $user)
+    public function isCommunityPoll(): bool
     {
-        return $this->votes()->where('user_id', $user->id)->get();
-    }
-
-    public function close(): void
-    {
-        $this->update(['status' => 'closed']);
+        return in_array($this->poll_type, [
+            self::TYPE_GENERAL,
+            self::TYPE_SONG_BATTLE,
+            self::TYPE_ARTIST_CONTEST,
+        ], true);
     }
 
     public function isSongBattle(): bool
@@ -151,5 +180,50 @@ class Poll extends Model
     public function isArtistContest(): bool
     {
         return $this->poll_type === self::TYPE_ARTIST_CONTEST;
+    }
+
+    // ── Respondent helpers ────────────────────────────────────────
+
+    public function hasUserResponded(int $userId): bool
+    {
+        return $this->responses()->where('user_id', $userId)->exists();
+    }
+
+    public function hasGuestResponded(string $sessionToken): bool
+    {
+        return $this->responses()
+            ->whereNull('user_id')
+            ->where('session_token', $sessionToken)
+            ->exists();
+    }
+
+    public function getUserResponse(int $userId): ?PollResponse
+    {
+        return $this->responses()->where('user_id', $userId)->first();
+    }
+
+    public function getGuestResponse(string $sessionToken): ?PollResponse
+    {
+        return $this->responses()
+            ->whereNull('user_id')
+            ->where('session_token', $sessionToken)
+            ->first();
+    }
+
+    // ── Lifecycle ────────────────────────────────────────────────
+
+    public function close(): void
+    {
+        $this->update(['status' => self::STATUS_CLOSED]);
+    }
+
+    public function archive(): void
+    {
+        $this->update(['status' => self::STATUS_ARCHIVED]);
+    }
+
+    public function activate(): void
+    {
+        $this->update(['status' => self::STATUS_ACTIVE]);
     }
 }

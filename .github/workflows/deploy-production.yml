@@ -42,13 +42,22 @@ jobs:
       - name: Create deployment package
         run: |
           mkdir deployment
+          set +e
           rsync -av \
             --exclude=".git" \
             --exclude="node_modules" \
             --exclude="tests" \
             --exclude=".env" \
             --exclude="storage/logs" \
-            ./ deployment/ || { rc=$?; [ $rc -eq 24 ] && echo "rsync: files vanished mid-transfer (code 24) — non-fatal, continuing" || exit $rc; }
+            ./ deployment/
+          RSYNC_EXIT=$?
+          set -e
+          if [ $RSYNC_EXIT -eq 24 ]; then
+            echo "⚠️ rsync exit 24: some vendor files vanished during transfer (non-fatal, continuing)"
+          elif [ $RSYNC_EXIT -ne 0 ]; then
+            echo "❌ rsync failed with exit code $RSYNC_EXIT"
+            exit $RSYNC_EXIT
+          fi
 
       - name: Compress artifact
         run: tar -czf deployment.tar.gz -C deployment .

@@ -13,28 +13,29 @@ class PollOption extends Model
 {
     use HasFactory;
 
-    protected $table = 'poll_options';
-
     protected $fillable = [
-        'poll_id',
-        'song_id',
-        'artist_id',
+        'question_id',
         'option_text',
         'image',
-        'vote_count',
         'position',
+        'song_id',
+        'artist_id',
+        'response_count',
     ];
 
-    protected $casts = [
-        'vote_count' => 'integer',
-        'position' => 'integer',
-    ];
-
-    // ── Relationships ─────────────────────────────────────────
-
-    public function poll(): BelongsTo
+    protected function casts(): array
     {
-        return $this->belongsTo(Poll::class);
+        return [
+            'position' => 'integer',
+            'response_count' => 'integer',
+        ];
+    }
+
+    // ── Relationships ──────────────────────────────────────────────
+
+    public function question(): BelongsTo
+    {
+        return $this->belongsTo(PollQuestion::class, 'question_id');
     }
 
     public function song(): BelongsTo
@@ -47,17 +48,20 @@ class PollOption extends Model
         return $this->belongsTo(Artist::class);
     }
 
-    public function votes(): HasMany
+    public function answers(): HasMany
     {
-        return $this->hasMany(PollVote::class, 'option_id');
+        return $this->hasMany(PollAnswer::class, 'option_id');
     }
 
-    // ── Helpers ───────────────────────────────────────────────
+    // ── Computed ──────────────────────────────────────────────────
 
     public function getPercentageAttribute(): float
     {
-        $total = $this->poll?->total_votes ?? 0;
+        // Use eager-loaded siblings when available to avoid N+1; fall back to a single aggregate query.
+        $total = $this->relationLoaded('question') && $this->question?->relationLoaded('options')
+            ? ($this->question->options->sum('response_count') ?: 0)
+            : ($this->question?->options()->sum('response_count') ?? 0);
 
-        return $total > 0 ? round(($this->vote_count / $total) * 100, 1) : 0;
+        return $total > 0 ? round(($this->response_count / $total) * 100, 1) : 0.0;
     }
 }

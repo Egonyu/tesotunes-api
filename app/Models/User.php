@@ -764,11 +764,6 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(\App\Models\Modules\Forum\Poll::class);
     }
 
-    public function pollVotes(): HasMany
-    {
-        return $this->hasMany(\App\Models\Modules\Forum\PollVote::class);
-    }
-
     // Store module relationships
     public function storeOrders(): HasMany
     {

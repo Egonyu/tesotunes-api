@@ -808,10 +808,11 @@ class AdminUsersController extends Controller
             }
 
             $user->deactivate();
+            $user->delete();
 
             return response()->json([
                 'success' => true,
-                'message' => 'User deactivated successfully.',
+                'message' => 'User deleted successfully.',
             ]);
         }, 'Failed to deactivate user.');
     }

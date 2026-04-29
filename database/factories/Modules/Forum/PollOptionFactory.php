@@ -2,8 +2,8 @@
 
 namespace Database\Factories\Modules\Forum;
 
-use App\Models\Modules\Forum\Poll;
 use App\Models\Modules\Forum\PollOption;
+use App\Models\Modules\Forum\PollQuestion;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class PollOptionFactory extends Factory
@@ -13,11 +13,13 @@ class PollOptionFactory extends Factory
     public function definition(): array
     {
         return [
-            'poll_id' => Poll::factory(),
-            'option_text' => $this->faker->words(3, true),
-            'image_url' => null,
-            'votes_count' => 0,
-            'order' => $this->faker->numberBetween(0, 10),
+            'question_id' => PollQuestion::factory(),
+            'option_text' => $this->faker->sentence(3),
+            'image' => null,
+            'position' => 0,
+            'song_id' => null,
+            'artist_id' => null,
+            'response_count' => 0,
         ];
     }
 }

@@ -164,6 +164,10 @@ class AppServiceProvider extends ServiceProvider
         );
         EventFacade::listen(
             \Illuminate\Auth\Events\Registered::class,
+            \Illuminate\Auth\Listeners\SendEmailVerificationNotification::class,
+        );
+        EventFacade::listen(
+            \Illuminate\Auth\Events\Registered::class,
             [\App\Listeners\AuditLoggingListener::class, 'handleRegistered']
         );
         EventFacade::listen(

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\PlayHistory;
 use App\Models\Song;
+use App\Models\UserPlaybackPosition;
 use App\Notifications\StreamMilestoneNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -42,6 +43,10 @@ class PlayerController extends Controller
 
     /**
      * Record a play event.
+     *
+     * A play only qualifies as a stream when:
+     *  - The user listened to ≥90% of the song duration
+     *  - The user did NOT forward-seek past content (seeked_forward = true disqualifies)
      */
     public function recordPlay(Request $request): JsonResponse
     {
@@ -50,6 +55,7 @@ class PlayerController extends Controller
             'duration_played' => 'required|integer|min:0|max:7200',
             'total_duration' => 'nullable|integer|min:1|max:7200',
             'completed' => 'nullable|boolean',
+            'seeked_forward' => 'nullable|boolean',
             'timestamp' => 'nullable|integer',
         ]);
 
@@ -75,10 +81,12 @@ class PlayerController extends Controller
 
         $durationPlayed = $validated['duration_played'];
         $totalDuration = $validated['total_duration'] ?? $song->duration_seconds;
+        $seekedForward = $validated['seeked_forward'] ?? false;
 
-        // Only increment if significant play time (30% of song or 30 seconds minimum)
-        $qualifiedPlay = $durationPlayed >= 30 ||
-                        ($totalDuration > 0 && ($durationPlayed / $totalDuration) >= 0.30);
+        // Stream qualifies only when ≥90% of the song was played continuously (no forward-seeking)
+        $qualifiedPlay = ! $seekedForward
+            && $totalDuration > 0
+            && $durationPlayed / $totalDuration >= 0.90;
 
         if ($qualifiedPlay) {
             $song->increment('play_count');
@@ -117,22 +125,53 @@ class PlayerController extends Controller
     }
 
     /**
+     * Save (upsert) the user's last playback position for a song.
+     * Pass position_seconds = 0 to clear a saved position (e.g. on song completion).
+     */
+    public function savePosition(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'song_id' => 'required|integer|exists:songs,id',
+            'position_seconds' => 'required|integer|min:0|max:7200',
+        ]);
+
+        UserPlaybackPosition::updateOrCreate(
+            [
+                'user_id' => $request->user()->id,
+                'song_id' => $validated['song_id'],
+            ],
+            [
+                'position_seconds' => $validated['position_seconds'],
+            ]
+        );
+
+        return response()->json(['message' => 'Position saved.']);
+    }
+
+    /**
+     * Get the saved resume position for a specific song.
+     */
+    public function getResumePosition(Request $request, int $songId): JsonResponse
+    {
+        $position = UserPlaybackPosition::where('user_id', $request->user()->id)
+            ->where('song_id', $songId)
+            ->first();
+
+        return response()->json([
+            'data' => [
+                'song_id' => $songId,
+                'position_seconds' => $position?->position_seconds ?? 0,
+            ],
+        ]);
+    }
+
+    /**
      * Record detailed play history.
      */
     private function recordPlayHistory($song, $user, $request, $validated = [])
     {
         $durationPlayed = $validated['duration_played'] ?? 0;
         $totalDuration = $validated['total_duration'] ?? $song->duration_seconds;
-
-        // Get session ID safely
-        $sessionId = 'api-session-'.uniqid();
-        try {
-            if ($request->hasSession()) {
-                $sessionId = $request->session()->getId();
-            }
-        } catch (\Exception $e) {
-            // Session not available in tests, use fallback
-        }
 
         PlayHistory::create([
             'user_id' => $user->id,

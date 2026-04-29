@@ -2,7 +2,6 @@
 
 namespace App\Models\Sacco;
 
-use App\Models\Modules\Forum\PollVote;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -122,11 +121,6 @@ class SaccoMember extends Model
     {
         return $this->hasOne(SaccoLoan::class, 'member_id')
             ->whereIn('status', [SaccoLoan::STATUS_DISBURSED, SaccoLoan::STATUS_ACTIVE]);
-    }
-
-    public function pollVotes(): HasMany
-    {
-        return $this->hasMany(PollVote::class, 'member_id');
     }
 
     public function meetingAttendances(): HasMany

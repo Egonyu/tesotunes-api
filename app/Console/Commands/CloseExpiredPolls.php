@@ -14,7 +14,7 @@ class CloseExpiredPolls extends Command
 
     public function handle(): int
     {
-        $expired = Poll::where('status', 'active')
+        $expired = Poll::where('status', Poll::STATUS_ACTIVE)
             ->where('ends_at', '<=', now())
             ->get();
 
@@ -28,8 +28,9 @@ class CloseExpiredPolls extends Command
         $failed = 0;
 
         foreach ($expired as $poll) {
+            /** @var Poll $poll */
             try {
-                $poll->update(['status' => 'closed']);
+                $poll->close();
                 $closed++;
             } catch (\Exception $e) {
                 $failed++;

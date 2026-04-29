@@ -12,54 +12,60 @@ class PollResource extends JsonResource
     public function toArray(Request $request): array
     {
         $user = $request->user();
-        $hasVoted = $user ? $this->userHasVoted($user) : false;
+        $sessionToken = $request->cookie('poll_session_token');
 
-        $showResults = $this->status === 'closed'
-            || $hasVoted
-            || $this->show_results_before_vote;
+        $hasResponded = match (true) {
+            $user !== null => $this->hasUserResponded($user->id),
+            $sessionToken !== null => $this->hasGuestResponded($sessionToken),
+            default => false,
+        };
 
-        PollOptionResource::$showResults = $showResults;
+        $showResults = $this->status === Poll::STATUS_CLOSED
+            || $hasResponded
+            || (bool) $this->show_results_before_completion;
+
+        PollQuestionResource::$showResults = $showResults;
 
         return [
             'id' => $this->id,
             'title' => $this->title,
             'description' => $this->description,
-
-            // Gamification
-            'poll_type' => $this->poll_type ?? Poll::TYPE_GENERAL,
+            'poll_type' => $this->poll_type,
             'category' => $this->category,
             'category_label' => Poll::CATEGORIES[$this->category] ?? null,
-            'credits_reward' => $this->credits_reward ?? 3,
+            'audience' => $this->audience,
 
             // Settings
-            'allow_multiple_votes' => (bool) $this->allow_multiple_votes,
-            'show_results_before_vote' => (bool) $this->show_results_before_vote,
+            'allow_guest_responses' => (bool) $this->allow_guest_responses,
+            'show_results_before_completion' => (bool) $this->show_results_before_completion,
             'is_anonymous' => (bool) $this->is_anonymous,
 
-            // Status & timing
+            // Gamification — only meaningful for community poll types
+            'credits_reward' => $this->isCommunityPoll() ? (int) $this->credits_reward : null,
+
+            // Status & scheduling
             'status' => $this->status,
             'is_active' => $this->isActive(),
             'starts_at' => $this->starts_at?->toIso8601String(),
             'ends_at' => $this->ends_at?->toIso8601String(),
 
-            // Stats
-            'total_votes' => $this->total_votes,
+            'total_responses' => $this->total_responses,
+            'question_count' => $this->when($this->relationLoaded('questions'), fn () => $this->questions->count()),
 
-            // Options — eager-load with song/artist for typed polls
-            'options' => PollOptionResource::collection($this->whenLoaded('options')),
-
-            // User context
-            'has_voted' => $this->when($user !== null, $hasVoted),
-            'user_vote' => $this->when(
-                $user && $hasVoted,
-                fn () => $this->votes->where('user_id', $user->id)->pluck('option_id')
+            // Questions with options
+            'questions' => $this->when(
+                $this->relationLoaded('questions'),
+                fn () => PollQuestionResource::collection($this->questions)
             ),
+
+            // Current respondent context
+            'has_responded' => $hasResponded,
 
             // Creator
             'creator' => $this->when($this->relationLoaded('user') && ! $this->is_anonymous, fn () => [
                 'id' => $this->user->id,
                 'name' => $this->user->name,
-                'avatar' => StorageHelper::avatarUrl($this->user->avatar, $this->user->name),
+                'avatar_url' => StorageHelper::avatarUrl($this->user->avatar, $this->user->name),
                 'is_verified' => (bool) ($this->user->is_verified ?? false),
             ]),
 

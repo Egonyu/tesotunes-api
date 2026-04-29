@@ -14,26 +14,38 @@ class PollFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            'pollable_type' => null,
-            'pollable_id' => null,
             'title' => $this->faker->sentence().'?',
             'description' => $this->faker->optional()->paragraph(),
             'poll_type' => Poll::TYPE_GENERAL,
-            'category' => null,
-            'credits_reward' => 3,
-            'allow_multiple_votes' => false,
-            'show_results_before_vote' => false,
+            'category' => $this->faker->optional()->randomKey(Poll::CATEGORIES),
+            'audience' => Poll::AUDIENCE_ALL,
+            'allow_guest_responses' => true,
+            'show_results_before_completion' => true,
             'is_anonymous' => false,
-            'starts_at' => null,
+            'credits_reward' => 3,
+            'starts_at' => now(),
             'ends_at' => $this->faker->dateTimeBetween('now', '+30 days'),
-            'total_votes' => 0,
-            'status' => 'active',
+            'total_responses' => 0,
+            'status' => Poll::STATUS_ACTIVE,
         ];
     }
 
-    public function multipleChoice(): static
+    public function draft(): static
     {
-        return $this->state(fn () => ['allow_multiple_votes' => true]);
+        return $this->state(fn () => ['status' => Poll::STATUS_DRAFT]);
+    }
+
+    public function closed(): static
+    {
+        return $this->state(fn () => ['status' => Poll::STATUS_CLOSED]);
+    }
+
+    public function expired(): static
+    {
+        return $this->state(fn () => [
+            'status' => Poll::STATUS_ACTIVE,
+            'ends_at' => now()->subHour(),
+        ]);
     }
 
     public function anonymous(): static
@@ -41,26 +53,34 @@ class PollFactory extends Factory
         return $this->state(fn () => ['is_anonymous' => true]);
     }
 
-    public function closed(): static
+    public function guestRestricted(): static
     {
-        return $this->state(fn () => ['status' => 'closed']);
-    }
-
-    public function expired(): static
-    {
-        return $this->state(fn () => [
-            'status' => 'active',
-            'ends_at' => now()->subHour(),
-        ]);
+        return $this->state(fn () => ['allow_guest_responses' => false]);
     }
 
     public function songBattle(): static
     {
-        return $this->state(fn () => ['poll_type' => Poll::TYPE_SONG_BATTLE]);
+        return $this->state(fn () => [
+            'poll_type' => Poll::TYPE_SONG_BATTLE,
+            'category' => 'song_battle',
+        ]);
     }
 
     public function artistContest(): static
     {
-        return $this->state(fn () => ['poll_type' => Poll::TYPE_ARTIST_CONTEST]);
+        return $this->state(fn () => [
+            'poll_type' => Poll::TYPE_ARTIST_CONTEST,
+            'category' => 'artist_contest',
+        ]);
+    }
+
+    public function researchSurvey(): static
+    {
+        return $this->state(fn () => [
+            'poll_type' => Poll::TYPE_RESEARCH_SURVEY,
+            'category' => 'research',
+            'audience' => Poll::AUDIENCE_ALL,
+            'ends_at' => $this->faker->dateTimeBetween('+7 days', '+90 days'),
+        ]);
     }
 }
