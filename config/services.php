@@ -144,6 +144,10 @@ return [
         'redirect' => env('FACEBOOK_REDIRECT_URI', env('APP_URL').'/auth/facebook/callback'),
     ],
 
+    // Build token — allows the Next.js build server to bypass API rate limiting
+    // during static page generation (generateStaticParams). GET-only public endpoints only.
+    'build_allowed_token' => env('BUILD_ALLOWED_TOKEN'),
+
     // Wazuh SIEM Integration
     'wazuh' => [
         'enabled' => env('WAZUH_ENABLED', false),

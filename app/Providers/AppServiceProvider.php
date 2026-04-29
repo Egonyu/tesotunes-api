@@ -372,6 +372,11 @@ class AppServiceProvider extends ServiceProvider
 
         // API calls (generous for unreliable internet)
         RateLimiter::for('api', function (Request $request) {
+            $buildToken = config('services.build_allowed_token');
+            if ($buildToken && $request->header('X-Build-Token') === $buildToken) {
+                return Limit::none();
+            }
+
             return $request->user()
                 ? Limit::perMinute(100)->by($request->user()->id)
                 : Limit::perMinute(20)->by($request->ip());
