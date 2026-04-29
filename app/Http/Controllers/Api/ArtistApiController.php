@@ -1334,7 +1334,7 @@ class ArtistApiController extends Controller
         $artist = $result;
 
         $validated = $request->validate([
-            'avatar' => 'required|image|mimes:jpeg,jpg,png,webp|max:2048',
+            'avatar' => 'required|image|mimes:jpeg,jpg,png,webp|max:10240|dimensions:min_width=50,min_height=50',
         ]);
 
         if ($artist->avatar) {
@@ -1371,7 +1371,7 @@ class ArtistApiController extends Controller
         $artist = $result;
 
         $validated = $request->validate([
-            'banner' => 'required|image|mimes:jpeg,jpg,png,webp|max:10240',
+            'banner' => 'required|image|mimes:jpeg,jpg,png,webp|max:10240|dimensions:min_width=100,min_height=50',
         ]);
 
         if ($artist->cover_image) {

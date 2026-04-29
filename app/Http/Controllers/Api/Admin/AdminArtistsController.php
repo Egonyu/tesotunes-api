@@ -394,8 +394,8 @@ class AdminArtistsController extends Controller
                 'tiktok_url' => 'sometimes|nullable|url|max:255',
                 'genre_ids' => 'sometimes|array',
                 'genre_ids.*' => 'integer|exists:genres,id',
-                'profile_image' => 'sometimes|nullable|image|mimes:jpeg,jpg,png,webp|max:5120',
-                'cover_image' => 'sometimes|nullable|image|mimes:jpeg,jpg,png,webp|max:10240',
+                'profile_image' => 'sometimes|nullable|image|mimes:jpeg,jpg,png,webp|max:5120|dimensions:min_width=50,min_height=50',
+                'cover_image' => 'sometimes|nullable|image|mimes:jpeg,jpg,png,webp|max:10240|dimensions:min_width=100,min_height=50',
             ]);
 
             $data = [];
