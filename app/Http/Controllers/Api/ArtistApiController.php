@@ -1866,7 +1866,7 @@ class ArtistApiController extends Controller
                 ->get()
                 ->map(fn ($row) => [
                     'country' => $row->country,
-                    'plays' => (int) $row->plays,
+                    'count' => (int) $row->plays,
                 ])
                 ->toArray();
 
@@ -1879,8 +1879,8 @@ class ArtistApiController extends Controller
                 ->orderByDesc('plays')
                 ->get()
                 ->map(fn ($row) => [
-                    'device' => $row->device_type,
-                    'plays' => (int) $row->plays,
+                    'device_type' => $row->device_type,
+                    'count' => (int) $row->plays,
                 ])
                 ->toArray();
 
