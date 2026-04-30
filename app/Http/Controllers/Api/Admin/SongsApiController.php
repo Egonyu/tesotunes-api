@@ -866,7 +866,7 @@ class SongsApiController extends Controller
                             'username' => $play->user->username,
                             'avatar' => StorageHelper::avatarUrl($play->user->avatar, $play->user->name),
                         ] : null,
-                        'played_at' => $play->created_at->toIso8601String(),
+                        'played_at' => $play->created_at?->toIso8601String(),
                         'duration_listened' => $play->duration_listened ?? null,
                         'completed' => $play->completed ?? false,
                     ];
