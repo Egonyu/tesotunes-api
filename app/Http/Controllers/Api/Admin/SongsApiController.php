@@ -768,12 +768,14 @@ class SongsApiController extends Controller
             $isrcAlreadyAssignedCount = 0;
             $isrcBlockedCount = 0;
 
+            $isrcAutoEnabled = config('music.isrc.auto_generate', false);
+
             foreach ($approvedSongs as $song) {
                 $previousStatus = $previousStatuses[$song->id] ?? null;
 
                 if ($song->hasIsrcAssigned()) {
                     $isrcAlreadyAssignedCount++;
-                } elseif ($song->canAssignIsrc()) {
+                } elseif ($isrcAutoEnabled && $song->canAssignIsrc()) {
                     try {
                         $this->isrcService->assignToSong($song);
                         $song->refresh();

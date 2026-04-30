@@ -253,8 +253,14 @@ class PaymentObserver
                     'user_id' => $payment->user_id,
                 ]);
 
+                // Only send user-facing notifications for live (production) payments.
+                // Sandbox / local payments complete via test webhooks but should
+                // not generate visible "you received a payment" messages.
+                $isLivePayment = config('services.zengapay.environment', 'production') === 'production'
+                    && app()->environment('production', 'staging');
+
                 // Notify user of successful payment
-                if ($user && $this->shouldNotifyUser($user, 'payment_received')) {
+                if ($isLivePayment && $user && $this->shouldNotifyUser($user, 'payment_received')) {
                     $this->deliverUserPaymentNotification(
                         $user,
                         $payment,
@@ -273,7 +279,7 @@ class PaymentObserver
                 }
 
                 // Check if this is artist revenue
-                if ($payment->payment_type === 'artist_revenue' && $user?->isArtist()) {
+                if ($isLivePayment && $payment->payment_type === 'artist_revenue' && $user?->isArtist()) {
                     $this->deliverUserPaymentNotification(
                         $user,
                         $payment,
