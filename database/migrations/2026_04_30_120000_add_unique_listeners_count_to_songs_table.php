@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('songs', 'unique_listeners_count')) {
+            return;
+        }
+
         Schema::table('songs', function (Blueprint $table) {
             $table->unsignedBigInteger('unique_listeners_count')->default(0)->after('download_count');
         });
