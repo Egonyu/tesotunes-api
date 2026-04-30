@@ -61,6 +61,7 @@ class AdminArtistsController extends Controller
 
             $data = $artists->through(function (Artist $artist) {
                 $avatarVersion = $this->imageVersion($artist, 'avatar');
+                $avatarBase = StorageHelper::url($artist->avatar);
 
                 return [
                     'id' => $artist->id,
@@ -68,7 +69,7 @@ class AdminArtistsController extends Controller
                     'name' => $artist->stage_name,
                     'slug' => $artist->slug,
                     'avatar' => $artist->avatar,
-                    'avatar_url' => $artist->avatar ? url('storage/'.$artist->avatar).'?v='.$avatarVersion : null,
+                    'avatar_url' => $avatarBase ? $avatarBase.'?v='.$avatarVersion : null,
                     'status' => $artist->status,
                     'is_verified' => $artist->is_verified,
                     'songs_count' => $artist->total_songs_count,
@@ -122,6 +123,8 @@ class AdminArtistsController extends Controller
         $artist->loadMissing(['user:id,email,username,phone,name', 'primaryGenre:id,name']);
         $avatarVersion = $this->imageVersion($artist, 'avatar');
         $coverVersion = $this->imageVersion($artist, 'cover_image');
+        $avatarBase = StorageHelper::url($artist->avatar);
+        $coverBase = StorageHelper::url($artist->cover_image);
 
         // Get top songs via relationship
         $topSongs = $artist->songs()
@@ -134,7 +137,7 @@ class AdminArtistsController extends Controller
                 'title' => $song->title,
                 'slug' => $song->slug,
                 'plays' => $song->play_count ?? 0,
-                'cover_url' => $song->artwork ? url('storage/'.$song->artwork) : null,
+                'cover_url' => StorageHelper::url($song->artwork),
             ]);
 
         // Get recent albums via relationship
@@ -147,7 +150,7 @@ class AdminArtistsController extends Controller
                 'id' => $album->id,
                 'title' => $album->title,
                 'slug' => $album->slug,
-                'cover_url' => $album->artwork ? url('storage/'.$album->artwork) : null,
+                'cover_url' => StorageHelper::url($album->artwork),
                 'release_date' => $album->release_date,
                 'album_type' => $album->album_type,
             ]);
@@ -163,10 +166,10 @@ class AdminArtistsController extends Controller
             'slug' => $artist->slug,
             'bio' => $artist->bio,
             'avatar' => $artist->avatar,
-            'avatar_url' => $artist->avatar ? url('storage/'.$artist->avatar).'?v='.$avatarVersion : null,
+            'avatar_url' => $avatarBase ? $avatarBase.'?v='.$avatarVersion : null,
             'cover_image' => $artist->cover_image,
-            'cover_url' => $artist->cover_image ? url('storage/'.$artist->cover_image).'?v='.$coverVersion : null,
-            'profile_url' => $artist->avatar ? url('storage/'.$artist->avatar).'?v='.$avatarVersion : null,
+            'cover_url' => $coverBase ? $coverBase.'?v='.$coverVersion : null,
+            'profile_url' => $avatarBase ? $avatarBase.'?v='.$avatarVersion : null,
             'status' => $artist->status,
             'is_verified' => $artist->is_verified,
             'is_featured' => $artist->is_trusted,
