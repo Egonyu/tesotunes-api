@@ -222,6 +222,8 @@ Route::prefix('slideshow')->name('api.slideshow.')->group(function () {
 Route::middleware('auth:sanctum')->prefix('player')->name('api.player.')->group(function () {
     Route::post('/update-now-playing', [\App\Http\Controllers\Api\PlayerController::class, 'updateNowPlaying'])->name('now-playing');
     Route::post('/record-play', [\App\Http\Controllers\Api\PlayerController::class, 'recordPlay'])->name('record-play');
+    Route::post('/save-position', [\App\Http\Controllers\Api\PlayerController::class, 'savePosition'])->name('save-position');
+    Route::get('/resume-position/{songId}', [\App\Http\Controllers\Api\PlayerController::class, 'getResumePosition'])->name('resume-position');
 
     // Extended player controls
     Route::get('/status', [\App\Http\Controllers\Api\Player\PlayerController::class, 'getStatus'])->name('status');
@@ -240,6 +242,10 @@ Route::middleware('auth:sanctum')->prefix('player')->name('api.player.')->group(
 
 // Activity Interaction API endpoints
 Route::middleware('auth:sanctum')->group(function () {
+    // User settings (audio, notifications, appearance, privacy, etc.)
+    Route::get('/settings', [\App\Http\Controllers\Api\Settings\UserSettingsController::class, 'index'])->name('api.settings.index');
+    Route::put('/settings', [\App\Http\Controllers\Api\Settings\UserSettingsController::class, 'update'])->name('api.settings.update');
+
     Route::prefix('settings')->group(function () {
         Route::get('/2fa', [\App\Http\Controllers\Api\Settings\TwoFactorSettingsController::class, 'status']);
         Route::post('/2fa/enable', [\App\Http\Controllers\Api\Settings\TwoFactorSettingsController::class, 'enable']);
