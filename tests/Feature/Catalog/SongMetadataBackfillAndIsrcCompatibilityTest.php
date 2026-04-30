@@ -252,9 +252,9 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('data.count', 1)
             ->assertJsonPath('data.approved_count', 1)
-            ->assertJsonPath('data.isrc_assigned_count', 1)
+            ->assertJsonPath('data.isrc_assigned_count', 0)
             ->assertJsonPath('data.isrc_already_assigned_count', 0)
-            ->assertJsonPath('data.isrc_blocked_count', 0);
+            ->assertJsonPath('data.isrc_blocked_count', 1);
 
         $song->refresh();
 
@@ -262,7 +262,8 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
         $this->assertSame('approved', $song->distribution_status);
         $this->assertNotNull($song->approved_at);
         $this->assertNotNull($song->published_at);
-        $this->assertNotNull($song->isrc_code);
+        // ISRC auto-generation is disabled (music.isrc.auto_generate defaults false)
+        $this->assertNull($song->isrc_code);
     }
 
     public function test_audio_metadata_service_inspection_reports_missing_source_reason(): void

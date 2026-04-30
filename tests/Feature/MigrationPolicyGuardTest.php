@@ -39,6 +39,7 @@ class MigrationPolicyGuardTest extends TestCase
         '2026_04_26_200000_extend_artist_revenues_source_fields.php',
         '2026_04_27_000001_rebuild_polls_system.php',
         '2026_04_29_100000_create_user_playback_positions_table.php',
+        '2026_04_30_120000_add_unique_listeners_count_to_songs_table.php',
     ];
 
     private const BANNED_NAME_FRAGMENTS = [
