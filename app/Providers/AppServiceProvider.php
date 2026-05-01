@@ -171,6 +171,10 @@ class AppServiceProvider extends ServiceProvider
             [\App\Listeners\AuditLoggingListener::class, 'handleRegistered']
         );
         EventFacade::listen(
+            \Illuminate\Auth\Events\Registered::class,
+            \App\Listeners\AwardWelcomeCredits::class,
+        );
+        EventFacade::listen(
             \Illuminate\Auth\Events\Verified::class,
             [\App\Listeners\AuditLoggingListener::class, 'handleVerified']
         );

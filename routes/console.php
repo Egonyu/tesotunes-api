@@ -76,6 +76,15 @@ if (config('backup.auto_enabled', false)) {
 |
 */
 
+// ── Listen-to-earn daily pool distribution ─────────────────────
+// Distributes listen_earn_daily_pool credits to yesterday's listeners at 2 AM EAT
+Schedule::command('credits:distribute-listen-earn')
+    ->dailyAt('02:00')
+    ->name('listen-earn-distribution')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
 // ── Health monitoring ─────────────────────────────────────────
 Schedule::command('monitor:health')
     ->everyFiveMinutes()

@@ -114,6 +114,27 @@ class PlayerController extends Controller
         // Record play history
         $this->recordPlayHistory($song, $request->user(), $request, $validated);
 
+        // First completed-listen bonus: 50 credits on the user's very first qualified play
+        if ($qualifiedPlay) {
+            $user = $request->user();
+            $qualifiedCount = PlayHistory::where('user_id', $user->id)
+                ->where('completion_percentage', '>=', 90)
+                ->count();
+
+            if ($qualifiedCount === 1) {
+                try {
+                    $user->creditWallet?->addCredits(
+                        50,
+                        'first_listen_bonus',
+                        'Bonus for completing your first song listen on TesoTunes!',
+                        ['song_id' => $song->id]
+                    );
+                } catch (\Throwable) {
+                    // Non-critical — don't interrupt the play response
+                }
+            }
+        }
+
         return response()->json([
             'data' => [
                 'song_id' => $song->id,
