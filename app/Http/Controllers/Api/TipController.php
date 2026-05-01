@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Artist;
+use App\Models\ArtistRevenue;
 use App\Models\Payment;
 use App\Models\Song;
+use App\Services\ArtistSettingsService;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -25,7 +27,7 @@ class TipController extends Controller
             'message' => ['nullable', 'string', 'max:200'],
         ]);
 
-        [$recipientUser, $payableType, $payableId, $songId] = $this->resolveRecipient(
+        [$recipientUser, $payableType, $payableId, $songId, $artistId] = $this->resolveRecipient(
             (string) $validated['recipient_type'],
             (int) $validated['recipient_id']
         );
@@ -44,9 +46,14 @@ class TipController extends Controller
             ], 422);
         }
 
-        $payment = DB::transaction(function () use ($user, $validated, $recipientUser, $payableType, $payableId, $songId) {
+        $tipAmount = (int) $validated['amount'];
+        $artistSharePct = max(0, min(100, (float) app(ArtistSettingsService::class)->getRevenueShare()));
+        $artistNetAmount = (int) round($tipAmount * ($artistSharePct / 100));
+        $platformFeeAmount = $tipAmount - $artistNetAmount;
+
+        $payment = DB::transaction(function () use ($user, $validated, $recipientUser, $payableType, $payableId, $songId, $artistId, $tipAmount, $artistNetAmount, $platformFeeAmount) {
             $transaction = $user->spendCredits(
-                (float) $validated['amount'],
+                (float) $tipAmount,
                 'artist_tip',
                 "Sent a tip to {$recipientUser->name}",
                 [
@@ -61,6 +68,32 @@ class TipController extends Controller
                     'success' => false,
                     'message' => 'Insufficient credits.',
                 ], 422));
+            }
+
+            // Credit the artist's wallet with their net share
+            $recipientUser->creditWallet?->addCredits(
+                (float) $artistNetAmount,
+                'tip_received',
+                'Tip received',
+                [
+                    'payer_user_id' => $user->id,
+                    'message' => $validated['message'] ?? null,
+                ]
+            );
+
+            // Record artist revenue
+            if ($artistId) {
+                ArtistRevenue::create([
+                    'artist_id' => $artistId,
+                    'revenue_type' => ArtistRevenue::TYPE_TIP,
+                    'sourceable_type' => $payableType,
+                    'sourceable_id' => $payableId,
+                    'amount_ugx' => $tipAmount,
+                    'platform_fee' => $platformFeeAmount,
+                    'net_amount' => $artistNetAmount,
+                    'status' => ArtistRevenue::STATUS_CONFIRMED,
+                    'revenue_date' => now()->toDateString(),
+                ]);
             }
 
             $payment = new Payment([
@@ -80,12 +113,14 @@ class TipController extends Controller
                     'recipient_type' => $validated['recipient_type'],
                     'recipient_id' => (int) $validated['recipient_id'],
                     'message' => $validated['message'] ?? null,
-                    'credits_amount' => (int) $validated['amount'],
+                    'credits_amount' => $tipAmount,
+                    'artist_net_amount' => $artistNetAmount,
+                    'platform_fee' => $platformFeeAmount,
                 ],
             ]);
 
             $payment->forceFill([
-                'amount' => (int) $validated['amount'],
+                'amount' => $tipAmount,
                 'status' => Payment::STATUS_COMPLETED,
                 'completed_at' => now(),
             ])->save();
@@ -98,7 +133,7 @@ class TipController extends Controller
             'message' => 'Tip sent successfully.',
             'data' => [
                 'tip_id' => $payment->id,
-                'amount' => (int) $validated['amount'],
+                'amount' => $tipAmount,
                 'credits_remaining' => (int) $user->fresh()->credits,
             ],
         ], 201);
@@ -115,6 +150,7 @@ class TipController extends Controller
                 Song::class,
                 $song?->id,
                 $song?->id,
+                $song?->artist_id,
             ];
         }
 
@@ -125,6 +161,7 @@ class TipController extends Controller
             Artist::class,
             $artist?->id,
             null,
+            $artist?->id,
         ];
     }
 }

@@ -410,17 +410,14 @@ class SongController extends Controller
         }
 
         $validated = $request->validate([
-            'payment_method' => 'nullable|string|in:platform_credits,zengapay',
+            'payment_method' => 'nullable|string|in:platform_credits',
             'phone_number' => 'required_if:payment_method,zengapay|string|min:9|max:20',
         ]);
 
-        $requestedMethod = (string) ($validated['payment_method'] ?? 'platform_credits');
-        $paymentMethod = in_array($requestedMethod, ['zengapay'], true)
-            ? 'zengapay'
-            : 'platform_credits';
+        $paymentMethod = 'platform_credits';
 
         try {
-            if ($paymentMethod === 'zengapay') {
+            if (false) { // ZengaPay direct purchase removed — all song purchases use platform credits
                 $artistSharePct = max(0, min(100, (float) app(ArtistSettingsService::class)->getRevenueShare()));
                 $platformSharePct = 100 - $artistSharePct;
                 $artistAmount = round($price * ($artistSharePct / 100), 2);

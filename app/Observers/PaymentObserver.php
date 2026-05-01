@@ -293,6 +293,9 @@ class PaymentObserver
                 // Award loyalty points for the payment
                 $this->awardLoyaltyPoints($payment);
 
+                // Award bonus credits for wallet top-ups
+                $this->awardTopUpBonusCredits($payment);
+
                 // Phase 3: Artist Earnings Integration
                 $this->handleArtistEarningsDeposit($payment);
                 break;
@@ -595,5 +598,59 @@ class PaymentObserver
             'refunded' => "A payment of {$amount} was refunded.",
             default => "Payment event {$eventType} was recorded for {$amount}.",
         };
+    }
+
+    protected function awardTopUpBonusCredits(Payment $payment): void
+    {
+        if ($payment->payment_type !== 'wallet_topup') {
+            return;
+        }
+
+        $user = $payment->user;
+        if (! $user) {
+            return;
+        }
+
+        $amount = (float) $payment->amount;
+
+        $bonusPct = match (true) {
+            $amount >= 50000 => 0.40,
+            $amount >= 20000 => 0.30,
+            $amount >= 10000 => 0.20,
+            $amount >= 5000 => 0.10,
+            default => 0.0,
+        };
+
+        if ($bonusPct <= 0.0) {
+            return;
+        }
+
+        $bonusCredits = (int) round($amount * $bonusPct);
+
+        try {
+            $user->creditWallet?->addCredits(
+                (float) $bonusCredits,
+                'topup_bonus',
+                'Top-up bonus ('.number_format($amount).' UGX topped up)',
+                [
+                    'payment_id' => $payment->id,
+                    'top_up_amount' => $amount,
+                    'bonus_pct' => (int) ($bonusPct * 100),
+                ]
+            );
+
+            Log::info('Top-up bonus credits awarded', [
+                'user_id' => $user->id,
+                'payment_id' => $payment->id,
+                'top_up_amount' => $amount,
+                'bonus_credits' => $bonusCredits,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to award top-up bonus credits', [
+                'user_id' => $user->id,
+                'payment_id' => $payment->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
