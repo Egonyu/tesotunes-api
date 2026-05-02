@@ -100,6 +100,10 @@ class AuthController extends Controller
             ], 422);
         }
 
+        // Purge any soft-deleted ghost record with this email so the DB unique
+        // index doesn't block a legitimate re-registration.
+        User::onlyTrashed()->where('email', $request->email)->forceDelete();
+
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
