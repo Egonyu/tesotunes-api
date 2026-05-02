@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 
 /**
  * Consolidated admin users controller.
@@ -472,7 +473,7 @@ class AdminUsersController extends Controller
         return $this->handleApiAction(function () use ($request) {
             $validator = Validator::make($request->all(), [
                 'name' => 'required|string|max:255',
-                'email' => 'required|email|unique:users,email',
+                'email' => ['required', 'email', Rule::unique('users', 'email')->whereNull('deleted_at')],
                 'password' => 'required|string|min:8',
                 'username' => 'nullable|string|max:100|unique:users,username',
                 'phone' => 'nullable|string|max:20',
@@ -600,7 +601,7 @@ class AdminUsersController extends Controller
 
             $validator = Validator::make($request->all(), [
                 'name' => 'sometimes|string|max:255',
-                'email' => 'sometimes|email|unique:users,email,'.$id,
+                'email' => ['sometimes', 'email', Rule::unique('users', 'email')->ignore($id)->whereNull('deleted_at')],
                 'username' => 'sometimes|string|max:100|unique:users,username,'.$id,
                 'phone' => 'sometimes|string|max:20',
                 'password' => 'sometimes|string|min:8',
