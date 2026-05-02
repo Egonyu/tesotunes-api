@@ -7,7 +7,7 @@ use App\Models\Artist;
 use App\Models\ArtistRevenue;
 use App\Models\Payment;
 use App\Models\Song;
-use App\Services\ArtistSettingsService;
+use App\Services\Settings\ArtistSettingsService;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

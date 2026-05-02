@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
 
 /**
  * ArtistRevenue Model
@@ -19,6 +20,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class ArtistRevenue extends Model
 {
     use HasFactory;
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $revenue) {
+            if (empty($revenue->uuid)) {
+                $revenue->uuid = (string) Str::uuid();
+            }
+        });
+    }
 
     protected $fillable = [
         'uuid',
