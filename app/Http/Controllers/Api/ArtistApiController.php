@@ -922,15 +922,12 @@ class ArtistApiController extends Controller
         $coverFile = $request->file('cover');
         if ($coverFile && $coverFile->isValid()) {
             $coverFileName = Str::uuid().'.'.$coverFile->getClientOriginalExtension();
-            $artworkPath = 'songs/artwork/'.$coverFileName;
-
-            $this->uploadDisk()->put($artworkPath, fopen($coverFile->getPathname(), 'r'));
 
             if ($song->artwork) {
-                $this->uploadDisk()->delete($song->artwork);
+                StorageHelper::delete($song->artwork);
             }
 
-            $updateData['artwork'] = $artworkPath;
+            $updateData['artwork'] = StorageHelper::store($coverFile, 'songs/artwork', $coverFileName);
         }
 
         $song->update($updateData);
@@ -1282,8 +1279,8 @@ class ArtistApiController extends Controller
                 'bio' => $artist->bio,
                 'avatar' => StorageHelper::url($artist->avatar),
                 'banner' => StorageHelper::url($artist->cover_image),
-                'country' => null,
-                'city' => null,
+                'country' => $request->user()->country ?? null,
+                'city' => $request->user()->city ?? null,
                 'website_url' => $artist->website_url,
                 'social_links' => $artist->social_links,
                 'is_verified' => (bool) $artist->is_verified,
@@ -2287,15 +2284,13 @@ class ArtistApiController extends Controller
 
         $coverExt = $coverFile->getClientOriginalExtension();
         $coverFileName = Str::uuid().'.'.$coverExt;
-        $artworkPath = 'songs/artwork/'.$coverFileName;
 
         try {
-            $this->songUploadDisk()->put($artworkPath, fopen($coverFile->getPathname(), 'r'));
+            $artworkPath = StorageHelper::store($coverFile, 'songs/artwork', $coverFileName);
         } catch (\Throwable $e) {
             Log::warning('Song artwork upload failed', [
                 'error' => $e->getMessage(),
-                'disk' => $this->songUploadDiskName(),
-                'path' => $artworkPath,
+                'path' => 'songs/artwork/'.$coverFileName,
             ]);
 
             return null;
