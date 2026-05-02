@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\RecaptchaService;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -31,7 +32,14 @@ class PasswordResetController extends Controller
     {
         $request->validate([
             'email' => 'required|email',
+            'recaptcha_token' => 'nullable|string',
         ]);
+
+        if (! app(RecaptchaService::class)->verify($request->recaptcha_token, 'forgot_password')) {
+            return response()->json([
+                'message' => 'Security verification failed. Please try again.',
+            ], 422);
+        }
 
         $status = Password::sendResetLink(
             $request->only('email')

@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\UserSetting;
 use App\Notifications\SecurityAlertNotification;
 use App\Notifications\WelcomeNotification;
+use App\Services\RecaptchaService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -91,12 +92,19 @@ class AuthController extends Controller
             'phone' => 'nullable|string|max:20',
             'country' => 'nullable|string|max:2',
             'date_of_birth' => 'nullable|date|before:today',
+            'recaptcha_token' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation failed',
                 'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        if (! app(RecaptchaService::class)->verify($request->recaptcha_token, 'register')) {
+            return response()->json([
+                'message' => 'Security verification failed. Please try again.',
             ], 422);
         }
 
@@ -166,12 +174,19 @@ class AuthController extends Controller
             'email' => 'required|email',
             'password' => 'required|string',
             'remember_me' => 'boolean',
+            'recaptcha_token' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation failed',
                 'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        if (! app(RecaptchaService::class)->verify($request->recaptcha_token, 'login')) {
+            return response()->json([
+                'message' => 'Security verification failed. Please try again.',
             ], 422);
         }
 
