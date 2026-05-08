@@ -53,10 +53,8 @@ class SaccoServiceProvider extends ServiceProvider
             'sacco'
         );
 
-        // Register services only if enabled
-        if ($this->isEnabled()) {
-            $this->registerServices();
-        }
+        // Canonical SACCO services live in app/Services/Sacco/ and are resolved
+        // via normal Laravel auto-resolution — no explicit bindings required.
     }
 
     /**
@@ -93,30 +91,6 @@ class SaccoServiceProvider extends ServiceProvider
         $router = $this->app['router'];
 
         $router->aliasMiddleware('sacco.enabled', \App\Modules\Sacco\Http\Middleware\SaccoEnabled::class);
-    }
-
-    /**
-     * Register services
-     */
-    protected function registerServices(): void
-    {
-        $this->app->singleton('sacco.credit-score', function ($app) {
-            return new \App\Modules\Sacco\Services\SaccoCreditScoreService;
-        });
-
-        $this->app->singleton('sacco.interest', function ($app) {
-            return new \App\Modules\Sacco\Services\SaccoInterestService;
-        });
-
-        $this->app->singleton('sacco.loan', function ($app) {
-            return new \App\Modules\Sacco\Services\SaccoLoanService(
-                $app->make('sacco.interest')
-            );
-        });
-
-        $this->app->singleton('sacco.mobile-money', function ($app) {
-            return new \App\Modules\Sacco\Services\SaccoMobileMoneyService;
-        });
     }
 
     /**

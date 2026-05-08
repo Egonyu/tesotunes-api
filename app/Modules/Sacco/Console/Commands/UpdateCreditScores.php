@@ -2,7 +2,7 @@
 
 namespace App\Modules\Sacco\Console\Commands;
 
-use App\Modules\Sacco\Services\SaccoCreditScoreService;
+use App\Services\Sacco\SaccoCreditScoreService;
 use Illuminate\Console\Command;
 
 class UpdateCreditScores extends Command

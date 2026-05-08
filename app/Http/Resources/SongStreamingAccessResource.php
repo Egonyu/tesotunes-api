@@ -21,7 +21,9 @@ class SongStreamingAccessResource extends JsonResource
             : null;
 
         return [
-            // Emit the keys consistently so clients can rely on a stable contract.
+            // `stream_url` is the canonical playback field.
+            // `audio_url` is an alias emitted for backward compatibility — both resolve to the same URL.
+            // Clients should read `stream_url`; `audio_url` will be removed in a future API version.
             'stream_url' => $streamingUrl,
             'audio_url' => $streamingUrl,
             'preview_url' => $previewUrl,

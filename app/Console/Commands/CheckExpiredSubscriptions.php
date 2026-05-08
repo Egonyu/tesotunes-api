@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Payment;
 use App\Models\UserSubscription;
 use App\Notifications\SubscriptionNotification;
-use App\Services\Payment\Adapters\ZengaPayGatewayAdapter;
+use App\Services\Payment\ZengaPayService;
 use Exception;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -184,13 +184,12 @@ class CheckExpiredSubscriptions extends Command
             $payment->save();
 
             // Initiate ZengaPay collection
-            $zengapay = new ZengaPayGatewayAdapter;
-            $chargeResult = $zengapay->charge([
-                'amount' => $amount,
-                'phone' => $phoneNumber,
-                'reference' => $reference,
-                'description' => "TesoTunes {$plan->name} renewal",
-            ]);
+            $chargeResult = app(ZengaPayService::class)->collect(
+                $amount,
+                $phoneNumber,
+                $reference,
+                "TesoTunes {$plan->name} renewal",
+            );
 
             if ($chargeResult['success']) {
                 $payment->forceFill(['status' => 'processing', 'initiated_at' => now()])->save();

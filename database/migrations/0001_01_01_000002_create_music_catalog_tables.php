@@ -239,8 +239,10 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->morphs('likeable');
             $table->string('type', 20)->default('like');
+            $table->timestamp('liked_at')->nullable()->useCurrent();
             $table->timestamps();
             $table->unique(['user_id', 'likeable_type', 'likeable_id', 'type'], 'likes_unique');
+            $table->index('liked_at');
         });
 
         Schema::create('user_follows', function (Blueprint $table) {

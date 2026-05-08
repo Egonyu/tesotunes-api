@@ -21,14 +21,8 @@ class PodcastServiceProvider extends ServiceProvider
 
         // Register service bindings
         $this->app->singleton(\App\Services\Podcast\PodcastService::class);
-        $this->app->singleton(\App\Services\Podcast\EpisodeService::class);
         $this->app->singleton(\App\Services\Podcast\RssFeedService::class);
         $this->app->singleton(\App\Services\Podcast\AnalyticsService::class);
-
-        // Register transcription service if enabled
-        if (config('podcast.processing.transcription.enabled')) {
-            $this->app->singleton(\App\Services\Podcast\TranscriptionService::class);
-        }
 
         // Merge configuration
         $this->mergeConfigFrom(

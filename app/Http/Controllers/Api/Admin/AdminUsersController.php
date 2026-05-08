@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Role;
 use App\Models\User;
+use App\Services\UserService;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -24,6 +25,8 @@ use Illuminate\Validation\Rule;
 class AdminUsersController extends Controller
 {
     use HandlesApiErrors;
+
+    public function __construct(private readonly UserService $userService) {}
 
     private const MANAGED_ROLE_NAMES = ['user', 'artist', 'moderator', 'admin', 'super_admin'];
 
@@ -730,7 +733,7 @@ class AdminUsersController extends Controller
                 ], 403);
             }
 
-            $user->activate();
+            $this->userService->activate($user);
 
             return response()->json([
                 'success' => true,
@@ -769,7 +772,7 @@ class AdminUsersController extends Controller
                 ], 403);
             }
 
-            $user->ban();
+            $this->userService->ban($user);
 
             return response()->json([
                 'success' => true,
@@ -808,7 +811,7 @@ class AdminUsersController extends Controller
                 ], 403);
             }
 
-            $user->deactivate();
+            $this->userService->deactivate($user);
             $user->delete();
 
             return response()->json([

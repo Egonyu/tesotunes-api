@@ -344,6 +344,28 @@ class SaccoLoanService
     }
 
     /**
+     * Mark overdue loans (missed first repayment) — run daily via sacco:check-overdue
+     *
+     * @return int Number of loans newly marked overdue
+     */
+    public function checkOverdueLoans(): int
+    {
+        $loans = SaccoLoan::whereIn('status', ['disbursed', 'active'])
+            ->where('due_date', '<', now())
+            ->get();
+
+        $markedOverdue = 0;
+
+        foreach ($loans as $loan) {
+            $loan->update(['status' => 'overdue']);
+            SaccoAuditLog::log('loan_overdue', $loan, ['status' => $loan->getOriginal('status')], ['status' => 'overdue']);
+            $markedOverdue++;
+        }
+
+        return $markedOverdue;
+    }
+
+    /**
      * Get loan statistics summary
      */
     public function getLoanSummary(): array

@@ -9,8 +9,6 @@ use App\Models\Payout;
 use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Models\UserSubscription;
-// ZengaPay is the sole payment provider
-use App\Services\Payment\Adapters\ZengaPayGatewayAdapter;
 use Exception;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -591,22 +589,17 @@ class PaymentService
     }
 
     /**
-     * Process method-specific refund
-     */
-    /**
-     * Process refund via ZengaPay
+     * Process refund via ZengaPay (disbursement back to the customer).
      */
     protected function processMethodRefund(Payment $payment, float $amount): array
     {
         try {
-            $zengapay = new ZengaPayGatewayAdapter;
-            // ZengaPay refund is processed as a payout back to the customer
-            $result = $zengapay->payout([
-                'amount' => $amount,
-                'phone' => $payment->phone_number,
-                'reference' => 'REFUND-'.$payment->payment_reference,
-                'description' => "Refund for payment #{$payment->id}",
-            ]);
+            $result = app(\App\Services\Payment\ZengaPayService::class)->disburse(
+                $amount,
+                (string) $payment->phone_number,
+                'REFUND-'.$payment->payment_reference,
+                "Refund for payment #{$payment->id}",
+            );
 
             return $result;
         } catch (Exception $e) {
@@ -688,103 +681,6 @@ class PaymentService
     protected function processZengaPayPayment(Payment $payment, array $data): array
     {
         return app(\App\Services\Payment\ZengaPayService::class)->processPayment($payment, $data);
-    }
-
-    /**
-     * Process ZengaPay payout (disbursement)
-     */
-    public function processZengaPayPayout(Payout $payout): array
-    {
-        try {
-            $zengapay = new ZengaPayGatewayAdapter;
-
-            $payoutData = [
-                'amount' => $payout->amount,
-                'phone' => $payout->phone_number,
-                'reference' => 'PAYOUT-'.$payout->id.'-'.time(),
-                'description' => "TesoTunes Artist Payout #{$payout->id}",
-            ];
-
-            $result = $zengapay->payout($payoutData);
-
-            if ($result['success']) {
-                $payout->update([
-                    'status' => 'processing',
-                    'transaction_reference' => $result['transaction_id'] ?? null,
-                    'provider_response' => $result,
-                ]);
-
-                Log::info('ZengaPay payout initiated', [
-                    'payout_id' => $payout->id,
-                    'transaction_id' => $result['transaction_id'] ?? null,
-                ]);
-
-                return [
-                    'success' => true,
-                    'message' => $result['message'] ?? 'Payout initiated successfully',
-                    'transaction_id' => $result['transaction_id'] ?? null,
-                ];
-            }
-
-            return [
-                'success' => false,
-                'message' => $result['message'] ?? 'Payout request failed',
-            ];
-
-        } catch (Exception $e) {
-            Log::error('ZengaPay payout exception', [
-                'payout_id' => $payout->id,
-                'error' => $e->getMessage(),
-            ]);
-
-            return [
-                'success' => false,
-                'message' => 'Payout service temporarily unavailable. Please try again.',
-            ];
-        }
-    }
-
-    /**
-     * Check ZengaPay transaction status
-     */
-    public function checkZengaPayStatus(string $transactionId): array
-    {
-        try {
-            $zengapay = new ZengaPayGatewayAdapter;
-
-            return $zengapay->getTransactionStatus($transactionId);
-        } catch (Exception $e) {
-            Log::error('ZengaPay status check failed', [
-                'transaction_id' => $transactionId,
-                'error' => $e->getMessage(),
-            ]);
-
-            return [
-                'success' => false,
-                'message' => 'Unable to check transaction status',
-            ];
-        }
-    }
-
-    /**
-     * Get ZengaPay account balance
-     */
-    public function getZengaPayBalance(): array
-    {
-        try {
-            $zengapay = new ZengaPayGatewayAdapter;
-
-            return $zengapay->getBalance();
-        } catch (Exception $e) {
-            Log::error('ZengaPay balance check failed', [
-                'error' => $e->getMessage(),
-            ]);
-
-            return [
-                'success' => false,
-                'message' => 'Unable to retrieve account balance',
-            ];
-        }
     }
 
     /**

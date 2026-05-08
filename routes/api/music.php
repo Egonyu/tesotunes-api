@@ -12,6 +12,10 @@ Route::prefix('')->group(function () {
     Route::get('/songs', [SongController::class, 'index'])->name('api.music.songs');
     Route::get('/songs/{song}', [SongController::class, 'show'])->name('api.music.song');
 
+    // Song purchase visibility — public (returns purchased=false for guests)
+    Route::get('/songs/{song}/purchase-status', [SongController::class, 'purchaseStatus'])
+        ->name('api.music.songs.purchase-status');
+
     // Artists — standardized via ArtistController + ArtistResource
     Route::get('/artists', [ArtistController::class, 'index'])->name('api.music.artists');
     Route::get('/artists/{artist}', [ArtistController::class, 'show'])->name('api.music.artist');
@@ -58,6 +62,23 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/playlists/{playlist}/collaborative', [PlaylistController::class, 'setCollaborative'])->name('api.music.playlists.collaborative');
     Route::post('/playlists/{playlist}/invite-link', [PlaylistController::class, 'generateInviteLink'])->name('api.music.playlists.invite-link');
     Route::post('/playlists/invites/{token}/join', [PlaylistController::class, 'joinInvite'])->name('api.music.playlists.invites.join');
+});
+
+// Song interactions — authenticated users
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/songs/{song}/like', [SongController::class, 'like'])->name('api.music.songs.like');
+    Route::get('/songs/{song}/is-liked', [SongController::class, 'isLiked'])->name('api.music.songs.is-liked');
+    Route::post('/songs/{song}/play', [SongController::class, 'recordPlay'])->name('api.music.songs.play');
+    Route::post('/songs/{song}/download', [SongController::class, 'download'])->name('api.music.songs.download');
+    Route::post('/songs/{song}/purchase', [SongController::class, 'purchase'])->name('api.music.songs.purchase');
+    Route::get('/songs/{song}/purchase/payment-status/{reference}', [SongController::class, 'purchasePaymentStatus'])
+        ->name('api.music.songs.purchase.payment-status');
+
+    // /tracks/* aliases — same handlers as /songs/* (for clients that use the tracks namespace)
+    Route::post('/tracks/{song}/like', [SongController::class, 'like'])->name('api.music.tracks.like');
+    Route::get('/tracks/{song}/is-liked', [SongController::class, 'isLiked'])->name('api.music.tracks.is-liked');
+    Route::post('/tracks/{song}/play', [SongController::class, 'recordPlay'])->name('api.music.tracks.play');
+    Route::post('/tracks/{song}/download', [SongController::class, 'download'])->name('api.music.tracks.download');
 });
 
 // Admin and moderator-safe routes for artist management.

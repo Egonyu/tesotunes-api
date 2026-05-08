@@ -127,7 +127,9 @@ return new class extends Migration
             $table->string('display_name')->nullable();
             $table->text('description')->nullable();
             $table->string('group')->nullable();
+            $table->boolean('is_active')->default(true);
             $table->timestamps();
+            $table->index('is_active');
         });
 
         Schema::create('role_permissions', function (Blueprint $table) {

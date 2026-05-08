@@ -108,9 +108,9 @@ class AppServiceProvider extends ServiceProvider
         \App\Modules\Store\Models\Order::observe(\App\Observers\Store\OrderObserver::class);
 
         // Register observers for SACCO module (Edula Phase 2)
-        \App\Models\Sacco\SaccoDividend::observe(\App\Observers\Sacco\SaccoDividendObserver::class);
-        \App\Models\Sacco\SaccoMember::observe(\App\Observers\Sacco\SaccoMemberObserver::class);
-        \App\Models\Sacco\SaccoMemberDividend::observe(\App\Observers\Sacco\SaccoMemberDividendObserver::class);
+        \App\Models\Sacco\SaccoDividend::observe(\App\Modules\Sacco\Observers\SaccoDividendObserver::class);
+        \App\Models\Sacco\SaccoMember::observe(\App\Modules\Sacco\Observers\SaccoMemberObserver::class);
+        \App\Models\Sacco\SaccoMemberDividend::observe(\App\Modules\Sacco\Observers\SaccoMemberDividendObserver::class);
 
         // Register observers for Ojokotau/Campaigns module (Edula Phase 2)
         Campaign::observe(\App\Observers\Ojokotau\CampaignObserver::class);

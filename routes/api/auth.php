@@ -11,7 +11,6 @@ Route::prefix('auth')->group(function () {
     Route::middleware('throttle:login')->post('/login', [AuthController::class, 'login']);
     Route::get('/social/providers', [SocialAuthController::class, 'providers']);
     Route::middleware('throttle:login')->post('/social/{provider}/exchange', [SocialAuthController::class, 'exchange']);
-    Route::middleware('throttle:login')->post('/local-admin-login', [AuthController::class, 'localAdminLogin']);
     Route::middleware('throttle:register')->post('/register', [AuthController::class, 'register']);
 
     Route::middleware('throttle:password-recovery')->group(function () {

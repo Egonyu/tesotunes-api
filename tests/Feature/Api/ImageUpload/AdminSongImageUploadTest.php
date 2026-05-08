@@ -6,6 +6,7 @@ use App\Models\Artist;
 use App\Models\Genre;
 use App\Models\Song;
 use App\Models\User;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
@@ -14,7 +15,7 @@ use Tests\TestCase;
  */
 class AdminSongImageUploadTest extends TestCase
 {
-    use CreatesUsersWithRoles;
+    use CreatesUsersWithRoles, DatabaseTransactions;
 
     private User $admin;
 

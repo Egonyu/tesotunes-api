@@ -98,4 +98,56 @@ trait HasSaccoMembership
             $q->where('status', 'active');
         });
     }
+
+    public function getSaccoAccountsAttribute()
+    {
+        if (! config('sacco.enabled', false)) {
+            return collect();
+        }
+
+        return $this->saccoMember?->accounts ?? collect();
+    }
+
+    public function getTotalSaccoBalanceAttribute(): float
+    {
+        if (! config('sacco.enabled', false)) {
+            return 0.0;
+        }
+
+        return (float) ($this->saccoMember?->total_balance ?? 0);
+    }
+
+    public function hasActiveSaccoLoans(): bool
+    {
+        if (! config('sacco.enabled', false)) {
+            return false;
+        }
+
+        return $this->saccoMember?->loans()
+            ->whereIn('status', ['active', 'disbursed'])
+            ->exists() ?? false;
+    }
+
+    public function getSaccoEligibilityAttribute(): array
+    {
+        if (! config('sacco.enabled', false)) {
+            return ['eligible' => false, 'reason' => 'SACCO module is disabled'];
+        }
+
+        $member = $this->saccoMember;
+
+        if (! $member || $member->status !== 'active') {
+            return ['eligible' => false, 'reason' => 'Not an active SACCO member'];
+        }
+
+        return [
+            'eligible' => true,
+            'max_loan_amount' => max(
+                $member->total_savings * 3,
+                $member->total_shares * 4
+            ),
+            'current_loans' => $member->active_loans_count,
+            'max_loans' => 3,
+        ];
+    }
 }

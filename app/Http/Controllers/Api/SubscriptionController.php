@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Download;
 use App\Models\SubscriptionPlan;
 use App\Models\UserSubscription;
 use App\Notifications\SubscriptionNotification;
@@ -64,6 +65,16 @@ class SubscriptionController extends Controller
         $user = $request->user();
         $sub = $user->subscription;
 
+        $downloadsToday = Download::where('user_id', $user->id)
+            ->whereDate('downloaded_at', today())
+            ->count();
+
+        $uploadsThisMonth = $user->artist
+            ? $user->artist->songs()
+                ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])
+                ->count()
+            : 0;
+
         if (! $sub || ! $sub->isActive()) {
             return response()->json([
                 'success' => true,
@@ -72,8 +83,10 @@ class SubscriptionController extends Controller
                     'plan' => 'free',
                     'limits' => [
                         'downloads_per_day' => 3,
+                        'downloads_today' => $downloadsToday,
                         'audio_quality_kbps' => 128,
                         'uploads_per_month' => 0,
+                        'uploads_this_month' => $uploadsThisMonth,
                     ],
                 ],
             ]);
@@ -103,8 +116,10 @@ class SubscriptionController extends Controller
                 'offline_access' => $offlineAccess,
                 'limits' => [
                     'downloads_per_day' => $downloadLimit,
+                    'downloads_today' => $downloadsToday,
                     'audio_quality_kbps' => $audioQuality,
                     'uploads_per_month' => $uploadLimit,
+                    'uploads_this_month' => $uploadsThisMonth,
                 ],
             ],
         ]);

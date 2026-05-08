@@ -91,9 +91,7 @@ class ZengaPayGatewayAdapter
     }
 
     /**
-     * Initiate a disbursement (payout/transfer to user)
-     *
-     * Used by PaymentService::processZengaPayPayout() and processMethodRefund()
+     * Initiate a disbursement (payout/transfer to user).
      *
      * @param  array  $data  [amount, phone, reference, description]
      * @return array [success, transaction_id, reference, message]
@@ -142,9 +140,7 @@ class ZengaPayGatewayAdapter
     }
 
     /**
-     * Get transaction status
-     *
-     * Used by PaymentService::checkZengaPayStatus()
+     * Get transaction status.
      *
      * @param  string  $transactionId  ZengaPay transaction ID
      * @return array [success, status, data]
@@ -209,9 +205,7 @@ class ZengaPayGatewayAdapter
     }
 
     /**
-     * Get ZengaPay account balance
-     *
-     * Used by PaymentService::getZengaPayBalance()
+     * Get ZengaPay account balance.
      *
      * @return array [success, balance, currency]
      */

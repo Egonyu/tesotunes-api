@@ -19,12 +19,10 @@ use Illuminate\Support\Facades\DB;
 
 class SongController extends Controller
 {
-    protected SongService $songService;
-
-    public function __construct(SongService $songService)
-    {
-        $this->songService = $songService;
-    }
+    public function __construct(
+        protected SongService $songService,
+        protected ZengaPayService $zengaPayService,
+    ) {}
 
     /**
      * GET /api/songs
@@ -308,7 +306,7 @@ class SongController extends Controller
             && ! empty($payment->provider_transaction_id)
         ) {
             try {
-                $statusResult = app(ZengaPayService::class)->checkStatus($payment->provider_transaction_id);
+                $statusResult = $this->zengaPayService->checkStatus($payment->provider_transaction_id);
 
                 if ($statusResult['success'] ?? false) {
                     $status = strtolower((string) ($statusResult['status'] ?? ''));
@@ -494,7 +492,7 @@ class SongController extends Controller
                     ], $payment->status === Payment::STATUS_COMPLETED ? 200 : 201);
                 }
 
-                $result = app(ZengaPayService::class)->processPayment($payment, [
+                $result = $this->zengaPayService->processPayment($payment, [
                     'phone_number' => (string) $validated['phone_number'],
                 ]);
 

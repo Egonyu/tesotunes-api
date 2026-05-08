@@ -2,7 +2,8 @@
 
 namespace App\Models;
 
-use App\Helpers\StorageHelper;
+use App\Models\Concerns\HasNormalizedProfile;
+use App\Models\Concerns\HasSubscriptionCapabilities;
 use App\Modules\Podcast\Traits\HasPodcast;
 use App\Modules\Sacco\Traits\HasSaccoMembership;
 use App\Modules\Store\Traits\HasStore;
@@ -23,7 +24,7 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasApiTokens, HasFactory, HasPodcast, HasSaccoMembership, HasStore, Notifiable, SoftDeletes;
+    use HasApiTokens, HasFactory, HasNormalizedProfile, HasPodcast, HasSaccoMembership, HasStore, HasSubscriptionCapabilities, Notifiable, SoftDeletes;
 
     /**
      * Temporary storage for credit balance before user creation
@@ -574,32 +575,6 @@ class User extends Authenticatable implements MustVerifyEmail
         return ! is_null($this->referrer_id);
     }
 
-    /**
-     * Record a successful referral
-     */
-    public function recordReferral(User $referredUser): void
-    {
-        $this->increment('referral_count');
-        $updatedReferralCount = (int) $this->fresh()->getRawOriginal('referral_count');
-
-        $this->referralProfile()->updateOrCreate(
-            ['user_id' => $this->id],
-            ['referral_count' => $updatedReferralCount]
-        );
-
-        $referredUser->update([
-            'referrer_id' => $this->id,
-            'referred_at' => now(),
-        ]);
-        $referredUser->referralProfile()->updateOrCreate(
-            ['user_id' => $referredUser->id],
-            [
-                'referrer_id' => $this->id,
-                'referred_at' => now(),
-            ]
-        );
-    }
-
     // Credit system relationships
     public function creditWallet(): HasOne
     {
@@ -849,145 +824,6 @@ class User extends Authenticatable implements MustVerifyEmail
         $this->attributes['display_name'] = $value;
     }
 
-    // Backward compatibility accessors for profile fields (NEW)
-    public function getBioAttribute($value)
-    {
-        return $this->profileValue('bio', $value);
-    }
-
-    public function getAvatarAttribute($value)
-    {
-        return $this->profileValue('avatar', $value);
-    }
-
-    public function getDateOfBirthAttribute($value)
-    {
-        return $this->profileValue('date_of_birth', $value);
-    }
-
-    public function getBannerAttribute($value)
-    {
-        return $this->profileValue('banner', $value);
-    }
-
-    public function getCountryAttribute($value)
-    {
-        return $this->profileValue('country', $value);
-    }
-
-    public function getCityAttribute($value)
-    {
-        return $this->profileValue('city', $value);
-    }
-
-    public function getTimezoneAttribute($value)
-    {
-        return $this->profileValue('timezone', $value);
-    }
-
-    public function getLanguageAttribute($value)
-    {
-        return $this->profileValue('language', $value);
-    }
-
-    public function getInstagramUrlAttribute($value)
-    {
-        return $this->profileValue('instagram_url', $value);
-    }
-
-    public function getTwitterUrlAttribute($value)
-    {
-        return $this->profileValue('twitter_url', $value);
-    }
-
-    public function getFacebookUrlAttribute($value)
-    {
-        return $this->profileValue('facebook_url', $value);
-    }
-
-    public function getYoutubeUrlAttribute($value)
-    {
-        return $this->profileValue('youtube_url', $value);
-    }
-
-    public function getTiktokUrlAttribute($value)
-    {
-        return $this->profileValue('tiktok_url', $value);
-    }
-
-    public function getProfileCompletionPercentageAttribute($value)
-    {
-        return $this->profileValue('profile_completion_percentage', $value);
-    }
-
-    public function getProfileStepsCompletedAttribute($value)
-    {
-        return $this->profileValue('profile_steps_completed', $value);
-    }
-
-    public function getReferralCodeAttribute($value)
-    {
-        return $this->referralValue('referral_code', $value);
-    }
-
-    public function getReferrerIdAttribute($value)
-    {
-        return $this->referralValue('referrer_id', $value);
-    }
-
-    public function getReferralCountAttribute($value)
-    {
-        return $this->referralValue('referral_count', $value);
-    }
-
-    public function getReferredAtAttribute($value)
-    {
-        return $this->referralValue('referred_at', $value);
-    }
-
-    public function getThemePreferenceAttribute($value): string
-    {
-        return (string) ($this->settingsValue('theme', $value ?? 'system') ?? 'system');
-    }
-
-    public function getSettingsAttribute($value): mixed
-    {
-        if ($this->relationLoaded('settings')) {
-            return $this->getRelation('settings');
-        }
-
-        if ($this->exists) {
-            $setting = $this->settings()->first();
-            if ($setting) {
-                return $setting;
-            }
-        }
-
-        return $value;
-    }
-
-    public function getNotificationPreferencesAttribute($value): mixed
-    {
-        return $this->settingsValue('notification_preferences', $value);
-    }
-
-    public function getEmailNotificationsEnabledAttribute($value): bool
-    {
-        return (bool) $this->settingsValue('email_notifications', $value ?? true);
-    }
-
-    public function getSmsNotificationsEnabledAttribute($value): bool
-    {
-        return (bool) $this->settingsValue('sms_notifications', $value ?? true);
-    }
-
-    public function getAvatarUrlAttribute(): string
-    {
-        $avatar = $this->attributes['avatar'] ?? null;
-
-        return StorageHelper::avatarUrl($avatar, $this->name);
-    }
-
     public function getIsArtistAttribute(): bool
     {
         return $this->artist !== null;
@@ -1135,198 +971,6 @@ class User extends Authenticatable implements MustVerifyEmail
             'is_online' => true,
             'last_seen_at' => now(),
         ]);
-    }
-
-    // African market specific methods
-    public function hasActiveSubscription(): bool
-    {
-        $sub = $this->subscription;
-
-        return $sub
-            && $sub->status === 'active'
-            && $sub->expires_at
-            && $sub->expires_at->isFuture();
-    }
-
-    public function getActivePlan(): ?SubscriptionPlan
-    {
-        if (! $this->hasActiveSubscription()) {
-            return null;
-        }
-
-        return $this->subscription->subscriptionPlan;
-    }
-
-    public function getPlanLimit(string $key, mixed $default = null): mixed
-    {
-        $plan = $this->getActivePlan();
-
-        if (! $plan) {
-            return $default;
-        }
-
-        // Check direct column first, then limits JSON
-        if (isset($plan->{$key}) && $plan->{$key} !== null) {
-            return $plan->{$key};
-        }
-
-        return $plan->limits[$key] ?? $default;
-    }
-
-    public function canDownload(): bool
-    {
-        $limit = $this->getPlanLimit('max_downloads_per_day', 3);
-
-        // -1 or null means unlimited for paid plans
-        if ($limit === null || $limit === -1) {
-            return true;
-        }
-
-        $todayDownloads = Download::where('user_id', $this->id)
-            ->whereDate('downloaded_at', today())
-            ->count();
-
-        return $todayDownloads < $limit;
-    }
-
-    public function hasPurchasedSong(Song $song): bool
-    {
-        return SongPurchase::where('user_id', $this->id)
-            ->where('song_id', $song->id)
-            ->exists();
-    }
-
-    public function canPlayPremiumContent(): bool
-    {
-        // Check if user has active subscription or premium credits
-        return $this->hasActiveSubscription();
-    }
-
-    /**
-     * Check if user can stream music.
-     * All users can stream; quality is gated by plan.
-     */
-    public function canStream(): bool
-    {
-        return true;
-    }
-
-    /**
-     * Get max audio quality (kbps) allowed by the user's plan.
-     * Free = 128, Premium/Artist/Label = 320.
-     */
-    public function getMaxAudioQuality(): int
-    {
-        return (int) $this->getPlanLimit('max_audio_quality_kbps', 128);
-    }
-
-    /**
-     * Check if user can upload songs (requires artist/label plan or artist role).
-     */
-    public function canUpload(): bool
-    {
-        $plan = $this->getActivePlan();
-        $uploadLimit = $this->getPlanLimit('max_uploads_per_month', 0);
-
-        // Plan explicitly allows uploads
-        if ($uploadLimit !== 0) {
-            return true;
-        }
-
-        // Artists without a paid plan can still upload if their artist record allows it
-        if ($this->artist && $this->artist->can_upload) {
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
-     * Get monthly upload limit from active plan.
-     * Returns the plan limit, or falls back to artist.monthly_upload_limit.
-     */
-    public function getMonthlyUploadLimit(): ?int
-    {
-        $planLimit = $this->getPlanLimit('max_uploads_per_month', null);
-
-        // Plan-based limit takes priority
-        if ($planLimit !== null && $planLimit !== 0) {
-            return $planLimit === -1 ? null : $planLimit; // null = unlimited
-        }
-
-        // Fallback to artist-level limit
-        return $this->artist?->monthly_upload_limit;
-    }
-
-    /**
-     * Check if user has ad-free experience.
-     */
-    public function isAdFree(): bool
-    {
-        $plan = $this->getActivePlan();
-
-        return $plan && (bool) ($plan->ad_free ?? false);
-    }
-
-    /**
-     * Check if user can access offline listening.
-     */
-    public function canAccessOffline(): bool
-    {
-        $plan = $this->getActivePlan();
-
-        return $plan && (bool) ($plan->allows_offline ?? false);
-    }
-
-    public function getRemainingDownloadsAttribute(): int
-    {
-        $limit = $this->getPlanLimit('max_downloads_per_day', 3);
-
-        if ($limit === null || $limit === -1) {
-            return -1; // Unlimited
-        }
-
-        $todayDownloads = Download::where('user_id', $this->id)
-            ->whereDate('downloaded_at', today())
-            ->count();
-
-        return max(0, $limit - $todayDownloads);
-    }
-
-    public function getOfflinePlaylistsAttribute()
-    {
-        return $this->playlists()
-            ->where('privacy', 'public')
-            ->orWhere('user_id', $this->id)
-            ->with(['songs' => function ($query) {
-                $query->where('is_free', true)->where('status', 'published');
-            }])
-            ->get();
-    }
-
-    public function getListeningStatsAttribute(): array
-    {
-        $totalPlays = $this->playHistory()->where('was_completed', true)->count();
-        $totalMinutes = $this->playHistory()
-            ->where('was_completed', true)
-            ->sum('duration_played_seconds') / 60;
-
-        $topGenres = $this->playHistory()
-            ->with('song.genres')
-            ->where('was_completed', true)
-            ->get()
-            ->flatMap(function ($history) {
-                return $history->song->genres;
-            })
-            ->countBy('name')
-            ->sortDesc()
-            ->take(5);
-
-        return [
-            'total_plays' => $totalPlays,
-            'total_minutes' => round($totalMinutes),
-            'top_genres' => $topGenres,
-        ];
     }
 
     // Role and Permission Management Methods with Caching
@@ -1533,22 +1177,6 @@ class User extends Authenticatable implements MustVerifyEmail
                $this->activeRoles()->orderBy('priority', 'desc')->first();
     }
 
-    public function addPermission(string $permission): void
-    {
-        $permissions = $this->permissions ?? [];
-        if (! in_array($permission, $permissions)) {
-            $permissions[] = $permission;
-            $this->update(['permissions' => $permissions]);
-        }
-    }
-
-    public function removePermission(string $permission): void
-    {
-        $permissions = $this->permissions ?? [];
-        $permissions = array_filter($permissions, fn ($p) => $p !== $permission);
-        $this->update(['permissions' => array_values($permissions)]);
-    }
-
     public function getAllPermissions(): array
     {
         if ($this->hasRole('super_admin')) {
@@ -1644,23 +1272,6 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     // Security methods
-    public function activate(): void
-    {
-        $this->update(['is_active' => true]);
-    }
-
-    public function deactivate(): void
-    {
-        $this->update(['is_active' => false]);
-        // Note: API token revocation would require Laravel Sanctum
-    }
-
-    public function ban(): void
-    {
-        $this->deactivate();
-        // Additional ban logic can be added here
-    }
-
     public function isActive(): bool
     {
         return $this->is_active ?? true; // Default to true if null
@@ -1700,41 +1311,6 @@ class User extends Authenticatable implements MustVerifyEmail
     public function canAccessAdminPanel(): bool
     {
         return $this->hasAnyRole(['super_admin', 'admin', 'moderator', 'finance']);
-    }
-
-    public function approve(User $approver, ?string $notes = null): void
-    {
-        $this->update([
-            'status' => 'verified',
-            'verified_by' => $approver->id,
-            'verified_at' => now(),
-            'rejection_reason' => null,
-        ]);
-
-        // Assign artist role if not already assigned
-        if (! $this->hasRole('artist')) {
-            $this->assignRole('artist', $approver->id);
-        }
-    }
-
-    public function reject(User $rejector, string $reason): void
-    {
-        $this->update([
-            'status' => 'rejected',
-            'verified_by' => $rejector->id,
-            'verified_at' => now(),
-            'rejection_reason' => $reason,
-        ]);
-    }
-
-    public function suspend(User $suspender, string $reason): void
-    {
-        $this->update([
-            'status' => 'suspended',
-            'verified_by' => $suspender->id,
-            'verified_at' => now(),
-            'rejection_reason' => $reason,
-        ]);
     }
 
     // Phone verification methods
@@ -1839,24 +1415,6 @@ class User extends Authenticatable implements MustVerifyEmail
     }
 
     // Artist-specific helper methods
-    public function getDisplayNameAttribute(): string
-    {
-        $profileDisplayName = $this->profileValue('display_name', $this->attributes['display_name'] ?? null);
-        if ($profileDisplayName) {
-            return $profileDisplayName;
-        }
-
-        // If user has artist profile, use artist's stage name
-        if ($this->artist) {
-            return $this->artist->stage_name;
-        }
-
-        $firstName = $this->profileValue('first_name', $this->attributes['first_name'] ?? '');
-        $lastName = $this->profileValue('last_name', $this->attributes['last_name'] ?? '');
-
-        return trim($firstName.' '.$lastName) ?: 'User';
-    }
-
     public function canRequestPayout(): bool
     {
         return $this->isVerified() &&
@@ -1883,59 +1441,6 @@ class User extends Authenticatable implements MustVerifyEmail
     public function canViewSystemAnalytics(): bool
     {
         return $this->hasAnyRole(['admin', 'super_admin']);
-    }
-
-    // SACCO Module Integration Methods
-    public function isSaccoMember(): bool
-    {
-        return $this->saccoMember !== null && $this->saccoMember->status === 'active';
-    }
-
-    public function canJoinSacco(): bool
-    {
-        // Artists who are verified can join SACCO
-        return $this->isVerified()
-            && $this->hasRole('artist')
-            && ! $this->isSaccoMember();
-    }
-
-    public function getSaccoAccountsAttribute()
-    {
-        return $this->saccoMember?->accounts ?? collect();
-    }
-
-    public function getTotalSaccoBalanceAttribute(): float
-    {
-        return $this->saccoMember?->total_balance ?? 0;
-    }
-
-    public function hasActiveSaccoLoans(): bool
-    {
-        return $this->saccoMember?->loans()
-            ->whereIn('status', ['active', 'disbursed'])
-            ->exists() ?? false;
-    }
-
-    public function getSaccoEligibilityAttribute(): array
-    {
-        $member = $this->saccoMember;
-
-        if (! $member || $member->status !== 'active') {
-            return [
-                'eligible' => false,
-                'reason' => 'Not an active SACCO member',
-            ];
-        }
-
-        return [
-            'eligible' => true,
-            'max_loan_amount' => max(
-                $member->total_savings * 3,
-                $member->total_shares * 4
-            ),
-            'current_loans' => $member->active_loans_count,
-            'max_loans' => 3,
-        ];
     }
 
     // =========================================================================
@@ -2075,47 +1580,6 @@ class User extends Authenticatable implements MustVerifyEmail
         return (int) (($completed / $totalSteps) * 100);
     }
 
-    /**
-     * Update profile completion tracking
-     */
-    public function updateProfileCompletion(): void
-    {
-        $percentage = $this->calculateProfileCompletion();
-        $steps = [];
-
-        if ($this->email && $this->email_verified_at) {
-            $steps[] = 'email_verified';
-        }
-        if ($this->phone && $this->phone_verified_at) {
-            $steps[] = 'phone_verified';
-        }
-        if ($this->avatar) {
-            $steps[] = 'avatar_uploaded';
-        }
-        if ($this->bio) {
-            $steps[] = 'bio_added';
-        }
-        if ($this->country && $this->city) {
-            $steps[] = 'location_added';
-        }
-        if ($this->date_of_birth) {
-            $steps[] = 'dob_added';
-        }
-
-        $this->update([
-            'profile_completion_percentage' => $percentage,
-            'profile_steps_completed' => $steps,
-        ]);
-
-        $this->profile()->updateOrCreate(
-            ['user_id' => $this->id],
-            [
-                'profile_completion_percentage' => $percentage,
-                'profile_steps_completed' => $steps,
-            ]
-        );
-    }
-
     public function syncSecurityProfile(): void
     {
         $this->securityProfile()->updateOrCreate(
@@ -2143,124 +1607,6 @@ class User extends Authenticatable implements MustVerifyEmail
         return json_encode([$value]);
     }
 
-    public function syncArtistApplicationState(array $attributes): void
-    {
-        $legacyUserUpdates = [];
-        foreach ([
-            'full_name',
-            'nin_number',
-            'phone',
-            'mobile_money_number',
-            'mobile_money_provider',
-            'application_status',
-            'rejection_reason',
-        ] as $key) {
-            if (array_key_exists($key, $attributes)) {
-                $legacyUserUpdates[$key] = $attributes[$key];
-            }
-        }
-
-        if (! empty($legacyUserUpdates)) {
-            $this->update($legacyUserUpdates);
-        }
-
-        $this->profile()->updateOrCreate(
-            ['user_id' => $this->id],
-            array_filter([
-                'display_name' => $attributes['stage_name'] ?? null,
-                'bio' => $attributes['bio'] ?? null,
-                'country' => $attributes['country'] ?? null,
-                'city' => $attributes['city'] ?? null,
-                'instagram_url' => $attributes['social_links']['instagram'] ?? null,
-                'twitter_url' => $attributes['social_links']['twitter'] ?? null,
-                'facebook_url' => $attributes['social_links']['facebook'] ?? null,
-                'youtube_url' => $attributes['social_links']['youtube'] ?? null,
-                'tiktok_url' => $attributes['social_links']['tiktok'] ?? null,
-            ], fn ($value) => $value !== null)
-        );
-
-        $verificationDocuments = $attributes['verification_documents'] ?? [];
-
-        if (! static::hasArtistProfilesTable()) {
-            return;
-        }
-
-        $this->artistProfile()->updateOrCreate(
-            ['user_id' => $this->id],
-            [
-                'stage_name' => $attributes['stage_name'] ?? $this->artistProfile?->stage_name,
-                'real_name' => $attributes['full_name'] ?? $this->artistProfile?->real_name,
-                'nin_number' => $attributes['nin_number'] ?? $this->artistProfile?->nin_number,
-                'verification_status' => $attributes['verification_status'] ?? 'pending',
-                'verification_documents' => $verificationDocuments,
-                'bio' => $attributes['bio'] ?? $this->artistProfile?->bio,
-                'website' => $attributes['website_url'] ?? $this->artistProfile?->website,
-                'social_links' => $attributes['social_links'] ?? $this->artistProfile?->social_links,
-                'genres' => $attributes['genres'] ?? $this->artistProfile?->genres,
-                'career_stage' => $attributes['career_stage'] ?? $this->artistProfile?->career_stage,
-                'mobile_money_provider' => $attributes['mobile_money_provider'] ?? $this->artistProfile?->mobile_money_provider,
-                'mobile_money_number' => $attributes['mobile_money_number'] ?? $this->artistProfile?->mobile_money_number,
-                'bank_name' => $attributes['bank_name'] ?? $this->artistProfile?->bank_name,
-                'bank_account' => $attributes['bank_account'] ?? $this->artistProfile?->bank_account,
-                'payout_method' => $attributes['artist_profile_payout_method'] ?? $this->artistProfile?->payout_method ?? 'mobile_money',
-                'profile_completed' => (bool) ($attributes['profile_completed'] ?? true),
-                'is_active' => true,
-            ]
-        );
-    }
-
-    public function syncArtistReviewState(Artist $artist, array $attributes): void
-    {
-        $applicationStatus = $attributes['application_status'] ?? null;
-        $verifiedAt = $attributes['verified_at'] ?? null;
-        $verifiedBy = $attributes['verified_by'] ?? null;
-        $rejectionReason = $attributes['rejection_reason'] ?? null;
-        $isArtist = (bool) ($attributes['is_artist'] ?? false);
-
-        $this->update(array_filter([
-            'application_status' => $applicationStatus,
-            'verified_at' => $verifiedAt,
-            'verified_by' => $verifiedBy,
-            'rejection_reason' => $rejectionReason,
-            'is_artist' => $isArtist,
-            'phone_verified_at' => $attributes['phone_verified_at'] ?? null,
-        ], fn ($value) => $value !== null));
-
-        if (! empty($attributes['email_verified_at']) && ! $this->email_verified_at) {
-            $this->forceFill([
-                'email_verified_at' => $attributes['email_verified_at'],
-            ])->save();
-        }
-
-        if (! static::hasArtistProfilesTable()) {
-            return;
-        }
-
-        $this->artistProfile()->updateOrCreate(
-            ['user_id' => $this->id],
-            [
-                'artist_id' => $artist->id,
-                'stage_name' => $artist->stage_name,
-                'real_name' => $this->full_name ?? $this->artistProfile?->real_name,
-                'nin_number' => $this->nin_number ?? $this->artistProfile?->nin_number,
-                'verification_status' => $attributes['verification_status'] ?? $this->artistProfile?->verification_status ?? 'pending',
-                'verification_documents' => $this->artistProfile?->verification_documents ?? [],
-                'verified_at' => $verifiedAt,
-                'bio' => $artist->bio ?? $this->artistProfile?->bio,
-                'website' => $artist->website_url ?? $this->artistProfile?->website,
-                'social_links' => $artist->social_links ?? $this->artistProfile?->social_links,
-                'genres' => $attributes['genres'] ?? $this->artistProfile?->genres,
-                'mobile_money_provider' => $this->mobile_money_provider ?? $this->artistProfile?->mobile_money_provider,
-                'mobile_money_number' => $this->mobile_money_number ?? $this->artistProfile?->mobile_money_number,
-                'bank_name' => $this->artistProfile?->bank_name,
-                'bank_account' => $this->artistProfile?->bank_account,
-                'payout_method' => $this->artistProfile?->payout_method ?? 'mobile_money',
-                'profile_completed' => true,
-                'is_active' => $attributes['artist_profile_active'] ?? true,
-            ]
-        );
-    }
-
     public static function hasArtistProfilesTable(): bool
     {
         if (static::$hasArtistProfilesTable === null) {
@@ -2268,18 +1614,6 @@ class User extends Authenticatable implements MustVerifyEmail
         }
 
         return static::$hasArtistProfilesTable;
-    }
-
-    protected function profileValue(string $key, mixed $fallback = null): mixed
-    {
-        if ($this->relationLoaded('profile') && $this->profile) {
-            $value = $this->profile->getAttribute($key);
-            if ($value !== null && $value !== '') {
-                return $value;
-            }
-        }
-
-        return $fallback;
     }
 
     public function hasVerifiedEmail(): bool
@@ -2295,32 +1629,6 @@ class User extends Authenticatable implements MustVerifyEmail
         }
 
         return ! is_null($this->email_verified_at);
-    }
-
-    protected function referralValue(string $key, mixed $fallback = null): mixed
-    {
-        if ($this->relationLoaded('referralProfile') && $this->referralProfile) {
-            $value = $this->referralProfile->getAttribute($key);
-            if ($value !== null && $value !== '') {
-                return $value;
-            }
-        }
-
-        return $fallback;
-    }
-
-    protected function settingsValue(string $key, mixed $fallback = null): mixed
-    {
-        $settings = $this->settings;
-
-        if ($settings instanceof UserSetting) {
-            $value = $settings->getAttribute($key);
-            if ($value !== null && $value !== '') {
-                return $value;
-            }
-        }
-
-        return $fallback;
     }
 
     /**

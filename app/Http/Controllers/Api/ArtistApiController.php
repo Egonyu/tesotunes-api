@@ -1287,7 +1287,11 @@ class ArtistApiController extends Controller
                 'verification_status' => $artist->verification_status ?? 'pending',
                 'payout_phone_number' => $artist->payout_phone_number,
                 'can_upload' => (bool) $artist->can_upload,
+                'monthly_upload_limit' => $artist->monthly_upload_limit,
                 'auto_publish' => (bool) $artist->auto_publish,
+                'career_start_year' => $artist->career_start_year,
+                'record_label' => $artist->record_label,
+                'influences' => $artist->influences ?? [],
             ],
         ]);
     }
@@ -1310,6 +1314,10 @@ class ArtistApiController extends Controller
             'social_links' => 'nullable|array',
             'payout_phone_number' => 'nullable|string|max:20',
             'auto_publish' => 'nullable|boolean',
+            'career_start_year' => 'nullable|integer|min:1900|max:2100',
+            'record_label' => 'nullable|string|max:255',
+            'influences' => 'nullable|array',
+            'influences.*' => 'string|max:100',
         ]);
 
         $artist->update($validated);
@@ -1331,7 +1339,15 @@ class ArtistApiController extends Controller
         $artist = $result;
 
         $validated = $request->validate([
-            'avatar' => 'required|image|mimes:jpeg,jpg,png,webp|max:10240|dimensions:min_width=50,min_height=50',
+            'avatar' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:10240', function ($attribute, $value, $fail) {
+                if (! $value instanceof \Illuminate\Http\UploadedFile) {
+                    return;
+                }
+                $info = @getimagesize($value->getPathname());
+                if ($info !== false && ($info[0] < 50 || $info[1] < 50)) {
+                    $fail("The {$attribute} must be at least 50x50 pixels.");
+                }
+            }],
         ]);
 
         if ($artist->avatar) {

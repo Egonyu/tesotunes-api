@@ -8,6 +8,7 @@ use App\Models\KYCDocument;
 use App\Notifications\AdminArtistApplicationPendingNotification;
 use App\Notifications\ArtistApplicationNotification;
 use App\Services\NotificationRoutingService;
+use App\Services\UserService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,8 @@ use Illuminate\Support\Str;
 class ArtistApplicationApiController extends Controller
 {
     public function __construct(
-        private readonly NotificationRoutingService $notificationRoutingService
+        private readonly NotificationRoutingService $notificationRoutingService,
+        private readonly UserService $userService,
     ) {
         $this->middleware('auth:sanctum');
     }
@@ -232,7 +234,7 @@ class ArtistApplicationApiController extends Controller
 
             $verificationDocuments = $this->storeVerificationDocuments($request, $user);
 
-            $user->syncArtistApplicationState([
+            $this->userService->syncArtistApplicationState($user, [
                 'stage_name' => $validated['stage_name'],
                 'full_name' => $validated['full_name'],
                 'nin_number' => $validated['nin_number'] ?? null,

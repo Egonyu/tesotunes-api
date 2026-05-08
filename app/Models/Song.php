@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasAudioUrls;
+use App\Models\Concerns\HasDistributionStatus;
+use App\Models\Concerns\HasIsrcManagement;
 use App\Models\Traits\Featurable;
 use App\Traits\HasComments;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,11 +14,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\Storage;
 
 class Song extends Model
 {
-    use Featurable, HasComments, HasFactory, SoftDeletes;
+    use Featurable, HasAudioUrls, HasComments, HasDistributionStatus, HasFactory, HasIsrcManagement, SoftDeletes;
 
     protected $fillable = [
         // Core identity
@@ -461,37 +463,6 @@ class Song extends Model
         $this->attributes['duration_seconds'] = $value;
     }
 
-    public function getAudioUrlAttribute(): string
-    {
-        // Pre-signed CDN URL (Spotify-style: short-lived, direct-to-CDN)
-        return \App\Helpers\StorageHelper::streamingUrl(
-            $this->audio_file_320,
-            $this->audio_file_128,
-            $this->audio_file_original
-        ) ?? '';
-    }
-
-    /**
-     * BACKWARD COMPATIBILITY ACCESSOR
-     * Maps $song->audio_file to $song->audio_file_original
-     * DB column: audio_file_original
-     * Note: 'audio_file' should NOT be in $fillable - this is read-only accessor
-     */
-    public function getAudioFileAttribute(): ?string
-    {
-        return $this->audio_file_original;
-    }
-
-    public function getFilePathAttribute(): ?string
-    {
-        return $this->audio_file_original;
-    }
-
-    public function getArtworkUrlAttribute(): ?string
-    {
-        return \App\Helpers\StorageHelper::artworkUrl($this->artwork);
-    }
-
     public function getIsLikedByUserAttribute(): bool
     {
         if (! auth()->check()) {
@@ -501,214 +472,7 @@ class Song extends Model
         return $this->likes()->where('user_id', auth()->id())->exists();
     }
 
-    // Helper methods for African market
-    public function getCompressedAudioUrlAttribute(): string
-    {
-        // 128kbps pre-signed URL — data-efficient for African market
-        return \App\Helpers\StorageHelper::temporaryUrl($this->audio_file_128) ?? $this->audio_url;
-    }
-
-    public function getPreviewAudioUrlAttribute(): string
-    {
-        // 30-second preview clip — pre-signed, slightly longer expiry
-        return \App\Helpers\StorageHelper::temporaryUrl($this->audio_file_preview, 30) ?? $this->audio_url;
-    }
-
-    /**
-     * Whether this song can be downloaded.
-     *
-     * Rules:
-     * - Song must be published and have is_downloadable = true
-     * - Free songs: always downloadable when the above is met
-     * - Paid songs: downloadable only if the given user has purchased them,
-     *               OR if the user has an active premium subscription
-     */
-    public function isAvailableForDownload(?User $user = null): bool
-    {
-        if ($this->status !== 'published' || ! $this->is_downloadable) {
-            return false;
-        }
-
-        if ($this->is_free) {
-            return true;
-        }
-
-        // Paid song — check if user has purchased or has premium
-        if ($user === null) {
-            return false;
-        }
-
-        return $user->hasPurchasedSong($this) || $user->hasActiveSubscription();
-    }
-
-    public function getDownloadUrlAttribute(): string
-    {
-        if ($this->audio_file_original) {
-            // Use a temporary signed URL for cloud storage (DO Spaces / S3).
-            // Falls back to a regular URL for local disks.
-            return \App\Helpers\StorageHelper::temporaryUrl($this->audio_file_original, 15) ?? '#';
-        }
-
-        return '#';
-    }
-
-    // Distribution helper methods
-    public function getFormattedFileSizeAttribute(): string
-    {
-        if (! $this->file_size_bytes) {
-            return 'Unknown';
-        }
-
-        $bytes = $this->file_size_bytes;
-        if ($bytes >= 1073741824) {
-            return round($bytes / 1073741824, 2).' GB';
-        } elseif ($bytes >= 1048576) {
-            return round($bytes / 1048576, 2).' MB';
-        } elseif ($bytes >= 1024) {
-            return round($bytes / 1024, 2).' KB';
-        }
-
-        return $bytes.' bytes';
-    }
-
-    public function getAudioQualityBadgeAttribute(): string
-    {
-        return match (true) {
-            $this->audio_quality_score >= 95 => '🔊 Studio Quality',
-            $this->audio_quality_score >= 85 => '🎵 High Quality',
-            $this->audio_quality_score >= 70 => '🎶 Standard',
-            $this->audio_quality_score > 0 => '📱 Mobile Optimized',
-            default => '❓ Unknown'
-        };
-    }
-
-    public function getDistributionStatusBadgeAttribute(): string
-    {
-        return match ($this->distribution_status) {
-            'draft' => '📝 Draft',
-            'pending_review' => '⏳ Pending Review',
-            'approved' => '✅ Approved',
-            'rejected' => '❌ Rejected',
-            'distributed' => '🌍 Live',
-            default => '❓ Unknown'
-        };
-    }
-
-    public function isReadyForDistribution(): bool
-    {
-        return $this->distribution_status === 'approved' &&
-               $this->isrc_code &&
-               $this->audio_quality_score >= 7 &&
-               $this->file_size_bytes > 0;
-    }
-
-    public function canBeDistributed(): bool
-    {
-        return $this->status === 'published' &&
-               $this->distribution_status === 'approved' &&
-               $this->isrc_code !== null;
-    }
-
-    public function hasIsrcAssigned(): bool
-    {
-        return filled($this->isrc_code);
-    }
-
-    public function hasAudioAssetForIsrc(): bool
-    {
-        return filled($this->audio_file_original)
-            || filled($this->audio_file_320)
-            || filled($this->audio_file_128);
-    }
-
-    public function isAuthorizedForIsrcAssignment(): bool
-    {
-        return in_array($this->distribution_status, ['approved', 'distributed'], true)
-            || ($this->status === 'published' && $this->approved_at !== null);
-    }
-
-    public function getIsrcAssignmentBlockers(bool $ignoreExisting = false): array
-    {
-        $blockers = [];
-
-        if (! $ignoreExisting && $this->hasIsrcAssigned()) {
-            $blockers[] = 'already_assigned';
-        }
-
-        if (! $this->artist_id) {
-            $blockers[] = 'missing_artist';
-        }
-
-        if (! filled($this->title)) {
-            $blockers[] = 'missing_title';
-        }
-
-        if (! $this->hasAudioAssetForIsrc()) {
-            $blockers[] = 'missing_audio';
-        }
-
-        if ((int) $this->duration_seconds <= 0) {
-            $blockers[] = 'missing_duration';
-        }
-
-        if (! $this->hasValidRightsSplits()) {
-            $blockers[] = 'invalid_rights';
-        }
-
-        if (! $this->isAuthorizedForIsrcAssignment()) {
-            $blockers[] = 'not_authorized';
-        }
-
-        return array_values(array_unique($blockers));
-    }
-
-    public function canAssignIsrc(bool $ignoreExisting = false): bool
-    {
-        return $this->getIsrcAssignmentBlockers($ignoreExisting) === [];
-    }
-
-    public function getIsrcAssignmentBlockerMessages(bool $ignoreExisting = false): array
-    {
-        return array_map(
-            fn (string $blocker) => self::isrcAssignmentBlockerMessage($blocker),
-            $this->getIsrcAssignmentBlockers($ignoreExisting)
-        );
-    }
-
-    public static function isrcAssignmentBlockerMessage(string $blocker): string
-    {
-        return match ($blocker) {
-            'already_assigned' => 'This song already has an ISRC assigned.',
-            'missing_artist' => 'Assign an artist before generating an ISRC.',
-            'missing_title' => 'Add a song title before generating an ISRC.',
-            'missing_audio' => 'Upload a source audio file before generating an ISRC.',
-            'missing_duration' => 'Duration metadata must be captured before generating an ISRC.',
-            'invalid_rights' => 'Ownership and rights splits must be valid before generating an ISRC.',
-            'not_authorized' => 'This song must be approved for release or distribution before an ISRC can be assigned.',
-            default => 'This song is not yet eligible for ISRC assignment.',
-        };
-    }
-
-    public function getIsrcAssignmentSummary(): array
-    {
-        $blockers = $this->getIsrcAssignmentBlockers();
-        $assigned = $this->hasIsrcAssigned();
-        $eligible = ! $assigned && $blockers === [];
-
-        return [
-            'assigned' => $assigned,
-            'eligible' => $eligible,
-            'status' => $assigned ? 'assigned' : ($eligible ? 'eligible' : 'blocked'),
-            'code' => $this->isrc_code,
-            'blockers' => $blockers,
-            'blocker_messages' => array_map(
-                fn (string $blocker) => self::isrcAssignmentBlockerMessage($blocker),
-                $blockers
-            ),
-        ];
-    }
-
-    public function has_content_violations(): bool
+    public function hasContentViolations(): bool
     {
         return $this->flagged_count > 0;
     }
@@ -737,82 +501,6 @@ class Song extends Model
         $total = $this->master_ownership_percentage + $this->publishing_ownership_percentage;
 
         return $total <= 200; // 100% master + 100% publishing
-    }
-
-    public function estimateDistributionRevenue(string $platform, int $streams): float
-    {
-        $platformRates = [
-            'spotify' => 0.003,
-            'apple_music' => 0.007,
-            'youtube_music' => 0.001,
-            'boomplay' => 0.002,
-            'deezer' => 0.006,
-        ];
-
-        $rate = $platformRates[strtolower($platform)] ?? 0.002;
-        $grossRevenue = $streams * $rate;
-
-        // Apply platform cut (typically 30%)
-        $netRevenue = $grossRevenue * 0.7;
-
-        // Apply ownership percentage
-        return $netRevenue * ($this->master_ownership_percentage / 100);
-    }
-
-    public function generateISRCCode(): string
-    {
-        if ($this->isrc_code) {
-            return $this->isrc_code;
-        }
-
-        // Format: CC-XXX-YY-NNNNN (Uganda format)
-        $countryCode = 'UG';
-        $registrantCode = str_pad(substr(preg_replace('/[^A-Z0-9]/', '', strtoupper($this->artist->name)), 0, 3), 3, '0');
-        $year = now()->format('y');
-        $designation = str_pad($this->id, 5, '0', STR_PAD_LEFT);
-
-        return "{$countryCode}-{$registrantCode}-{$year}-{$designation}";
-    }
-
-    public function approve(User $approver, ?string $notes = null): void
-    {
-        $this->update([
-            'status' => 'published',
-            'distribution_status' => 'approved',
-            'approved_by' => $approver->id,
-            'approved_at' => now(),
-            'published_at' => $this->published_at ?? now(),
-            'review_notes' => $notes,
-        ]);
-
-        // Auto-assign only when explicitly enabled in configuration.
-        if (config('music.isrc.auto_generate', false) && $this->canAssignIsrc()) {
-            app(\App\Services\Music\ISRCService::class)->assignToSong($this);
-        }
-    }
-
-    public function reject(User $reviewer, string $reason): void
-    {
-        $this->update([
-            'status' => 'rejected',
-            'distribution_status' => 'rejected',
-            'approved_by' => $reviewer->id,
-            'approved_at' => now(),
-            'review_notes' => $reason,
-            'rejection_reason' => $reason,
-        ]);
-    }
-
-    private function detectDeviceType(): string
-    {
-        $userAgent = request()->userAgent();
-        if (preg_match('/mobile|android|iphone/i', $userAgent)) {
-            return 'mobile';
-        } elseif (preg_match('/tablet|ipad/i', $userAgent)) {
-            return 'tablet';
-        }
-
-        return 'desktop';
     }
 
     /**
@@ -955,65 +643,6 @@ class Song extends Model
     }
 
     /**
-     * Record a song play with optimized performance
-     */
-    public function recordPlay(?User $user = null, array $context = []): void
-    {
-        // Use increment to avoid loading the full model
-        $this->increment('play_count');
-
-        if ($user) {
-            // Batch insert optimization - consider using a job for high-volume apps
-            PlayHistory::create([
-                'user_id' => $user->id,
-                'song_id' => $this->id,
-                'artist_id' => $this->artist_id,
-                'album_id' => $this->album_id,
-                'duration_played_seconds' => $context['duration_played_seconds'] ?? 0,
-                'completion_percentage' => $context['completion_percentage'] ?? 0,
-                'completed' => ($context['duration_played_seconds'] ?? 0) >= ($this->duration_seconds * 0.8),
-                'skipped' => ($context['duration_played_seconds'] ?? 0) < 30,
-                'ip_address' => request()->ip(),
-                'device_type' => $this->detectDeviceType(),
-                'quality' => $context['quality'] ?? '128',
-                'played_at' => now(),
-            ]);
-
-            // Record activity (consider making this async for performance)
-            Activity::create([
-                'user_id' => $user->id,
-                'type' => 'played_song',
-                'subject_type' => self::class,
-                'subject_id' => $this->id,
-                'data' => $context,
-                'is_public' => $user->settings->show_activity ?? true,
-            ]);
-
-            // Process streaming revenue for the artist
-            $isPremiumUser = $user->hasAnyRole(['premium', 'vip', 'artist']) || $user->subscription_status === 'active';
-            \App\Jobs\ProcessStreamingRevenue::dispatch(
-                $this->id,
-                $user->id,
-                $this->artist_id,
-                $isPremiumUser,
-                $user->country ?? null
-            )->onQueue('revenue');
-        }
-
-        // Update artist cached stats asynchronously with throttling
-        if ($this->play_count % 5 === 0) { // Update every 5 plays for more responsive stats
-            \App\Jobs\UpdateArtistCachedStats::dispatch($this->artist_id)
-                ->onQueue('stats')
-                ->delay(now()->addSeconds(30)); // Small delay to batch updates
-        }
-
-        // Clear upload cache when new song added (affects monthly upload count)
-        if ($this->wasRecentlyCreated) {
-            cache()->forget("artist_uploads_{$this->artist_id}_".now()->format('Y_m'));
-        }
-    }
-
-    /**
      * Get the route key for the model.
      * Uses slug for clean URLs on frontend, but admin routes can still use ID via explicit binding.
      */
@@ -1045,6 +674,33 @@ class Song extends Model
 
         // Otherwise search by slug (for frontend)
         return $this->where('slug', $value)->firstOrFail();
+    }
+
+    public function approve(User $approvedBy, string $notes = ''): void
+    {
+        $this->update([
+            'status' => 'published',
+            'distribution_status' => 'approved',
+            'approved_at' => now(),
+            'published_at' => now(),
+            'approved_by' => $approvedBy->id,
+            'review_notes' => $notes ?: null,
+        ]);
+
+        if (config('music.isrc.auto_generate', false) && $this->canAssignIsrc()) {
+            app(\App\Services\Music\ISRCService::class)->assignToSong($this);
+        }
+    }
+
+    public function reject(User $rejectedBy, string $reason): void
+    {
+        $this->update([
+            'status' => 'rejected',
+            'distribution_status' => 'rejected',
+            'rejection_reason' => $reason,
+            'moderated_by' => $rejectedBy->id,
+            'moderated_at' => now(),
+        ]);
     }
 
     /**

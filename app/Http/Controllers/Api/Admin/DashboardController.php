@@ -204,11 +204,10 @@ class DashboardController extends Controller
                         'total_ugx' => round((float) $row->total_ugx, 2),
                     ]);
 
-                $artistRevenueHasSongId = Schema::hasColumn('artist_revenues', 'song_id');
-
                 $perArtistSongTotalsQuery = ArtistRevenue::query()
                     ->from('artist_revenues as ar')
                     ->join('artists as a', 'a.id', '=', 'ar.artist_id')
+                    ->leftJoin('songs as s', 's.id', '=', 'ar.song_id')
                     ->whereIn('ar.status', [ArtistRevenue::STATUS_CONFIRMED, ArtistRevenue::STATUS_PAID])
                     ->selectRaw('ar.artist_id')
                     ->selectRaw('COALESCE(a.stage_name, a.name, CONCAT("Artist #", a.id)) as artist_name')
@@ -216,21 +215,11 @@ class DashboardController extends Controller
                     ->selectRaw('SUM(CASE WHEN ar.revenue_type = ? THEN ar.net_amount ELSE 0 END) as stream_ugx', [ArtistRevenue::TYPE_STREAM])
                     ->selectRaw('SUM(CASE WHEN ar.revenue_type = ? THEN ar.net_amount ELSE 0 END) as download_ugx', [ArtistRevenue::TYPE_DOWNLOAD])
                     ->selectRaw('SUM(CASE WHEN ar.revenue_date >= ? THEN ar.net_amount ELSE 0 END) as last_30_days_ugx', [Carbon::now()->subDays(30)->toDateString()])
+                    ->selectRaw('ar.song_id')
+                    ->selectRaw('COALESCE(s.title, "Unknown song") as song_title')
+                    ->groupBy('ar.artist_id', 'artist_name', 'ar.song_id', 'song_title')
                     ->orderByDesc('total_ugx')
                     ->limit(50);
-
-                if ($artistRevenueHasSongId) {
-                    $perArtistSongTotalsQuery
-                        ->leftJoin('songs as s', 's.id', '=', 'ar.song_id')
-                        ->selectRaw('ar.song_id')
-                        ->selectRaw('COALESCE(s.title, "Unknown song") as song_title')
-                        ->groupBy('ar.artist_id', 'artist_name', 'ar.song_id', 'song_title');
-                } else {
-                    $perArtistSongTotalsQuery
-                        ->selectRaw('NULL as song_id')
-                        ->selectRaw('"Unknown song" as song_title')
-                        ->groupBy('ar.artist_id', 'artist_name');
-                }
 
                 $perArtistSongTotals = $perArtistSongTotalsQuery
                     ->get()
@@ -389,11 +378,11 @@ class DashboardController extends Controller
 
     private function resolvePlayHistoryTimestampColumn(): string
     {
-        return Schema::hasColumn('play_histories', 'played_at') ? 'played_at' : 'created_at';
+        return 'played_at';
     }
 
     private function resolveDownloadTimestampColumn(): string
     {
-        return Schema::hasColumn('downloads', 'downloaded_at') ? 'downloaded_at' : 'created_at';
+        return 'downloaded_at';
     }
 }

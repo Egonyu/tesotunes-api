@@ -20,6 +20,7 @@ class PaymentController extends Controller
     public function __construct(
         protected PaymentService $paymentService,
         protected PaymentObservabilityService $paymentObservability,
+        protected ZengaPayService $zengaPayService,
     ) {}
 
     protected function ensureAdmin(Request $request): ?JsonResponse
@@ -179,14 +180,13 @@ class PaymentController extends Controller
         ]);
 
         if ($provider === 'zengapay') {
-            $zengaPay = app(ZengaPayService::class);
             $signature = $request->header('X-Signature')
                 ?? $request->header('X-Webhook-Signature')
                 ?? $request->header('X-ZengaPay-Signature')
                 ?? '';
 
-            if (! $zengaPay->verifyWebhookSignature($request->getContent(), $signature, $payload)) {
-                $zengaPay->recordWebhookSignatureFailure($payload, $signature);
+            if (! $this->zengaPayService->verifyWebhookSignature($request->getContent(), $signature, $payload)) {
+                $this->zengaPayService->recordWebhookSignatureFailure($payload, $signature);
 
                 Log::warning('Payment webhook: invalid signature from zengapay', [
                     'ip' => $request->ip(),
@@ -195,7 +195,7 @@ class PaymentController extends Controller
                 return response()->json(['message' => 'Invalid signature.'], 403);
             }
 
-            $result = $zengaPay->handleWebhook($payload);
+            $result = $this->zengaPayService->handleWebhook($payload);
             $statusCode = ($result['success'] ?? false) ? 200 : 404;
 
             return response()->json($result, $statusCode);
@@ -305,7 +305,7 @@ class PaymentController extends Controller
     protected function verifyWebhookSignature(Request $request, string $provider): bool
     {
         if ($provider === 'zengapay') {
-            return app(ZengaPayService::class)->verifyWebhookSignature(
+            return $this->zengaPayService->verifyWebhookSignature(
                 $request->getContent(),
                 $request->header('X-Signature')
                     ?? $request->header('X-Webhook-Signature')
@@ -367,7 +367,7 @@ class PaymentController extends Controller
             ]);
         }
 
-        $result = $this->paymentService->checkZengaPayStatus($transactionId);
+        $result = $this->zengaPayService->checkStatus($transactionId);
 
         return response()->json([
             'data' => $result,
@@ -379,7 +379,7 @@ class PaymentController extends Controller
      */
     public function zengapayBalance(): JsonResponse
     {
-        $result = $this->paymentService->getZengaPayBalance();
+        $result = $this->zengaPayService->getBalance();
 
         return response()->json([
             'data' => $result,
@@ -541,8 +541,7 @@ class PaymentController extends Controller
             }
 
             // Call ZengaPay to initiate collection
-            $zengaPay = app(ZengaPayService::class);
-            $result = $zengaPay->processPayment($payment, [
+            $result = $this->zengaPayService->processPayment($payment, [
                 'phone_number' => $phone,
             ]);
 
@@ -689,8 +688,7 @@ class PaymentController extends Controller
             // Deduct from wallet immediately
             $user->decrement('ugx_balance', $amount);
 
-            $zengaPay = app(ZengaPayService::class);
-            $result = $zengaPay->disburse(
+            $result = $this->zengaPayService->disburse(
                 $amount,
                 $validated['phone'],
                 $reference,
@@ -832,8 +830,7 @@ class PaymentController extends Controller
         }
 
         try {
-            $zengaPay = app(ZengaPayService::class);
-            $statusResult = $zengaPay->checkStatus($payment->provider_transaction_id);
+            $statusResult = $this->zengaPayService->checkStatus($payment->provider_transaction_id);
 
             $this->observability()->recordAudit($payment, 'payment_status_polled', [
                 'context' => $context,

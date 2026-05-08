@@ -2,7 +2,7 @@
 
 namespace App\Modules\Sacco\Console\Commands;
 
-use App\Modules\Sacco\Services\SaccoLoanService;
+use App\Services\Sacco\SaccoLoanService;
 use Illuminate\Console\Command;
 
 class CheckOverdueLoans extends Command

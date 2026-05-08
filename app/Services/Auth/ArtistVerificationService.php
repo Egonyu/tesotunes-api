@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\KYCDocument;
 use App\Models\Notification as AppNotification;
 use App\Models\User;
+use App\Services\UserService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
@@ -24,6 +25,8 @@ use Illuminate\Support\Str;
  */
 class ArtistVerificationService
 {
+    public function __construct(private readonly UserService $userService) {}
+
     /**
      * Apply for artist status
      *
@@ -52,7 +55,7 @@ class ArtistVerificationService
             // Upload KYC documents
             $this->uploadKYCDocuments($user, $data);
 
-            $user->syncArtistApplicationState([
+            $this->userService->syncArtistApplicationState($user, [
                 'stage_name' => $data['stage_name'],
                 'full_name' => $data['full_name'] ?? $user->full_name,
                 'nin_number' => $data['nin_number'] ?? null,
@@ -158,7 +161,7 @@ class ArtistVerificationService
                 'rejection_reason' => null,
             ]);
 
-            $artist->user->syncArtistReviewState($artist, [
+            $this->userService->syncArtistReviewState($artist->user, $artist, [
                 'application_status' => 'approved',
                 'verification_status' => 'verified',
                 'verified_at' => $artist->verified_at,
@@ -244,7 +247,7 @@ class ArtistVerificationService
                 'can_upload' => false,
             ]);
 
-            $artist->user->syncArtistReviewState($artist, [
+            $this->userService->syncArtistReviewState($artist->user, $artist, [
                 'application_status' => 'rejected',
                 'verification_status' => 'rejected',
                 'verified_at' => $artist->verified_at,
@@ -320,7 +323,7 @@ class ArtistVerificationService
                 'verified_at' => now(),
             ]);
 
-            $artist->user->syncArtistReviewState($artist, [
+            $this->userService->syncArtistReviewState($artist->user, $artist, [
                 'application_status' => 'pending',
                 'verification_status' => 'pending',
                 'verified_at' => $artist->verified_at,

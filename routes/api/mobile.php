@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\Mobile\MobileDownloadController;
 use App\Http\Controllers\Api\Mobile\MobileNotificationController;
 use App\Http\Controllers\Api\Mobile\MobileSocialController;
+use App\Http\Controllers\Api\Mobile\MobileSongController;
 use App\Http\Controllers\Api\Mobile\MobileSyncController;
 use Illuminate\Support\Facades\Route;
 
@@ -15,6 +16,11 @@ use Illuminate\Support\Facades\Route;
 | All routes require Sanctum authentication
 |
 */
+
+// Public mobile discovery routes (no auth required)
+Route::prefix('mobile')->name('mobile.')->group(function () {
+    Route::get('/trending/songs', [MobileSongController::class, 'trending'])->name('trending.songs');
+});
 
 Route::middleware(['auth:sanctum', 'api.rate_limit:100:1'])->prefix('mobile')->name('mobile.')->group(function () {
 

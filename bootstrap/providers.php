@@ -2,6 +2,7 @@
 
 return array_filter([
     App\Modules\Ojokotau\Providers\OjokotauServiceProvider::class,
+    App\Modules\Sacco\Providers\SaccoServiceProvider::class,
     App\Modules\Store\Providers\StoreServiceProvider::class,
     App\Providers\AppServiceProvider::class,
     App\Providers\AuditLoggingServiceProvider::class,

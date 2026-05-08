@@ -410,6 +410,41 @@ class SongService
     }
 
     /**
+     * Approve a song for publication and distribution.
+     * Sets distribution status, timestamps, and auto-assigns ISRC when configured.
+     */
+    public function approve(Song $song, User $approver, ?string $notes = null): void
+    {
+        $song->update([
+            'status' => 'published',
+            'distribution_status' => 'approved',
+            'approved_by' => $approver->id,
+            'approved_at' => now(),
+            'published_at' => $song->published_at ?? now(),
+            'review_notes' => $notes,
+        ]);
+
+        if (config('music.isrc.auto_generate', false) && $song->canAssignIsrc()) {
+            app(\App\Services\Music\ISRCService::class)->assignToSong($song);
+        }
+    }
+
+    /**
+     * Reject a song from the review queue.
+     */
+    public function reject(Song $song, User $reviewer, string $reason): void
+    {
+        $song->update([
+            'status' => 'rejected',
+            'distribution_status' => 'rejected',
+            'approved_by' => $reviewer->id,
+            'approved_at' => now(),
+            'review_notes' => $reason,
+            'rejection_reason' => $reason,
+        ]);
+    }
+
+    /**
      * Moderate song content
      */
     public function moderateSong(Song $song, string $action, User $moderator, ?string $reason = null): Song

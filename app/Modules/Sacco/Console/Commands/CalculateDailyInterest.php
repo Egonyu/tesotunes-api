@@ -2,7 +2,7 @@
 
 namespace App\Modules\Sacco\Console\Commands;
 
-use App\Modules\Sacco\Services\SaccoInterestService;
+use App\Services\Sacco\SaccoInterestService;
 use Illuminate\Console\Command;
 
 class CalculateDailyInterest extends Command

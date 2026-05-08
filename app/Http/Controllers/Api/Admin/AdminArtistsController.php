@@ -10,6 +10,7 @@ use App\Models\KYCDocument;
 use App\Models\Role;
 use App\Models\Song;
 use App\Notifications\ArtistApplicationNotification;
+use App\Services\UserService;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,6 +18,8 @@ use Illuminate\Http\Request;
 class AdminArtistsController extends Controller
 {
     use HandlesApiErrors;
+
+    public function __construct(private readonly UserService $userService) {}
 
     /**
      * Build deterministic cache-busting token for an image field.
@@ -32,6 +35,27 @@ class AdminArtistsController extends Controller
     private function isModeratorOnly(): bool
     {
         return (bool) request()->user()?->isModeratorOnly();
+    }
+
+    /**
+     * PHP 8.4 compatible minimum-dimensions validator.
+     * The built-in `dimensions` rule uses getRealPath() which returns '' for tmpfile
+     * handles on Windows (PHP 8.4 changed getimagesize('') to throw ValueError
+     * instead of returning false, and @ cannot suppress Errors).
+     */
+    private function minDimensionsRule(int $minWidth, int $minHeight): \Closure
+    {
+        return function ($attribute, $value, $fail) use ($minWidth, $minHeight) {
+            if (! $value instanceof \Illuminate\Http\UploadedFile) {
+                return;
+            }
+
+            $info = @getimagesize($value->getPathname());
+
+            if ($info !== false && ($info[0] < $minWidth || $info[1] < $minHeight)) {
+                $fail("The {$attribute} must be at least {$minWidth}x{$minHeight} pixels.");
+            }
+        };
     }
 
     /**
@@ -397,8 +421,8 @@ class AdminArtistsController extends Controller
                 'tiktok_url' => 'sometimes|nullable|url|max:255',
                 'genre_ids' => 'sometimes|array',
                 'genre_ids.*' => 'integer|exists:genres,id',
-                'profile_image' => 'sometimes|nullable|image|mimes:jpeg,jpg,png,webp|max:5120|dimensions:min_width=50,min_height=50',
-                'cover_image' => 'sometimes|nullable|image|mimes:jpeg,jpg,png,webp|max:10240|dimensions:min_width=100,min_height=50',
+                'profile_image' => ['sometimes', 'nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:5120', $this->minDimensionsRule(50, 50)],
+                'cover_image' => ['sometimes', 'nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:10240', $this->minDimensionsRule(100, 50)],
             ]);
 
             $data = [];
@@ -614,7 +638,7 @@ class AdminArtistsController extends Controller
             default => 'pending',
         };
 
-        $user->syncArtistReviewState($artist, [
+        $this->userService->syncArtistReviewState($user, $artist, [
             'application_status' => $state === 'approved' ? 'approved' : $state,
             'verification_status' => $verificationStatus,
             'verified_at' => $artist->verified_at,

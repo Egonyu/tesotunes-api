@@ -67,8 +67,8 @@ class MusicController extends Controller
                 return response()->json(['error' => 'Access denied'], 403);
             }
 
-            // Get the best available audio file
-            $audioFile = $song->audio_file_320 ?? $song->audio_file_128 ?? $song->audio_file_original;
+            // Resolve quality-correct file (request param clamped to subscription cap)
+            $audioFile = $this->selectAudioFileByPlan($song, $request->user(), $request->query('quality'));
 
             if (! $audioFile) {
                 \Log::warning('No audio file found for song', ['song_id' => $song->id]);
@@ -89,25 +89,20 @@ class MusicController extends Controller
                 return response()->json(['error' => 'Audio file not found on server'], 404);
             }
 
-            // Use the streaming endpoint with song ID for proper file serving
-            $streamUrl = url('/api/v1/stream/'.$song->id);
+            // Build the internal proxy URL (carries quality so streamFile() uses the same variant)
+            $qualityParam = $request->query('quality');
+            $proxyUrl = url('/api/v1/stream/'.$song->id).($qualityParam ? '?quality='.urlencode($qualityParam) : '');
+            $streamUrl = $proxyUrl;
 
             // Prefer a direct pre-signed CDN URL (Spotify-style: client streams
             // straight from DO Spaces — no Laravel proxy overhead).
             // Fall back to the internal /stream/{id} proxy for local/dev storage.
-            $found = $this->findAudioFile($audioFile);
-            if ($found) {
-                [$diskName] = $found;
-                $diskDriver = config("filesystems.disks.{$diskName}.driver", 'local');
-                if ($diskDriver !== 'local') {
-                    $cdnUrl = StorageHelper::streamingUrl(
-                        $song->audio_file_320,
-                        $song->audio_file_128,
-                        $song->audio_file_original
-                    );
-                    if ($cdnUrl) {
-                        $streamUrl = $cdnUrl;
-                    }
+            [$diskName] = $found;
+            $diskDriver = config("filesystems.disks.{$diskName}.driver", 'local');
+            if ($diskDriver !== 'local') {
+                $cdnUrl = StorageHelper::temporaryUrl($audioFile);
+                if ($cdnUrl) {
+                    $streamUrl = $cdnUrl;
                 }
             }
 
@@ -153,8 +148,8 @@ class MusicController extends Controller
                 abort(403, 'Access denied');
             }
 
-            // Select audio file quality based on user's plan
-            $filePath = $this->selectAudioFileByPlan($song, $request->user());
+            // Select audio file quality: honour ?quality= param, clamped to subscription cap
+            $filePath = $this->selectAudioFileByPlan($song, $request->user(), $request->query('quality'));
 
             if (! $filePath) {
                 abort(404, 'No audio file configured');
@@ -331,19 +326,46 @@ class MusicController extends Controller
     }
 
     /**
-     * Select the appropriate audio file based on user's plan quality limit.
-     * Free users get 128kbps, paid users get 320kbps.
+     * Map a quality slug from the ?quality= request param to kbps.
+     * Unrecognised values default to 128 (normal).
      */
-    private function selectAudioFileByPlan($song, $user): ?string
+    private function qualitySlugToKbps(string $slug): int
     {
-        $maxQuality = $user ? $user->getMaxAudioQuality() : 128;
+        return match ($slug) {
+            'low' => 64,
+            'high' => 256,
+            'very_high' => 320,
+            default => 128, // 'normal' and anything unknown
+        };
+    }
 
-        if ($maxQuality >= 320) {
-            // Premium/Artist/Label: prefer 320, fall back to original, then 128
+    /**
+     * Select the appropriate audio file based on the effective quality.
+     *
+     * Priority: user-requested quality → subscription cap → nearest available file.
+     * This lets premium users choose a lower quality for data-saving without
+     * ever exceeding their subscription cap.
+     *
+     * @param  string|null  $requestedQuality  Value of the ?quality= query param (low|normal|high|very_high)
+     */
+    private function selectAudioFileByPlan($song, $user, ?string $requestedQuality = null): ?string
+    {
+        $subscriptionCap = $user ? $user->getMaxAudioQuality() : 128;
+
+        // Clamp requested quality to what the subscription allows
+        $requestedKbps = $requestedQuality ? $this->qualitySlugToKbps($requestedQuality) : $subscriptionCap;
+        $effectiveKbps = min($requestedKbps, $subscriptionCap);
+
+        if ($effectiveKbps >= 320) {
             return $song->audio_file_320 ?? $song->audio_file_original ?? $song->audio_file_128;
         }
 
-        // Free tier: prefer 128, fall back to 320/original if 128 doesn't exist
-        return $song->audio_file_128 ?? $song->audio_file_320 ?? $song->audio_file_original;
+        if ($effectiveKbps >= 256) {
+            // High — serve 320 only if we're allowed to, otherwise 128
+            return $song->audio_file_320 ?? $song->audio_file_128 ?? $song->audio_file_original;
+        }
+
+        // Normal (128) or Low (64): serve 128kbps; never serve 320 to honour the request
+        return $song->audio_file_128 ?? $song->audio_file_original;
     }
 }
