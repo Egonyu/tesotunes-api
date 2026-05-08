@@ -1,0 +1,60 @@
+when:
+  - event: push
+    branch: main
+
+steps:
+  test:
+    image: php:8.4-cli
+    commands:
+      - apt-get update -qq && apt-get install -y -qq git unzip libzip-dev libpng-dev libonig-dev libxml2-dev > /dev/null
+      - docker-php-ext-install pdo pdo_mysql mbstring zip > /dev/null
+      - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer > /dev/null
+      - composer install --prefer-dist --no-interaction --no-progress
+      - cp .env.testing .env 2>/dev/null || cp .env.example .env
+      - php artisan key:generate
+      - php artisan test --parallel --stop-on-failure
+
+  deploy:
+    image: alpine:3.19
+    secrets:
+      - deploy_ssh_key
+      - vps_host
+      - vps_port
+    commands:
+      - apk add --no-cache openssh-client rsync
+      - mkdir -p ~/.ssh
+      - echo "$DEPLOY_SSH_KEY" > ~/.ssh/id_ed25519
+      - chmod 600 ~/.ssh/id_ed25519
+      - ssh-keyscan -p "$VPS_PORT" "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+      - |
+        ssh -i ~/.ssh/id_ed25519 -p "$VPS_PORT" root@"$VPS_HOST" bash << 'DEPLOY'
+          set -e
+          RELEASES=/var/www/tesotunes-releases
+          SHARED=/var/www/tesotunes-shared
+          APP=/var/www/api.tesotunes.com
+          TS=$(date +%Y%m%d_%H%M%S)
+          REL=$RELEASES/$TS
+          mkdir -p $REL
+          git clone --depth=1 https://github.com/Egonyu/tesotunes-api.git $REL
+          cd $REL
+          rm -f .env && ln -sfn $SHARED/.env .env
+          rm -rf storage && ln -sfn $SHARED/storage storage
+          mkdir -p bootstrap/cache $SHARED/storage/framework/{sessions,views,cache} $SHARED/storage/logs $SHARED/storage/app/public
+          chmod -R 775 $SHARED/storage bootstrap/cache
+          composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
+          php artisan package:discover --ansi
+          php artisan migrate --force --no-ansi
+          [ -L "$APP" ] && cd $APP && php artisan down --retry=60 2>/dev/null || true
+          ln -sfn $REL $APP
+          cd $APP
+          php artisan config:clear && php artisan route:clear && php artisan event:clear && php artisan view:clear
+          php artisan config:cache && php artisan route:cache && php artisan event:cache
+          php artisan up
+          chown -R www-data:www-data $REL $SHARED/storage 2>/dev/null || true
+          systemctl reload php8.4-fpm
+          supervisorctl restart tesotunes-worker:* 2>/dev/null || true
+          cd $RELEASES && ls -t | tail -n +6 | xargs rm -rf 2>/dev/null || true
+          echo "Deploy OK"
+        DEPLOY
+    when:
+      - status: success
