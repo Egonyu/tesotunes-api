@@ -8,8 +8,9 @@ steps:
   test:
     image: php:8.4-cli
     commands:
-      - apt-get update -qq && apt-get install -y -qq git unzip libzip-dev libpng-dev libonig-dev libxml2-dev > /dev/null
-      - docker-php-ext-install pdo pdo_mysql mbstring zip > /dev/null
+      - apt-get update -qq && apt-get install -y -qq git unzip libzip-dev libpng-dev libjpeg62-turbo-dev libfreetype6-dev libonig-dev libxml2-dev > /dev/null
+      - docker-php-ext-configure gd --with-freetype --with-jpeg > /dev/null
+      - docker-php-ext-install pdo pdo_mysql mbstring zip gd exif > /dev/null
       - curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer > /dev/null
       - composer install --prefer-dist --no-interaction --no-progress
       - cp .env.testing .env 2>/dev/null || cp .env.example .env
