@@ -19,7 +19,7 @@ steps:
       - sed -i 's/DB_USERNAME=root/DB_USERNAME=tesotunes/' .env
       - sed -i 's/<env name="DB_HOST" value="127.0.0.1"\\/>/<env name="DB_HOST" value="mysql"\\/>/' phpunit.xml
       - sed -i 's/<env name="DB_USERNAME" value="root"\\/>/<env name="DB_USERNAME" value="tesotunes"\\/>/' phpunit.xml
-      - until mysqladmin ping -h mysql -utesotunes -pherd --silent; do sleep 2; done
+      - until mariadb-admin ping --protocol=tcp -h mysql -u tesotunes --password=herd --silent; do sleep 2; done
       - php artisan config:clear
       - php -d memory_limit=512M artisan test --stop-on-failure
 
