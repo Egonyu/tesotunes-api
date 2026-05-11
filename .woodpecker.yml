@@ -1,6 +1,8 @@
 when:
   - event: push
     branch: main
+  - event: manual
+    branch: main
 
 steps:
   test:
@@ -12,7 +14,11 @@ steps:
       - composer install --prefer-dist --no-interaction --no-progress
       - cp .env.testing .env 2>/dev/null || cp .env.example .env
       - php artisan key:generate
-      - php artisan test --parallel --stop-on-failure
+      - touch database/database.sqlite
+      - sed -i 's/^DB_CONNECTION=.*/DB_CONNECTION=sqlite/' .env
+      - sed -i 's#^DB_DATABASE=.*#DB_DATABASE=database/database.sqlite#' .env
+      - php artisan config:clear
+      - php artisan test --stop-on-failure
 
   deploy:
     image: alpine:3.19
