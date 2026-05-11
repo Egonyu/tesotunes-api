@@ -75,3 +75,4 @@ services:
     environment:
       MARIADB_DATABASE: music_test
       MARIADB_ROOT_PASSWORD: herd
+      MARIADB_ROOT_HOST: "%"
