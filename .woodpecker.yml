@@ -16,8 +16,10 @@ steps:
       - cp .env.testing .env 2>/dev/null || cp .env.example .env
       - php artisan key:generate
       - sed -i 's/DB_HOST=127.0.0.1/DB_HOST=mysql/' .env
+      - sed -i 's/DB_USERNAME=root/DB_USERNAME=tesotunes/' .env
       - sed -i 's/<env name="DB_HOST" value="127.0.0.1"\\/>/<env name="DB_HOST" value="mysql"\\/>/' phpunit.xml
-      - until mysqladmin ping -h mysql -uroot -pherd --silent; do sleep 2; done
+      - sed -i 's/<env name="DB_USERNAME" value="root"\\/>/<env name="DB_USERNAME" value="tesotunes"\\/>/' phpunit.xml
+      - until mysqladmin ping -h mysql -utesotunes -pherd --silent; do sleep 2; done
       - php artisan config:clear
       - php -d memory_limit=512M artisan test --stop-on-failure
 
@@ -75,4 +77,5 @@ services:
     environment:
       MARIADB_DATABASE: music_test
       MARIADB_ROOT_PASSWORD: herd
-      MARIADB_ROOT_HOST: "%"
+      MARIADB_USER: tesotunes
+      MARIADB_PASSWORD: herd
