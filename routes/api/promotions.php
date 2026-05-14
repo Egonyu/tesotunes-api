@@ -7,16 +7,28 @@ Route::prefix('promotions')->name('promotions.')->group(function () {
     Route::get('/', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'index'])->name('index');
     Route::get('/platforms/list', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'platforms'])->name('platforms');
     Route::get('/{slug}', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'show'])->name('show');
-    Route::middleware(['auth:sanctum'])->group(function () {
+
+    // Seller actions — artist role required
+    Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->group(function () {
         Route::post('/', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'store'])->name('store');
         Route::put('/{product}', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'update'])->name('update');
         Route::delete('/{product}', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'destroy'])->name('destroy');
         Route::post('/{product}/pause', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'pause'])->name('pause');
         Route::post('/{product}/activate', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'activate'])->name('activate');
+    });
+
+    // Buyer actions — any authenticated user
+    Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/{slug}/purchase', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'purchase'])->name('purchase');
         Route::post('/orders/{orderId}/submit-verification', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'submitVerification'])->name('orders.submit-verification');
         Route::post('/orders/{orderId}/dispute', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'dispute'])->name('orders.dispute');
         Route::post('/orders/{orderId}/review', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'review'])->name('orders.review');
+    });
+
+    // Seller order actions — artist role required
+    Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->group(function () {
+        Route::post('/orders/{orderId}/verify', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'verifyCompletionById'])->name('orders.verify');
+        Route::post('/orders/{orderId}/reject', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'rejectCompletionById'])->name('orders.reject');
     });
 });
 
@@ -28,12 +40,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/my/promotions/purchases/{orderId}', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'myPurchase'])->name('my.promotions.purchase');
     Route::get('/my/promotions/orders', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'sellerOrders'])->name('my.promotions.orders');
     Route::get('/my/promotions/orders/{orderId}', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'showOrder'])->name('my.promotions.order');
-    Route::get('/my/promotions/analytics', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'statistics'])->name('my.promotions.analytics');
+    Route::get('/my/promotions/analytics', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'statistics'])->name('my.promotions.analytics');
     Route::get('/my/promotions/{promotionId}', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'show'])->name('my.promotions.show');
     Route::get('/my/promoter-profile', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'profile'])->name('my.promoter-profile');
     Route::put('/my/promoter-profile', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'updateProfile'])->name('my.promoter-profile.update');
-    Route::post('/promotions/orders/{orderId}/verify', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'verifyCompletion'])->name('promotions.orders.verify');
-    Route::post('/promotions/orders/{orderId}/reject', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'rejectCompletion'])->name('promotions.orders.reject');
+});
+
+// Admin promotion moderation — secured with auth + role middleware (SEC-CRIT fix)
+Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin/promotions')->name('admin.promotions.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'index'])->name('index');
+    Route::post('/{promotion}/approve', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'approve'])->name('approve');
+    Route::post('/{promotion}/reject', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'reject'])->name('reject');
+    Route::get('/disputes', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'disputes'])->name('disputes');
+    Route::post('/disputes/{disputeId}/resolve', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'resolveDispute'])->name('disputes.resolve');
+    Route::get('/analytics', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'analytics'])->name('analytics');
 });
 
 // Admin Store API — SECURED with auth + role middleware (SEC-CRIT-2 fix)

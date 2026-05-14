@@ -148,6 +148,11 @@ return [
     // during static page generation (generateStaticParams). GET-only public endpoints only.
     'build_allowed_token' => env('BUILD_ALLOWED_TOKEN'),
 
+    // n8n Workflow Automation
+    'n8n' => [
+        'song_approved_webhook' => env('N8N_SONG_APPROVED_WEBHOOK_URL'),
+    ],
+
     // Wazuh SIEM Integration
     'wazuh' => [
         'enabled' => env('WAZUH_ENABLED', false),

@@ -728,6 +728,15 @@ class ArtistApiController extends Controller
         $coverUpload = $this->resolveSongArtworkUpload($request, $validated);
         if ($coverUpload !== null) {
             [$artworkPath] = $coverUpload;
+            // Ensure artwork is publicly readable. The presigned POST includes
+            // acl:public-read for new uploads; this catches any edge case where
+            // the object landed as private (e.g. bucket default ACL changed).
+            try {
+                $this->songUploadDisk()->setVisibility($artworkPath, 'public');
+            } catch (\Throwable $e) {
+                // Non-fatal — bucket policy may already grant public read.
+                Log::info('Could not set artwork visibility to public', ['path' => $artworkPath, 'error' => $e->getMessage()]);
+            }
         }
 
         // Generate slug
@@ -2191,12 +2200,23 @@ class ArtistApiController extends Controller
             'success_action_status' => '201',
             'Content-Type' => $contentType,
         ]);
+
+        // Artwork must be publicly readable so browsers can load it directly.
+        // Audio files stay private and use signed streaming URLs instead.
+        if ($kind === 'cover') {
+            $formInputs['acl'] = 'public-read';
+        }
+
         $conditions = [
             ['bucket' => $bucket],
             ['key' => $key],
             ['success_action_status' => '201'],
             ['content-length-range', 1, $kind === 'audio' ? $this->maxSongAudioBytes() : $this->maxSongArtworkBytes()],
         ];
+
+        if ($kind === 'cover') {
+            $conditions[] = ['acl' => 'public-read'];
+        }
 
         if ($contentType) {
             $conditions[] = ['Content-Type' => $contentType];

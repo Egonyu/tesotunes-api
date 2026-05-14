@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('auth')->group(function () {
     // Public API authentication routes (rate limited to prevent brute force)
     Route::middleware('throttle:login')->post('/login', [AuthController::class, 'login']);
+    Route::middleware('throttle:login')->post('/2fa/challenge', [AuthController::class, 'twoFactorChallenge']);
     Route::get('/social/providers', [SocialAuthController::class, 'providers']);
     Route::middleware('throttle:login')->post('/social/{provider}/exchange', [SocialAuthController::class, 'exchange']);
     Route::middleware('throttle:register')->post('/register', [AuthController::class, 'register']);

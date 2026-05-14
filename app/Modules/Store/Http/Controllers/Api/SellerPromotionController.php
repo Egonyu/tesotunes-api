@@ -199,12 +199,10 @@ class SellerPromotionController extends Controller
         ]);
 
         $user = $request->user();
-        $store = $user?->store;
+        $store = $this->resolveSellerStore($request);
 
-        if (! $store) {
-            return response()->json([
-                'message' => 'Create a store profile before editing your promoter profile.',
-            ], 422);
+        if ($store instanceof JsonResponse) {
+            return $store;
         }
 
         $profile = array_merge(
@@ -305,6 +303,21 @@ class SellerPromotionController extends Controller
     {
         $this->assertOwnership($request, $product);
 
+        $metadata = is_array($product->metadata ?? null) ? $product->metadata : [];
+        $moderation = (array) data_get($metadata, 'moderation', []);
+        $approvedAt = data_get($moderation, 'approved_at');
+        $resubmittedAt = data_get($moderation, 'resubmitted_at');
+
+        $needsApproval = ! $approvedAt
+            || ($resubmittedAt && $resubmittedAt > $approvedAt);
+
+        if ($needsApproval) {
+            return response()->json([
+                'message' => 'This promotion is pending admin approval and cannot be activated yet.',
+                'status' => 'pending',
+            ], 422);
+        }
+
         $product->forceFill([
             'status' => Product::STATUS_ACTIVE,
             'is_active' => true,
@@ -334,6 +347,61 @@ class SellerPromotionController extends Controller
 
         return response()->json([
             'message' => 'Promotion deleted successfully.',
+        ]);
+    }
+
+    public function verifyCompletionById(Request $request, int $orderId): JsonResponse
+    {
+        $storeId = $request->user()?->store?->id;
+        $order = Order::query()
+            ->where('id', $orderId)
+            ->whereHas('items.product', fn ($query) => $query->promotion()->where('store_id', $storeId))
+            ->with(['items.product.store.user', 'buyer'])
+            ->firstOrFail();
+
+        $orderItem = $order->items->first(fn (OrderItem $item) => $item->product?->product_type === 'promotion');
+        abort_unless($orderItem, 404);
+
+        return $this->verifyCompletion($request, $orderItem);
+    }
+
+    public function rejectCompletionById(Request $request, int $orderId): JsonResponse
+    {
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'max:2000'],
+        ]);
+
+        $storeId = $request->user()?->store?->id;
+        $order = Order::query()
+            ->where('id', $orderId)
+            ->whereHas('items.product', fn ($query) => $query->promotion()->where('store_id', $storeId))
+            ->with(['items.product.store.user', 'buyer'])
+            ->firstOrFail();
+
+        $orderItem = $order->items->first(fn (OrderItem $item) => $item->product?->product_type === 'promotion');
+        abort_unless($orderItem, 404);
+
+        $orderItem->forceFill([
+            'verification_status' => 'rejected',
+            'rejection_reason' => $validated['reason'],
+        ])->save();
+
+        $order->forceFill([
+            'status' => Order::STATUS_CANCELLED,
+            'payment_status' => Order::PAYMENT_REFUNDED,
+            'refunded_at' => now(),
+            'refund_reason' => $validated['reason'],
+        ])->save();
+
+        app(PromotionSettlementService::class)->reverseOrder($order, $orderItem, $validated['reason']);
+
+        $this->logSellerActivity($request, 'promotion_order_rejected', $orderItem, [
+            'order_id' => $order->id,
+            'reason' => $validated['reason'],
+        ]);
+
+        return response()->json([
+            'message' => 'Order rejected. Refund issued to buyer.',
         ]);
     }
 

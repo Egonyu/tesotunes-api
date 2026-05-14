@@ -9,9 +9,11 @@ use App\Models\UserSetting;
 use App\Notifications\SecurityAlertNotification;
 use App\Notifications\WelcomeNotification;
 use App\Services\RecaptchaService;
+use App\Services\Security\TwoFactorService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
@@ -237,6 +239,26 @@ class AuthController extends Controller
             ], 403);
         }
 
+        // 2FA challenge: if user has 2FA enabled, issue a short-lived pending token
+        // instead of a full Sanctum token. The client must complete the challenge.
+        if ($user->hasTwoFactorEnabled()) {
+            $pendingKey = 'two_fa_pending_'.Str::uuid()->toString();
+            $rememberMe = $request->boolean('remember_me');
+            Cache::put($pendingKey, ['user_id' => $user->id, 'remember_me' => $rememberMe], now()->addMinutes(10));
+
+            Log::channel('security')->info('auth.login.two_fa_required', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json([
+                'requires_2fa' => true,
+                'two_fa_token' => $pendingKey,
+                'message' => 'Two-factor authentication required.',
+            ]);
+        }
+
         $user->update(['last_login_at' => now()]);
         $this->clearLoginThrottle($request);
 
@@ -260,6 +282,94 @@ class AuthController extends Controller
             'user_agent' => $request->userAgent(),
             'url' => $request->fullUrl(),
             'remember_me' => (bool) $request->boolean('remember_me'),
+        ]);
+
+        return $this->buildAuthenticatedResponse($user, $token);
+    }
+
+    /**
+     * POST /api/auth/2fa/challenge
+     *
+     * Complete a pending 2FA login. Accepts either a 6-digit TOTP code or an
+     * 8–10 character recovery code.
+     */
+    public function twoFactorChallenge(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'two_fa_token' => 'required|string',
+            'code' => 'required|string',
+        ]);
+
+        $pending = Cache::get($validated['two_fa_token']);
+
+        if (! $pending || ! isset($pending['user_id'])) {
+            return response()->json([
+                'message' => 'Invalid or expired session. Please sign in again.',
+            ], 401);
+        }
+
+        $user = User::find($pending['user_id']);
+
+        if (! $user || ! $user->hasTwoFactorEnabled()) {
+            Cache::forget($validated['two_fa_token']);
+
+            return response()->json([
+                'message' => 'Invalid session.',
+            ], 401);
+        }
+
+        $twoFactor = app(TwoFactorService::class);
+        $code = trim($validated['code']);
+        $verified = false;
+
+        if (strlen($code) > 6) {
+            // Recovery code path — consume the code so it cannot be reused
+            $recoveryCodes = $twoFactor->decodeRecoveryCodes($user->two_factor_recovery_codes);
+            $upperCode = strtoupper($code);
+            $matchIndex = array_search($upperCode, array_map('strtoupper', $recoveryCodes), true);
+
+            if ($matchIndex !== false) {
+                unset($recoveryCodes[$matchIndex]);
+                $user->forceFill(['two_factor_recovery_codes' => json_encode(array_values($recoveryCodes))])->save();
+                $verified = true;
+            }
+        } else {
+            $verified = $user->two_factor_secret && $twoFactor->verifyCode($user->two_factor_secret, $code);
+        }
+
+        if (! $verified) {
+            Log::channel('security')->warning('auth.two_fa_challenge.failed', [
+                'user_id' => $user->id,
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json([
+                'message' => 'Invalid authentication code.',
+            ], 422);
+        }
+
+        Cache::forget($validated['two_fa_token']);
+
+        $user->update(['last_login_at' => now()]);
+        $this->clearLoginThrottle($request);
+
+        $user->notify(new SecurityAlertNotification(
+            SecurityAlertNotification::NEW_LOGIN,
+            [
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'time' => now()->format('M d, Y H:i'),
+            ]
+        ));
+
+        $tokenName = $pending['remember_me'] ? 'long_lived_token' : 'auth_token';
+        $token = $user->createToken($tokenName)->plainTextToken;
+
+        Log::channel('audit')->info('auth.login.succeeded_via_2fa', [
+            'user_id' => $user->id,
+            'email' => $user->email,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
         ]);
 
         return $this->buildAuthenticatedResponse($user, $token);

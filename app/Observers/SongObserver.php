@@ -2,6 +2,7 @@
 
 namespace App\Observers;
 
+use App\Jobs\DispatchSongApprovedWebhook;
 use App\Models\Song;
 use App\Services\ActivityService;
 use App\Services\FeedItemService;
@@ -79,6 +80,9 @@ class SongObserver
 
         // Log activity when a song is published as an approved release.
         if ($song->isDirty('status') && $song->status === 'published') {
+            // Fire n8n automation: generates social copy, notifies artist, tweets
+            DispatchSongApprovedWebhook::dispatch($song->id)->onQueue('webhooks');
+
             if ($song->artist && $song->artist->user) {
                 ActivityService::log(
                     actor: $song->artist->user,
