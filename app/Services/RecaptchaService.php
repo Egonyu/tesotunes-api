@@ -110,6 +110,18 @@ class RecaptchaService
                 ]),
             ]);
 
+            // Fail open on any non-2xx response (e.g. 403 API key restriction,
+            // 400 invalid request, 500 Google outage). Only act on valid data.
+            if (! $response->successful()) {
+                Log::warning('recaptcha.enterprise.api_error', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                    'action' => $action,
+                ]);
+
+                return true;
+            }
+
             $data = $response->json();
 
             // Enterprise returns tokenProperties.valid instead of success
