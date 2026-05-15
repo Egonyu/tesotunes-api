@@ -223,24 +223,11 @@ class AuthController extends Controller
             ], 403);
         }
 
-        if (! $user->hasVerifiedEmail()) {
-            Log::channel('security')->warning('auth.login.blocked', [
-                'user_id' => $user->id,
-                'email' => $user->email,
-                'ip' => $request->ip(),
-                'user_agent' => $request->userAgent(),
-                'url' => $request->fullUrl(),
-                'reason' => 'email_not_verified',
-            ]);
-
-            return response()->json([
-                'message' => 'Please verify your email before signing in.',
-                'code' => 'EMAIL_NOT_VERIFIED',
-            ], 403);
-        }
-
-        // 2FA challenge: if user has 2FA enabled, issue a short-lived pending token
-        // instead of a full Sanctum token. The client must complete the challenge.
+        // 2FA bypasses the email-verification gate: the TOTP secret was confirmed
+        // during a prior authenticated session, which already required a verified
+        // email. Requiring email verification again on top of 2FA would permanently
+        // lock out any user whose email_verified_at is inadvertently cleared (e.g.
+        // during a DB restore) even though their identity is proven by the TOTP app.
         if ($user->hasTwoFactorEnabled()) {
             $pendingKey = 'two_fa_pending_'.Str::uuid()->toString();
             $rememberMe = $request->boolean('remember_me');
@@ -257,6 +244,23 @@ class AuthController extends Controller
                 'two_fa_token' => $pendingKey,
                 'message' => 'Two-factor authentication required.',
             ]);
+        }
+
+        // Users without 2FA still require email verification.
+        if (! $user->hasVerifiedEmail()) {
+            Log::channel('security')->warning('auth.login.blocked', [
+                'user_id' => $user->id,
+                'email' => $user->email,
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'url' => $request->fullUrl(),
+                'reason' => 'email_not_verified',
+            ]);
+
+            return response()->json([
+                'message' => 'Please verify your email before signing in.',
+                'code' => 'EMAIL_NOT_VERIFIED',
+            ], 403);
         }
 
         $user->update(['last_login_at' => now()]);
@@ -353,14 +357,22 @@ class AuthController extends Controller
         $user->update(['last_login_at' => now()]);
         $this->clearLoginThrottle($request);
 
-        $user->notify(new SecurityAlertNotification(
-            SecurityAlertNotification::NEW_LOGIN,
-            [
-                'ip' => $request->ip(),
-                'user_agent' => $request->userAgent(),
-                'time' => now()->format('M d, Y H:i'),
-            ]
-        ));
+        try {
+            $user->notify(new SecurityAlertNotification(
+                SecurityAlertNotification::NEW_LOGIN,
+                [
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                    'time' => now()->format('M d, Y H:i'),
+                ]
+            ));
+        } catch (\Throwable $e) {
+            Log::error('auth.two_fa_challenge.notification_failed', [
+                'user_id' => $user->id,
+                'exception' => get_class($e),
+                'message' => $e->getMessage(),
+            ]);
+        }
 
         $tokenName = $pending['remember_me'] ? 'long_lived_token' : 'auth_token';
         $token = $user->createToken($tokenName)->plainTextToken;
