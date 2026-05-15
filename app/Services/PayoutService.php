@@ -7,6 +7,7 @@ use App\Models\ArtistPayout;
 use App\Models\ArtistRevenue;
 use App\Models\User;
 use App\Services\Payment\MobileMoneyService;
+use App\Services\Payment\ZengaPayService;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -27,21 +28,25 @@ class PayoutService
 {
     protected MobileMoneyService $mobileMoneyService;
 
-    // Minimum payout thresholds (UGX)
-    const MINIMUM_PAYOUT_AMOUNT = 50000; // UGX 50,000 (~$13 USD)
+    protected ZengaPayService $zengaPayService;
 
-    const MAXIMUM_DAILY_PAYOUT = 10000000; // UGX 10,000,000 (~$2,666 USD)
+    protected function minAmount(): int   { return (int) config('payments.payout.min_amount',  50000); }
+    protected function maxSingle(): int   { return (int) config('payments.payout.max_single', 5000000); }
+    protected function maxDaily(): int    { return (int) config('payments.payout.max_daily', 10000000); }
+    protected function feeRate(string $method): float
+    {
+        return (float) config("payments.payout.fees.{$method}", match ($method) {
+            'mobile_money'  => 1.5,
+            'bank_transfer' => 0.5,
+            'paypal'        => 2.0,
+            default         => 0.0,
+        });
+    }
 
-    const MAXIMUM_SINGLE_PAYOUT = 5000000; // UGX 5,000,000 (~$1,333 USD)
-
-    // Processing fees (percentages)
-    const MOBILE_MONEY_FEE = 1.5; // 1.5%
-
-    const BANK_TRANSFER_FEE = 0.5; // 0.5%
-
-    public function __construct(MobileMoneyService $mobileMoneyService)
+    public function __construct(MobileMoneyService $mobileMoneyService, ZengaPayService $zengaPayService)
     {
         $this->mobileMoneyService = $mobileMoneyService;
+        $this->zengaPayService = $zengaPayService;
     }
 
     /**
@@ -116,7 +121,7 @@ class PayoutService
                 'amount' => $amount,
                 'fee' => $fees,
                 'net_amount' => $netAmount,
-                'estimated_processing_time' => '1-3 business days',
+                'estimated_processing_time' => '24-48 hours',
             ];
 
         } catch (Exception $e) {
@@ -269,6 +274,7 @@ class PayoutService
             // Process based on payout method
             $result = match ($payout->payout_method) {
                 ArtistPayout::METHOD_MOBILE_MONEY => $this->processMobileMoneyPayout($payout),
+                ArtistPayout::METHOD_ZENGAPAY     => $this->processZengaPayPayout($payout),
                 ArtistPayout::METHOD_BANK_TRANSFER => $this->processBankTransferPayout($payout),
                 ArtistPayout::METHOD_PAYPAL => $this->processPayPalPayout($payout),
                 default => throw new Exception('Unsupported payout method: '.$payout->payout_method)
@@ -448,13 +454,13 @@ class PayoutService
     protected function validatePayoutRequest(Artist $artist, float $amount, string $method, array $data): void
     {
         // Check minimum amount
-        if ($amount < self::MINIMUM_PAYOUT_AMOUNT) {
-            throw new Exception('Minimum payout amount is UGX '.number_format(self::MINIMUM_PAYOUT_AMOUNT));
+        if ($amount < $this->minAmount()) {
+            throw new Exception('Minimum payout amount is UGX '.number_format($this->minAmount()));
         }
 
         // Check maximum single payout
-        if ($amount > self::MAXIMUM_SINGLE_PAYOUT) {
-            throw new Exception('Maximum single payout is UGX '.number_format(self::MAXIMUM_SINGLE_PAYOUT));
+        if ($amount > $this->maxSingle()) {
+            throw new Exception('Maximum single payout is UGX '.number_format($this->maxSingle()));
         }
 
         // Check artist has sufficient balance
@@ -469,8 +475,8 @@ class PayoutService
             ->whereIn('status', [ArtistPayout::STATUS_PENDING, ArtistPayout::STATUS_APPROVED, ArtistPayout::STATUS_PROCESSING])
             ->sum('amount');
 
-        if (($todayPayouts + $amount) > self::MAXIMUM_DAILY_PAYOUT) {
-            throw new Exception('Daily payout limit exceeded. Limit: UGX '.number_format(self::MAXIMUM_DAILY_PAYOUT));
+        if ($todayPayouts + $amount > $this->maxDaily()) {
+            throw new Exception('Daily payout limit exceeded. Limit: UGX '.number_format($this->maxDaily()));
         }
 
         // Validate method-specific requirements
@@ -490,6 +496,10 @@ class PayoutService
                 if (! preg_match('/^256[0-9]{9}$/', $data['phone_number'])) {
                     throw new Exception('Invalid phone number format. Must be 256XXXXXXXXX');
                 }
+                break;
+
+            case ArtistPayout::METHOD_ZENGAPAY:
+                // ZengaPay uses the phone number on file; no extra validation needed
                 break;
 
             case ArtistPayout::METHOD_BANK_TRANSFER:
@@ -527,24 +537,41 @@ class PayoutService
     protected function calculatePayoutFees(float $amount, string $method): float
     {
         return match ($method) {
-            ArtistPayout::METHOD_MOBILE_MONEY => $amount * (self::MOBILE_MONEY_FEE / 100),
-            ArtistPayout::METHOD_BANK_TRANSFER => $amount * (self::BANK_TRANSFER_FEE / 100),
-            ArtistPayout::METHOD_PAYPAL => $amount * 0.02, // 2%
-            default => 0.0
+            ArtistPayout::METHOD_MOBILE_MONEY,
+            ArtistPayout::METHOD_ZENGAPAY     => $amount * $this->feeRate('mobile_money') / 100,
+            ArtistPayout::METHOD_BANK_TRANSFER => $amount * $this->feeRate('bank_transfer') / 100,
+            ArtistPayout::METHOD_PAYPAL        => $amount * $this->feeRate('paypal') / 100,
+            default                            => 0.0,
         };
     }
 
     /**
-     * Process mobile money payout
+     * Process mobile money payout via ZengaPay
      */
     protected function processMobileMoneyPayout(ArtistPayout $payout): array
     {
-        return $this->mobileMoneyService->disburseFunds(
-            $payout->phone_number,
+        return $this->processZengaPayPayout($payout);
+    }
+
+    /**
+     * Process ZengaPay disbursement (mobile money or direct zengapay method)
+     */
+    protected function processZengaPayPayout(ArtistPayout $payout): array
+    {
+        $result = $this->zengaPayService->disburse(
             $payout->net_amount,
-            $payout->currency,
-            'Artist payout: '.$payout->transaction_id
+            $payout->phone_number,
+            $payout->transaction_id,
+            'TesoTunes artist payout: '.$payout->transaction_id
         );
+
+        return [
+            'success'            => $result['success'] ?? false,
+            'message'            => $result['message'] ?? 'ZengaPay disbursement initiated',
+            'transaction_id'     => $result['transactionId'] ?? $result['transaction_id'] ?? null,
+            'provider_reference' => $result['reference'] ?? $payout->transaction_id,
+            'provider'           => 'zengapay',
+        ];
     }
 
     /**
@@ -565,9 +592,8 @@ class PayoutService
     /**
      * Process PayPal payout
      */
-    protected function processPayPalPayout(ArtistPayout $payout): array
+    protected function processPayPalPayout(ArtistPayout $_payout): array
     {
-        // Implementation would integrate with PayPal API
         return [
             'success' => false,
             'message' => 'PayPal integration not yet implemented',
@@ -588,7 +614,7 @@ class PayoutService
     /**
      * Mask sensitive payment data for logging
      */
-    protected function maskSensitiveData(array $data, string $method): array
+    protected function maskSensitiveData(array $data, string $_method): array
     {
         $masked = $data;
 

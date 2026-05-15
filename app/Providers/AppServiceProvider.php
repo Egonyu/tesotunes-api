@@ -16,7 +16,7 @@ use App\Models\Like;
 use App\Models\Modules\Forum\ForumReply;
 use App\Models\Modules\Forum\ForumTopic;
 use App\Models\Modules\Forum\Poll;
-// use App\Models\ArtistPayout; // Not yet implemented
+use App\Models\ArtistPayout;
 use App\Models\Payment;
 use App\Models\Playlist;
 use App\Models\Setting;
@@ -76,7 +76,7 @@ class AppServiceProvider extends ServiceProvider
 
         // Register observers for financial models
         Payment::observe(PaymentObserver::class);
-        // ArtistPayout::observe(ArtistPayoutObserver::class); // Not yet implemented
+        ArtistPayout::observe(ArtistPayoutObserver::class);
         ArtistRevenue::observe(ArtistRevenueObserver::class);
 
         // Register observer for shared reviews

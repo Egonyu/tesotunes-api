@@ -38,6 +38,7 @@ Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('ar
     // Earnings
     Route::get('/earnings', [\App\Http\Controllers\Api\ArtistApiController::class, 'earnings'])->name('earnings.index');
     Route::get('/earnings/songs', [\App\Http\Controllers\Api\ArtistApiController::class, 'perSongEarnings'])->name('earnings.songs');
+    Route::get('/earnings/payouts', [\App\Http\Controllers\Api\ArtistApiController::class, 'payoutHistory'])->name('earnings.payouts');
     Route::post('/earnings/withdraw', [\App\Http\Controllers\Api\ArtistApiController::class, 'withdraw'])->name('earnings.withdraw');
 
     // Royalty Splits
