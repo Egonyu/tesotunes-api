@@ -14,7 +14,9 @@ class PromotionSettlementService
         $grossUgx = (float) ($order->paid_ugx ?: $order->total_ugx ?: $promotion->price_ugx ?: 0);
         $grossCredits = (int) ($order->paid_credits ?: $order->total_credits ?: $promotion->price_credits ?: 0);
         $platformFeeUgx = $grossUgx > 0 ? (float) ($promotion->store?->calculatePromotionFee($grossUgx) ?? 0) : 0.0;
-        $platformFeeCredits = 0;
+        $platformFeeCredits = $grossCredits > 0
+            ? (int) round($grossCredits * config('promotions.platform_fee_credits_rate', 0.15))
+            : 0;
 
         return [
             'promotion_id' => $promotion->id,

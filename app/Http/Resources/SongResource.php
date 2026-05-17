@@ -66,6 +66,7 @@ class SongResource extends JsonResource
                 if ($this->relationLoaded('artist') && $this->artist) {
                     return [
                         'id' => $this->artist->id,
+                        'user_id' => $this->artist->user_id,
                         'name' => $this->artist->stage_name,
                         'slug' => $this->artist->slug,
                         'avatar_url' => StorageHelper::avatarUrl($this->artist->avatar, $this->artist->stage_name),

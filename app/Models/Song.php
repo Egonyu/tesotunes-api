@@ -134,6 +134,9 @@ class Song extends Model
         'release_date',
         'scheduled_publish_at',
         'published_at',
+
+        // Promotions (artist opt-in)
+        'promotions_enabled',
     ];
 
     protected $casts = [
@@ -319,6 +322,11 @@ class Song extends Model
     public function musicUpload(): HasOne
     {
         return $this->hasOne(MusicUpload::class);
+    }
+
+    public function promotionOpportunities(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    {
+        return $this->morphMany(\App\Modules\Promotions\Models\PromotionOpportunity::class, 'promotable');
     }
 
     // Polymorphic relationships

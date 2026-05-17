@@ -1,0 +1,15 @@
+{
+  "name": "Promotions",
+  "alias": "promotions",
+  "description": "Promoter marketplace: influencer onboarding, opportunity briefs, applications, and universal activity hub",
+  "version": "2.0.0",
+  "active": true,
+  "order": 210,
+  "providers": [
+    "App\\Modules\\Promotions\\Providers\\PromotionsServiceProvider"
+  ],
+  "author": {
+    "name": "TesoTunes Team",
+    "email": "dev@tesotunes.com"
+  }
+}

@@ -288,6 +288,16 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasOne(Artist::class);
     }
 
+    public function promoterProfile(): HasOne
+    {
+        return $this->hasOne(\App\Modules\Promotions\Models\PromoterProfile::class);
+    }
+
+    public function getIsPromoterAttribute(): bool
+    {
+        return $this->promoterProfile()->exists();
+    }
+
     /**
      * Get the user's platform loyalty points.
      */
