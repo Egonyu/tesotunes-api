@@ -13,14 +13,10 @@ return new class extends Migration
         }
 
         Schema::table('store_order_items', function (Blueprint $table) {
-            // Fixes the current bug: song_id is validated on purchase but never persisted.
-            // Polymorphic so it covers Song, Album, and Event uniformly.
-            $table->string('promotable_type', 100)->nullable()->after('dispute_reason');
-            $table->unsignedBigInteger('promotable_id')->nullable()->after('promotable_type');
-
-            // If this order was created via an opportunity award (not a direct marketplace purchase)
-            $table->unsignedBigInteger('opportunity_id')->nullable()->after('promotable_id');
-            $table->unsignedBigInteger('application_id')->nullable()->after('opportunity_id');
+            $table->string('promotable_type', 100)->nullable();
+            $table->unsignedBigInteger('promotable_id')->nullable();
+            $table->unsignedBigInteger('opportunity_id')->nullable();
+            $table->unsignedBigInteger('application_id')->nullable();
 
             $table->index(
                 ['promotable_type', 'promotable_id'],

@@ -13,15 +13,11 @@ return new class extends Migration
         }
 
         Schema::table('store_products', function (Blueprint $table) {
-            // Link a promotion listing to the specific content it promotes by default.
-            // Nullable — general listings have no pre-set content; curated listings do.
-            $table->string('default_promotable_type', 100)->nullable()->after('metadata');
-            $table->unsignedBigInteger('default_promotable_id')->nullable()->after('default_promotable_type');
+            $table->string('default_promotable_type', 100)->nullable();
+            $table->unsignedBigInteger('default_promotable_id')->nullable();
 
-            // Link back to the promoter profile that owns this listing
             $table->foreignId('promoter_profile_id')
                 ->nullable()
-                ->after('default_promotable_id')
                 ->constrained('promoter_profiles')
                 ->nullOnDelete();
 

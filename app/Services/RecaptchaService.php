@@ -49,6 +49,18 @@ class RecaptchaService
             return true;
         }
 
+        // Check whether keys are actually configured before rejecting an empty token.
+        // If no keys are set, fail open — don't block users due to misconfiguration.
+        $hasKeys = $this->enterprise
+            ? (! empty($this->projectId) && ! empty($this->apiKey))
+            : ! empty($this->secretKey);
+
+        if (! $hasKeys) {
+            Log::warning('recaptcha: no keys configured — skipping verification (fail open)');
+
+            return true;
+        }
+
         if (empty($token)) {
             return false;
         }
