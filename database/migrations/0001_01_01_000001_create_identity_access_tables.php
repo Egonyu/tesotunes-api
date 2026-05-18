@@ -23,8 +23,9 @@ return new class extends Migration
             $table->unsignedInteger('profile_completion_percentage')->default(0);
             $table->json('profile_steps_completed')->nullable();
             $table->string('phone')->nullable();
-            $table->string('phone_number')->nullable();
             $table->timestamp('phone_verified_at')->nullable();
+            $table->string('phone_verification_code', 10)->nullable();
+            $table->timestamp('phone_verification_expires_at')->nullable();
             $table->string('full_name')->nullable();
             $table->string('nin_number')->nullable();
             $table->string('national_id_front_path')->nullable();

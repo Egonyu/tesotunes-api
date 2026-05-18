@@ -67,7 +67,7 @@ class SongObserver
     {
         if (
             config('music.isrc.auto_generate', false) &&
-            ! $song->isrc_code &&
+            ! $song->isrc &&
             $song->canAssignIsrc() &&
             (
                 ($song->isDirty('distribution_status') && in_array($song->distribution_status, ['approved', 'distributed'], true)) ||

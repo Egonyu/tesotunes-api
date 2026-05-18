@@ -31,6 +31,8 @@ class SongFactory extends Factory
             'audio_file_128' => 'songs/128kbps/'.fake()->uuid().'.mp3',
             'artwork' => 'artwork/'.fake()->uuid().'.jpg',
             'duration_seconds' => fake()->numberBetween(120, 360),
+            'bitrate_original' => fake()->randomElement([128, 192, 256, 320]),
+            'sample_rate' => 44100,
             'file_size_bytes' => fake()->numberBetween(3000000, 10000000),
             'file_format' => 'mp3',
             'status' => fake()->randomElement(['draft', 'pending_review', 'published', 'rejected']),

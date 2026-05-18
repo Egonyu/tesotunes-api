@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\BaseResourceCollection;
 use App\Models\FeedItem;
 use App\Models\Post;
+use App\Models\User;
 use App\Models\UserFeedSetting;
+use App\Models\UserFollow;
 use App\Services\FeedAnalyticsService;
 use App\Services\FeedPreferenceService;
 use App\Services\FeedService;
@@ -66,7 +68,7 @@ class FeedController extends Controller
                     ->orWhere('user_id', $user->id)
                     ->orWhere(function ($q2) use ($user) {
                         $q2->where('visibility', 'followers')
-                            ->whereIn('user_id', $user->following()->pluck('following_id'));
+                            ->whereIn('user_id', UserFollow::where('follower_id', $user->id)->where('followable_type', User::class)->pluck('followable_id'));
                     });
             });
         } else {
@@ -214,7 +216,9 @@ class FeedController extends Controller
         $perPage = $request->integer('per_page', 20);
         $page = $request->integer('page', 1);
 
-        $followingIds = $user->following()->pluck('following_id');
+        $followingIds = UserFollow::where('follower_id', $user->id)
+            ->where('followable_type', User::class)
+            ->pluck('followable_id');
 
         // Posts from followed users
         $posts = Post::with(['user', 'media', 'song.artist'])

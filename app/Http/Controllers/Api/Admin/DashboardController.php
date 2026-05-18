@@ -69,11 +69,11 @@ class DashboardController extends Controller
                 $publishedSongs = Song::where('status', 'published')->count();
                 $pendingReview = Song::whereIn('status', ['pending', 'pending_review'])->count();
                 $draftSongs = Song::where('status', 'draft')->count();
-                $isrcAssignedSongs = Song::whereNotNull('isrc_code')->count();
+                $isrcAssignedSongs = Song::whereNotNull('isrc')->count();
                 $songHasRightsColumns = $this->hasSongColumn('master_ownership_percentage') && $this->hasSongColumn('publishing_ownership_percentage');
 
                 $isrcReadySongsQuery = Song::query()
-                    ->whereNull('isrc_code')
+                    ->whereNull('isrc')
                     ->whereNotNull('artist_id')
                     ->whereNotNull('title')
                     ->where('duration_seconds', '>', 0)
@@ -100,7 +100,7 @@ class DashboardController extends Controller
                     })
                     ->count();
                 $isrcBlockedSongsQuery = Song::query()
-                    ->whereNull('isrc_code')
+                    ->whereNull('isrc')
                     ->where(function ($query) {
                         $query
                             ->whereIn('distribution_status', ['approved', 'distributed'])
@@ -207,7 +207,10 @@ class DashboardController extends Controller
                 $perArtistSongTotalsQuery = ArtistRevenue::query()
                     ->from('artist_revenues as ar')
                     ->join('artists as a', 'a.id', '=', 'ar.artist_id')
-                    ->leftJoin('songs as s', 's.id', '=', 'ar.song_id')
+                    ->leftJoin('songs as s', function ($join) {
+                        $join->on('s.id', '=', 'ar.sourceable_id')
+                            ->where('ar.sourceable_type', '=', Song::class);
+                    })
                     ->whereIn('ar.status', [ArtistRevenue::STATUS_CONFIRMED, ArtistRevenue::STATUS_PAID])
                     ->selectRaw('ar.artist_id')
                     ->selectRaw('COALESCE(a.stage_name, a.name, CONCAT("Artist #", a.id)) as artist_name')
@@ -215,9 +218,9 @@ class DashboardController extends Controller
                     ->selectRaw('SUM(CASE WHEN ar.revenue_type = ? THEN ar.net_amount ELSE 0 END) as stream_ugx', [ArtistRevenue::TYPE_STREAM])
                     ->selectRaw('SUM(CASE WHEN ar.revenue_type = ? THEN ar.net_amount ELSE 0 END) as download_ugx', [ArtistRevenue::TYPE_DOWNLOAD])
                     ->selectRaw('SUM(CASE WHEN ar.revenue_date >= ? THEN ar.net_amount ELSE 0 END) as last_30_days_ugx', [Carbon::now()->subDays(30)->toDateString()])
-                    ->selectRaw('ar.song_id')
+                    ->selectRaw('IF(ar.sourceable_type = ?, ar.sourceable_id, NULL) as song_id', [Song::class])
                     ->selectRaw('COALESCE(s.title, "Unknown song") as song_title')
-                    ->groupBy('ar.artist_id', 'artist_name', 'ar.song_id', 'song_title')
+                    ->groupBy('ar.artist_id', 'artist_name', 'ar.sourceable_type', 'ar.sourceable_id', 'song_title')
                     ->orderByDesc('total_ugx')
                     ->limit(50);
 

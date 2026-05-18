@@ -8,6 +8,7 @@ use App\Http\Resources\ArtistResource;
 use App\Http\Resources\SongResource;
 use App\Models\Artist;
 use App\Models\Event;
+use App\Models\UserFollow;
 use App\Notifications\NewFollowerNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -221,22 +222,23 @@ class ArtistController extends Controller
         try {
             $user = auth()->user();
 
-            $isFollowing = $user->following()
-                ->where('following_id', $artist->id)
-                ->where('following_type', 'artist')
+            $existingFollow = UserFollow::where('follower_id', $user->id)
+                ->where('followable_type', Artist::class)
+                ->where('followable_id', $artist->id)
                 ->first();
 
-            if ($isFollowing) {
-                $isFollowing->delete();
-                $artist->decrement('follower_count');
+            if ($existingFollow) {
+                $existingFollow->delete();
+                $artist->decrement('followers_count');
                 $message = 'Artist unfollowed';
                 $following = false;
             } else {
-                $user->following()->create([
-                    'following_id' => $artist->id,
-                    'type' => 'artist',
+                UserFollow::create([
+                    'follower_id' => $user->id,
+                    'followable_type' => Artist::class,
+                    'followable_id' => $artist->id,
                 ]);
-                $artist->increment('follower_count');
+                $artist->increment('followers_count');
                 $message = 'Artist followed';
                 $following = true;
 
@@ -250,7 +252,7 @@ class ArtistController extends Controller
                 'success' => true,
                 'message' => $message,
                 'is_following' => $following,
-                'follower_count' => $artist->fresh()->follower_count,
+                'follower_count' => $artist->fresh()->followers_count,
             ]);
 
         } catch (\Exception $e) {
@@ -276,9 +278,9 @@ class ArtistController extends Controller
         try {
             $user = auth()->user();
 
-            $isAlreadyFollowing = $user->following()
-                ->where('following_id', $artist->id)
-                ->where('following_type', 'artist')
+            $isAlreadyFollowing = UserFollow::where('follower_id', $user->id)
+                ->where('followable_type', Artist::class)
+                ->where('followable_id', $artist->id)
                 ->exists();
 
             if ($isAlreadyFollowing) {
@@ -288,18 +290,19 @@ class ArtistController extends Controller
                 ], 400);
             }
 
-            $user->following()->create([
-                'following_id' => $artist->id,
-                'type' => 'artist',
+            UserFollow::create([
+                'follower_id' => $user->id,
+                'followable_type' => Artist::class,
+                'followable_id' => $artist->id,
             ]);
 
-            $artist->increment('follower_count');
+            $artist->increment('followers_count');
 
             return response()->json([
                 'success' => true,
                 'message' => 'Artist followed successfully',
                 'is_following' => true,
-                'follower_count' => $artist->fresh()->follower_count,
+                'follower_count' => $artist->fresh()->followers_count,
             ]);
 
         } catch (\Exception $e) {
@@ -325,20 +328,20 @@ class ArtistController extends Controller
         try {
             $user = auth()->user();
 
-            $deleted = $user->following()
-                ->where('following_id', $artist->id)
-                ->where('following_type', 'artist')
+            $deleted = UserFollow::where('follower_id', $user->id)
+                ->where('followable_type', Artist::class)
+                ->where('followable_id', $artist->id)
                 ->delete();
 
             if ($deleted) {
-                $artist->decrement('follower_count');
+                $artist->decrement('followers_count');
             }
 
             return response()->json([
                 'success' => true,
                 'message' => 'Artist unfollowed successfully',
                 'is_following' => false,
-                'follower_count' => $artist->fresh()->follower_count,
+                'follower_count' => $artist->fresh()->followers_count,
             ]);
 
         } catch (\Exception $e) {

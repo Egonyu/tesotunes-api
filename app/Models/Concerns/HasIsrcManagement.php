@@ -14,7 +14,7 @@ trait HasIsrcManagement
 {
     public function hasIsrcAssigned(): bool
     {
-        return filled($this->isrc_code);
+        return filled($this->isrc);
     }
 
     public function hasAudioAssetForIsrc(): bool
@@ -105,7 +105,7 @@ trait HasIsrcManagement
             'assigned' => $assigned,
             'eligible' => $eligible,
             'status' => $assigned ? 'assigned' : ($eligible ? 'eligible' : 'blocked'),
-            'code' => $this->isrc_code,
+            'code' => $this->isrc,
             'blockers' => $blockers,
             'blocker_messages' => array_map(
                 fn (string $blocker) => self::isrcAssignmentBlockerMessage($blocker),
@@ -120,8 +120,8 @@ trait HasIsrcManagement
      */
     public function generateISRCCode(): string
     {
-        if ($this->isrc_code) {
-            return $this->isrc_code;
+        if ($this->isrc) {
+            return $this->isrc;
         }
 
         $registrantCode = str_pad(

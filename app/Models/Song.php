@@ -85,7 +85,6 @@ class Song extends Model
 
         // Rights management (ISRC critical for distribution)
         'isrc',
-        'isrc_code',
         'upc_code',
         'master_ownership_percentage',
         'publishing_ownership_percentage',
@@ -100,7 +99,6 @@ class Song extends Model
         'mixing_engineer',
         'mastering_engineer',
         'featured_artists',
-        'credits',
         'additional_credits',
         'bpm',
         'key_signature',
@@ -113,7 +111,7 @@ class Song extends Model
         'unique_listeners_count',
         'download_count',
         'like_count',
-        'comment_count',
+        'comments_count',
         'share_count',
         'average_completion_rate',
         'skip_count',
@@ -154,14 +152,13 @@ class Song extends Model
         'unique_listeners_count' => 'integer',
         'download_count' => 'integer',
         'like_count' => 'integer',
-        'comment_count' => 'integer',
+        'comments_count' => 'integer',
         'share_count' => 'integer',
         'skip_count' => 'integer',
         'flagged_count' => 'integer',
 
         // JSON columns
         'featured_artists' => 'array',
-        'credits' => 'array',
         'additional_credits' => 'array',
         'waveform_data' => 'array',
         'rights_holders' => 'array',
@@ -181,7 +178,7 @@ class Song extends Model
         'file_size_bytes' => 'integer',
         'bitrate_original' => 'integer',
         'sample_rate' => 'integer',
-        'audio_quality_score' => 'integer',
+        'audio_quality_score' => 'decimal:2',
 
         // Booleans - use canonical DB column names
         'contains_local_language' => 'boolean',
@@ -199,38 +196,6 @@ class Song extends Model
         'distribution_requested_at' => 'datetime',
         'distributed_at' => 'datetime',
     ];
-
-    public function getIsrcCodeAttribute($value): ?string
-    {
-        if (is_string($value) && $value !== '') {
-            return $value;
-        }
-
-        $legacyValue = $this->attributes['isrc'] ?? null;
-
-        return is_string($legacyValue) && $legacyValue !== '' ? $legacyValue : null;
-    }
-
-    public function setIsrcCodeAttribute($value): void
-    {
-        $normalized = is_string($value) ? trim($value) : $value;
-        $normalized = $normalized === '' ? null : $normalized;
-
-        $this->attributes['isrc_code'] = $normalized;
-
-        if (array_key_exists('isrc', $this->attributes)) {
-            $this->attributes['isrc'] = $normalized;
-        }
-    }
-
-    public function setIsrcAttribute($value): void
-    {
-        $normalized = is_string($value) ? trim($value) : $value;
-        $normalized = $normalized === '' ? null : $normalized;
-
-        $this->attributes['isrc'] = $normalized;
-        $this->attributes['isrc_code'] = $normalized;
-    }
 
     // Relationships
     public function user(): BelongsTo

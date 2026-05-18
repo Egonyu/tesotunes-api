@@ -154,7 +154,7 @@ class HomepageService
 
             $followedArtists = Artist::query()
                 ->with('user')
-                ->whereIn('user_id', $user->followedArtists()->pluck('users.id'))
+                ->whereIn('id', $user->followedArtistIds())
                 ->where('status', 'active')
                 ->limit(8)
                 ->get();
@@ -701,7 +701,7 @@ class HomepageService
             'id' => $playlist->id,
             'entity_type' => 'playlist',
             'title' => $playlist->name,
-            'subtitle' => $playlist->description ?: trim(number_format((int) ($playlist->follower_count ?? 0)).' followers'),
+            'subtitle' => $playlist->description ?: trim(number_format((int) ($playlist->followers_count ?? 0)).' followers'),
             'eyebrow' => $eyebrow,
             'reason' => $reason,
             'href' => '/playlists/'.($playlist->slug ?: $playlist->id),

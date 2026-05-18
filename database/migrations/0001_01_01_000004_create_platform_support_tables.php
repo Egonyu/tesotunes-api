@@ -250,14 +250,22 @@ return new class extends Migration
         Schema::create('isrc_codes', function (Blueprint $table) {
             $table->id();
             $table->foreignId('song_id')->constrained()->cascadeOnDelete();
-            $table->string('code', 12)->unique();
+            $table->foreignId('artist_id')->nullable()->constrained('artists')->nullOnDelete();
+            $table->string('code', 20)->unique();
             $table->string('country_code', 2)->default('UG');
-            $table->string('registrant_code', 3);
+            $table->string('registrant_code', 5);
             $table->string('year_code', 2);
             $table->string('designation_code', 5);
+            $table->string('status', 30)->default('active');
+            $table->string('registration_authority')->nullable();
+            $table->string('registration_reference')->nullable();
+            $table->boolean('cleared_for_distribution')->default(false);
+            $table->timestamp('distribution_cleared_at')->nullable();
+            $table->timestamp('registered_at')->nullable();
             $table->boolean('is_verified')->default(false);
             $table->timestamp('verified_at')->nullable();
             $table->timestamps();
+            $table->index(['status', 'cleared_for_distribution'], 'isrc_dist_idx');
         });
 
         Schema::create('moods', function (Blueprint $table) {

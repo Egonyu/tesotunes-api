@@ -36,11 +36,11 @@ class ISRCController extends Controller
             }
 
             // Check if song already has an ISRC
-            if ($song->isrc_code) {
+            if ($song->isrc) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Song already has an ISRC code.',
-                    'data' => ['isrc_code' => $song->isrc_code],
+                    'data' => ['isrc_code' => $song->isrc],
                 ], 422);
             }
 
@@ -92,7 +92,7 @@ class ISRCController extends Controller
 
             $song = $album->songs()
                 ->get()
-                ->first(fn (Song $candidate) => ! $candidate->isrc_code && $candidate->canAssignIsrc());
+                ->first(fn (Song $candidate) => ! $candidate->isrc && $candidate->canAssignIsrc());
 
             if (! $song) {
                 return response()->json([
@@ -140,7 +140,7 @@ class ISRCController extends Controller
 
             $songs = $album->songs()
                 ->get()
-                ->filter(fn (Song $song) => ! $song->isrc_code && $song->canAssignIsrc())
+                ->filter(fn (Song $song) => ! $song->isrc && $song->canAssignIsrc())
                 ->values();
 
             if ($songs->isEmpty()) {
@@ -186,9 +186,7 @@ class ISRCController extends Controller
     public function register(Request $request, string $isrc): JsonResponse
     {
         try {
-            $isrcRecord = ISRCCode::where('isrc_code', $isrc)
-                ->orWhere('formatted_isrc', $isrc)
-                ->firstOrFail();
+            $isrcRecord = ISRCCode::where('code', $isrc)->firstOrFail();
 
             if ($isrcRecord->status === 'registered') {
                 return response()->json([
@@ -231,9 +229,7 @@ class ISRCController extends Controller
     public function clearance(Request $request, string $isrc): JsonResponse
     {
         try {
-            $isrcRecord = ISRCCode::where('isrc_code', $isrc)
-                ->orWhere('formatted_isrc', $isrc)
-                ->firstOrFail();
+            $isrcRecord = ISRCCode::where('code', $isrc)->firstOrFail();
 
             if ($isrcRecord->cleared_for_distribution) {
                 return response()->json([
@@ -288,7 +284,7 @@ class ISRCController extends Controller
             $songs = $songsQuery->get();
 
             $eligibleSongs = $songs
-                ->filter(fn (Song $song) => ! $song->isrc_code && $song->canAssignIsrc())
+                ->filter(fn (Song $song) => ! $song->isrc && $song->canAssignIsrc())
                 ->values();
 
             if ($eligibleSongs->isEmpty()) {
@@ -345,9 +341,7 @@ class ISRCController extends Controller
             $errors = [];
 
             foreach ($validated['isrc_codes'] as $code) {
-                $record = ISRCCode::where('isrc_code', $code)
-                    ->orWhere('formatted_isrc', $code)
-                    ->first();
+                $record = ISRCCode::where('code', $code)->first();
 
                 if (! $record) {
                     $errors[] = ['code' => $code, 'reason' => 'Not found'];
@@ -405,9 +399,7 @@ class ISRCController extends Controller
             $errors = [];
 
             foreach ($validated['isrc_codes'] as $code) {
-                $record = ISRCCode::where('isrc_code', $code)
-                    ->orWhere('formatted_isrc', $code)
-                    ->first();
+                $record = ISRCCode::where('code', $code)->first();
 
                 if (! $record) {
                     $errors[] = ['code' => $code, 'reason' => 'Not found'];
@@ -506,8 +498,7 @@ class ISRCController extends Controller
 
             $results = ISRCCode::with(['song:id,title,slug', 'artist:id,name,stage_name'])
                 ->where(function ($q) use ($escapedTerm) {
-                    $q->where('isrc_code', 'like', "%{$escapedTerm}%")
-                        ->orWhere('formatted_isrc', 'like', "%{$escapedTerm}%")
+                    $q->where('code', 'like', "%{$escapedTerm}%")
                         ->orWhereHas('song', fn ($s) => $s->where('title', 'like', "%{$escapedTerm}%"))
                         ->orWhereHas('artist', fn ($a) => $a->where('name', 'like', "%{$escapedTerm}%")
                             ->orWhere('stage_name', 'like', "%{$escapedTerm}%"));
@@ -553,7 +544,7 @@ class ISRCController extends Controller
             $csv = "ISRC Code,Song Title,Artist,Status,Cleared for Distribution,Registered At\n";
             foreach ($records as $record) {
                 $csv .= implode(',', [
-                    $record->formatted_isrc ?? $record->isrc_code,
+                    $record->formatted_isrc ?? $record->code,
                     '"'.str_replace('"', '""', $record->song?->title ?? 'N/A').'"',
                     '"'.str_replace('"', '""', $record->artist?->stage_name ?? $record->artist?->name ?? 'N/A').'"',
                     $record->status ?? 'pending',
@@ -591,8 +582,7 @@ class ISRCController extends Controller
             $record = null;
             if ($exists) {
                 $record = ISRCCode::with(['song:id,title', 'artist:id,name,stage_name'])
-                    ->where('isrc_code', $validated['isrc_code'])
-                    ->orWhere('formatted_isrc', $validated['isrc_code'])
+                    ->where('code', $validated['isrc_code'])
                     ->first();
             }
 

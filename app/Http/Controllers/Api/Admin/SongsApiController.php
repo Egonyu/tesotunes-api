@@ -147,7 +147,7 @@ class SongsApiController extends Controller
     private function applyIsrcReadyScope(Builder $query): Builder
     {
         $query = $this->applyAuthorizedForIsrcScope($query)
-            ->whereNull('isrc_code')
+            ->whereNull('isrc')
             ->whereNotNull('artist_id')
             ->whereNotNull('title')
             ->where('duration_seconds', '>', 0)
@@ -168,10 +168,10 @@ class SongsApiController extends Controller
     private function applyIsrcStatusFilter(Builder $query, string $status): Builder
     {
         return match ($status) {
-            'assigned' => $query->whereNotNull('isrc_code'),
+            'assigned' => $query->whereNotNull('isrc'),
             'ready' => $this->applyIsrcReadyScope($query),
             'blocked' => $this->applyAuthorizedForIsrcScope($query)
-                ->whereNull('isrc_code')
+                ->whereNull('isrc')
                 ->where(function (Builder $blockedQuery) {
                     $blockedQuery
                         ->whereNull('artist_id')
@@ -285,7 +285,7 @@ class SongsApiController extends Controller
     {
         return $this->handleApiAction(function () {
             $pendingReviewCount = Song::whereIn('status', ['pending', 'pending_review'])->count();
-            $isrcAssigned = Song::whereNotNull('isrc_code')->count();
+            $isrcAssigned = Song::whereNotNull('isrc')->count();
             $isrcReady = $this->applyIsrcReadyScope(Song::query())->count();
             $isrcBlocked = $this->applyIsrcStatusFilter(Song::query(), 'blocked')->count();
 
@@ -331,7 +331,7 @@ class SongsApiController extends Controller
             $data['processing_status'] = $song->processing_status;
             $data['track_number'] = $song->track_number;
             $data['disc_number'] = $song->disc_number;
-            $data['isrc'] = $song->isrc_code;
+            $data['isrc'] = $song->isrc;
             $data['bpm'] = $song->bpm ?? null;
             $data['key'] = $song->key_signature ?? null;
             $data['credits'] = $song->credits;
@@ -444,7 +444,7 @@ class SongsApiController extends Controller
                 'release_date' => $validated['release_date'] ?? null,
                 'track_number' => $validated['track_number'] ?? null,
                 'disc_number' => $validated['disc_number'] ?? null,
-                'isrc_code' => $validated['isrc'] ?? null,
+                'isrc' => $validated['isrc'] ?? null,
                 'composer' => $validated['composer'] ?? null,
                 'producer' => $validated['producer'] ?? null,
                 'price' => $validated['price'] ?? 0,
@@ -553,7 +553,7 @@ class SongsApiController extends Controller
                 $updateData['disc_number'] = $validated['disc_number'];
             }
             if (isset($validated['isrc'])) {
-                $updateData['isrc_code'] = $validated['isrc'];
+                $updateData['isrc'] = $validated['isrc'];
             }
             if (isset($validated['featured_artists'])) {
                 $updateData['featured_artists'] = $validated['featured_artists'];

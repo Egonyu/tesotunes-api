@@ -8,6 +8,8 @@ use App\Models\Post;
 use App\Models\PostComment;
 use App\Models\PostLike;
 use App\Models\PostMedia;
+use App\Models\User;
+use App\Models\UserFollow;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -33,7 +35,7 @@ class PostController extends Controller
                     ->orWhere('user_id', $user->id)
                     ->orWhere(function ($q2) use ($user) {
                         $q2->where('visibility', 'followers')
-                            ->whereIn('user_id', $user->following()->pluck('following_id'));
+                            ->whereIn('user_id', UserFollow::where('follower_id', $user->id)->where('followable_type', User::class)->pluck('followable_id'));
                     });
             });
         } else {

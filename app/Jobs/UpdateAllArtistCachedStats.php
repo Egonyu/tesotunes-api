@@ -131,9 +131,8 @@ class UpdateAllArtistCachedStats implements ShouldQueue
             SET followers_count = COALESCE((
                 SELECT COUNT(*)
                 FROM user_follows
-                WHERE user_follows.following_id = artists.id
-                AND user_follows.type = 'App\\\\Models\\\\Artist'
-                AND user_follows.deleted_at IS NULL
+                WHERE user_follows.followable_type = 'App\\\\Models\\\\Artist'
+                AND user_follows.followable_id = artists.id
             ), 0)
             WHERE artists.id IN (".implode(',', array_map('intval', $artistIds)).')
         ');

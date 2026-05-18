@@ -219,7 +219,8 @@ class Artist extends Model implements HasMedia
     public function isFollowedBy(User $user): bool
     {
         return UserFollow::where('follower_id', $user->id)
-            ->where('following_id', $this->user_id)
+            ->where('followable_type', static::class)
+            ->where('followable_id', $this->id)
             ->exists();
     }
 
@@ -308,10 +309,8 @@ class Artist extends Model implements HasMedia
         return 'pending';
     }
 
-    public function getFollowerCountAttribute($value)
+    public function getFollowersCountAttribute($value)
     {
-        // Return the database value directly
-        // The column is 'follower_count' which stores the cached count
         return $value ?? 0;
     }
 
@@ -477,7 +476,7 @@ class Artist extends Model implements HasMedia
     {
         return $query->with([
             'user:id,display_name,email',
-            'profile:id,artist_id,bio,location,website',
+            'profile:id,artist_id,bio,region,district',
         ]);
     }
 

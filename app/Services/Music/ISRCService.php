@@ -67,8 +67,8 @@ class ISRCService
 
     public function assignToSong(Song $song, bool $force = false): string
     {
-        if ($song->isrc_code) {
-            return $song->isrc_code;
+        if ($song->isrc) {
+            return $song->isrc;
         }
 
         if (! $force) {
@@ -79,7 +79,7 @@ class ISRCService
         }
 
         $isrcCode = $this->generate($song);
-        $song->update(['isrc_code' => $isrcCode]);
+        $song->update(['isrc' => $isrcCode]);
 
         return $isrcCode;
     }
@@ -121,14 +121,8 @@ class ISRCService
      */
     public function exists(string $isrcCode): bool
     {
-        return ISRCCode::query()
-            ->where('isrc_code', $isrcCode)
-            ->orWhere('code', $isrcCode)
-            ->exists() ||
-            Song::query()
-                ->where('isrc_code', $isrcCode)
-                ->orWhere('isrc', $isrcCode)
-                ->exists();
+        return ISRCCode::query()->where('code', $isrcCode)->exists() ||
+            Song::query()->where('isrc', $isrcCode)->exists();
     }
 
     /**
@@ -140,15 +134,13 @@ class ISRCService
         [$country, $registrant, $year, $designation] = explode('-', $isrcCode);
 
         ISRCCode::create([
-            'isrc_code' => $isrcCode,
-            'formatted_isrc' => $isrcCode,
+            'code' => $isrcCode,
             'country_code' => $country,
             'registrant_code' => $registrant,
             'year_code' => $year,
             'designation_code' => $designation,
             'song_id' => $song->id,
             'artist_id' => $song->artist_id,
-            'generated_at' => now(),
             'status' => 'pending',
         ]);
 

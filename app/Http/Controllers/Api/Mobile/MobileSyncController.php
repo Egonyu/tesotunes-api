@@ -254,13 +254,13 @@ class MobileSyncController extends Controller
                         if ($follow['action'] === 'follow') {
                             UserFollow::firstOrCreate([
                                 'follower_id' => $user->id,
-                                'following_type' => 'App\\Models\\Artist',
-                                'following_id' => $artist->user_id,
+                                'followable_type' => 'App\\Models\\Artist',
+                                'followable_id' => $artist->id,
                             ]);
                         } else {
                             UserFollow::where('follower_id', $user->id)
-                                ->where('following_type', 'App\\Models\\Artist')
-                                ->where('following_id', $artist->user_id)
+                                ->where('followable_type', 'App\\Models\\Artist')
+                                ->where('followable_id', $artist->id)
                                 ->delete();
                         }
 
@@ -373,31 +373,23 @@ class MobileSyncController extends Controller
     private function getSyncedFollows($user, $since)
     {
         return UserFollow::where('follower_id', $user->id)
-            ->where('following_type', 'App\\Models\\Artist')
+            ->where('followable_type', 'App\\Models\\Artist')
             ->where('created_at', '>', $since)
-            ->pluck('following_id');
+            ->pluck('followable_id');
     }
 
     private function getAllFollows($user)
     {
         return UserFollow::where('follower_id', $user->id)
-            ->where('following_type', 'App\\Models\\Artist')
-            ->pluck('following_id');
+            ->where('followable_type', 'App\\Models\\Artist')
+            ->pluck('followable_id');
     }
 
     private function getNewSongsFromFollowedArtists($user, $since)
     {
-        $followedUserIds = UserFollow::where('follower_id', $user->id)
-            ->where('following_type', 'App\\Models\\Artist')
-            ->pluck('following_id');
-
-        if ($followedUserIds->isEmpty()) {
-            return [];
-        }
-
-        // Get artist IDs from user IDs
-        $followedArtistIds = Artist::whereIn('user_id', $followedUserIds)
-            ->pluck('id');
+        $followedArtistIds = UserFollow::where('follower_id', $user->id)
+            ->where('followable_type', 'App\\Models\\Artist')
+            ->pluck('followable_id');
 
         if ($followedArtistIds->isEmpty()) {
             return [];

@@ -89,18 +89,19 @@ class Post extends Model
 
     public function scopeForUser($query, User $user)
     {
-        // Get posts from people the user follows
-        $followingIds = $user->following()->pluck('following_id');
-        $followingIds->push($user->id); // Include user's own posts
+        $followingIds = \App\Models\UserFollow::where('follower_id', $user->id)
+            ->where('followable_type', User::class)
+            ->pluck('followable_id')
+            ->push($user->id);
 
         return $query->whereIn('user_id', $followingIds)
-            ->where(function ($q) use ($user) {
+            ->where(function ($q) use ($followingIds, $user) {
                 $q->where('privacy', 'public')
-                    ->orWhere(function ($q2) use ($user) {
+                    ->orWhere(function ($q2) use ($followingIds) {
                         $q2->where('privacy', 'followers')
-                            ->whereIn('user_id', $user->following()->pluck('following_id'));
+                            ->whereIn('user_id', $followingIds);
                     })
-                    ->orWhere('user_id', $user->id); // Always show own posts
+                    ->orWhere('user_id', $user->id);
             });
     }
 

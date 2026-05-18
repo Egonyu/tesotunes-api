@@ -44,10 +44,8 @@ class ArtistFollowController extends Controller
 
             UserFollow::create([
                 'follower_id' => $user->id,
-                'following_id' => $artist->user_id,
                 'followable_id' => $artist->id,
                 'followable_type' => Artist::class,
-                'artist_id' => $artist->id,
             ]);
 
             // Increment cached counter

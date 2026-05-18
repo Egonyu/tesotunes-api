@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Album extends Model
@@ -26,36 +27,25 @@ class Album extends Model
         'is_free',
         'is_explicit',
         'status',
-        'visibility',
         'release_date',
-        'release_year',
-        'scheduled_at',
-        'credits',
         'record_label',
-        'copyright_notice',
+        'copyright',
         'total_tracks',
         'total_duration_seconds',
         'play_count',
         'download_count',
         'like_count',
-        'approved_at',
-        'approved_by',
-        'rejection_reason',
-        'review_notes',
     ];
 
     protected $casts = [
         'price' => 'decimal:2',
         'is_free' => 'boolean',
         'is_explicit' => 'boolean',
-        'credits' => 'array',
         'total_tracks' => 'integer',
         'total_duration_seconds' => 'integer',
         'play_count' => 'integer',
         'download_count' => 'integer',
-        'release_date' => 'datetime',
-        'scheduled_at' => 'datetime',
-        'approved_at' => 'datetime',
+        'release_date' => 'date',
     ];
 
     protected static function boot()
@@ -73,11 +63,6 @@ class Album extends Model
     public function artist(): BelongsTo
     {
         return $this->belongsTo(Artist::class);
-    }
-
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
     }
 
     public function songs(): HasMany

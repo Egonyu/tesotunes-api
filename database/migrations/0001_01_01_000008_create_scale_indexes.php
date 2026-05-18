@@ -29,8 +29,8 @@ return new class extends Migration
         });
 
         Schema::table('playlists', function (Blueprint $table) {
-            $table->index(['is_public', 'follower_count'], 'playlists_public_followers_index');
-            $table->index(['is_featured', 'is_public', 'follower_count'], 'playlists_featured_public_followers_index');
+            $table->index(['is_public', 'followers_count'], 'playlists_public_followers_index');
+            $table->index(['is_featured', 'is_public', 'followers_count'], 'playlists_featured_public_followers_index');
         });
 
         Schema::table('podcasts', function (Blueprint $table) {
@@ -53,14 +53,14 @@ return new class extends Migration
         });
 
         Schema::table('events', function (Blueprint $table) {
-            $table->index(['start_date', 'status'], 'events_start_date_status_index');
+            $table->index(['starts_at', 'status'], 'events_starts_at_status_index');
         });
     }
 
     public function down(): void
     {
         Schema::table('events', function (Blueprint $table) {
-            $table->dropIndex('events_start_date_status_index');
+            $table->dropIndex('events_starts_at_status_index');
         });
 
         Schema::table('campaign_pledges', function (Blueprint $table) {

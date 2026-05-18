@@ -93,7 +93,8 @@ class SendWeeklyDigest extends Command
 
         // New followers
         $newFollowers = DB::table('user_follows')
-            ->where('following_id', $user->id)
+            ->where('followable_type', \App\Models\User::class)
+            ->where('followable_id', $user->id)
             ->where('created_at', '>=', $since)
             ->count();
 

@@ -20,7 +20,6 @@ class Playlist extends Model
     protected $fillable = [
         'uuid',
         'user_id',
-        'category_id',
         'name',
         'slug',
         'description',
@@ -35,7 +34,7 @@ class Playlist extends Model
         'total_tracks',
         'total_duration_seconds',
         'play_count',
-        'follower_count',
+        'followers_count',
     ];
 
     protected $casts = [
@@ -47,7 +46,7 @@ class Playlist extends Model
         'total_tracks' => 'integer',
         'total_duration_seconds' => 'integer',
         'play_count' => 'integer',
-        'follower_count' => 'integer',
+        'followers_count' => 'integer',
     ];
 
     /**

@@ -21,6 +21,10 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->boolean('is_featured')->default(false);
             $table->integer('sort_order')->default(0);
+            $table->string('icon')->nullable();
+            $table->string('meta_title', 255)->nullable();
+            $table->text('meta_description')->nullable();
+            $table->string('meta_keywords')->nullable();
             $table->timestamps();
             $table->softDeletes();
             $table->index(['is_active', 'is_featured']);
@@ -77,6 +81,11 @@ return new class extends Migration
             $table->softDeletes();
             $table->index(['status', 'is_verified']);
             $table->index(['is_featured', 'total_plays']);
+            $table->boolean('is_placeholder')->default(false);
+            $table->string('claim_status', 30)->nullable();
+            $table->foreignId('claimed_user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('catalog_manager_user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->index(['is_placeholder', 'claim_status'], 'artists_claim_idx');
         });
 
         Schema::create('artist_profiles', function (Blueprint $table) {
@@ -177,14 +186,29 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->text('lyrics')->nullable();
             $table->string('artwork')->nullable();
+
             $table->string('audio_file_original')->nullable();
             $table->string('audio_file_320')->nullable();
             $table->string('audio_file_128')->nullable();
+            $table->string('audio_file_preview')->nullable();
+            $table->json('waveform_data')->nullable();
             $table->string('file_format', 10)->nullable();
             $table->unsignedBigInteger('file_size_bytes')->nullable();
+            $table->string('file_hash', 64)->nullable();
             $table->integer('duration_seconds')->default(0);
+            $table->unsignedInteger('bitrate_original')->nullable();
+            $table->unsignedInteger('sample_rate')->nullable();
+
+            $table->unsignedInteger('bpm')->nullable();
+            $table->string('key_signature')->nullable();
             $table->foreignId('primary_genre_id')->nullable()->constrained('genres')->nullOnDelete();
+            $table->integer('track_number')->nullable();
+            $table->unsignedSmallInteger('disc_number')->nullable();
+
             $table->date('release_date')->nullable();
+            $table->timestamp('scheduled_publish_at')->nullable();
+            $table->timestamp('published_at')->nullable();
+
             $table->string('status')->default('draft');
             $table->timestamp('approved_at')->nullable();
             $table->foreignId('approved_by')->nullable()->constrained('users')->nullOnDelete();
@@ -193,36 +217,76 @@ return new class extends Migration
             $table->timestamp('moderated_at')->nullable();
             $table->foreignId('moderated_by')->nullable()->constrained('users')->nullOnDelete();
             $table->text('moderation_reason')->nullable();
+            $table->text('moderation_notes')->nullable();
+            $table->unsignedSmallInteger('flagged_count')->default(0);
+
             $table->string('visibility', 20)->default('public');
             $table->boolean('is_explicit')->default(false);
             $table->boolean('is_featured')->default(false);
             $table->boolean('is_free')->default(true);
             $table->boolean('is_downloadable')->default(true);
             $table->boolean('is_streamable')->default(true);
+            $table->boolean('allow_comments')->default(true);
             $table->json('processing_status')->nullable();
+
             $table->decimal('price', 10, 2)->default(0);
             $table->string('currency', 10)->default('UGX');
+            $table->integer('credits_price')->default(0);
+
             $table->json('featured_artists')->nullable();
             $table->string('composer')->nullable();
             $table->string('producer')->nullable();
-            $table->bigInteger('play_count')->default(0);
-            $table->integer('like_count')->default(0);
-            $table->integer('download_count')->default(0);
-            $table->integer('track_number')->nullable();
-            $table->timestamp('preview_url')->nullable();
-            $table->integer('credits_price')->default(0);
-            $table->integer('share_count')->default(0);
+            $table->string('mixing_engineer')->nullable();
+            $table->string('mastering_engineer')->nullable();
+            $table->json('additional_credits')->nullable();
+
             $table->string('lyrics_language', 10)->nullable();
+            $table->string('primary_language', 10)->nullable();
+            $table->json('languages_sung')->nullable();
+            $table->boolean('contains_local_language')->default(false);
+            $table->json('local_genres')->nullable();
+            $table->text('cultural_context')->nullable();
+            $table->json('mood_tags')->nullable();
+
             $table->string('publisher')->nullable();
             $table->string('copyright')->nullable();
+            $table->unsignedSmallInteger('copyright_year')->nullable();
+            $table->string('copyright_holder')->nullable();
+            $table->string('license_type')->nullable();
             $table->string('isrc')->nullable();
-            $table->unsignedInteger('bpm')->nullable();
-            $table->string('key_signature')->nullable();
-            $table->timestamp('published_at')->nullable();
+            $table->string('upc_code')->nullable();
+            $table->decimal('master_ownership_percentage', 5, 2)->default(100);
+            $table->decimal('publishing_ownership_percentage', 5, 2)->default(100);
+            $table->json('rights_holders')->nullable();
+
+            $table->date('recording_date')->nullable();
+            $table->string('recording_location')->nullable();
+            $table->string('recording_studio')->nullable();
+
+            $table->bigInteger('play_count')->default(0);
+            $table->unsignedInteger('unique_listeners_count')->default(0);
+            $table->integer('like_count')->default(0);
+            $table->integer('download_count')->default(0);
+            $table->integer('share_count')->default(0);
+            $table->unsignedInteger('skip_count')->default(0);
+            $table->decimal('average_completion_rate', 5, 2)->default(0);
+            $table->decimal('audio_quality_score', 5, 2)->nullable();
+            $table->decimal('revenue_generated', 15, 2)->default(0);
             $table->unsignedInteger('comments_count')->default(0);
+
             $table->boolean('promotions_enabled')->default(true);
             $table->unsignedInteger('active_opportunity_count')->default(0);
             $table->unsignedInteger('total_promotions_count')->default(0);
+
+            $table->string('source_type', 50)->nullable();
+            $table->unsignedBigInteger('source_submission_item_id')->nullable();
+            $table->boolean('is_claimable')->default(false);
+
+            $table->string('distribution_status', 30)->nullable();
+            $table->timestamp('distribution_requested_at')->nullable();
+            $table->timestamp('distributed_at')->nullable();
+            $table->json('distribution_platforms')->nullable();
+
             $table->timestamps();
             $table->softDeletes();
             $table->index(['artist_id', 'status']);
@@ -231,6 +295,8 @@ return new class extends Migration
             $table->index('primary_genre_id');
             $table->index('release_date');
             $table->index(['status', 'promotions_enabled'], 'songs_promote_idx');
+            $table->index(['distribution_status', 'distributed_at'], 'songs_dist_idx');
+            $table->index(['status', 'is_claimable'], 'songs_claimable_idx');
         });
 
         Schema::create('song_genres', function (Blueprint $table) {
@@ -256,12 +322,10 @@ return new class extends Migration
         Schema::create('user_follows', function (Blueprint $table) {
             $table->id();
             $table->foreignId('follower_id')->constrained('users')->cascadeOnDelete();
-            $table->unsignedBigInteger('following_id')->nullable();
             $table->nullableMorphs('followable');
-            $table->foreignId('artist_id')->nullable()->constrained('artists')->nullOnDelete();
-            $table->foreignId('followed_user_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
-            $table->unique(['follower_id', 'following_id']);
+            $table->unique(['follower_id', 'followable_type', 'followable_id'], 'uf_unique');
+            $table->index(['followable_type', 'followable_id'], 'uf_followable_idx');
         });
 
         Schema::create('playlists', function (Blueprint $table) {
@@ -275,6 +339,9 @@ return new class extends Migration
             $table->string('artwork')->nullable();
             $table->boolean('is_public')->default(true);
             $table->boolean('is_collaborative')->default(false);
+            $table->boolean('collaboration_requires_approval')->default(false);
+            $table->string('collaboration_invite_token', 80)->nullable()->unique();
+            $table->timestamp('collaboration_invite_expires_at')->nullable();
             $table->boolean('is_featured')->default(false);
             $table->string('status')->default('active');
             $table->integer('followers_count')->default(0);
@@ -283,7 +350,6 @@ return new class extends Migration
             $table->unsignedInteger('total_tracks')->default(0);
             $table->unsignedInteger('total_duration_seconds')->default(0);
             $table->unsignedInteger('play_count')->default(0);
-            $table->unsignedInteger('follower_count')->default(0);
             $table->unsignedInteger('comments_count')->default(0);
             $table->timestamps();
             $table->softDeletes();
@@ -416,13 +482,6 @@ return new class extends Migration
             $table->json('tags')->nullable();
             $table->decimal('rating_average', 3, 2)->nullable();
             $table->integer('review_count')->default(0);
-            $table->dateTime('start_date')->nullable();
-            $table->dateTime('end_date')->nullable();
-            $table->decimal('price', 12, 2)->nullable();
-            $table->decimal('max_price', 12, 2)->nullable();
-            $table->integer('attendees_count')->default(0);
-            $table->boolean('is_online')->default(false);
-            $table->string('online_url')->nullable();
             $table->string('registration_url')->nullable();
             $table->string('contact_email')->nullable();
             $table->string('contact_phone')->nullable();

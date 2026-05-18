@@ -95,8 +95,8 @@ class PlayHistory extends Model
             return (float) $this->attributes['completion_percentage'];
         }
 
-        // Fallback: calculate from was_completed flag
-        return $this->was_completed ? 100 : 0;
+        // Fallback: calculate from completed flag
+        return $this->completed ? 100 : 0;
     }
 
     // Static methods - Optimized to prevent N+1 queries

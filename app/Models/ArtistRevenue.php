@@ -36,8 +36,6 @@ class ArtistRevenue extends Model
         'revenue_type',
         'sourceable_type',
         'sourceable_id',
-        'song_id',
-        'album_id',
         'amount_ugx',
         'amount_usd',
         'platform_fee',

@@ -115,7 +115,9 @@ return new class extends Migration
             $table->uuid('uuid')->unique();
             $table->foreignId('artist_id')->constrained()->cascadeOnDelete();
             $table->string('revenue_type');
-            $table->morphs('sourceable');
+            $table->nullableMorphs('sourceable');
+            $table->string('source_platform')->nullable();
+            $table->unsignedInteger('transaction_count')->default(0);
             $table->decimal('amount_ugx', 15, 2)->default(0);
             $table->decimal('amount_usd', 15, 2)->default(0);
             $table->decimal('platform_fee', 15, 2)->default(0);
@@ -229,7 +231,6 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->foreignId('subscription_plan_id')->nullable()->constrained('subscription_plans')->nullOnDelete();
             $table->foreignId('payment_id')->nullable()->constrained('payments')->nullOnDelete();
-            $table->foreignId('plan_id')->nullable()->constrained('subscription_plans')->nullOnDelete();
             $table->string('billing_period')->nullable();
             $table->dateTime('starts_at')->nullable();
             $table->dateTime('ends_at')->nullable();

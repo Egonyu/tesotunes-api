@@ -63,42 +63,87 @@ return new class extends Migration
         Schema::create('polls', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->nullableMorphs('pollable');
             $table->string('title');
             $table->text('description')->nullable();
-            $table->boolean('allow_multiple_votes')->default(false);
-            $table->boolean('show_results_before_vote')->default(true);
+            $table->string('poll_type')->default('general');
+            $table->string('category')->nullable();
+            $table->string('audience')->default('all');
+            $table->boolean('allow_guest_responses')->default(true);
+            $table->boolean('show_results_before_completion')->default(true);
             $table->boolean('is_anonymous')->default(false);
+            $table->unsignedTinyInteger('credits_reward')->default(3);
             $table->timestamp('starts_at')->nullable();
             $table->timestamp('ends_at')->nullable();
-            $table->unsignedInteger('total_votes')->default(0);
-            $table->string('status')->default('active');
+            $table->unsignedInteger('total_responses')->default(0);
+            $table->string('status')->default('draft');
+            $table->json('settings')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->index(['poll_type', 'status']);
+            $table->index(['status', 'created_at']);
+            $table->index('category');
+        });
+
+        Schema::create('poll_questions', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('poll_id')->constrained('polls')->cascadeOnDelete();
+            $table->unsignedSmallInteger('position')->default(0);
+            $table->string('question_text', 500);
+            $table->text('description')->nullable();
+            $table->string('question_type')->default('multiple_choice');
+            $table->boolean('is_required')->default(true);
+            $table->boolean('allow_multiple')->default(false);
+            $table->foreignId('song_id')->nullable()->constrained('songs')->nullOnDelete();
+            $table->foreignId('artist_id')->nullable()->constrained('artists')->nullOnDelete();
+            $table->json('settings')->nullable();
             $table->timestamps();
 
-            $table->index(['status', 'created_at']);
+            $table->index(['poll_id', 'position']);
         });
 
         Schema::create('poll_options', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('poll_id')->constrained('polls')->cascadeOnDelete();
+            $table->foreignId('question_id')->constrained('poll_questions')->cascadeOnDelete();
             $table->string('option_text');
             $table->string('image')->nullable();
-            $table->unsignedInteger('vote_count')->default(0);
-            $table->unsignedInteger('position')->default(0);
+            $table->unsignedSmallInteger('position')->default(0);
+            $table->foreignId('song_id')->nullable()->constrained('songs')->nullOnDelete();
+            $table->foreignId('artist_id')->nullable()->constrained('artists')->nullOnDelete();
+            $table->unsignedInteger('response_count')->default(0);
             $table->timestamps();
 
-            $table->index('poll_id');
+            $table->index(['question_id', 'position']);
         });
 
-        Schema::create('poll_votes', function (Blueprint $table) {
+        Schema::create('poll_responses', function (Blueprint $table) {
             $table->id();
             $table->foreignId('poll_id')->constrained('polls')->cascadeOnDelete();
-            $table->foreignId('option_id')->constrained('poll_options')->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->timestamp('voted_at')->useCurrent();
+            $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->string('session_token', 64)->nullable();
+            $table->string('ip_address', 45)->nullable();
+            $table->boolean('is_complete')->default(false);
+            $table->timestamp('started_at')->nullable()->useCurrent();
+            $table->timestamp('completed_at')->nullable();
+            $table->timestamps();
 
-            $table->unique(['poll_id', 'user_id', 'option_id']);
-            $table->index('poll_id');
+            $table->index(['poll_id', 'is_complete']);
+            $table->index('session_token');
+            $table->index(['poll_id', 'user_id']);
+        });
+
+        Schema::create('poll_answers', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('response_id')->constrained('poll_responses')->cascadeOnDelete();
+            $table->foreignId('question_id')->constrained('poll_questions')->cascadeOnDelete();
+            $table->foreignId('option_id')->nullable()->constrained('poll_options')->nullOnDelete();
+            $table->text('answer_text')->nullable();
+            $table->tinyInteger('rating_value')->nullable();
+            $table->unsignedSmallInteger('rank_position')->nullable();
+            $table->timestamps();
+
+            $table->index(['response_id', 'question_id']);
+            $table->unique(['response_id', 'question_id', 'option_id'], 'unique_answer_per_option');
         });
 
         Schema::create('awards', function (Blueprint $table) {
@@ -183,8 +228,10 @@ return new class extends Migration
         Schema::dropIfExists('award_nominations');
         Schema::dropIfExists('award_categories');
         Schema::dropIfExists('awards');
-        Schema::dropIfExists('poll_votes');
+        Schema::dropIfExists('poll_answers');
+        Schema::dropIfExists('poll_responses');
         Schema::dropIfExists('poll_options');
+        Schema::dropIfExists('poll_questions');
         Schema::dropIfExists('polls');
         Schema::dropIfExists('forum_replies');
         Schema::dropIfExists('forum_topics');

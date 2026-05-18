@@ -54,9 +54,9 @@ class UserSocialController extends Controller
         $user = $request->user();
         $limit = $request->integer('limit', 5);
 
-        // Get IDs the user already follows
+        // Get IDs the user already follows (user-type follows only)
         $followingIds = $user
-            ? UserFollow::where('follower_id', $user->id)->pluck('following_id')
+            ? UserFollow::where('follower_id', $user->id)->where('followable_type', User::class)->pluck('followable_id')
             : collect();
 
         $followingIds->push($user?->id); // Exclude self
@@ -97,15 +97,15 @@ class UserSocialController extends Controller
         }
 
         $exists = UserFollow::where('follower_id', $follower->id)
-            ->where('following_id', $user->id)
+            ->where('followable_type', User::class)
+            ->where('followable_id', $user->id)
             ->exists();
 
         if (! $exists) {
             UserFollow::create([
                 'follower_id' => $follower->id,
-                'following_id' => $user->id,
-                'following_type' => User::class,
-                'followed_at' => now(),
+                'followable_type' => User::class,
+                'followable_id' => $user->id,
             ]);
         }
 
@@ -124,7 +124,8 @@ class UserSocialController extends Controller
         $follower = $request->user();
 
         UserFollow::where('follower_id', $follower->id)
-            ->where('following_id', $user->id)
+            ->where('followable_type', User::class)
+            ->where('followable_id', $user->id)
             ->delete();
 
         return response()->json([

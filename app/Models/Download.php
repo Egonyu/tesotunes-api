@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Download extends Model
 {
@@ -37,7 +38,7 @@ class Download extends Model
     /**
      * Get the downloadable model (Song, Playlist, etc.)
      */
-    public function downloadable()
+    public function downloadable(): MorphTo
     {
         return $this->morphTo();
     }

@@ -14,109 +14,30 @@ class ISRCCode extends Model
     protected $table = 'isrc_codes';
 
     protected $fillable = [
-        'code',
-        'isrc_code',
-        'formatted_isrc',
         'song_id',
         'artist_id',
-        'album_id',
+        'code',
         'country_code',
         'registrant_code',
         'year_code',
         'designation_code',
-        'registrant_name',
-        'recording_date',
-        'recording_location',
-        'recording_details',
-        'master_ownership_percentage',
-        'publishing_ownership_percentage',
-        'rights_holders',
-        'publishing_splits',
         'status',
-        'registered_at',
-        'generated_at',
         'registration_authority',
         'registration_reference',
-        'international_registration',
-        'international_territories',
-        'international_registered_at',
-        'work_title',
-        'alternative_titles',
-        'version_info',
-        'duration_seconds',
-        'genres',
-        'primary_language',
-        'featured_artists',
-        'copyright_owner',
-        'copyright_year',
-        'phonogram_producer',
-        'phonogram_year',
         'cleared_for_distribution',
         'distribution_cleared_at',
-        'distribution_restrictions',
-        'territorial_restrictions',
+        'registered_at',
+        'is_verified',
+        'verified_at',
     ];
 
     protected $casts = [
-        'verified_at' => 'datetime',
-        'recording_date' => 'date',
-        'recording_details' => 'array',
-        'master_ownership_percentage' => 'decimal:2',
-        'publishing_ownership_percentage' => 'decimal:2',
-        'rights_holders' => 'array',
-        'publishing_splits' => 'array',
-        'registered_at' => 'datetime',
-        'international_registration' => 'boolean',
-        'international_territories' => 'array',
-        'international_registered_at' => 'datetime',
-        'alternative_titles' => 'array',
-        'duration_seconds' => 'integer',
-        'genres' => 'array',
-        'featured_artists' => 'array',
-        'copyright_year' => 'integer',
-        'phonogram_year' => 'integer',
         'cleared_for_distribution' => 'boolean',
+        'is_verified' => 'boolean',
+        'registered_at' => 'datetime',
         'distribution_cleared_at' => 'datetime',
-        'distribution_restrictions' => 'array',
-        'territorial_restrictions' => 'array',
+        'verified_at' => 'datetime',
     ];
-
-    public function getIsrcCodeAttribute($value): ?string
-    {
-        if (is_string($value) && $value !== '') {
-            return $value;
-        }
-
-        $legacyValue = $this->attributes['code'] ?? null;
-
-        return is_string($legacyValue) && $legacyValue !== '' ? $legacyValue : null;
-    }
-
-    public function setIsrcCodeAttribute($value): void
-    {
-        $normalized = is_string($value) ? trim($value) : $value;
-        $normalized = $normalized === '' ? null : $normalized;
-
-        $this->attributes['isrc_code'] = $normalized;
-        $this->attributes['code'] = $normalized;
-
-        if (empty($this->attributes['formatted_isrc'])) {
-            $this->attributes['formatted_isrc'] = $normalized;
-        }
-    }
-
-    public function setCodeAttribute($value): void
-    {
-        $normalized = is_string($value) ? trim($value) : $value;
-        $normalized = $normalized === '' ? null : $normalized;
-
-        $this->attributes['code'] = $normalized;
-        $this->attributes['isrc_code'] = $normalized;
-
-        if (empty($this->attributes['formatted_isrc'])) {
-            $this->attributes['formatted_isrc'] = $normalized;
-        }
-    }
 
     // Relationships
     public function song(): BelongsTo
@@ -127,11 +48,6 @@ class ISRCCode extends Model
     public function artist(): BelongsTo
     {
         return $this->belongsTo(Artist::class, 'artist_id');
-    }
-
-    public function album(): BelongsTo
-    {
-        return $this->belongsTo(Album::class);
     }
 
     public function publishingRights(): HasMany
@@ -147,7 +63,7 @@ class ISRCCode extends Model
     // Scopes
     public function scopeRegistered($query)
     {
-        return $query->where('status', 'registered');
+        return $query->where('status', 'active');
     }
 
     public function scopePending($query)
@@ -167,9 +83,7 @@ class ISRCCode extends Model
 
     public function scopeByYear($query, int $year)
     {
-        $yearCode = substr($year, 2, 2);
-
-        return $query->where('year_code', $yearCode);
+        return $query->where('year_code', substr($year, 2, 2));
     }
 
     public function scopeByArtist($query, int $artistId)
@@ -177,55 +91,36 @@ class ISRCCode extends Model
         return $query->where('artist_id', $artistId);
     }
 
-    public function scopeInternational($query)
-    {
-        return $query->where('international_registration', true);
-    }
-
-    // Mutators and Accessors
-    public function getCodeAttribute(): ?string
+    // Accessors
+    public function getFormattedIsrcAttribute(): ?string
     {
         if (! $this->country_code || ! $this->registrant_code || ! $this->year_code || ! $this->designation_code) {
-            return null;
+            return $this->code;
         }
 
         return $this->country_code.'-'.$this->registrant_code.'-'.$this->year_code.'-'.$this->designation_code;
-    }
-
-    public function getFormattedIsrcAttribute(): string
-    {
-        return $this->country_code.'-'.$this->registrant_code.'-'.$this->year_code.'-'.$this->designation_code;
-    }
-
-    public function getAgeInYearsAttribute(): int
-    {
-        return $this->recording_date->diffInYears(now());
     }
 
     public function getRegistrationStatusBadgeAttribute(): string
     {
         return match ($this->status) {
-            'pending' => '⏳ Pending',
-            'registered' => '✅ Registered',
-            'disputed' => '⚠️ Disputed',
-            'cancelled' => '❌ Cancelled',
-            default => '❓ Unknown'
+            'active' => 'Registered',
+            'pending' => 'Pending',
+            'disputed' => 'Disputed',
+            'inactive' => 'Inactive',
+            default => 'Unknown'
         };
     }
 
     public function getDistributionStatusBadgeAttribute(): string
     {
-        if ($this->cleared_for_distribution) {
-            return '✅ Cleared';
-        }
-
-        return '⏳ Pending Clearance';
+        return $this->cleared_for_distribution ? 'Cleared' : 'Pending Clearance';
     }
 
     // Helper Methods
     public function isRegistered(): bool
     {
-        return $this->status === 'registered';
+        return $this->status === 'active';
     }
 
     public function isPending(): bool
@@ -233,85 +128,25 @@ class ISRCCode extends Model
         return $this->status === 'pending';
     }
 
-    public function isDisputed(): bool
-    {
-        return $this->status === 'disputed';
-    }
-
     public function isClearedForDistribution(): bool
     {
         return $this->cleared_for_distribution && $this->isRegistered();
     }
 
-    public function hasInternationalRegistration(): bool
-    {
-        return $this->international_registration;
-    }
-
-    public function getTotalOwnershipPercentage(): float
-    {
-        return $this->master_ownership_percentage + $this->publishing_ownership_percentage;
-    }
-
-    public function canBeDistributedTo(string $territory): bool
-    {
-        if (! $this->isClearedForDistribution()) {
-            return false;
-        }
-
-        // Check territorial restrictions
-        if ($this->territorial_restrictions && in_array($territory, $this->territorial_restrictions)) {
-            return false;
-        }
-
-        // Check if international registration is required
-        if ($territory !== 'Uganda' && ! $this->hasInternationalRegistration()) {
-            return false;
-        }
-
-        return true;
-    }
-
     public function markAsRegistered(?string $registrationReference = null): void
     {
         $this->update([
-            'status' => 'registered',
+            'status' => 'active',
             'registered_at' => now(),
             'registration_reference' => $registrationReference,
         ]);
     }
 
-    public function clearForDistribution(array $restrictions = []): void
+    public function clearForDistribution(): void
     {
         $this->update([
             'cleared_for_distribution' => true,
             'distribution_cleared_at' => now(),
-            'distribution_restrictions' => $restrictions,
-        ]);
-    }
-
-    public function addTerritorialRestriction(string $territory): void
-    {
-        $restrictions = $this->territorial_restrictions ?? [];
-        if (! in_array($territory, $restrictions)) {
-            $restrictions[] = $territory;
-            $this->update(['territorial_restrictions' => $restrictions]);
-        }
-    }
-
-    public function removeTerritorialRestriction(string $territory): void
-    {
-        $restrictions = $this->territorial_restrictions ?? [];
-        $restrictions = array_diff($restrictions, [$territory]);
-        $this->update(['territorial_restrictions' => array_values($restrictions)]);
-    }
-
-    public function enableInternationalRegistration(array $territories = []): void
-    {
-        $this->update([
-            'international_registration' => true,
-            'international_territories' => $territories ?: ['Global'],
-            'international_registered_at' => now(),
         ]);
     }
 
@@ -320,68 +155,40 @@ class ISRCCode extends Model
     {
         $artist = $song->artist;
 
-        // Generate ISRC components using official UG-A65 prefix
-        $countryCode = config('music.isrc.country_code', 'UG'); // Uganda
-        $registrantCode = config('music.isrc.registrant_code', 'A65'); // Official prefix
-        $yearCode = substr(now()->year, 2, 2); // Current year
+        $countryCode = config('music.isrc.country_code', 'UG');
+        $registrantCode = config('music.isrc.registrant_code', 'A65');
+        $yearCode = substr(now()->year, 2, 2);
         $designationCode = self::generateDesignationCode($yearCode);
 
-        // Format: UGA6525NNNNN (12 chars) or UG-A65-25-NNNNN (with dashes)
-        $isrcCode = $countryCode.$registrantCode.$yearCode.$designationCode;
-        $formattedIsrc = $countryCode.'-'.$registrantCode.'-'.$yearCode.'-'.$designationCode;
+        $code = $countryCode.$registrantCode.$yearCode.$designationCode;
 
         return self::create([
-            'isrc_code' => $isrcCode,
-            'formatted_isrc' => $formattedIsrc,
+            'code' => $code,
             'song_id' => $song->id,
             'artist_id' => $artist->id,
-            'album_id' => $song->album_id,
             'country_code' => $countryCode,
             'registrant_code' => $registrantCode,
             'year_code' => $yearCode,
             'designation_code' => $designationCode,
-            'registrant_name' => config('music.isrc.registrant_name', 'TesoTunes'),
-            'recording_date' => $song->release_date ?? now(),
-            'work_title' => $song->title,
-            'duration_seconds' => $song->duration_seconds,
-            'primary_language' => $song->primary_language ?? 'English',
-            'copyright_owner' => $artist->stage_name,
-            'copyright_year' => $song->created_at?->year ?? now()->year,
-            'phonogram_producer' => $artist->stage_name,
-            'phonogram_year' => $song->created_at?->year ?? now()->year,
             'status' => 'pending',
-            'generated_at' => now(),
         ]);
     }
 
-    /**
-     * Generate the next available designation code for a given year
-     * Ensures unique 5-digit sequential codes per year
-     */
     private static function generateDesignationCode(string $yearCode): string
     {
-        // Get the highest designation code for this year
         $maxCode = self::where('year_code', $yearCode)
             ->where('registrant_code', config('music.isrc.registrant_code', 'A65'))
             ->max('designation_code');
 
-        if ($maxCode) {
-            $nextNumber = intval($maxCode) + 1;
-        } else {
-            $nextNumber = 1;
-        }
+        $nextNumber = $maxCode ? intval($maxCode) + 1 : 1;
 
         return str_pad($nextNumber, 5, '0', STR_PAD_LEFT);
     }
 
-    /**
-     * Generate a human-readable formatted ISRC
-     * Example: UG-A65-26-00001
-     */
     public static function formatForDisplay(string $isrc): string
     {
         $clean = str_replace('-', '', strtoupper($isrc));
-        if (strlen($clean) !== 12) {
+        if (strlen($clean) < 12) {
             return $isrc;
         }
 
@@ -391,9 +198,11 @@ class ISRCCode extends Model
                substr($clean, 7, 5);
     }
 
-    /**
-     * Get ISRC statistics for reporting
-     */
+    public static function validateISRCFormat(string $isrc): bool
+    {
+        return preg_match('/^[A-Z]{2}[A-Z0-9]{3}[0-9]{2}[0-9]{5}$/', $isrc) === 1;
+    }
+
     public static function getStatistics(): array
     {
         $currentYear = substr(now()->year, 2, 2);
@@ -401,47 +210,11 @@ class ISRCCode extends Model
         return [
             'total_codes' => self::count(),
             'codes_this_year' => self::where('year_code', $currentYear)->count(),
-            'registered_codes' => self::where('status', 'registered')->count(),
+            'registered_codes' => self::where('status', 'active')->count(),
             'pending_codes' => self::where('status', 'pending')->count(),
             'cleared_for_distribution' => self::where('cleared_for_distribution', true)->count(),
             'next_designation_code' => self::generateDesignationCode($currentYear),
             'prefix' => config('music.isrc.country_code').'-'.config('music.isrc.registrant_code'),
         ];
-    }
-
-    public static function validateISRCFormat(string $isrc): bool
-    {
-        // ISRC format: CCXXXYYNNNNN (12 characters total, no dashes)
-        return preg_match('/^[A-Z]{2}[A-Z0-9]{3}[0-9]{2}[0-9]{5}$/', $isrc);
-    }
-
-    public static function parseISRC(string $isrc): array
-    {
-        $clean = str_replace('-', '', strtoupper($isrc));
-
-        if (! self::validateISRCFormat($clean)) {
-            throw new \InvalidArgumentException('Invalid ISRC format');
-        }
-
-        return [
-            'country_code' => substr($clean, 0, 2),
-            'registrant_code' => substr($clean, 2, 3),
-            'year_code' => substr($clean, 5, 2),
-            'designation_code' => substr($clean, 7, 5),
-            'full_year' => '20'.substr($clean, 5, 2),
-        ];
-    }
-
-    public static function generateBatch(array $songIds): array
-    {
-        $codes = [];
-        foreach ($songIds as $songId) {
-            $song = Song::find($songId);
-            if ($song) {
-                $codes[] = self::generateForSong($song);
-            }
-        }
-
-        return $codes;
     }
 }

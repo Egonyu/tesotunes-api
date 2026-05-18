@@ -31,8 +31,8 @@ class SimpleArtistController extends Controller
 
             // Check if already following using direct UserFollow model
             $existingFollow = UserFollow::where('follower_id', $user->id)
-                ->where('following_id', $artist->user_id)
-                ->where('following_type', 'artist')
+                ->where('followable_type', Artist::class)
+                ->where('followable_id', $artist->id)
                 ->first();
 
             if ($existingFollow) {
@@ -45,8 +45,8 @@ class SimpleArtistController extends Controller
             // Create follow relationship
             UserFollow::create([
                 'follower_id' => $user->id,
-                'following_id' => $artist->user_id,
-                'following_type' => 'artist',
+                'followable_type' => Artist::class,
+                'followable_id' => $artist->id,
             ]);
 
             // Update artist follower count
@@ -95,8 +95,8 @@ class SimpleArtistController extends Controller
             }
 
             $deleted = UserFollow::where('follower_id', $user->id)
-                ->where('following_id', $artist->user_id)
-                ->where('following_type', 'artist')
+                ->where('followable_type', Artist::class)
+                ->where('followable_id', $artist->id)
                 ->delete();
 
             if ($deleted) {

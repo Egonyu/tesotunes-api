@@ -58,7 +58,7 @@ class PlaylistController extends Controller
         $sortOrder = $request->get('sort_order', 'desc');
 
         match ($sortBy) {
-            'popularity' => $query->orderBy('follower_count', $sortOrder),
+            'popularity' => $query->orderBy('followers_count', $sortOrder),
             'songs' => $query->orderBy('songs_count', $sortOrder),
             default => $query->orderBy($sortBy, $sortOrder),
         };
@@ -83,7 +83,7 @@ class PlaylistController extends Controller
             ->where('is_featured', true)
             ->where('visibility', 'public')
             ->withCount('songs')
-            ->orderByDesc('follower_count')
+            ->orderByDesc('followers_count')
             ->limit($request->integer('limit', 10))
             ->get();
 
@@ -433,23 +433,22 @@ class PlaylistController extends Controller
 
         if ($existing) {
             $existing->delete();
-            $playlist->decrement('follower_count');
+            $playlist->decrement('followers_count');
             $following = false;
         } else {
             Follow::create([
                 'follower_id' => $user->id,
-                'following_id' => $playlist->user_id,
                 'followable_type' => Playlist::class,
                 'followable_id' => $playlist->id,
             ]);
-            $playlist->increment('follower_count');
+            $playlist->increment('followers_count');
             $following = true;
         }
 
         return response()->json([
             'data' => [
                 'is_following' => $following,
-                'follower_count' => $playlist->fresh()->follower_count,
+                'follower_count' => $playlist->fresh()->followers_count,
             ],
         ]);
     }
@@ -468,7 +467,7 @@ class PlaylistController extends Controller
             'success' => true,
             'data' => [
                 'is_following' => $isFollowing,
-                'followers_count' => (int) $playlist->follower_count,
+                'followers_count' => (int) $playlist->followers_count,
             ],
         ]);
     }

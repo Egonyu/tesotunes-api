@@ -40,7 +40,7 @@ trait HasDistributionStatus
     public function isReadyForDistribution(): bool
     {
         return $this->distribution_status === 'approved'
-            && $this->isrc_code
+            && $this->isrc
             && $this->audio_quality_score >= 7
             && $this->file_size_bytes > 0;
     }
@@ -49,7 +49,7 @@ trait HasDistributionStatus
     {
         return $this->status === 'published'
             && $this->distribution_status === 'approved'
-            && $this->isrc_code !== null;
+            && $this->isrc !== null;
     }
 
     /**

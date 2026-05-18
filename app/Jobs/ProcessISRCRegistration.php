@@ -3,7 +3,6 @@
 namespace App\Jobs;
 
 use App\Models\ISRCCode;
-use App\Models\Song;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -16,9 +15,9 @@ class ProcessISRCRegistration implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public $timeout = 300; // 5 minutes
+    public int $timeout = 300;
 
-    public $tries = 3;
+    public int $tries = 3;
 
     public function __construct(
         public ISRCCode $isrcCode
@@ -27,27 +26,21 @@ class ProcessISRCRegistration implements ShouldQueue
     public function handle(): void
     {
         try {
-            Log::info("Processing ISRC registration for code: {$this->isrcCode->isrc_code}");
+            Log::info("Processing ISRC registration for code: {$this->isrcCode->code}");
 
-            // Validate ISRC code format
-            if (! ISRCCode::validateISRCFormat($this->isrcCode->isrc_code)) {
-                throw new \Exception("Invalid ISRC format: {$this->isrcCode->isrc_code}");
+            if (! ISRCCode::validateISRCFormat($this->isrcCode->code)) {
+                throw new \Exception("Invalid ISRC format: {$this->isrcCode->code}");
             }
 
-            // Check if already registered
             if ($this->isrcCode->isRegistered()) {
-                Log::info("ISRC code already registered: {$this->isrcCode->isrc_code}");
+                Log::info("ISRC code already registered: {$this->isrcCode->code}");
 
                 return;
             }
 
-            // Prepare registration data
             $registrationData = $this->prepareRegistrationData();
-
-            // Submit to Uganda Music Rights Organization (UMRO)
             $registrationResult = $this->submitToUMRO($registrationData);
 
-            // Process registration response
             if ($registrationResult['success']) {
                 $this->handleSuccessfulRegistration($registrationResult);
                 $this->checkInternationalRegistration();
@@ -56,12 +49,9 @@ class ProcessISRCRegistration implements ShouldQueue
             }
 
         } catch (\Exception $e) {
-            Log::error("ISRC registration failed for {$this->isrcCode->isrc_code}: ".$e->getMessage());
+            Log::error("ISRC registration failed for {$this->isrcCode->code}: ".$e->getMessage());
 
-            $this->isrcCode->update([
-                'status' => 'disputed',
-                'notes' => 'Registration failed: '.$e->getMessage(),
-            ]);
+            $this->isrcCode->update(['status' => 'disputed']);
 
             throw $e;
         }
@@ -73,28 +63,18 @@ class ProcessISRCRegistration implements ShouldQueue
         $artist = $this->isrcCode->artist;
 
         return [
-            'isrc_code' => $this->isrcCode->isrc_code,
-            'work_title' => $this->isrcCode->work_title,
-            'artist_name' => $artist->name,
-            'duration_seconds' => $this->isrcCode->duration_seconds,
-            'recording_date' => $this->isrcCode->recording_date->toDateString(),
-            'recording_location' => $this->isrcCode->recording_location,
-            'primary_language' => $this->isrcCode->primary_language,
-            'genres' => $this->isrcCode->genres,
-            'copyright_owner' => $this->isrcCode->copyright_owner,
-            'copyright_year' => $this->isrcCode->copyright_year,
-            'phonogram_producer' => $this->isrcCode->phonogram_producer,
-            'phonogram_year' => $this->isrcCode->phonogram_year,
-            'registrant_name' => $this->isrcCode->registrant_name,
+            'isrc_code' => $this->isrcCode->code,
+            'work_title' => $song?->title,
+            'artist_name' => $artist?->name,
+            'duration_seconds' => $song?->duration_seconds,
+            'primary_language' => $song?->primary_language,
+            'copyright_holder' => $song?->copyright_holder,
+            'copyright_year' => $song?->copyright_year,
+            'registrant_name' => config('music.isrc.registrant_name', 'TesoTunes'),
             'registrant_contact' => [
-                'email' => $artist->user->email,
-                'phone' => $artist->user->phone,
-                'address' => $artist->address,
+                'email' => $artist?->user?->email,
+                'phone' => $artist?->user?->phone,
             ],
-            'alternative_titles' => $this->isrcCode->alternative_titles,
-            'featured_artists' => $this->isrcCode->featured_artists,
-            'version_info' => $this->isrcCode->version_info,
-            'recording_details' => $this->isrcCode->recording_details,
         ];
     }
 
@@ -104,40 +84,35 @@ class ProcessISRCRegistration implements ShouldQueue
             $umroApiUrl = config('services.umro.api_url');
             $apiKey = config('services.umro.api_key');
 
-            // Use real API when credentials are configured
             if ($umroApiUrl && $apiKey && $apiKey !== 'demo_key') {
                 $response = Http::withHeaders([
                     'Authorization' => "Bearer {$apiKey}",
                     'Content-Type' => 'application/json',
                 ])->timeout(30)->post($umroApiUrl, $data);
 
-                if ($response->successful()) {
-                    $result = [
+                $result = $response->successful()
+                    ? [
                         'success' => true,
                         'registration_reference' => $response->json('reference_number'),
                         'registration_date' => $response->json('registration_date'),
                         'certificate_url' => $response->json('certificate_url'),
-                    ];
-                } else {
-                    $result = [
+                    ]
+                    : [
                         'success' => false,
                         'error' => $response->json('error', 'Registration failed'),
                         'error_code' => $response->status(),
                     ];
-                }
 
                 Log::info('UMRO registration response', $result);
 
                 return $result;
             }
 
-            // Fall back to simulation in development / when API not configured
             Log::warning('UMRO API not configured — using simulated response');
-            $simulatedResponse = $this->simulateUMROResponse($data);
+            $simulated = $this->simulateUMROResponse();
+            Log::info('UMRO registration response (simulated)', $simulated);
 
-            Log::info('UMRO registration response (simulated)', $simulatedResponse);
-
-            return $simulatedResponse;
+            return $simulated;
 
         } catch (\Exception $e) {
             return [
@@ -148,53 +123,29 @@ class ProcessISRCRegistration implements ShouldQueue
         }
     }
 
-    private function simulateUMROResponse(array $data): array
+    private function simulateUMROResponse(): array
     {
-        // Simulate various response scenarios for testing
-        $scenarios = ['success', 'duplicate', 'invalid_data'];
-        $scenario = $scenarios[array_rand($scenarios)];
-
-        // Force success for demo purposes
-        $scenario = 'success';
-
-        return match ($scenario) {
-            'success' => [
-                'success' => true,
-                'registration_reference' => 'UMRO-'.date('Y').'-'.str_pad(rand(1, 999999), 6, '0', STR_PAD_LEFT),
-                'registration_date' => now()->toDateString(),
-                'certificate_url' => 'https://certificates.umro.ug/'.$this->isrcCode->isrc_code.'.pdf',
-                'validity_period' => 'Perpetual',
-                'territorial_scope' => ['Uganda'],
-            ],
-            'duplicate' => [
-                'success' => false,
-                'error' => 'ISRC code already registered',
-                'error_code' => 'DUPLICATE_ISRC',
-                'existing_registration' => 'UMRO-2024-123456',
-            ],
-            'invalid_data' => [
-                'success' => false,
-                'error' => 'Invalid registration data provided',
-                'error_code' => 'VALIDATION_ERROR',
-                'validation_errors' => [
-                    'work_title' => 'Work title is required',
-                    'recording_date' => 'Recording date must be in the past',
-                ],
-            ],
-        };
+        return [
+            'success' => true,
+            'registration_reference' => 'UMRO-'.date('Y').'-'.str_pad(rand(1, 999999), 6, '0', STR_PAD_LEFT),
+            'registration_date' => now()->toDateString(),
+            'certificate_url' => 'https://certificates.umro.ug/'.$this->isrcCode->code.'.pdf',
+            'validity_period' => 'Perpetual',
+            'territorial_scope' => ['Uganda'],
+        ];
     }
 
     private function handleSuccessfulRegistration(array $result): void
     {
         $this->isrcCode->update([
-            'status' => 'registered',
+            'status' => 'active',
             'registered_at' => now(),
             'registration_reference' => $result['registration_reference'],
             'registration_authority' => 'Uganda Music Rights Organization',
         ]);
 
         Log::info('ISRC code successfully registered', [
-            'isrc_code' => $this->isrcCode->isrc_code,
+            'isrc_code' => $this->isrcCode->code,
             'reference' => $result['registration_reference'],
         ]);
     }
@@ -207,13 +158,10 @@ class ProcessISRCRegistration implements ShouldQueue
             default => 'disputed'
         };
 
-        $this->isrcCode->update([
-            'status' => $status,
-            'notes' => "Registration failed: {$result['error']}",
-        ]);
+        $this->isrcCode->update(['status' => $status]);
 
         Log::warning('ISRC registration failed', [
-            'isrc_code' => $this->isrcCode->isrc_code,
+            'isrc_code' => $this->isrcCode->code,
             'error' => $result['error'],
             'error_code' => $result['error_code'],
         ]);
@@ -221,15 +169,12 @@ class ProcessISRCRegistration implements ShouldQueue
 
     private function checkInternationalRegistration(): void
     {
-        // Check if international registration is needed
         $song = $this->isrcCode->song;
 
-        // If song is intended for international distribution
-        if ($song->distribution_territories &&
-            (in_array('Global', $song->distribution_territories) ||
-             count(array_diff($song->distribution_territories, ['Uganda'])) > 0)) {
+        $platforms = $song?->distribution_platforms ?? [];
+        $internationalPlatforms = array_diff($platforms, ['boomplay', 'audiomack']);
 
-            // Queue international registration
+        if (! empty($internationalPlatforms)) {
             ProcessInternationalISRCRegistration::dispatch($this->isrcCode)
                 ->delay(now()->addMinutes(5));
         }
@@ -237,15 +182,12 @@ class ProcessISRCRegistration implements ShouldQueue
 
     public function failed(\Throwable $exception): void
     {
-        Log::error("ProcessISRCRegistration job failed for ISRC {$this->isrcCode->isrc_code}", [
+        Log::error("ProcessISRCRegistration job failed for ISRC {$this->isrcCode->code}", [
             'exception' => $exception->getMessage(),
             'trace' => $exception->getTraceAsString(),
         ]);
 
-        $this->isrcCode->update([
-            'status' => 'disputed',
-            'notes' => 'Registration job failed: '.$exception->getMessage(),
-        ]);
+        $this->isrcCode->update(['status' => 'disputed']);
     }
 }
 
@@ -253,9 +195,9 @@ class ProcessInternationalISRCRegistration implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public $timeout = 600; // 10 minutes
+    public int $timeout = 600;
 
-    public $tries = 2;
+    public int $tries = 2;
 
     public function __construct(
         public ISRCCode $isrcCode
@@ -264,37 +206,34 @@ class ProcessInternationalISRCRegistration implements ShouldQueue
     public function handle(): void
     {
         try {
-            Log::info("Processing international ISRC registration for code: {$this->isrcCode->isrc_code}");
+            Log::info("Processing international ISRC registration for code: {$this->isrcCode->code}");
 
             if (! $this->isrcCode->isRegistered()) {
                 throw new \Exception('ISRC must be domestically registered before international registration');
             }
 
-            // Submit to international registries (IFPI, etc.)
             $internationalResult = $this->submitToInternationalRegistries();
 
             if ($internationalResult['success']) {
                 $this->isrcCode->update([
-                    'international_registration' => true,
-                    'international_registered_at' => now(),
-                    'international_territories' => $internationalResult['territories'],
+                    'cleared_for_distribution' => true,
+                    'distribution_cleared_at' => now(),
                 ]);
 
                 Log::info('International ISRC registration successful', [
-                    'isrc_code' => $this->isrcCode->isrc_code,
+                    'isrc_code' => $this->isrcCode->code,
                     'territories' => $internationalResult['territories'],
                 ]);
             }
 
         } catch (\Exception $e) {
-            Log::error("International ISRC registration failed for {$this->isrcCode->isrc_code}: ".$e->getMessage());
+            Log::error("International ISRC registration failed for {$this->isrcCode->code}: ".$e->getMessage());
             throw $e;
         }
     }
 
     private function submitToInternationalRegistries(): array
     {
-        // Simulate international registration
         return [
             'success' => true,
             'territories' => ['Global'],
@@ -305,7 +244,7 @@ class ProcessInternationalISRCRegistration implements ShouldQueue
 
     public function failed(\Throwable $exception): void
     {
-        Log::error("ProcessInternationalISRCRegistration job failed for ISRC {$this->isrcCode->isrc_code}", [
+        Log::error("ProcessInternationalISRCRegistration job failed for ISRC {$this->isrcCode->code}", [
             'exception' => $exception->getMessage(),
         ]);
     }

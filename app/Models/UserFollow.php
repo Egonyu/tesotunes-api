@@ -8,14 +8,10 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class UserFollow extends Model
 {
-    public $timestamps = false;
-
     protected $fillable = [
         'follower_id',
-        'following_id',
         'followable_id',
         'followable_type',
-        'artist_id',
     ];
 
     /**

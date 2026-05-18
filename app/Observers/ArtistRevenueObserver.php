@@ -172,7 +172,8 @@ class ArtistRevenueObserver
             if ($difference > 0.01) {
                 Log::channel('audit')->warning('Revenue calculation mismatch', [
                     'artist_id' => $revenue->artist_id,
-                    'song_id' => $revenue->song_id,
+                    'sourceable_type' => $revenue->sourceable_type,
+                    'sourceable_id' => $revenue->sourceable_id,
                     'gross_amount' => $revenue->gross_amount,
                     'platform_fee' => $revenue->platform_fee,
                     'distribution_fee' => $revenue->distribution_fee,
@@ -189,7 +190,8 @@ class ArtistRevenueObserver
             ($revenue->artist_share_percentage < 0 || $revenue->artist_share_percentage > 100)) {
             Log::channel('audit')->error('Invalid artist share percentage', [
                 'artist_id' => $revenue->artist_id,
-                'song_id' => $revenue->song_id,
+                'sourceable_type' => $revenue->sourceable_type,
+                'sourceable_id' => $revenue->sourceable_id,
                 'artist_share_percentage' => $revenue->artist_share_percentage,
                 'timestamp' => now()->toDateTimeString(),
             ]);
@@ -202,7 +204,8 @@ class ArtistRevenueObserver
             if (abs($totalSplit - 100) > 0.01) {
                 Log::channel('audit')->warning('Revenue splits do not sum to 100%', [
                     'artist_id' => $revenue->artist_id,
-                    'song_id' => $revenue->song_id,
+                    'sourceable_type' => $revenue->sourceable_type,
+                    'sourceable_id' => $revenue->sourceable_id,
                     'total_split_percentage' => $totalSplit,
                     'splits' => $revenue->revenue_splits,
                     'timestamp' => now()->toDateTimeString(),

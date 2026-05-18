@@ -43,7 +43,7 @@ class SongResource extends JsonResource
 
             // Metadata
             'status' => $this->status,
-            'isrc' => $this->isrc_code,
+            'isrc' => $this->isrc,
             'isrc_assignment' => $this->when(
                 method_exists($this->resource, 'getIsrcAssignmentSummary'),
                 fn () => $this->resource->getIsrcAssignmentSummary()

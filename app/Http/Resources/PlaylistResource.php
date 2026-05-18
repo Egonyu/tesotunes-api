@@ -34,7 +34,7 @@ class PlaylistResource extends JsonResource
             'song_count' => (int) ($this->song_count ?? $this->songs_count ?? 0),
             'total_duration_seconds' => (int) ($this->total_duration_seconds ?? 0),
             'play_count' => (int) ($this->play_count ?? 0),
-            'follower_count' => (int) ($this->follower_count ?? 0),
+            'follower_count' => (int) ($this->followers_count ?? 0),
 
             // Owner
             'owner' => $this->when($this->relationLoaded('owner') || $this->relationLoaded('user'), function () {

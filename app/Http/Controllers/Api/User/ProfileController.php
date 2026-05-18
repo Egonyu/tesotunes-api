@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\PlaylistResource;
 use App\Http\Resources\SongResource;
 use App\Http\Resources\UserResource;
+use App\Models\Artist;
 use App\Models\User;
 use Illuminate\Http\Request;
 
@@ -115,12 +116,10 @@ class ProfileController extends Controller
             ->values();
 
         // Followed artists
-        $followedArtists = $user->followedArtists()
-            ->with('artist')
+        $followedArtistIds = $user->followedArtistIds();
+        $followedArtists = Artist::whereIn('id', $followedArtistIds)
             ->limit(20)
-            ->get()
-            ->filter(fn ($u) => $u->artist)
-            ->values();
+            ->get();
 
         return response()->json([
             'data' => [
@@ -128,18 +127,18 @@ class ProfileController extends Controller
                 'playlists' => PlaylistResource::collection($playlists),
                 'recent_plays' => SongResource::collection($recentPlays),
                 'downloads' => SongResource::collection($downloads),
-                'followed_artists' => $followedArtists->map(fn ($u) => [
-                    'id' => $u->artist->id,
-                    'name' => $u->artist->stage_name ?? $u->name,
-                    'slug' => $u->artist->slug,
-                    'avatar_url' => $u->avatar ? url('storage/'.$u->avatar) : null,
-                    'is_verified' => (bool) $u->artist->is_verified,
+                'followed_artists' => $followedArtists->map(fn ($artist) => [
+                    'id' => $artist->id,
+                    'name' => $artist->stage_name,
+                    'slug' => $artist->slug,
+                    'avatar_url' => $artist->avatar_url,
+                    'is_verified' => (bool) $artist->is_verified,
                 ]),
                 'counts' => [
                     'liked_songs' => $user->likes()->forType(\App\Models\Song::class)->count(),
                     'playlists' => $user->playlists()->count(),
                     'downloads' => $user->downloads()->count(),
-                    'followed_artists' => $user->followedArtists()->count(),
+                    'followed_artists' => count($followedArtistIds),
                 ],
             ],
         ]);

@@ -90,7 +90,8 @@ class HomepageApiTest extends TestCase
 
         UserFollow::query()->create([
             'follower_id' => $listener->id,
-            'following_id' => $followedArtistOwner->id,
+            'followable_type' => Artist::class,
+            'followable_id' => $followedArtist->id,
         ]);
 
         $response = $this->actingAs($listener)->getJson('/api/homepage');

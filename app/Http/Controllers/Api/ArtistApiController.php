@@ -403,7 +403,7 @@ class ArtistApiController extends Controller
                 'price' => $song->price,
                 'is_free' => (bool) $song->is_free,
                 'is_downloadable' => (bool) $song->is_downloadable,
-                'isrc' => $song->isrc_code,
+                'isrc' => $song->isrc,
                 'isrc_assignment' => $song->getIsrcAssignmentSummary(),
                 'featured_artists' => is_array($song->featured_artists)
                     ? implode(', ', array_filter($song->featured_artists))
@@ -1607,13 +1607,13 @@ class ArtistApiController extends Controller
                 ],
                 'earnings_sources' => $sources,
                 'payout_limits' => [
-                    'min_amount'    => config('payments.payout.min_amount',  50000),
-                    'max_single'    => config('payments.payout.max_single', 5000000),
-                    'max_daily'     => config('payments.payout.max_daily', 10000000),
-                    'fee_rates'     => config('payments.payout.fees', [
-                        'mobile_money'  => 1.5,
+                    'min_amount' => config('payments.payout.min_amount', 50000),
+                    'max_single' => config('payments.payout.max_single', 5000000),
+                    'max_daily' => config('payments.payout.max_daily', 10000000),
+                    'fee_rates' => config('payments.payout.fees', [
+                        'mobile_money' => 1.5,
                         'bank_transfer' => 0.5,
-                        'paypal'        => 2.0,
+                        'paypal' => 2.0,
                     ]),
                 ],
                 'streaming_configuration' => app(StreamingRateService::class)->getStreamingConfigurationSummary(),
@@ -1636,31 +1636,31 @@ class ArtistApiController extends Controller
 
         $status = $request->query('status');
         $filters = array_filter([
-            'status'     => $status,
+            'status' => $status,
             'start_date' => $request->query('start_date'),
-            'end_date'   => $request->query('end_date'),
+            'end_date' => $request->query('end_date'),
         ]);
 
         $payouts = app(PayoutService::class)->getArtistPayoutHistory($artist, $filters);
 
         return response()->json([
             'success' => true,
-            'data'    => $payouts->map(fn ($p) => [
-                'id'             => $p->id,
+            'data' => $payouts->map(fn ($p) => [
+                'id' => $p->id,
                 'transaction_id' => $p->transaction_id,
-                'amount'         => $p->amount,
-                'fee_amount'     => $p->fee_amount,
-                'net_amount'     => $p->net_amount,
-                'currency'       => $p->currency,
-                'status'         => $p->status,
-                'payout_method'  => $p->payout_method,
+                'amount' => $p->amount,
+                'fee_amount' => $p->fee_amount,
+                'net_amount' => $p->net_amount,
+                'currency' => $p->currency,
+                'status' => $p->status,
+                'payout_method' => $p->payout_method,
                 'failure_reason' => $p->failure_reason,
-                'notes'          => $p->notes,
-                'approved_at'         => $p->approved_at?->toDateTimeString(),
+                'notes' => $p->notes,
+                'approved_at' => $p->approved_at?->toDateTimeString(),
                 'processing_started_at' => $p->processing_started_at?->toDateTimeString(),
-                'completed_at'        => $p->completed_at?->toDateTimeString(),
-                'failed_at'           => $p->failed_at?->toDateTimeString(),
-                'created_at'          => $p->created_at->toDateTimeString(),
+                'completed_at' => $p->completed_at?->toDateTimeString(),
+                'failed_at' => $p->failed_at?->toDateTimeString(),
+                'created_at' => $p->created_at->toDateTimeString(),
             ]),
         ]);
     }

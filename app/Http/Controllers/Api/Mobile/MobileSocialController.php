@@ -22,9 +22,10 @@ class MobileSocialController extends Controller
     {
         $user = $request->user();
 
-        // Get posts from followed users + own posts
+        // Get posts from followed users + own posts (user-type follows only)
         $followingIds = UserFollow::where('follower_id', $user->id)
-            ->pluck('following_id')
+            ->where('followable_type', \App\Models\User::class)
+            ->pluck('followable_id')
             ->toArray();
 
         $followingIds[] = $user->id; // Include own posts

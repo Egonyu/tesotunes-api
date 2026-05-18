@@ -18,38 +18,28 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_song_isrc_code_falls_back_to_legacy_isrc_column(): void
+    public function test_song_isrc_column_stores_and_retrieves_value(): void
     {
-        $song = Song::factory()->create([
-            'isrc_code' => null,
-        ]);
+        $song = Song::factory()->create(['isrc' => null]);
 
         DB::table('songs')
             ->where('id', $song->id)
-            ->update([
-                'isrc' => 'UG-MUS-26-00001',
-                'isrc_code' => null,
-            ]);
+            ->update(['isrc' => 'UG-MUS-26-00001']);
 
         $song->refresh();
 
-        $this->assertSame('UG-MUS-26-00001', $song->isrc_code);
+        $this->assertSame('UG-MUS-26-00001', $song->isrc);
     }
 
-    public function test_setting_isrc_code_keeps_legacy_song_column_in_sync(): void
+    public function test_song_isrc_can_be_updated_via_eloquent(): void
     {
-        $song = Song::factory()->create([
-            'isrc' => null,
-            'isrc_code' => null,
-        ]);
+        $song = Song::factory()->create(['isrc' => null]);
 
-        $song->update([
-            'isrc_code' => 'UG-MUS-26-00002',
-        ]);
+        $song->update(['isrc' => 'UG-MUS-26-00002']);
 
         $song->refresh();
 
-        $this->assertSame('UG-MUS-26-00002', $song->isrc_code);
+        $this->assertSame('UG-MUS-26-00002', $song->isrc);
         $this->assertSame('UG-MUS-26-00002', $song->getRawOriginal('isrc'));
     }
 
@@ -107,10 +97,7 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
 
     public function test_isrc_service_registers_codes_using_normalized_schema(): void
     {
-        $song = Song::factory()->create([
-            'isrc' => null,
-            'isrc_code' => null,
-        ]);
+        $song = Song::factory()->create(['isrc' => null]);
         $song->forceFill([
             'status' => 'published',
             'distribution_status' => 'approved',
@@ -119,10 +106,10 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
 
         $isrcCode = app(ISRCService::class)->generate($song);
 
-        $record = ISRCCode::query()->where('isrc_code', $isrcCode)->first();
+        $record = ISRCCode::query()->where('code', $isrcCode)->first();
 
         $this->assertNotNull($record);
-        $this->assertSame($isrcCode, $record->isrc_code);
+        $this->assertSame($isrcCode, $record->code);
         $this->assertSame($isrcCode, $record->getRawOriginal('code'));
         $this->assertSame('pending', $record->status);
         $this->assertSame($song->id, $record->song_id);
@@ -134,7 +121,7 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
         $song = Song::factory()->create([
             'duration_seconds' => 245,
             'audio_file_original' => 'songs/audio/test-track.mp3',
-            'isrc_code' => null,
+            'isrc' => null,
         ]);
         $song->forceFill([
             'status' => 'draft',
@@ -151,7 +138,7 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
         $song = Song::factory()->create([
             'duration_seconds' => 245,
             'audio_file_original' => 'songs/audio/test-track.mp3',
-            'isrc_code' => null,
+            'isrc' => null,
         ]);
         $song->forceFill([
             'status' => 'published',
@@ -167,7 +154,7 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
         $song = Song::factory()->create([
             'duration_seconds' => 245,
             'audio_file_original' => 'songs/audio/test-track.mp3',
-            'isrc_code' => null,
+            'isrc' => null,
         ]);
         $song->forceFill([
             'status' => 'draft',
@@ -188,7 +175,7 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
         Sanctum::actingAs($admin);
 
         $song = Song::factory()->create([
-            'isrc_code' => null,
+            'isrc' => null,
             'audio_file_original' => 'songs/audio/test-track.mp3',
             'duration_seconds' => 245,
             'status' => 'published',
@@ -203,7 +190,7 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
 
         $song->refresh();
 
-        $this->assertNotNull($song->isrc_code);
+        $this->assertNotNull($song->isrc);
     }
 
     public function test_ineligible_song_returns_blockers_from_generate_isrc_endpoint(): void
@@ -213,7 +200,7 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
 
         $song = Song::factory()->create([
             'user_id' => $owner->id,
-            'isrc_code' => null,
+            'isrc' => null,
             'audio_file_original' => null,
             'duration_seconds' => 0,
             'status' => 'draft',
@@ -236,7 +223,7 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
         Sanctum::actingAs($admin);
 
         $song = Song::factory()->create([
-            'isrc_code' => null,
+            'isrc' => null,
             'audio_file_original' => 'songs/audio/test-track.mp3',
             'duration_seconds' => 245,
             'status' => 'pending',
@@ -263,7 +250,7 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
         $this->assertNotNull($song->approved_at);
         $this->assertNotNull($song->published_at);
         // ISRC auto-generation is disabled (music.isrc.auto_generate defaults false)
-        $this->assertNull($song->isrc_code);
+        $this->assertNull($song->isrc);
     }
 
     public function test_audio_metadata_service_inspection_reports_missing_source_reason(): void
@@ -332,7 +319,7 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
         $firstSong = Song::factory()->create([
             'album_id' => $album->id,
             'artist_id' => $album->artist_id,
-            'isrc_code' => null,
+            'isrc' => null,
             'audio_file_original' => 'songs/audio/album-track-1.mp3',
             'duration_seconds' => 200,
             'status' => 'published',
@@ -343,7 +330,7 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
         $secondSong = Song::factory()->create([
             'album_id' => $album->id,
             'artist_id' => $album->artist_id,
-            'isrc_code' => null,
+            'isrc' => null,
             'audio_file_original' => 'songs/audio/album-track-2.mp3',
             'duration_seconds' => 240,
             'status' => 'published',
@@ -362,10 +349,10 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
         $firstSong->refresh();
         $secondSong->refresh();
 
-        $this->assertNotNull($firstSong->isrc_code);
-        $this->assertNotNull($secondSong->isrc_code);
-        $this->assertDatabaseHas('isrc_codes', ['song_id' => $firstSong->id, 'isrc_code' => $firstSong->isrc_code]);
-        $this->assertDatabaseHas('isrc_codes', ['song_id' => $secondSong->id, 'isrc_code' => $secondSong->isrc_code]);
+        $this->assertNotNull($firstSong->isrc);
+        $this->assertNotNull($secondSong->isrc);
+        $this->assertDatabaseHas('isrc_codes', ['song_id' => $firstSong->id, 'code' => $firstSong->isrc]);
+        $this->assertDatabaseHas('isrc_codes', ['song_id' => $secondSong->id, 'code' => $secondSong->isrc]);
     }
 
     public function test_bulk_isrc_operation_persists_codes_onto_songs(): void
@@ -375,7 +362,7 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
         Sanctum::actingAs($admin);
 
         $firstSong = Song::factory()->create([
-            'isrc_code' => null,
+            'isrc' => null,
             'audio_file_original' => 'songs/audio/bulk-track-1.mp3',
             'duration_seconds' => 181,
             'status' => 'published',
@@ -384,7 +371,7 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
         ]);
 
         $secondSong = Song::factory()->create([
-            'isrc_code' => null,
+            'isrc' => null,
             'audio_file_original' => 'songs/audio/bulk-track-2.mp3',
             'duration_seconds' => 207,
             'status' => 'published',
@@ -406,10 +393,10 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
         $firstSong->refresh();
         $secondSong->refresh();
 
-        $this->assertNotNull($firstSong->isrc_code);
-        $this->assertNotNull($secondSong->isrc_code);
-        $this->assertDatabaseHas('isrc_codes', ['song_id' => $firstSong->id, 'isrc_code' => $firstSong->isrc_code]);
-        $this->assertDatabaseHas('isrc_codes', ['song_id' => $secondSong->id, 'isrc_code' => $secondSong->isrc_code]);
+        $this->assertNotNull($firstSong->isrc);
+        $this->assertNotNull($secondSong->isrc);
+        $this->assertDatabaseHas('isrc_codes', ['song_id' => $firstSong->id, 'code' => $firstSong->isrc]);
+        $this->assertDatabaseHas('isrc_codes', ['song_id' => $secondSong->id, 'code' => $secondSong->isrc]);
     }
 
     public function test_song_audio_quality_helpers_use_audio_quality_score(): void
@@ -441,7 +428,7 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
             'published_at' => null,
             'audio_file_original' => 'songs/audio/sync-approve.mp3',
             'duration_seconds' => 215,
-            'isrc_code' => null,
+            'isrc' => null,
         ]);
 
         $approvedSong->approve($admin, 'Approved for release');
@@ -479,7 +466,7 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
             'published_at' => null,
             'audio_file_original' => 'songs/audio/no-auto-isrc.mp3',
             'duration_seconds' => 199,
-            'isrc_code' => null,
+            'isrc' => null,
         ]);
 
         $song->approve($admin, 'Approved with auto-generate disabled');
@@ -487,7 +474,7 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
 
         $this->assertSame('published', $song->status);
         $this->assertSame('approved', $song->distribution_status);
-        $this->assertNull($song->isrc_code);
+        $this->assertNull($song->isrc);
     }
 
     public function test_song_approve_auto_assigns_isrc_when_auto_generate_is_enabled(): void
@@ -503,7 +490,7 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
             'published_at' => null,
             'audio_file_original' => 'songs/audio/auto-isrc.mp3',
             'duration_seconds' => 211,
-            'isrc_code' => null,
+            'isrc' => null,
         ]);
 
         $song->approve($admin, 'Approved with auto-generate enabled');
@@ -511,6 +498,6 @@ class SongMetadataBackfillAndIsrcCompatibilityTest extends TestCase
 
         $this->assertSame('published', $song->status);
         $this->assertSame('approved', $song->distribution_status);
-        $this->assertNotNull($song->isrc_code);
+        $this->assertNotNull($song->isrc);
     }
 }

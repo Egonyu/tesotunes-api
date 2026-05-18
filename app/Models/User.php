@@ -9,6 +9,7 @@ use App\Modules\Sacco\Traits\HasSaccoMembership;
 use App\Modules\Store\Traits\HasStore;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
@@ -471,16 +472,17 @@ class User extends Authenticatable implements MustVerifyEmail
             ->withTimestamps();
     }
 
-    public function followers(): HasMany
+    public function followers(): \Illuminate\Database\Eloquent\Relations\MorphMany
     {
-        return $this->hasMany(UserFollow::class, 'following_id');
+        return $this->morphMany(UserFollow::class, 'followable');
     }
 
-    public function followedArtists(): BelongsToMany
+    public function followedArtistIds(): array
     {
-        // Note: This joins users via user_follows where following_id is the artist's user_id
-        return $this->belongsToMany(User::class, 'user_follows', 'follower_id', 'following_id')
-            ->whereHas('artist'); // Only get users who are artists
+        return UserFollow::where('follower_id', $this->id)
+            ->where('followable_type', Artist::class)
+            ->pluck('followable_id')
+            ->toArray();
     }
 
     public function collaboratingPlaylists(): HasMany
@@ -908,17 +910,19 @@ class User extends Authenticatable implements MustVerifyEmail
     // Helper methods
     public function isFollowing(User $user): bool
     {
-        return $this->following()
-            ->where('following_id', $user->id)
+        return UserFollow::where('follower_id', $this->id)
+            ->where('followable_type', static::class)
+            ->where('followable_id', $user->id)
             ->exists();
     }
 
     public function follow(User $user): void
     {
         if (! $this->isFollowing($user)) {
-            $this->following()->create([
-                'following_id' => $user->id,
-                'type' => 'user',
+            UserFollow::create([
+                'follower_id' => $this->id,
+                'followable_type' => static::class,
+                'followable_id' => $user->id,
             ]);
 
             // Create notification
@@ -938,8 +942,9 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function unfollow(User $user): void
     {
-        $this->following()
-            ->where('following_id', $user->id)
+        UserFollow::where('follower_id', $this->id)
+            ->where('followable_type', static::class)
+            ->where('followable_id', $user->id)
             ->delete();
     }
 

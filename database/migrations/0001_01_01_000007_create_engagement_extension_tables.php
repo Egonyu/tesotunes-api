@@ -12,7 +12,11 @@ return new class extends Migration
             $table->id();
             $table->foreignId('playlist_id')->constrained('playlists')->cascadeOnDelete();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
+            $table->string('role')->default('editor');
+            $table->foreignId('invited_by')->nullable()->constrained('users')->nullOnDelete();
             $table->string('status')->default('pending');
+            $table->timestamp('approved_at')->nullable();
+            $table->timestamp('joined_at')->nullable();
             $table->timestamps();
 
             $table->unique(['playlist_id', 'user_id']);
