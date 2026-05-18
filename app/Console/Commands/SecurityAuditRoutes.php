@@ -126,6 +126,8 @@ class SecurityAuditRoutes extends Command
         'api/auth/local-admin-login',
         'api/auth/email/resend',
         'api/auth/social/{provider}/exchange',
+        // 2FA challenge is reached mid-login before a session token exists.
+        'api/auth/2fa/challenge',
         // Polls support guest responses when allow_guests_respond=true on the poll;
         // auth is enforced at the application layer inside PollResponseController.
         'api/polls/{poll}/respond',
