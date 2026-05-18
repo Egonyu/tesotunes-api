@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('store_products', 'default_promotable_type')) {
+            return;
+        }
+
         Schema::table('store_products', function (Blueprint $table) {
             // Link a promotion listing to the specific content it promotes by default.
             // Nullable — general listings have no pre-set content; curated listings do.

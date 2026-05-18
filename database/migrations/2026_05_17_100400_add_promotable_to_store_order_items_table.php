@@ -8,6 +8,10 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasColumn('store_order_items', 'promotable_type')) {
+            return;
+        }
+
         Schema::table('store_order_items', function (Blueprint $table) {
             // Fixes the current bug: song_id is validated on purchase but never persisted.
             // Polymorphic so it covers Song, Album, and Event uniformly.
