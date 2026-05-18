@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 return new class extends Migration
@@ -14,6 +15,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (! Schema::hasTable('stores')) {
+            return;
+        }
+
         $stores = DB::table('stores')
             ->whereNotNull('metadata')
             ->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.promoter_profile')) IS NOT NULL")
