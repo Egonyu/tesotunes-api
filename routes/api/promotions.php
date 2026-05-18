@@ -32,7 +32,7 @@ Route::prefix('promotions')->name('promotions.')->group(function () {
     });
 });
 
-Route::get('/promoters/{username}', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'promoterProfile'])->name('promoters.show');
+Route::get('/promoters/{username}', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'promoterProfile'])->name('store.promoters.profile');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/my/promotions', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'myPromotions'])->name('my.promotions');
