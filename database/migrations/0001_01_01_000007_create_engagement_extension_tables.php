@@ -124,6 +124,10 @@ return new class extends Migration
             $table->boolean('is_digital')->default(false);
             $table->string('digital_file_path')->nullable();
             $table->foreignId('user_id')->nullable()->constrained('users')->nullOnDelete();
+            $table->string('default_promotable_type', 100)->nullable();
+            $table->unsignedBigInteger('default_promotable_id')->nullable();
+            $table->unsignedBigInteger('promoter_profile_id')->nullable();
+            $table->index(['default_promotable_type', 'default_promotable_id'], 'sp_default_promotable_idx');
             $table->timestamps();
             $table->softDeletes();
         });
@@ -246,9 +250,15 @@ return new class extends Migration
             $table->unsignedBigInteger('verified_by')->nullable();
             $table->text('rejection_reason')->nullable();
             $table->text('dispute_reason')->nullable();
+            $table->string('promotable_type', 100)->nullable();
+            $table->unsignedBigInteger('promotable_id')->nullable();
+            $table->unsignedBigInteger('opportunity_id')->nullable();
+            $table->unsignedBigInteger('application_id')->nullable();
             $table->decimal('price', 12, 2)->default(0);
             $table->decimal('total', 12, 2)->default(0);
             $table->timestamps();
+            $table->index(['promotable_type', 'promotable_id'], 'soi_promotable_idx');
+            $table->index('opportunity_id', 'soi_opportunity_idx');
         });
 
         Schema::create('store_visits', function (Blueprint $table) {

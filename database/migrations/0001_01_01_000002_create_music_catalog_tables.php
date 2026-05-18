@@ -155,11 +155,15 @@ return new class extends Migration
             $table->string('record_label')->nullable();
             $table->timestamp('published_at')->nullable();
             $table->unsignedInteger('comments_count')->default(0);
+            $table->boolean('promotions_enabled')->default(true);
+            $table->unsignedInteger('active_opportunity_count')->default(0);
+            $table->unsignedInteger('total_promotions_count')->default(0);
             $table->timestamps();
             $table->softDeletes();
             $table->index(['artist_id', 'status']);
             $table->index('primary_genre_id');
             $table->index('release_date');
+            $table->index(['status', 'promotions_enabled'], 'albums_promote_idx');
         });
 
         Schema::create('songs', function (Blueprint $table) {
@@ -216,6 +220,9 @@ return new class extends Migration
             $table->string('key_signature')->nullable();
             $table->timestamp('published_at')->nullable();
             $table->unsignedInteger('comments_count')->default(0);
+            $table->boolean('promotions_enabled')->default(true);
+            $table->unsignedInteger('active_opportunity_count')->default(0);
+            $table->unsignedInteger('total_promotions_count')->default(0);
             $table->timestamps();
             $table->softDeletes();
             $table->index(['artist_id', 'status']);
@@ -223,6 +230,7 @@ return new class extends Migration
             $table->index(['is_featured', 'play_count']);
             $table->index('primary_genre_id');
             $table->index('release_date');
+            $table->index(['status', 'promotions_enabled'], 'songs_promote_idx');
         });
 
         Schema::create('song_genres', function (Blueprint $table) {
