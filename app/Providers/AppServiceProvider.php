@@ -56,6 +56,50 @@ use Illuminate\Support\Str;
 class AppServiceProvider extends ServiceProvider
 {
     /**
+     * Public, cache-friendly endpoints that power indexable pages and discovery surfaces.
+     *
+     * These are intentionally read-only and can tolerate a higher guest crawl rate than
+     * the default API bucket without weakening limits on mutations or auth flows.
+     */
+    private const PUBLIC_READ_PATTERNS = [
+        'api/albums',
+        'api/albums/*',
+        'api/announcements',
+        'api/artists',
+        'api/artists/*',
+        'api/content/genres',
+        'api/content/genres/*',
+        'api/events',
+        'api/events/*',
+        'api/featured',
+        'api/genres',
+        'api/genres/*',
+        'api/homepage',
+        'api/playlists/featured',
+        'api/songs',
+        'api/songs/*',
+        'api/trending',
+        'api/v1/public/*',
+    ];
+
+    private const TRUSTED_CRAWLER_SIGNATURES = [
+        'googlebot',
+        'google-inspectiontool',
+        'googleother',
+        'bingbot',
+        'bingpreview',
+        'slurp',
+        'duckduckbot',
+        'applebot',
+        'yandexbot',
+        'baiduspider',
+        'facebookexternalhit',
+        'facebot',
+        'linkedinbot',
+        'twitterbot',
+    ];
+
+    /**
      * Register any application services.
      */
     public function register(): void
@@ -64,6 +108,32 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(ZengaPayService::class, function ($app) {
             return new ZengaPayService;
         });
+    }
+
+    private function isPublicReadRequest(Request $request): bool
+    {
+        if (! in_array($request->method(), ['GET', 'HEAD'], true)) {
+            return false;
+        }
+
+        foreach (self::PUBLIC_READ_PATTERNS as $pattern) {
+            if ($request->is($pattern)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isTrustedCrawler(Request $request): bool
+    {
+        $userAgent = Str::lower((string) $request->userAgent());
+
+        if ($userAgent === '') {
+            return false;
+        }
+
+        return Str::contains($userAgent, self::TRUSTED_CRAWLER_SIGNATURES);
     }
 
     /**
@@ -379,6 +449,18 @@ class AppServiceProvider extends ServiceProvider
             $buildToken = config('services.build_allowed_token');
             if ($buildToken && $request->header('X-Build-Token') === $buildToken) {
                 return Limit::none();
+            }
+
+            if ($this->isPublicReadRequest($request)) {
+                $isCrawler = $this->isTrustedCrawler($request);
+                $maxAttempts = $isCrawler ? 600 : 180;
+                $rateLimitKey = sprintf(
+                    'public-read:%s:%s',
+                    $isCrawler ? 'crawler' : 'guest',
+                    $request->ip()
+                );
+
+                return Limit::perMinute($maxAttempts)->by($rateLimitKey);
             }
 
             return $request->user()
