@@ -23,6 +23,7 @@ return [
         'http://localhost:3000',
         'http://127.0.0.1:3000',
         'http://tesotunes.test',
+        'http://tesotunes-next-web.test',
         'http://tesotunes-api.test',
         'https://api.tesotunes.com',
         'https://engine.tesotunes.com',
@@ -34,6 +35,8 @@ return [
     'allowed_origins_patterns' => [
         // Production domain pattern
         '/^https:\/\/.*\.tesotunes\.com$/',
+        // Local Herd dev domains (*.test are non-routable outside localhost)
+        '/^https?:\/\/[a-zA-Z0-9-]+\.test$/',
     ],
 
     'allowed_headers' => ['*'],

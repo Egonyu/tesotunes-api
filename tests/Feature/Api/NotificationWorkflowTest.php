@@ -129,7 +129,10 @@ class NotificationWorkflowTest extends TestCase
             'source_type' => 'catalog_submission',
         ]);
 
-        $claimant = User::factory()->create();
+        $claimant = User::factory()->create([
+            'kyc_status' => \App\Enums\KycStatus::Verified->value,
+            'phone' => '+256700000111',
+        ]);
 
         $submit = $this->actingAs($claimant)->postJson('/api/catalog/claim-requests', [
             'artist_id' => $placeholderArtist->id,

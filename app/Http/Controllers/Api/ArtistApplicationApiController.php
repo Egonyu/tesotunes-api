@@ -211,8 +211,7 @@ class ArtistApplicationApiController extends Controller
                 'primary_genre_id' => $validated['primary_genre'],
                 'social_links' => $validated['social_links'] ?? [],
                 'is_verified' => false,
-                'status' => 'pending',
-                'verification_status' => 'pending',
+                'status' => \App\Enums\ArtistStatus::Pending->value,
                 'can_upload' => false,
                 'website_url' => $validated['website_url'] ?? null,
                 'career_start_year' => $validated['career_start_year'] ?? null,
@@ -249,8 +248,6 @@ class ArtistApplicationApiController extends Controller
                 'bank_name' => $validated['bank_name'] ?? null,
                 'bank_account' => $validated['bank_account'] ?? null,
                 'application_status' => 'pending',
-                'verification_status' => 'pending',
-                'verification_documents' => $verificationDocuments,
                 'genres' => $genreIds,
                 'artist_profile_payout_method' => $validated['payout_method'] === 'bank' ? 'bank_transfer' : 'mobile_money',
                 'profile_completed' => true,
@@ -334,6 +331,11 @@ class ArtistApplicationApiController extends Controller
                 'size' => $file->getSize(),
                 'disk' => 'private',
             ];
+        }
+
+        if (! empty($storedDocuments)) {
+            app(\App\Services\Kyc\KycService::class)
+                ->refreshStatusFromEvidence($user, actorId: $user->id, reason: 'artist_application_documents_submitted');
         }
 
         return $storedDocuments;

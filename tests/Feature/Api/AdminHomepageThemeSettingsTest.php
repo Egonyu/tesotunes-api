@@ -39,9 +39,10 @@ class AdminHomepageThemeSettingsTest extends TestCase
 
         $this->assertSame('curated_home', Setting::get('appearance_homepage_theme'));
 
-        $this->getJson('/api/platform-settings')
-            ->assertOk()
-            ->assertJsonPath('data.appearance.homepage_theme', 'curated_home');
+        $publicResp = $this->getJson('/api/settings/public')->assertOk();
+        $homepageTheme = collect($publicResp->json('data'))
+            ->firstWhere('key', 'appearance_homepage_theme');
+        $this->assertSame('curated_home', $homepageTheme['value']);
     }
 
     public function test_invalid_homepage_theme_is_rejected(): void

@@ -31,6 +31,15 @@ return new class extends Migration
             $table->string('national_id_front_path')->nullable();
             $table->string('national_id_back_path')->nullable();
             $table->string('selfie_with_id_path')->nullable();
+
+            // KYC canonical state — set ONLY via App\Services\Kyc\KycService
+            // (see docs/architecture/kyc-3-axis-model.md for the 3-axis model)
+            $table->string('kyc_status', 32)->default('none')->index();
+            $table->timestamp('kyc_submitted_at')->nullable();
+            $table->timestamp('kyc_verified_at')->nullable();
+            $table->timestamp('kyc_expires_at')->nullable();
+            $table->text('kyc_rejection_reason')->nullable();
+
             $table->string('avatar')->nullable();
             $table->text('bio')->nullable();
             $table->string('display_name')->nullable();

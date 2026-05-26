@@ -44,6 +44,13 @@ class MigrationPolicyGuardTest extends TestCase
         '2026_05_17_100000_create_promoter_profiles_table.php',
         '2026_05_17_100100_create_promotion_opportunities_table.php',
         '2026_05_17_100200_create_promotion_applications_table.php',
+        '2026_05_18_100000_create_ads_table.php',
+        '2026_05_18_100100_create_ad_placement_configs_table.php',
+        '2026_05_18_100200_create_ad_placement_assignments_table.php',
+        '2026_05_18_100300_create_ad_impressions_table.php',
+        '2026_05_19_000001_canonicalize_kyc_to_three_axis_model.php',
+        '2026_05_19_120000_add_audit_fields_to_settings_table.php',
+        '2026_05_19_130000_create_setting_audits_table.php',
     ];
 
     private const BANNED_NAME_FRAGMENTS = [

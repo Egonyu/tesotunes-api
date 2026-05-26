@@ -66,10 +66,10 @@ class BaselineSchemaRegressionTest extends TestCase
     public function test_core_baseline_columns_exist(): void
     {
         $expectations = [
-            'users' => ['uuid', 'theme_preference', 'referrer_id', 'two_factor_confirmed_at'],
+            'users' => ['uuid', 'theme_preference', 'referrer_id', 'two_factor_confirmed_at', 'kyc_status'],
             'user_settings' => ['theme', 'email_notifications', 'sms_notifications'],
-            'artists' => ['like_count', 'comments_count', 'verification_status'],
-            'artist_profiles' => ['user_id', 'artist_id', 'verification_status', 'verification_documents'],
+            'artists' => ['like_count', 'comments_count', 'status'],
+            'artist_profiles' => ['user_id', 'artist_id'],
             'songs' => ['visibility', 'is_streamable', 'comments_count', 'approved_at', 'moderation_reason'],
             'playlists' => ['visibility', 'comments_count'],
             'play_histories' => ['played_at', 'duration_played_seconds', 'playlist_id'],

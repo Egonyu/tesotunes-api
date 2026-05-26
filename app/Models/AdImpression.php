@@ -10,13 +10,17 @@ class AdImpression extends Model
 {
     use HasFactory;
 
+    // Impressions are append-only; no updated_at column in migration
+    public const UPDATED_AT = null;
+
     protected $fillable = [
         'ad_id',
+        'placement_key',
         'user_id',
         'ip_address',
         'user_agent',
-        'page_url',
         'device_type',
+        'page_url',
         'clicked',
         'clicked_at',
     ];
@@ -24,19 +28,14 @@ class AdImpression extends Model
     protected $casts = [
         'clicked' => 'boolean',
         'clicked_at' => 'datetime',
+        'created_at' => 'datetime',
     ];
 
-    /**
-     * Get the ad that owns this impression
-     */
     public function ad(): BelongsTo
     {
         return $this->belongsTo(Ad::class);
     }
 
-    /**
-     * Get the user that viewed this impression
-     */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

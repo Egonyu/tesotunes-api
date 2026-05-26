@@ -5,13 +5,14 @@ namespace App\Notifications;
 use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
 use App\Models\User;
+use App\Traits\ChecksNotificationPreferences;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
 class NewFollowerNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use ChecksNotificationPreferences, Queueable;
 
     public function __construct(
         protected User $follower,
@@ -20,7 +21,12 @@ class NewFollowerNotification extends Notification implements ShouldQueue
 
     public function via(object $notifiable): array
     {
-        return [AppNotificationChannel::class, ExpoPushChannel::class];
+        return $this->filterChannelsByPreference(
+            $notifiable,
+            [AppNotificationChannel::class, ExpoPushChannel::class],
+            'social',
+            'new_follower'
+        );
     }
 
     public function toArray(object $notifiable): array

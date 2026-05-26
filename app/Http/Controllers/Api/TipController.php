@@ -7,6 +7,7 @@ use App\Models\Artist;
 use App\Models\ArtistRevenue;
 use App\Models\Payment;
 use App\Models\Song;
+use App\Services\CrossModuleNotificationService;
 use App\Services\Settings\ArtistSettingsService;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\JsonResponse;
@@ -127,6 +128,15 @@ class TipController extends Controller
 
             return $payment;
         });
+
+        app(CrossModuleNotificationService::class)->sendToUser(
+            $recipientUser,
+            'music',
+            'tip_received',
+            'You received a tip!',
+            "{$user->name} tipped you ".number_format($tipAmount).' credits'.($validated['message'] ? ': "'.$validated['message'].'"' : '.'),
+            ['tipper_id' => $user->id, 'tipper_name' => $user->name, 'amount' => $tipAmount],
+        );
 
         return response()->json([
             'success' => true,

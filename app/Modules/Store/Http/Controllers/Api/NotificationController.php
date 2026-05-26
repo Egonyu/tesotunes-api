@@ -4,6 +4,7 @@ namespace App\Modules\Store\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Notification;
+use App\Models\UserSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -92,11 +93,16 @@ class NotificationController extends Controller
      */
     public function getPreferences(Request $request): JsonResponse
     {
-        $service = app(\App\Modules\Store\Services\NotificationService::class);
-        $preferences = $service->getUserPreferences($request->user());
+        $user = $request->user();
+        $setting = UserSetting::firstOrCreate(['user_id' => $user->id]);
 
         return response()->json([
-            'data' => $preferences,
+            'data' => [
+                'in_app' => true,
+                'email' => (bool) $setting->email_notifications,
+                'sms' => (bool) $setting->sms_notifications,
+                'push' => (bool) $setting->push_notifications,
+            ],
         ]);
     }
 
@@ -111,8 +117,14 @@ class NotificationController extends Controller
             'push' => 'required|boolean',
         ]);
 
-        $service = app(\App\Modules\Store\Services\NotificationService::class);
-        $service->updatePreferences($request->user(), $validated);
+        UserSetting::updateOrCreate(
+            ['user_id' => $request->user()->id],
+            [
+                'email_notifications' => $validated['email'],
+                'sms_notifications' => $validated['sms'],
+                'push_notifications' => $validated['push'],
+            ]
+        );
 
         return response()->json([
             'message' => 'Preferences updated successfully.',

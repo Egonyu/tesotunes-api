@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\NotificationResource;
 use App\Models\Notification;
+use App\Models\User;
 use App\Models\UserSetting;
 use App\Services\CrossModuleNotificationService;
 use Illuminate\Http\Request;
@@ -60,8 +61,15 @@ class NotificationController extends Controller
     {
         $user = Auth::user();
 
+        $counts = $this->notificationService->getUnreadCountByModule($user);
+        $total = $counts['total'] ?? 0;
+        unset($counts['total']);
+
         return response()->json([
-            'data' => $this->notificationService->getUnreadCountByModule($user),
+            'data' => [
+                'total' => $total,
+                'by_type' => $counts,
+            ],
         ]);
     }
 
@@ -93,28 +101,10 @@ class NotificationController extends Controller
     {
         $user = Auth::user();
 
-        $settings = [
-            'email_notifications' => [
-                'music' => ['song_approved', 'distribution_live', 'royalty_payment'],
-                'podcast' => ['episode_published', 'new_subscriber'],
-                'store' => ['order_received', 'payment_received'],
-                'sacco' => ['loan_approved', 'payment_due'],
-            ],
-            'push_notifications' => [
-                'music' => ['song_approved', 'distribution_live'],
-                'podcast' => ['new_subscriber'],
-                'store' => ['order_received'],
-                'sacco' => ['loan_approved'],
-            ],
-            'in_app_notifications' => [
-                'music' => true,
-                'podcast' => true,
-                'store' => true,
-                'sacco' => true,
-            ],
-        ];
+        $saved = UserSetting::where('user_id', $user->id)
+            ->value('notification_preferences') ?? [];
 
-        return response()->json(['data' => $settings]);
+        return response()->json(['data' => array_replace_recursive($this->defaultPreferences(), $saved)]);
     }
 
     /**
@@ -125,27 +115,65 @@ class NotificationController extends Controller
     public function updateSettings(Request $request)
     {
         $request->validate([
-            'email_notifications' => 'array',
-            'push_notifications' => 'array',
-            'in_app_notifications' => 'array',
+            'global_mute' => 'sometimes|boolean',
+            'weekly_digest' => 'sometimes|boolean',
+            'quiet_hours' => 'sometimes|array',
+            'quiet_hours.enabled' => 'required_with:quiet_hours|boolean',
+            'quiet_hours.start' => 'required_with:quiet_hours|date_format:H:i',
+            'quiet_hours.end' => 'required_with:quiet_hours|date_format:H:i',
         ]);
 
         $user = Auth::user();
 
+        $existing = UserSetting::where('user_id', $user->id)
+            ->value('notification_preferences') ?? [];
+
+        $merged = array_replace_recursive($existing, $request->except(['_token', '_method']));
+
         UserSetting::updateOrCreate(
             ['user_id' => $user->id],
             [
-                'email_notifications' => ! empty($request->input('email_notifications')),
-                'push_notifications' => ! empty($request->input('push_notifications')),
-                'notification_preferences' => [
-                    'email_notifications' => $request->input('email_notifications', []),
-                    'push_notifications' => $request->input('push_notifications', []),
-                    'in_app_notifications' => $request->input('in_app_notifications', []),
-                ],
+                'notification_preferences' => $merged,
+                'push_notifications' => ! ($merged['global_mute'] ?? false),
+                'email_notifications' => ! ($merged['global_mute'] ?? false),
             ]
         );
 
-        return response()->json(['message' => 'Notification settings updated.']);
+        return response()->json(['data' => $merged, 'message' => 'Notification preferences updated.']);
+    }
+
+    private function defaultPreferences(): array
+    {
+        $channelDefaults = fn (bool $email, bool $push = true) => [
+            'email' => $email, 'push' => $push, 'in_app' => true,
+        ];
+
+        return [
+            'new_releases' => $channelDefaults(true),
+            'artist_release' => $channelDefaults(true),
+            'new_follower' => $channelDefaults(false),
+            'likes' => $channelDefaults(false),
+            'comments' => $channelDefaults(true),
+            'comment_reply' => $channelDefaults(true),
+            'playlist_activity' => $channelDefaults(false, false),
+            'playlist_share' => $channelDefaults(false),
+            'payments' => $channelDefaults(true),
+            'payment_received' => $channelDefaults(true),
+            'tip_received' => $channelDefaults(false),
+            'payout_approved' => $channelDefaults(true),
+            'song_approved' => $channelDefaults(true),
+            'subscription_expiring' => $channelDefaults(true),
+            'award_nomination' => $channelDefaults(true),
+            'new_episode' => $channelDefaults(false),
+            'new_podcast' => $channelDefaults(false, false),
+            'referral_reward' => $channelDefaults(false),
+            'ticket_purchase' => $channelDefaults(true),
+            'event_reminder' => $channelDefaults(true),
+            'system_announcement' => $channelDefaults(false, false),
+            'weekly_digest' => true,
+            'quiet_hours' => ['enabled' => false, 'start' => '22:00', 'end' => '07:00'],
+            'global_mute' => false,
+        ];
     }
 
     /**
@@ -318,6 +346,49 @@ class NotificationController extends Controller
                     'push_ready' => ($activeDeviceTokens ?? 0) > 0,
                 ],
             ],
+        ]);
+    }
+
+    /**
+     * Broadcast a system announcement to all or a filtered segment of users (admin only).
+     *
+     * POST /api/notifications/broadcast
+     */
+    public function broadcast(Request $request)
+    {
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'message' => 'required|string|max:1000',
+            'action_url' => 'nullable|url|max:500',
+            'action_text' => 'nullable|string|max:100',
+            'segment' => 'sometimes|string|in:all,premium,artists,free',
+        ]);
+
+        $query = User::query()->where('is_active', true);
+
+        match ($request->input('segment', 'all')) {
+            'premium' => $query->whereHas('activeSubscription'),
+            'artists' => $query->whereHas('artist'),
+            'free' => $query->whereDoesntHave('activeSubscription'),
+            default => null,
+        };
+
+        $users = $query->get();
+
+        $this->notificationService->sendToUsers(
+            $users,
+            'system',
+            'system_announcement',
+            $request->input('title'),
+            $request->input('message'),
+            ['sent_by' => Auth::id(), 'segment' => $request->input('segment', 'all')],
+            $request->input('action_url'),
+            $request->input('action_text'),
+        );
+
+        return response()->json([
+            'message' => 'Broadcast queued successfully.',
+            'data' => ['recipient_count' => $users->count()],
         ]);
     }
 

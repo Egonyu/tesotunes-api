@@ -11,136 +11,123 @@ class AdFactory extends Factory
 
     public function definition(): array
     {
-        $type = $this->faker->randomElement(['google_adsense', 'direct', 'affiliate']);
+        $type = $this->faker->randomElement(['image', 'html', 'audio', 'native', 'google_adsense']);
 
         return [
-            'name' => $this->faker->sentence(3),
+            'title' => $this->faker->sentence(4),
+            'advertiser_name' => $this->faker->company(),
             'type' => $type,
-            'placement' => $this->faker->randomElement(['header', 'sidebar', 'inline', 'footer', 'between_content', 'popup']),
-            'format' => $this->faker->randomElement(['banner', 'square', 'rectangle', 'native', 'video']),
+            'format' => $this->faker->randomElement([
+                'banner_728x90', 'banner_320x50', 'square_300x250', 'native', 'audio', 'html',
+            ]),
 
-            // AdSense specific (if type is google_adsense)
+            // Image ad
+            'image_url' => in_array($type, ['image', 'native']) ? $this->faker->imageUrl(728, 90) : null,
+            'click_url' => in_array($type, ['image', 'native', 'html']) ? $this->faker->url() : null,
+            'cta_text' => in_array($type, ['image', 'native']) ? $this->faker->randomElement(['Learn More', 'Shop Now', 'Listen Now', 'Get it Free']) : null,
+
+            // HTML ad
+            'html_content' => $type === 'html' ? '<div class="ad-placeholder">'.$this->faker->sentence().'</div>' : null,
+
+            // Audio ad
+            'audio_url' => $type === 'audio' ? $this->faker->url() : null,
+            'audio_duration_seconds' => $type === 'audio' ? $this->faker->numberBetween(10, 30) : null,
+
+            // Native ad
+            'native_headline' => $type === 'native' ? $this->faker->sentence(6) : null,
+            'native_body' => $type === 'native' ? $this->faker->sentence(15) : null,
+            'native_image_url' => $type === 'native' ? $this->faker->imageUrl(400, 300) : null,
+
+            // Google AdSense
             'adsense_slot_id' => $type === 'google_adsense' ? $this->faker->numerify('##########') : null,
             'adsense_format' => $type === 'google_adsense' ? $this->faker->randomElement(['auto', 'rectangle', 'horizontal', 'vertical']) : null,
 
-            // Direct ad specific (if type is direct or affiliate)
-            'html_code' => in_array($type, ['direct', 'affiliate']) ? '<div class="ad">'.$this->faker->sentence().'</div>' : null,
-            'image_url' => in_array($type, ['direct', 'affiliate']) ? $this->faker->imageUrl(728, 90) : null,
-            'link_url' => in_array($type, ['direct', 'affiliate']) ? $this->faker->url() : null,
-            'advertiser_name' => in_array($type, ['direct', 'affiliate']) ? $this->faker->company() : null,
+            // Scheduling
+            'is_active' => $this->faker->boolean(80),
+            'starts_at' => $this->faker->optional(0.3)->dateTimeBetween('-1 month', 'now'),
+            'ends_at' => $this->faker->optional(0.3)->dateTimeBetween('now', '+3 months'),
+
+            // Budget (UGX)
+            'total_budget_ugx' => $this->faker->optional(0.6)->randomFloat(2, 50000, 5000000),
+            'daily_budget_ugx' => $this->faker->optional(0.6)->randomFloat(2, 5000, 200000),
+            'cost_per_impression_ugx' => $this->faker->optional(0.5)->randomFloat(4, 1, 50),
+            'cost_per_click_ugx' => $this->faker->optional(0.5)->randomFloat(2, 100, 5000),
 
             // Targeting
-            'pages' => $this->faker->randomElement([
-                [],
-                ['home'],
-                ['home', 'discover'],
-                ['artist', 'genres'],
-            ]),
-            'user_tiers' => $this->faker->randomElement([
-                ['free'],
-                ['free', 'premium'],
-                null,
-            ]),
-            'mobile_only' => $this->faker->boolean(20),
-            'desktop_only' => $this->faker->boolean(20),
+            'target_tiers' => $this->faker->randomElement([['free'], ['free', 'premium_basic'], null]),
+            'target_devices' => $this->faker->randomElement([['desktop'], ['mobile'], ['desktop', 'mobile'], null]),
+            'target_countries' => $this->faker->randomElement([['UG'], ['UG', 'KE', 'TZ'], null]),
 
-            // Scheduling
-            'start_date' => $this->faker->optional(0.3)->dateTimeBetween('-1 month', 'now'),
-            'end_date' => $this->faker->optional(0.3)->dateTimeBetween('now', '+3 months'),
-
-            // Analytics
-            'impressions' => $this->faker->numberBetween(100, 50000),
-            'clicks' => $this->faker->numberBetween(5, 1000),
-            'revenue' => $this->faker->randomFloat(2, 1000, 100000),
-
-            // Settings
-            'is_active' => $this->faker->boolean(80),
-            'priority' => $this->faker->numberBetween(0, 100),
+            'priority' => $this->faker->numberBetween(1, 10),
+            'notes' => $this->faker->optional(0.3)->sentence(),
+            'created_by' => null,
         ];
     }
 
-    /**
-     * Active ad state
-     */
     public function active(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'is_active' => true,
-        ]);
+        return $this->state(fn () => ['is_active' => true, 'starts_at' => null, 'ends_at' => null]);
     }
 
-    /**
-     * Inactive ad state
-     */
     public function inactive(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'is_active' => false,
-        ]);
+        return $this->state(fn () => ['is_active' => false]);
     }
 
-    /**
-     * High performing ad
-     */
-    public function highPerforming(): static
+    public function image(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'impressions' => $this->faker->numberBetween(10000, 100000),
-            'clicks' => $this->faker->numberBetween(500, 5000),
-            'revenue' => $this->faker->randomFloat(2, 50000, 500000),
+        return $this->state(fn () => [
+            'type' => 'image',
+            'format' => 'banner_728x90',
+            'image_url' => $this->faker->imageUrl(728, 90),
+            'click_url' => $this->faker->url(),
+            'cta_text' => 'Learn More',
+            'html_content' => null,
+            'audio_url' => null,
         ]);
     }
 
-    /**
-     * Google AdSense ad
-     */
+    public function audio(): static
+    {
+        return $this->state(fn () => [
+            'type' => 'audio',
+            'format' => 'audio',
+            'audio_url' => $this->faker->url(),
+            'audio_duration_seconds' => $this->faker->numberBetween(10, 30),
+            'image_url' => null,
+            'html_content' => null,
+        ]);
+    }
+
     public function adsense(): static
     {
-        return $this->state(fn (array $attributes) => [
+        return $this->state(fn () => [
             'type' => 'google_adsense',
             'adsense_slot_id' => $this->faker->numerify('##########'),
-            'adsense_format' => $this->faker->randomElement(['auto', 'rectangle', 'horizontal']),
-            'html_code' => null,
+            'adsense_format' => 'auto',
             'image_url' => null,
-            'link_url' => null,
-            'advertiser_name' => null,
+            'html_content' => null,
+            'audio_url' => null,
         ]);
     }
 
-    /**
-     * Direct ad
-     */
-    public function direct(): static
+    public function freeOnly(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'type' => 'direct',
-            'image_url' => $this->faker->imageUrl(728, 90),
-            'link_url' => $this->faker->url(),
-            'advertiser_name' => $this->faker->company(),
-            'adsense_slot_id' => null,
-            'adsense_format' => null,
-        ]);
+        return $this->state(fn () => ['target_tiers' => ['free']]);
     }
 
-    /**
-     * Mobile only ad
-     */
     public function mobileOnly(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'mobile_only' => true,
-            'desktop_only' => false,
-        ]);
+        return $this->state(fn () => ['target_devices' => ['mobile']]);
     }
 
-    /**
-     * Desktop only ad
-     */
     public function desktopOnly(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'mobile_only' => false,
-            'desktop_only' => true,
-        ]);
+        return $this->state(fn () => ['target_devices' => ['desktop']]);
+    }
+
+    public function ugandaOnly(): static
+    {
+        return $this->state(fn () => ['target_countries' => ['UG']]);
     }
 }

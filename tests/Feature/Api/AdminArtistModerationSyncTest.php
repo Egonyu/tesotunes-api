@@ -69,7 +69,6 @@ class AdminArtistModerationSyncTest extends TestCase
             'user_id' => $user->id,
             'status' => 'pending',
             'is_verified' => false,
-            'verification_status' => 'pending',
             'can_upload' => false,
         ]);
 
@@ -79,7 +78,6 @@ class AdminArtistModerationSyncTest extends TestCase
                 'artist_id' => $artist->id,
                 'stage_name' => $artist->stage_name,
                 'real_name' => 'Pending Artist',
-                'verification_status' => 'pending',
                 'mobile_money_provider' => 'mtn',
                 'mobile_money_number' => '+256700000002',
                 'payout_method' => 'mobile_money',
@@ -99,7 +97,7 @@ class AdminArtistModerationSyncTest extends TestCase
 
         $this->assertDatabaseHas('artists', [
             'id' => $artist->id,
-            'status' => 'active',
+            'status' => 'approved',
             'is_verified' => true,
             'can_upload' => true,
         ]);
@@ -113,7 +111,6 @@ class AdminArtistModerationSyncTest extends TestCase
         $this->assertDatabaseHas('artist_profiles', [
             'user_id' => $user->id,
             'artist_id' => $artist->id,
-            'verification_status' => 'verified',
         ]);
 
         $this->assertDatabaseHas('kyc_documents', [
@@ -137,9 +134,8 @@ class AdminArtistModerationSyncTest extends TestCase
 
         $artist = Artist::factory()->create([
             'user_id' => $user->id,
-            'status' => 'active',
+            'status' => 'approved',
             'is_verified' => true,
-            'verification_status' => 'approved',
             'can_upload' => true,
         ]);
 
@@ -148,7 +144,6 @@ class AdminArtistModerationSyncTest extends TestCase
             [
                 'artist_id' => $artist->id,
                 'stage_name' => $artist->stage_name,
-                'verification_status' => 'verified',
                 'is_active' => true,
             ]
         );
@@ -190,7 +185,6 @@ class AdminArtistModerationSyncTest extends TestCase
         $this->assertDatabaseHas('artist_profiles', [
             'user_id' => $user->id,
             'artist_id' => $artist->id,
-            'verification_status' => 'suspended',
             'is_active' => false,
         ]);
     }
@@ -208,7 +202,6 @@ class AdminArtistModerationSyncTest extends TestCase
             'user_id' => $user->id,
             'status' => 'pending',
             'is_verified' => false,
-            'verification_status' => 'pending',
             'can_upload' => false,
         ]);
 
@@ -217,7 +210,6 @@ class AdminArtistModerationSyncTest extends TestCase
             [
                 'artist_id' => $artist->id,
                 'stage_name' => $artist->stage_name,
-                'verification_status' => 'pending',
                 'is_active' => true,
             ]
         );
@@ -269,7 +261,6 @@ class AdminArtistModerationSyncTest extends TestCase
         $this->assertDatabaseHas('artist_profiles', [
             'user_id' => $user->id,
             'artist_id' => $artist->id,
-            'verification_status' => 'rejected',
         ]);
 
         $this->assertDatabaseHas('kyc_documents', [
@@ -304,7 +295,6 @@ class AdminArtistModerationSyncTest extends TestCase
             'user_id' => $user->id,
             'status' => 'pending',
             'is_verified' => false,
-            'verification_status' => 'pending',
             'can_upload' => false,
         ]);
 

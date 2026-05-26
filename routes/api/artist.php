@@ -39,7 +39,9 @@ Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('ar
     Route::get('/earnings', [\App\Http\Controllers\Api\ArtistApiController::class, 'earnings'])->name('earnings.index');
     Route::get('/earnings/songs', [\App\Http\Controllers\Api\ArtistApiController::class, 'perSongEarnings'])->name('earnings.songs');
     Route::get('/earnings/payouts', [\App\Http\Controllers\Api\ArtistApiController::class, 'payoutHistory'])->name('earnings.payouts');
-    Route::post('/earnings/withdraw', [\App\Http\Controllers\Api\ArtistApiController::class, 'withdraw'])->name('earnings.withdraw');
+    Route::post('/earnings/withdraw', [\App\Http\Controllers\Api\ArtistApiController::class, 'withdraw'])
+        ->middleware('kyc:withdrawal')
+        ->name('earnings.withdraw');
 
     // Royalty Splits
     Route::get('/royalty-splits', [\App\Http\Controllers\Api\ArtistApiController::class, 'royaltySplits'])->name('royalty-splits.index');
@@ -63,7 +65,9 @@ Route::middleware('auth:sanctum')->prefix('catalog')->name('api.catalog.')->grou
     Route::get('/submissions', [\App\Http\Controllers\Api\CatalogSubmissionController::class, 'index'])->name('submissions.index');
     Route::get('/submissions/{submission}', [\App\Http\Controllers\Api\CatalogSubmissionController::class, 'show'])->name('submissions.show');
     Route::get('/claim-requests', [\App\Http\Controllers\Api\CatalogClaimRequestController::class, 'index'])->name('claims.index');
-    Route::post('/claim-requests', [\App\Http\Controllers\Api\CatalogClaimRequestController::class, 'store'])->name('claims.store');
+    Route::post('/claim-requests', [\App\Http\Controllers\Api\CatalogClaimRequestController::class, 'store'])
+        ->middleware('kyc:music_claim')
+        ->name('claims.store');
 });
 
 // Public catalog browse (no auth)

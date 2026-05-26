@@ -171,7 +171,8 @@ class SaccoMember extends Model
 
     public function saccoNotifications(): HasMany
     {
-        return $this->hasMany(SaccoNotification::class, 'member_id');
+        return $this->hasMany(\App\Models\Notification::class, 'user_id', 'user_id')
+            ->where('category', 'sacco');
     }
 
     // Scopes

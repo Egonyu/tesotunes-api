@@ -70,7 +70,6 @@ class ArtistVerificationService
                 'bank_name' => $data['bank_name'] ?? null,
                 'bank_account' => $data['bank_account'] ?? null,
                 'application_status' => 'pending',
-                'verification_status' => 'pending',
                 'genres' => array_values(array_filter([$data['genre_id'] ?? null])),
             ]);
 
@@ -150,11 +149,10 @@ class ArtistVerificationService
     public function approveArtist(Artist $artist, User $admin, ?string $notes = null): void
     {
         DB::transaction(function () use ($artist, $admin, $notes) {
-            // Update artist record
+            // AXIS 2 — artist application: approved, can upload
             $artist->update([
-                'status' => 'active',
-                'is_verified' => true,
-                'verification_status' => 'approved',
+                'status' => \App\Enums\ArtistStatus::Approved->value,
+                'is_verified' => true, // AXIS 3 — featured/blue-check toggled on by admin discretion
                 'verified_at' => now(),
                 'verified_by' => $admin->id,
                 'can_upload' => true,
@@ -163,7 +161,6 @@ class ArtistVerificationService
 
             $this->userService->syncArtistReviewState($artist->user, $artist, [
                 'application_status' => 'approved',
-                'verification_status' => 'verified',
                 'verified_at' => $artist->verified_at,
                 'verified_by' => $admin->id,
                 'rejection_reason' => null,
@@ -181,14 +178,14 @@ class ArtistVerificationService
             // Assign artist role in user_roles table
             $this->assignArtistRole($artist->user, $admin);
 
-            // Verify all KYC documents
-            KYCDocument::where('user_id', $artist->user_id)
-                ->where('status', 'pending')
-                ->update([
-                    'status' => 'active',
-                    'verified_at' => now(),
-                    'verified_by' => $admin->id,
-                ]);
+            // AXIS 1 — identity (KYC): delegate to KycService so all KYC state
+            // changes flow through the single writer. This is a no-op if the user
+            // submitted no docs; the admin can still approve them as an artist
+            // without identity verification (that gate is on withdrawals/claims).
+            if ($artist->user->kycDocuments()->where('status', 'pending')->exists()) {
+                app(\App\Services\Kyc\KycService::class)
+                    ->markVerified($artist->user, $admin, $notes);
+            }
 
             // Log activity
             AuditLog::create([
@@ -236,11 +233,10 @@ class ArtistVerificationService
     public function rejectArtist(Artist $artist, User $admin, string $reason): void
     {
         DB::transaction(function () use ($artist, $admin, $reason) {
-            // Update artist record
+            // AXIS 2 — artist application: rejected, no upload
             $artist->update([
-                'status' => 'rejected',
-                'is_verified' => false,
-                'verification_status' => 'rejected',
+                'status' => \App\Enums\ArtistStatus::Rejected->value,
+                'is_verified' => false, // AXIS 3 — clear featured badge
                 'verified_at' => now(),
                 'verified_by' => $admin->id,
                 'rejection_reason' => $reason,
@@ -249,7 +245,6 @@ class ArtistVerificationService
 
             $this->userService->syncArtistReviewState($artist->user, $artist, [
                 'application_status' => 'rejected',
-                'verification_status' => 'rejected',
                 'verified_at' => $artist->verified_at,
                 'verified_by' => $admin->id,
                 'rejection_reason' => $reason,
@@ -257,15 +252,11 @@ class ArtistVerificationService
                 'artist_profile_active' => true,
             ]);
 
-            // Mark KYC documents as rejected
-            KYCDocument::where('user_id', $artist->user_id)
-                ->where('status', 'pending')
-                ->update([
-                    'status' => 'rejected',
-                    'verified_at' => now(),
-                    'verified_by' => $admin->id,
-                    'rejection_reason' => $reason,
-                ]);
+            // AXIS 1 — identity (KYC): reject through the single writer
+            if ($artist->user->kycDocuments()->where('status', 'pending')->exists()) {
+                app(\App\Services\Kyc\KycService::class)
+                    ->markRejected($artist->user, $admin, $reason);
+            }
 
             // Log activity
             AuditLog::create([
@@ -317,15 +308,13 @@ class ArtistVerificationService
         DB::transaction(function () use ($artist, $admin, $missingDocuments, $notes) {
             // Update artist record
             $artist->update([
-                'status' => 'pending',
-                'verification_status' => 'pending',
+                'status' => \App\Enums\ArtistStatus::Pending->value,
                 'verified_by' => $admin->id,
                 'verified_at' => now(),
             ]);
 
             $this->userService->syncArtistReviewState($artist->user, $artist, [
                 'application_status' => 'pending',
-                'verification_status' => 'pending',
                 'verified_at' => $artist->verified_at,
                 'verified_by' => $admin->id,
                 'rejection_reason' => null,

@@ -9,6 +9,7 @@ use App\Models\Song;
 use App\Notifications\AdminSongPendingNotification;
 use App\Notifications\SongModerationNotification;
 use App\Services\Audio\AudioMetadataService;
+use App\Services\CrossModuleNotificationService;
 use App\Services\Music\ISRCService;
 use App\Services\NotificationRoutingService;
 use App\Traits\HandlesApiErrors;
@@ -115,6 +116,38 @@ class SongsApiController extends Controller
         }
 
         $recipient->notify(new SongModerationNotification($song, $status, $reason));
+
+        if ($status === SongModerationNotification::APPROVED) {
+            $this->notifyFollowersNewRelease($song);
+        }
+    }
+
+    private function notifyFollowersNewRelease(Song $song): void
+    {
+        $song->loadMissing('artist');
+        $artist = $song->artist;
+        if (! $artist) {
+            return;
+        }
+
+        $followerIds = \App\Models\UserFollow::query()
+            ->where('followable_type', \App\Models\Artist::class)
+            ->where('followable_id', $artist->id)
+            ->pluck('follower_id')
+            ->toArray();
+
+        if (empty($followerIds)) {
+            return;
+        }
+
+        app(CrossModuleNotificationService::class)->sendToUsers(
+            \App\Models\User::whereIn('id', $followerIds)->get(),
+            'music',
+            'artist_release',
+            'New Release',
+            "{$artist->name} just dropped \"{$song->title}\"",
+            ['song_id' => $song->id, 'artist_id' => $artist->id, 'artist_name' => $artist->name, 'song_title' => $song->title],
+        );
     }
 
     private function notifyModeratorsSongPending(Song $song): void

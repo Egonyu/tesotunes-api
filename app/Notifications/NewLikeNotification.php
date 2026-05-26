@@ -2,15 +2,17 @@
 
 namespace App\Notifications;
 
+use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
 use App\Models\Like;
+use App\Traits\ChecksNotificationPreferences;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
 class NewLikeNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use ChecksNotificationPreferences, Queueable;
 
     public function __construct(
         protected Like $like,
@@ -19,12 +21,14 @@ class NewLikeNotification extends Notification implements ShouldQueue
         protected string $contentType
     ) {}
 
-    /**
-     * Only push channel — DB notification already created by Like::toggle()
-     */
     public function via(object $notifiable): array
     {
-        return [ExpoPushChannel::class];
+        return $this->filterChannelsByPreference(
+            $notifiable,
+            [AppNotificationChannel::class, ExpoPushChannel::class],
+            'social',
+            'likes'
+        );
     }
 
     public function toArray(object $notifiable): array

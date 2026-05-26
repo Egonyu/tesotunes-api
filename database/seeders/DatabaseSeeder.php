@@ -28,6 +28,10 @@ class DatabaseSeeder extends Seeder
             $this->call([SettingsSeeder::class]);
         }
 
+        if (Schema::hasTable('ad_placement_configs')) {
+            $this->call([AdPlacementConfigSeeder::class]);
+        }
+
         // Always run test data last
         $this->call([TestDataSeeder::class]);
 

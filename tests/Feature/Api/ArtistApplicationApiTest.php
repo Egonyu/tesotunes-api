@@ -127,10 +127,11 @@ class ArtistApplicationApiTest extends TestCase
 
         $artistProfile = ArtistProfile::where('user_id', $user->id)->firstOrFail();
         $this->assertSame($artist->id, $artistProfile->artist_id);
-        $this->assertSame('pending', $artistProfile->verification_status);
+        // Canonical KYC state is on the user (3-axis model)
+        $user->refresh();
+        $this->assertSame(\App\Enums\KycStatus::PendingReview, $user->kyc_status);
         $this->assertSame('mobile_money', $artistProfile->payout_method);
         $this->assertSame('+256700000001', $artistProfile->mobile_money_number);
-        $this->assertArrayHasKey('national_id_front', $artistProfile->verification_documents ?? []);
 
         $this->assertDatabaseCount('kyc_documents', 3);
         $this->assertDatabaseHas('kyc_documents', [
@@ -152,9 +153,8 @@ class ArtistApplicationApiTest extends TestCase
 
         $artist = Artist::factory()->create([
             'user_id' => $user->id,
-            'status' => 'rejected',
+            'status' => \App\Enums\ArtistStatus::Rejected->value,
             'is_verified' => false,
-            'verification_status' => 'rejected',
             'rejection_reason' => 'Old rejection reason',
             'can_upload' => false,
         ]);
@@ -164,10 +164,10 @@ class ArtistApplicationApiTest extends TestCase
             [
                 'artist_id' => $artist->id,
                 'stage_name' => $artist->stage_name,
-                'verification_status' => 'rejected',
-                'verification_documents' => ['old' => ['path' => 'kyc/old.pdf']],
             ]
         );
+
+        $user->forceFill(['kyc_status' => \App\Enums\KycStatus::Rejected->value])->save();
 
         $response = $this->actingAs($user, 'sanctum')->post('/api/artist/apply', [
             'stage_name' => 'Reapplied Artist',
@@ -188,8 +188,7 @@ class ArtistApplicationApiTest extends TestCase
 
         $this->assertDatabaseHas('artists', [
             'id' => $artist->id,
-            'status' => 'pending',
-            'verification_status' => 'pending',
+            'status' => \App\Enums\ArtistStatus::Pending->value,
             'rejection_reason' => null,
         ]);
 
@@ -197,12 +196,12 @@ class ArtistApplicationApiTest extends TestCase
             'id' => $user->id,
             'application_status' => 'pending',
             'rejection_reason' => null,
+            'kyc_status' => \App\Enums\KycStatus::PendingReview->value,
         ]);
 
         $this->assertDatabaseHas('artist_profiles', [
             'user_id' => $user->id,
             'artist_id' => $artist->id,
-            'verification_status' => 'pending',
         ]);
     }
 

@@ -331,8 +331,8 @@ class SaccoMembershipService
      */
     protected function shouldAutoApprove(User $user): bool
     {
-        // Artists with verified accounts get auto-approval
-        if ($user->hasRole('artist') && $user->artist && $user->artist->verification_status === 'verified') {
+        // Artists with KYC-verified accounts get auto-approval
+        if ($user->hasRole('artist') && $user->kyc_status === \App\Enums\KycStatus::Verified) {
             return true;
         }
 

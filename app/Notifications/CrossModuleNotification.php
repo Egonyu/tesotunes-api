@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Channels\AppNotificationChannel;
 use App\Channels\ExpoPushChannel;
+use App\Traits\ChecksNotificationPreferences;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -11,7 +12,7 @@ use Illuminate\Notifications\Notification;
 
 class CrossModuleNotification extends Notification implements ShouldQueue
 {
-    use Queueable;
+    use ChecksNotificationPreferences, Queueable;
 
     protected string $module;
 
@@ -50,19 +51,17 @@ class CrossModuleNotification extends Notification implements ShouldQueue
      */
     public function via(object $notifiable): array
     {
-        $channels = [AppNotificationChannel::class];
+        $candidates = [AppNotificationChannel::class];
 
-        // Send email for critical notifications
         if ($this->isCritical()) {
-            $channels[] = 'mail';
+            $candidates[] = 'mail';
         }
 
-        // Add push notification channel if enabled
         if ($this->shouldSendPush()) {
-            $channels[] = ExpoPushChannel::class;
+            $candidates[] = ExpoPushChannel::class;
         }
 
-        return $channels;
+        return $this->filterChannelsByPreference($notifiable, $candidates, $this->module, $this->type);
     }
 
     /**
@@ -79,7 +78,7 @@ class CrossModuleNotification extends Notification implements ShouldQueue
             $mail->action($this->actionText, $this->actionUrl);
         }
 
-        return $mail->line('Thank you for using LineOne Music Platform!');
+        return $mail->line('Thank you for using TesoTunes!');
     }
 
     /**

@@ -17,8 +17,8 @@ class ArtistProfile extends Model
         'stage_name',
         'real_name',
         'nin_number',
-        'verification_status',
-        'verification_documents',
+        // 'verification_status'    — DROPPED 2026-05-19; canonical source is users.kyc_status
+        // 'verification_documents' — DROPPED 2026-05-19; canonical source is kyc_documents table
         'verified_at',
         'bio',
         'website',
@@ -53,7 +53,6 @@ class ArtistProfile extends Model
     ];
 
     protected $casts = [
-        'verification_documents' => 'array',
         'verified_at' => 'datetime',
         'social_links' => 'array',
         'genres' => 'array',
@@ -102,7 +101,7 @@ class ArtistProfile extends Model
     // Helper Methods
     public function isVerified(): bool
     {
-        return $this->verification_status === 'verified';
+        return $this->user?->kyc_status === \App\Enums\KycStatus::Verified;
     }
 
     public function canReceiveMoneyPayouts(): bool
@@ -110,13 +109,27 @@ class ArtistProfile extends Model
         return $this->money_payout_enabled && $this->isVerified();
     }
 
+    /**
+     * Whether the artist meets ALL conditions to receive money payouts.
+     *
+     *   1. Identity (KYC) verified
+     *   2. Earnings cleared the unlock threshold (10k credits OR UGX 50k)
+     *
+     * Earning threshold alone is NOT sufficient — pre-2026-05-19 the system
+     * unlocked payouts on earnings only, which was the highest financial risk.
+     * Now KYC is a hard prerequisite.
+     */
     public function checkMoneyPayoutEligibility(): bool
     {
-        // Unlock money payouts after earning 10,000 credits or UGX 50,000
         $creditThreshold = 10000;
         $moneyThreshold = 50000;
 
-        if ($this->total_credits_earned >= $creditThreshold || $this->total_money_earned >= $moneyThreshold) {
+        $earnedEnough = $this->total_credits_earned >= $creditThreshold
+            || $this->total_money_earned >= $moneyThreshold;
+
+        $kycVerified = $this->user?->kyc_status === \App\Enums\KycStatus::Verified;
+
+        if ($earnedEnough && $kycVerified) {
             if (! $this->money_payout_enabled) {
                 $this->update([
                     'money_payout_enabled' => true,
@@ -125,6 +138,15 @@ class ArtistProfile extends Model
             }
 
             return true;
+        }
+
+        // If user previously had payouts unlocked but lost KYC (expired/rejected),
+        // revoke the flag — they must re-verify before withdrawing again.
+        if ($this->money_payout_enabled && ! $kycVerified) {
+            $this->update([
+                'money_payout_enabled' => false,
+                'money_payout_unlocked_at' => null,
+            ]);
         }
 
         return false;
@@ -154,11 +176,11 @@ class ArtistProfile extends Model
 
     public function getVerificationBadgeAttribute(): string
     {
-        return match ($this->verification_status) {
-            'verified' => '✅ Verified',
-            'pending' => '⏳ Pending',
-            'rejected' => '❌ Rejected',
-            default => '⚪ Unverified'
+        return match ($this->user?->kyc_status) {
+            \App\Enums\KycStatus::Verified => '✅ Verified',
+            \App\Enums\KycStatus::PendingReview => '⏳ Pending',
+            \App\Enums\KycStatus::Rejected => '❌ Rejected',
+            default => '⚪ Unverified',
         };
     }
 
@@ -175,7 +197,7 @@ class ArtistProfile extends Model
     // Scopes
     public function scopeVerified($query)
     {
-        return $query->where('verification_status', 'verified');
+        return $query->whereHas('user', fn ($q) => $q->where('kyc_status', \App\Enums\KycStatus::Verified->value));
     }
 
     public function scopeByRegion($query, string $region)

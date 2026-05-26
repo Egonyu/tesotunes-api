@@ -130,8 +130,7 @@ class ArtistVerificationNotificationStabilityTest extends TestCase
 
         $artist = Artist::factory()->create([
             'user_id' => $user->id,
-            'status' => 'pending',
-            'verification_status' => 'pending',
+            'status' => \App\Enums\ArtistStatus::Pending->value,
             'is_verified' => false,
         ]);
 
@@ -140,8 +139,6 @@ class ArtistVerificationNotificationStabilityTest extends TestCase
             [
                 'artist_id' => $artist->id,
                 'stage_name' => $artist->stage_name,
-                'verification_status' => 'pending',
-                'verification_documents' => [],
                 'is_active' => true,
             ]
         );

@@ -2,12 +2,16 @@
 
 namespace App\Http\Controllers\Api\Auth;
 
+use App\Enums\Observability\EventOutcome;
+use App\Enums\Observability\SecurityEventType;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Models\UserSetting;
 use App\Notifications\SecurityAlertNotification;
 use App\Notifications\WelcomeNotification;
+use App\Services\Observability\SecurityEvent;
+use App\Services\Observability\SecurityEventRecorder;
 use App\Services\RecaptchaService;
 use App\Services\Security\TwoFactorService;
 use Illuminate\Auth\Events\Registered;
@@ -140,6 +144,14 @@ class AuthController extends Controller
         }
 
         event(new Registered($user));
+
+        SecurityEventRecorder::emit(
+            SecurityEvent::of(SecurityEventType::AuthRegistered)
+                ->summary('New account registered: '.$user->email)
+                ->actor('user', $user->id, $user->name ?? $user->email)
+                ->fromRequest($request)
+        );
+
         Log::channel('audit')->info('auth.email_verification.dispatch_requested', [
             'trigger' => 'registration',
             'user_id' => $user->id,
@@ -203,6 +215,15 @@ class AuthController extends Controller
                 'reason' => 'invalid_credentials',
             ]);
 
+            SecurityEventRecorder::emit(
+                SecurityEvent::of(SecurityEventType::AuthLoginFailed)
+                    ->summary('Failed login attempt for '.$request->email)
+                    ->actor('guest', null, $request->email)
+                    ->fromRequest($request)
+                    ->detail('reason', 'invalid_credentials')
+                    ->detail('account_exists', (bool) $user)
+            );
+
             return response()->json([
                 'message' => 'Invalid credentials',
             ], 401);
@@ -217,6 +238,15 @@ class AuthController extends Controller
                 'url' => $request->fullUrl(),
                 'reason' => 'account_suspended',
             ]);
+
+            SecurityEventRecorder::emit(
+                SecurityEvent::of(SecurityEventType::AuthLoginFailed)
+                    ->outcome(EventOutcome::Blocked)
+                    ->summary('Login blocked for suspended account '.$user->email)
+                    ->actor($user->role ?: 'user', $user->id, $user->name ?? $user->email)
+                    ->fromRequest($request)
+                    ->detail('reason', 'account_suspended')
+            );
 
             return response()->json([
                 'message' => 'Account is suspended',
@@ -287,6 +317,14 @@ class AuthController extends Controller
             'url' => $request->fullUrl(),
             'remember_me' => (bool) $request->boolean('remember_me'),
         ]);
+
+        SecurityEventRecorder::emit(
+            SecurityEvent::of(SecurityEventType::AuthLoginSucceeded)
+                ->summary($user->email.' signed in')
+                ->actor($user->role ?: 'user', $user->id, $user->name ?? $user->email)
+                ->fromRequest($request)
+                ->detail('remember_me', (bool) $request->boolean('remember_me'))
+        );
 
         return $this->buildAuthenticatedResponse($user, $token);
     }
@@ -459,7 +497,15 @@ class AuthController extends Controller
      */
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
+        $user->currentAccessToken()->delete();
+
+        SecurityEventRecorder::emit(
+            SecurityEvent::of(SecurityEventType::AuthLogout)
+                ->summary($user->email.' signed out')
+                ->actor($user->role ?: 'user', $user->id, $user->name ?? $user->email)
+                ->fromRequest($request)
+        );
 
         return response()->json([
             'message' => 'Logged out successfully',
@@ -474,6 +520,13 @@ class AuthController extends Controller
         $user = $request->user();
         $request->user()->currentAccessToken()->delete();
         $token = $user->createToken('auth_token')->plainTextToken;
+
+        SecurityEventRecorder::emit(
+            SecurityEvent::of(SecurityEventType::AuthTokenRefreshed)
+                ->summary('Access token refreshed for '.$user->email)
+                ->actor($user->role ?: 'user', $user->id, $user->name ?? $user->email)
+                ->fromRequest($request)
+        );
 
         return response()->json([
             'token' => $token,

@@ -55,7 +55,9 @@ class Artist extends Model implements HasMedia
         'claim_status',
         'claimed_user_id',
         'catalog_manager_user_id',
-        'verification_status',
+        // 'verification_status' — DROPPED 2026-05-19; canonical source is users.kyc_status (identity)
+        //                        Artist's own approval state is `status` (AXIS 2), and `is_verified` is
+        //                        the social-proof featured badge (AXIS 3).
         'verified_at',
         'verified_by',
         'rejection_reason',

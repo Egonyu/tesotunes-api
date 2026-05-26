@@ -5,41 +5,31 @@ namespace App\Traits;
 trait ChecksNotificationPreferences
 {
     /**
-     * Filter channels based on user notification preferences.
+     * Filter channels based on the notifiable's saved notification_preferences.
      *
-     * Checks the notifiable's notification_preferences JSON field
-     * for module-level and channel-level toggles. Falls back to
-     * allowing all channels if no preference is set.
+     * Preferences are stored as a flat per-type JSON object:
+     *   { "song_approved": { "email": true, "push": true, "in_app": true }, ..., "global_mute": false }
+     *
+     * Falls back to allowing all channels when no preference is recorded.
      */
     protected function filterChannelsByPreference(object $notifiable, array $channels, string $module, ?string $type = null): array
     {
-        $prefs = $notifiable->notification_preferences ?? [];
+        $prefs = $notifiable->notificationPreferences ?? $notifiable->notification_preferences ?? [];
 
         if (empty($prefs)) {
             return $channels;
         }
 
-        return array_values(array_filter($channels, function ($channel) use ($notifiable, $prefs, $module) {
+        if ($prefs['global_mute'] ?? false) {
+            return [\App\Channels\AppNotificationChannel::class];
+        }
+
+        return array_values(array_filter($channels, function (string $channel) use ($prefs, $type): bool {
             $channelKey = $this->resolveChannelKey($channel);
 
-            // Check channel-level preferences (e.g., push_notifications.music)
-            $channelPrefs = $prefs[$channelKey] ?? null;
-            if (is_array($channelPrefs) && isset($channelPrefs[$module])) {
-                $moduleValue = $channelPrefs[$module];
-
-                // Supports both boolean (true/false) and array of allowed types
-                if (is_bool($moduleValue)) {
-                    return $moduleValue;
-                }
-            }
-
-            // Check top-level toggles on User model
-            if ($channelKey === 'email_notifications' && $notifiable->email_notifications_enabled === false) {
-                return false;
-            }
-
-            if ($channelKey === 'sms_notifications' && $notifiable->sms_notifications_enabled === false) {
-                return false;
+            // Per-type preference wins when present
+            if ($type !== null && isset($prefs[$type]) && is_array($prefs[$type])) {
+                return (bool) ($prefs[$type][$channelKey] ?? true);
             }
 
             // Default: allow
@@ -48,16 +38,15 @@ trait ChecksNotificationPreferences
     }
 
     /**
-     * Map a Laravel channel class to its preference key.
+     * Map a Laravel channel class to its per-type preference sub-key.
      */
     private function resolveChannelKey(string $channel): string
     {
         return match ($channel) {
-            'mail' => 'email_notifications',
-            'database' => 'in_app_notifications',
-            \App\Channels\AppNotificationChannel::class => 'in_app_notifications',
-            \App\Channels\ExpoPushChannel::class => 'push_notifications',
-            default => $channel,
+            'mail' => 'email',
+            'database', \App\Channels\AppNotificationChannel::class => 'in_app',
+            \App\Channels\ExpoPushChannel::class => 'push',
+            default => 'in_app',
         };
     }
 }

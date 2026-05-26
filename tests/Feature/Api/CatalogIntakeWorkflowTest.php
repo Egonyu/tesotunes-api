@@ -192,7 +192,11 @@ class CatalogIntakeWorkflowTest extends TestCase
             'source_type' => 'catalog_submission',
         ]);
 
-        $claimant = User::factory()->create();
+        // Claimant must be KYC-verified to submit a claim (kyc:music_claim middleware).
+        $claimant = User::factory()->create([
+            'kyc_status' => \App\Enums\KycStatus::Verified->value,
+            'phone' => '+256700000001',
+        ]);
 
         $claimResponse = $this->actingAs($claimant)->postJson('/api/catalog/claim-requests', [
             'artist_id' => $placeholderArtist->id,

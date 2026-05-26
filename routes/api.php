@@ -22,8 +22,11 @@ Route::get('/health/system', [HealthCheckController::class, 'system']);
 // Authentication API Routes
 require __DIR__.'/api/auth.php';
 
+// KYC API Routes (identity verification: status, document upload, admin review)
+require __DIR__.'/api/kyc.php';
+
 // Development-only routes (never loaded in production)
-if (app()->environment('local')) {
+if (app()->environment('local', 'testing')) {
     require __DIR__.'/api/dev.php';
 }
 

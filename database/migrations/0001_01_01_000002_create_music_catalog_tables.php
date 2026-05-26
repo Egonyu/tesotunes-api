@@ -59,7 +59,8 @@ return new class extends Migration
             $table->string('record_label')->nullable();
             $table->string('cover_image')->nullable();
             $table->boolean('is_trusted')->default(false);
-            $table->string('verification_status')->default('pending');
+            // verification_status: dropped 2026-05-19 — canonical state lives in users.kyc_status (axis 1)
+            // and artists.status (axis 2). See: docs/architecture/kyc-3-axis-model.md
             $table->timestamp('verified_at')->nullable();
             $table->foreignId('verified_by')->nullable()->constrained('users')->nullOnDelete();
             $table->text('rejection_reason')->nullable();
@@ -95,8 +96,8 @@ return new class extends Migration
             $table->string('stage_name')->nullable();
             $table->string('real_name')->nullable();
             $table->string('nin_number')->nullable();
-            $table->string('verification_status')->default('pending');
-            $table->json('verification_documents')->nullable();
+            // verification_status / verification_documents: dropped 2026-05-19 — canonical
+            // sources are users.kyc_status (axis 1) and kyc_documents table.
             $table->timestamp('verified_at')->nullable();
             $table->text('bio')->nullable();
             $table->string('website')->nullable();
@@ -130,7 +131,7 @@ return new class extends Migration
             $table->boolean('profile_completed')->default(false);
             $table->timestamps();
 
-            $table->index(['verification_status', 'is_active']);
+            $table->index('is_active');
             $table->index('artist_id');
         });
 

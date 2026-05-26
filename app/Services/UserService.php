@@ -58,11 +58,13 @@ class UserService
             ], fn ($value) => $value !== null)
         );
 
-        $verificationDocuments = $attributes['verification_documents'] ?? [];
-
         if (! User::hasArtistProfilesTable()) {
             return;
         }
+
+        // Legacy: $attributes['verification_documents'] / $attributes['verification_status']
+        // are no longer persisted here. Identity verification flows through KycService
+        // and writes to users.kyc_status + kyc_documents.
 
         $user->artistProfile()->updateOrCreate(
             ['user_id' => $user->id],
@@ -70,8 +72,6 @@ class UserService
                 'stage_name' => $attributes['stage_name'] ?? $user->artistProfile?->stage_name,
                 'real_name' => $attributes['full_name'] ?? $user->artistProfile?->real_name,
                 'nin_number' => $attributes['nin_number'] ?? $user->artistProfile?->nin_number,
-                'verification_status' => $attributes['verification_status'] ?? 'pending',
-                'verification_documents' => $verificationDocuments,
                 'bio' => $attributes['bio'] ?? $user->artistProfile?->bio,
                 'website' => $attributes['website_url'] ?? $user->artistProfile?->website,
                 'social_links' => $attributes['social_links'] ?? $user->artistProfile?->social_links,
@@ -122,8 +122,6 @@ class UserService
                 'stage_name' => $artist->stage_name,
                 'real_name' => $user->full_name ?? $user->artistProfile?->real_name,
                 'nin_number' => $user->nin_number ?? $user->artistProfile?->nin_number,
-                'verification_status' => $attributes['verification_status'] ?? $user->artistProfile?->verification_status ?? 'pending',
-                'verification_documents' => $user->artistProfile?->verification_documents ?? [],
                 'verified_at' => $verifiedAt,
                 'bio' => $artist->bio ?? $user->artistProfile?->bio,
                 'website' => $artist->website_url ?? $user->artistProfile?->website,

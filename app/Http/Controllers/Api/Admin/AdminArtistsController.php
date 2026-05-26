@@ -6,7 +6,6 @@ use App\Helpers\StorageHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Album;
 use App\Models\Artist;
-use App\Models\KYCDocument;
 use App\Models\Role;
 use App\Models\Song;
 use App\Notifications\ArtistApplicationNotification;
@@ -194,11 +193,11 @@ class AdminArtistsController extends Controller
             'cover_image' => $artist->cover_image,
             'cover_url' => $coverBase ? $coverBase.'?v='.$coverVersion : null,
             'profile_url' => $avatarBase ? $avatarBase.'?v='.$avatarVersion : null,
-            'status' => $artist->status,
-            'is_verified' => $artist->is_verified,
+            'status' => $artist->status,                                    // axis 2
+            'is_verified' => $artist->is_verified,                          // axis 3 (featured)
             'is_featured' => $artist->is_trusted,
             'is_trusted' => $artist->is_trusted,
-            'verification_status' => $artist->verification_status,
+            'kyc_status' => $artist->user?->kyc_status?->value,             // axis 1 (identity)
             'verified_at' => $artist->verified_at,
             'website' => $artist->website_url,
             'website_url' => $artist->website_url,
@@ -270,9 +269,8 @@ class AdminArtistsController extends Controller
             $artist = Artist::findOrFail($id);
 
             $artist->update([
-                'is_verified' => true,
-                'verification_status' => 'approved',
-                'status' => 'active',
+                'is_verified' => true,                                    // axis 3: featured/blue-check
+                'status' => \App\Enums\ArtistStatus::Approved->value,     // axis 2: application approved
                 'verified_at' => now(),
                 'verified_by' => auth()->id(),
                 'can_upload' => true,
@@ -295,7 +293,7 @@ class AdminArtistsController extends Controller
     {
         return $this->handleApiAction(function () use ($request, $id) {
             $request->validate([
-                'status' => 'required|in:active,pending,suspended,rejected',
+                'status' => 'required|in:approved,pending,suspended,rejected',
                 'reason' => 'nullable|string|max:1000|required_if:status,rejected',
             ]);
 
@@ -303,15 +301,13 @@ class AdminArtistsController extends Controller
             $status = $request->input('status');
             $artist->update([
                 'status' => $status,
-                'rejection_reason' => $status === 'rejected' ? $request->input('reason') : null,
-                'is_verified' => $status === 'active' ? true : ($status === 'rejected' ? false : $artist->is_verified),
-                'verification_status' => match ($status) {
-                    'active' => 'approved',
-                    'rejected' => 'rejected',
-                    'suspended' => 'suspended',
-                    default => 'pending',
-                },
-                'verified_at' => $status === 'active' ? now() : ($status === 'pending' ? null : $artist->verified_at),
+                'rejection_reason' => $status === \App\Enums\ArtistStatus::Rejected->value ? $request->input('reason') : null,
+                'is_verified' => $status === \App\Enums\ArtistStatus::Approved->value
+                    ? true
+                    : ($status === \App\Enums\ArtistStatus::Rejected->value ? false : $artist->is_verified),
+                'verified_at' => $status === \App\Enums\ArtistStatus::Approved->value
+                    ? now()
+                    : ($status === \App\Enums\ArtistStatus::Pending->value ? null : $artist->verified_at),
                 'verified_by' => $status === 'active' ? auth()->id() : ($status === 'pending' ? null : $artist->verified_by),
                 'can_upload' => $status === 'active',
             ]);
@@ -531,11 +527,12 @@ class AdminArtistsController extends Controller
 
             $artist->update([
                 'is_verified' => ! $wasVerified,
-                'verification_status' => $wasVerified ? 'pending' : 'approved',
                 'verified_at' => $wasVerified ? null : now(),
                 'verified_by' => $wasVerified ? null : auth()->id(),
                 'can_upload' => ! $wasVerified,
-                'status' => $wasVerified ? 'pending' : 'active',
+                'status' => $wasVerified
+                    ? \App\Enums\ArtistStatus::Pending->value
+                    : \App\Enums\ArtistStatus::Approved->value,
                 'rejection_reason' => null,
             ]);
 
@@ -556,9 +553,8 @@ class AdminArtistsController extends Controller
         return $this->handleApiAction(function () use ($id) {
             $artist = Artist::findOrFail($id);
             $artist->update([
-                'status' => 'active',
+                'status' => \App\Enums\ArtistStatus::Approved->value,
                 'is_verified' => true,
-                'verification_status' => 'approved',
                 'verified_at' => now(),
                 'verified_by' => auth()->id(),
                 'can_upload' => true,
@@ -582,9 +578,8 @@ class AdminArtistsController extends Controller
 
             $artist = Artist::findOrFail($id);
             $artist->update([
-                'status' => 'rejected',
+                'status' => \App\Enums\ArtistStatus::Rejected->value,
                 'is_verified' => false,
-                'verification_status' => 'rejected',
                 'verified_at' => now(),
                 'verified_by' => auth()->id(),
                 'rejection_reason' => $validated['reason'],
@@ -631,16 +626,9 @@ class AdminArtistsController extends Controller
         $user = $artist->user;
         $artistRole = Role::where('name', Role::ARTIST)->first();
         $userRole = Role::where('name', Role::USER)->first();
-        $verificationStatus = match ($state) {
-            'approved' => 'verified',
-            'rejected' => 'rejected',
-            'suspended' => 'suspended',
-            default => 'pending',
-        };
 
         $this->userService->syncArtistReviewState($user, $artist, [
             'application_status' => $state === 'approved' ? 'approved' : $state,
-            'verification_status' => $verificationStatus,
             'verified_at' => $artist->verified_at,
             'verified_by' => $artist->verified_by,
             'rejection_reason' => $artist->rejection_reason,
@@ -684,25 +672,23 @@ class AdminArtistsController extends Controller
 
             $user->clearPermissionCache();
 
-            KYCDocument::where('user_id', $user->id)
-                ->whereIn('status', [KYCDocument::STATUS_PENDING, KYCDocument::STATUS_REJECTED])
-                ->update([
-                    'status' => KYCDocument::STATUS_VERIFIED,
-                    'verified_at' => $artist->verified_at ?? now(),
-                    'verified_by' => auth()->id(),
-                    'rejection_reason' => null,
-                ]);
+            // Identity (KYC) approval flows through KycService — the single writer.
+            // No-op when the user has no pending docs.
+            $admin = auth()->user();
+            if ($admin && $user->kycDocuments()->where('status', 'pending')->exists()) {
+                app(\App\Services\Kyc\KycService::class)->markVerified($user, $admin);
+            }
         }
 
         if ($state === 'rejected') {
-            KYCDocument::where('user_id', $user->id)
-                ->where('status', KYCDocument::STATUS_PENDING)
-                ->update([
-                    'status' => KYCDocument::STATUS_REJECTED,
-                    'verified_at' => now(),
-                    'verified_by' => auth()->id(),
-                    'rejection_reason' => $artist->rejection_reason ?? 'Application rejected',
-                ]);
+            $admin = auth()->user();
+            if ($admin && $user->kycDocuments()->where('status', 'pending')->exists()) {
+                app(\App\Services\Kyc\KycService::class)->markRejected(
+                    $user,
+                    $admin,
+                    $artist->rejection_reason ?? 'Application rejected'
+                );
+            }
         }
 
         if (in_array($state, ['rejected', 'suspended'], true)) {

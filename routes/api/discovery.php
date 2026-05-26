@@ -2,7 +2,11 @@
 
 use Illuminate\Support\Facades\Route;
 
-// Ad tracking endpoints (no auth required for impressions)
+// Ad serving + tracking (no auth required — free users may not be logged in)
+Route::middleware('throttle:60,1')->group(function () {
+    Route::get('/ads', [\App\Http\Controllers\Api\AdServingController::class, 'serve']);
+});
+
 Route::middleware('throttle:ad-tracking')->group(function () {
     Route::post('/ads/impression', [\App\Http\Controllers\Api\AdTrackingController::class, 'recordImpression']);
     Route::post('/ads/click', [\App\Http\Controllers\Api\AdTrackingController::class, 'recordClick']);
@@ -13,7 +17,7 @@ Route::post('/theme', [\App\Http\Controllers\ThemeController::class, 'update'])
     ->middleware('throttle:theme')
     ->name('api.theme.update');
 Route::get('/theme', [\App\Http\Controllers\ThemeController::class, 'get'])->name('api.theme.get');
-Route::get('/platform-settings', [\App\Http\Controllers\Api\Admin\SettingsController::class, 'publicIndex'])->name('api.platform-settings.public');
+Route::get('/settings/public', [\App\Http\Controllers\Api\Admin\SettingsRegistryController::class, 'publicIndex'])->name('api.settings.public');
 
 // Genres API endpoint for artist registration
 Route::get('/genres', [\App\Http\Controllers\Api\GenreController::class, 'index']);

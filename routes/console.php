@@ -272,6 +272,14 @@ Schedule::command('observability:maintain')
     ->onOneServer()
     ->runInBackground();
 
+// Run security detection rules every 5 minutes — opens/refreshes incidents
+Schedule::command('observability:detect')
+    ->everyFiveMinutes()
+    ->name('observability-detection')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
 /*
 |--------------------------------------------------------------------------
 | Poll Auto-Close
@@ -301,6 +309,23 @@ Schedule::command('polls:close-expired')
 Schedule::command('notifications:weekly-digest')
     ->weeklyOn(1, '09:00')
     ->name('weekly-digest')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
+/*
+|--------------------------------------------------------------------------
+| Inactive User Re-engagement
+|--------------------------------------------------------------------------
+|
+| Notify users who haven't played anything in 7+ days about new releases
+| from artists they follow — runs daily at 10 AM EAT.
+|
+*/
+
+Schedule::command('notifications:reengage-inactive --days=7')
+    ->dailyAt('10:00')
+    ->name('reengage-inactive-users')
     ->withoutOverlapping()
     ->onOneServer()
     ->runInBackground();

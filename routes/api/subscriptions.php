@@ -4,7 +4,9 @@ use Illuminate\Support\Facades\Route;
 
 // Payout API Routes
 Route::middleware('auth:sanctum')->prefix('payouts')->name('api.payouts.')->group(function () {
-    Route::post('/request', [\App\Http\Controllers\Api\PayoutController::class, 'requestPayout'])->name('request');
+    Route::post('/request', [\App\Http\Controllers\Api\PayoutController::class, 'requestPayout'])
+        ->middleware('kyc:withdrawal')
+        ->name('request');
 });
 
 // Subscription API Routes — public plan list + authenticated subscription management

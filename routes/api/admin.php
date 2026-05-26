@@ -60,6 +60,20 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::get('/settings', [\App\Http\Controllers\Api\Admin\SettingsController::class, 'index'])->name('settings.index');
     Route::put('/settings', [\App\Http\Controllers\Api\Admin\SettingsController::class, 'update'])->name('settings.update');
 
+    // Settings Registry API (per-field, audited)
+    Route::get('/settings/schema', [\App\Http\Controllers\Api\Admin\SettingsRegistryController::class, 'schema'])->name('settings.schema');
+    Route::get('/settings/values', [\App\Http\Controllers\Api\Admin\SettingsRegistryController::class, 'values'])->name('settings.values');
+    Route::patch('/settings', [\App\Http\Controllers\Api\Admin\SettingsRegistryController::class, 'patchBatch'])->name('settings.patch-batch');
+    Route::patch('/settings/{key}', [\App\Http\Controllers\Api\Admin\SettingsRegistryController::class, 'patchOne'])
+        ->where('key', '[A-Za-z0-9_.-]+')
+        ->name('settings.patch-one');
+    Route::get('/settings/{key}/history', [\App\Http\Controllers\Api\Admin\SettingsRegistryController::class, 'history'])
+        ->where('key', '[A-Za-z0-9_.-]+')
+        ->name('settings.history');
+    Route::post('/settings/{key}/revert/{auditId}', [\App\Http\Controllers\Api\Admin\SettingsRegistryController::class, 'revert'])
+        ->where(['key' => '[A-Za-z0-9_.-]+', 'auditId' => '[0-9]+'])
+        ->name('settings.revert');
+
     Route::get('/audit-logs', [\App\Http\Controllers\Api\Admin\AdminAuditLogController::class, 'index'])->name('audit-logs.index');
     Route::get('/feature-flags', [\App\Http\Controllers\Api\Admin\AdminFeatureFlagController::class, 'index'])->name('feature-flags.index');
     Route::post('/feature-flags', [\App\Http\Controllers\Api\Admin\AdminFeatureFlagController::class, 'store'])->name('feature-flags.store');
@@ -86,6 +100,25 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::get('/events/{id}/analytics/export', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'exportAnalytics'])->name('events.analytics.export');
     Route::get('/events/{id}/attendees', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'attendees'])->name('events.attendees');
     Route::get('/events/{id}/registrations', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'registrations'])->name('events.registrations');
+
+    // Ad management
+    Route::get('/ads/analytics', [\App\Http\Controllers\Api\Admin\AdminAdsController::class, 'analytics'])->name('ads.analytics');
+    Route::get('/ads', [\App\Http\Controllers\Api\Admin\AdminAdsController::class, 'index'])->name('ads.index');
+    Route::post('/ads', [\App\Http\Controllers\Api\Admin\AdminAdsController::class, 'store'])->name('ads.store');
+    Route::get('/ads/{ad}', [\App\Http\Controllers\Api\Admin\AdminAdsController::class, 'show'])->name('ads.show');
+    Route::put('/ads/{ad}', [\App\Http\Controllers\Api\Admin\AdminAdsController::class, 'update'])->name('ads.update');
+    Route::delete('/ads/{ad}', [\App\Http\Controllers\Api\Admin\AdminAdsController::class, 'destroy'])->name('ads.destroy');
+    Route::post('/ads/{ad}/activate', [\App\Http\Controllers\Api\Admin\AdminAdsController::class, 'activate'])->name('ads.activate');
+    Route::post('/ads/{ad}/pause', [\App\Http\Controllers\Api\Admin\AdminAdsController::class, 'pause'])->name('ads.pause');
+
+    // Ad placement zone management
+    Route::get('/ad-placements/analytics', [\App\Http\Controllers\Api\Admin\AdminAdPlacementController::class, 'analytics'])->name('ad-placements.analytics');
+    Route::get('/ad-placements', [\App\Http\Controllers\Api\Admin\AdminAdPlacementController::class, 'index'])->name('ad-placements.index');
+    Route::get('/ad-placements/{key}', [\App\Http\Controllers\Api\Admin\AdminAdPlacementController::class, 'show'])->name('ad-placements.show');
+    Route::put('/ad-placements/{key}', [\App\Http\Controllers\Api\Admin\AdminAdPlacementController::class, 'update'])->name('ad-placements.update');
+    Route::post('/ad-placements/{key}/assign', [\App\Http\Controllers\Api\Admin\AdminAdPlacementController::class, 'assign'])->name('ad-placements.assign');
+    Route::put('/ad-placements/{key}/assign/{assignment}', [\App\Http\Controllers\Api\Admin\AdminAdPlacementController::class, 'updateAssignment'])->name('ad-placements.assign.update');
+    Route::delete('/ad-placements/{key}/assign/{assignment}', [\App\Http\Controllers\Api\Admin\AdminAdPlacementController::class, 'removeAssignment'])->name('ad-placements.assign.destroy');
 
     // Promotions moderation
     Route::get('/promotions', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'index'])->name('promotions.index');
@@ -231,6 +264,14 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
 
     // Observability
     Route::prefix('observability')->name('observability.')->group(function () {
+        // Security console v2 — push-based read API (no sync-on-read)
+        Route::prefix('console')->name('console.')->group(function () {
+            Route::get('/posture', [\App\Http\Controllers\Api\Admin\SecurityConsoleController::class, 'posture'])->name('posture');
+            Route::get('/feed', [\App\Http\Controllers\Api\Admin\SecurityConsoleController::class, 'feed'])->name('feed');
+            Route::get('/incidents', [\App\Http\Controllers\Api\Admin\SecurityConsoleController::class, 'incidents'])->name('incidents');
+            Route::get('/domain/{domain}', [\App\Http\Controllers\Api\Admin\SecurityConsoleController::class, 'domain'])->name('domain');
+        });
+
         Route::get('/overview', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'overview'])->name('overview');
         Route::get('/events', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'events'])->name('events.index');
         Route::get('/events/{event}', [\App\Http\Controllers\Api\Admin\ObservabilityController::class, 'showEvent'])->name('events.show');

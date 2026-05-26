@@ -104,9 +104,8 @@ class ArtistApiController extends Controller
                     $user->id
                 ),
                 'bio' => $user->bio,
-                'status' => 'active',
+                'status' => \App\Enums\ArtistStatus::Approved->value,
                 'is_verified' => (bool) $user->is_verified,
-                'verification_status' => $user->is_verified ? 'approved' : 'pending',
                 'can_upload' => true,
             ]);
         });
@@ -1292,8 +1291,9 @@ class ArtistApiController extends Controller
                 'city' => $request->user()->city ?? null,
                 'website_url' => $artist->website_url,
                 'social_links' => $artist->social_links,
-                'is_verified' => (bool) $artist->is_verified,
-                'verification_status' => $artist->verification_status ?? 'pending',
+                'is_verified' => (bool) $artist->is_verified,                       // axis 3: featured badge
+                'status' => $artist->status,                                          // axis 2: application status
+                'kyc_status' => $request->user()->kyc_status?->value,                 // axis 1: identity
                 'payout_phone_number' => $artist->payout_phone_number,
                 'can_upload' => (bool) $artist->can_upload,
                 'monthly_upload_limit' => $artist->monthly_upload_limit,

@@ -206,7 +206,8 @@ class CacheWarmingService
         CacheHelper::remember(['artists'], 'artists:top:verified', 1800, function () use (&$count) {
             $count++;
 
-            return Artist::where('verification_status', 'verified')
+            // "Top verified artists" = featured/blue-check (axis 3), not identity-KYC
+            return Artist::where('is_verified', true)
                 ->withCount('songs')
                 ->orderByDesc('monthly_listeners')
                 ->limit(50)

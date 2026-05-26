@@ -60,6 +60,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'admin.exceptions' => \App\Http\Middleware\HandleAdminExceptions::class,
+            'kyc' => \App\Http\Middleware\EnsureKycVerified::class,
             'role' => \App\Http\Middleware\RoleMiddleware::class,
             'permission' => \App\Http\Middleware\PermissionMiddleware::class,
             'artist.events.access' => \App\Http\Middleware\ArtistEventAccessMiddleware::class,
@@ -97,6 +98,9 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Track API usage analytics (async via queued job)
         $middleware->appendToGroup('api', \App\Http\Middleware\TrackApiUsage::class);
+
+        // Emit security telemetry for API abuse signals (429 / 403)
+        $middleware->appendToGroup('api', \App\Http\Middleware\MonitorApiAbuse::class);
 
         // For a pure API backend, unauthenticated requests should get JSON 401
         // instead of being redirected to a login page

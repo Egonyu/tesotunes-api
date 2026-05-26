@@ -34,9 +34,6 @@ class ArtistProfileFactory extends Factory
             'stage_name' => $stageName,
             'real_name' => fake()->name(),
             'nin_number' => fake()->optional()->numerify('CM###########'),
-            'verification_documents' => [
-                ['type' => 'id_front', 'path' => 'kyc/id-front.jpg'],
-            ],
             'verified_at' => fake()->boolean(30) ? now() : null,
             'bio' => fake()->paragraphs(2, true),
             'website' => fake()->optional()->url(),
@@ -70,30 +67,35 @@ class ArtistProfileFactory extends Factory
             'is_active' => true,
             'last_login_at' => fake()->optional()->dateTimeBetween('-30 days', 'now'),
             'profile_completed' => fake()->boolean(60),
-            'verification_status' => fake()->randomElement(['pending', 'verified', 'rejected']),
         ];
     }
 
     /**
-     * Indicate that the artist is verified.
+     * Indicate that the artist is KYC-verified. Writes through to the related user
+     * since the canonical KYC state now lives on users.kyc_status.
      */
     public function verified(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'verification_status' => 'verified',
-            'verified_at' => now(),
-        ]);
+        return $this->afterCreating(function (\App\Models\ArtistProfile $profile) {
+            $profile->user?->forceFill([
+                'kyc_status' => \App\Enums\KycStatus::Verified->value,
+                'kyc_verified_at' => now(),
+            ])->save();
+            $profile->update(['verified_at' => now()]);
+        });
     }
 
     /**
-     * Indicate that the artist is pending verification.
+     * Indicate that the artist is pending KYC verification.
      */
     public function pending(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'verification_status' => 'pending',
-            'verified_at' => null,
-        ]);
+        return $this->afterCreating(function (\App\Models\ArtistProfile $profile) {
+            $profile->user?->forceFill([
+                'kyc_status' => \App\Enums\KycStatus::PendingReview->value,
+            ])->save();
+            $profile->update(['verified_at' => null]);
+        });
     }
 
     /**

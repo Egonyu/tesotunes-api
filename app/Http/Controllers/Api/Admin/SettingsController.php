@@ -70,143 +70,124 @@ class SettingsController extends Controller
     }
 
     /**
-     * Get public platform settings used by unauthenticated surfaces.
-     */
-    public function publicIndex()
-    {
-        return $this->handleApiAction(function () {
-            $userSettings = $this->getUserSettings();
-            $securitySettings = $this->getSecuritySettings();
-
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'general' => [
-                        'platform_name' => $this->getGeneralSettings()['platform_name'],
-                        'tagline' => $this->getGeneralSettings()['tagline'],
-                    ],
-                    'appearance' => $this->getAppearanceSettings(),
-                    'users' => [
-                        'social_login_enabled' => $userSettings['social_login_enabled'],
-                    ],
-                    'security' => [
-                        'google_login_enabled' => $securitySettings['google_login_enabled'],
-                        'facebook_login_enabled' => $securitySettings['facebook_login_enabled'],
-                        'apple_login_enabled' => $securitySettings['apple_login_enabled'],
-                    ],
-                ],
-            ]);
-        }, 'Failed to retrieve public platform settings.');
-    }
-
-    /**
      * Update platform settings
      */
     public function update(Request $request)
     {
         return $this->handleApiAction(function () use ($request) {
-            $validator = Validator::make($request->all(), [
-                'general' => 'sometimes|array',
-                'appearance' => 'sometimes|array',
-                'appearance.homepage_theme' => 'sometimes|string|in:classic_home,curated_home',
-                'users' => 'sometimes|array',
-                'credits' => 'sometimes|array',
-                'notifications' => 'sometimes|array',
-                'mobile' => 'sometimes|array',
-                'security' => 'sometimes|array',
-                'payments' => 'sometimes|array',
-                'payments.artist_revenue_share' => 'sometimes|numeric|min:0|max:100',
-                'email' => 'sometimes|array',
-                'storage' => 'sometimes|array',
-                'sacco' => 'sometimes|array',
-            ]);
+            \App\Models\Setting::actingAs($request->user()?->id, 'legacy admin settings update');
 
-            if ($validator->fails()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Validation failed.',
-                    'errors' => $validator->errors(),
-                ], 422);
+            try {
+                return $this->performUpdate($request);
+            } finally {
+                \App\Models\Setting::clearActor();
             }
+        }, 'Failed to update platform settings.');
+    }
 
-            $updated = [];
+    private function performUpdate(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'general' => 'sometimes|array',
+            'appearance' => 'sometimes|array',
+            'appearance.homepage_theme' => 'sometimes|string|in:classic_home,curated_home',
+            'users' => 'sometimes|array',
+            'credits' => 'sometimes|array',
+            'notifications' => 'sometimes|array',
+            'mobile' => 'sometimes|array',
+            'security' => 'sometimes|array',
+            'payments' => 'sometimes|array',
+            'payments.artist_revenue_share' => 'sometimes|numeric|min:0|max:100',
+            'email' => 'sometimes|array',
+            'storage' => 'sometimes|array',
+            'sacco' => 'sometimes|array',
+        ]);
 
-            // Update each section if provided
-            if ($request->has('general')) {
-                $this->updateGeneralSettings($request->input('general'));
-                $updated[] = 'general';
-            }
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed.',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
 
-            if ($request->has('appearance')) {
-                $this->updateAppearanceSettings($request->input('appearance'));
-                $updated[] = 'appearance';
-            }
+        $updated = [];
 
-            if ($request->has('users')) {
-                $this->updateUserSettings($request->input('users'));
-                $updated[] = 'users';
-            }
+        // Update each section if provided
+        if ($request->has('general')) {
+            $this->updateGeneralSettings($request->input('general'));
+            $updated[] = 'general';
+        }
 
-            if ($request->has('credits')) {
-                $this->updateCreditSettings($request->input('credits'));
-                $updated[] = 'credits';
-            }
+        if ($request->has('appearance')) {
+            $this->updateAppearanceSettings($request->input('appearance'));
+            $updated[] = 'appearance';
+        }
 
-            if ($request->has('notifications')) {
-                $this->updateNotificationSettings($request->input('notifications'));
-                $updated[] = 'notifications';
-            }
+        if ($request->has('users')) {
+            $this->updateUserSettings($request->input('users'));
+            $updated[] = 'users';
+        }
 
-            if ($request->has('mobile')) {
-                $this->updateMobileVerificationSettings($request->input('mobile'));
-                $updated[] = 'mobile';
-            }
+        if ($request->has('credits')) {
+            $this->updateCreditSettings($request->input('credits'));
+            $updated[] = 'credits';
+        }
 
-            if ($request->has('security')) {
-                $this->updateSecuritySettings($request->input('security'));
-                $updated[] = 'security';
-            }
+        if ($request->has('notifications')) {
+            $this->updateNotificationSettings($request->input('notifications'));
+            $updated[] = 'notifications';
+        }
 
-            if ($request->has('payments')) {
-                $paymentData = $request->input('payments');
-                $isSuperAdmin = (bool) ($request->user()?->isSuperAdmin() ?? false);
+        if ($request->has('mobile')) {
+            $this->updateMobileVerificationSettings($request->input('mobile'));
+            $updated[] = 'mobile';
+        }
 
-                if (! $isSuperAdmin) {
-                    foreach (['mtn_api_key', 'airtel_api_key', 'zengapay_api_key'] as $secretKey) {
-                        if (! empty($paymentData[$secretKey])) {
-                            return response()->json([
-                                'success' => false,
-                                'message' => 'Payment API secret updates require super admin access.',
-                            ], 403);
-                        }
+        if ($request->has('security')) {
+            $this->updateSecuritySettings($request->input('security'));
+            $updated[] = 'security';
+        }
+
+        if ($request->has('payments')) {
+            $paymentData = $request->input('payments');
+            $isSuperAdmin = (bool) ($request->user()?->isSuperAdmin() ?? false);
+
+            if (! $isSuperAdmin) {
+                foreach (['mtn_api_key', 'airtel_api_key', 'zengapay_api_key'] as $secretKey) {
+                    if (! empty($paymentData[$secretKey])) {
+                        return response()->json([
+                            'success' => false,
+                            'message' => 'Payment API secret updates require super admin access.',
+                        ], 403);
                     }
                 }
-
-                $this->updatePaymentSettings($paymentData, $isSuperAdmin);
-                $updated[] = 'payments';
             }
 
-            if ($request->has('email')) {
-                $this->updateEmailSettings($request->input('email'));
-                $updated[] = 'email';
-            }
+            $this->updatePaymentSettings($paymentData, $isSuperAdmin);
+            $updated[] = 'payments';
+        }
 
-            if ($request->has('storage')) {
-                $this->updateStorageSettings($request->input('storage'));
-                $updated[] = 'storage';
-            }
+        if ($request->has('email')) {
+            $this->updateEmailSettings($request->input('email'));
+            $updated[] = 'email';
+        }
 
-            if ($request->has('sacco')) {
-                $this->updateSaccoSettings($request->input('sacco'));
-                $updated[] = 'sacco';
-            }
+        if ($request->has('storage')) {
+            $this->updateStorageSettings($request->input('storage'));
+            $updated[] = 'storage';
+        }
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Settings updated successfully.',
-                'data' => ['updated' => $updated],
-            ]);
-        }, 'Failed to update platform settings.');
+        if ($request->has('sacco')) {
+            $this->updateSaccoSettings($request->input('sacco'));
+            $updated[] = 'sacco';
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Settings updated successfully.',
+            'data' => ['updated' => $updated],
+        ]);
     }
 
     public function environmentIndex(EnvironmentSettingsService $environmentSettings)

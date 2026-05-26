@@ -32,12 +32,16 @@ class ArtistResource extends JsonResource
             'country' => $this->country ?? ($this->relationLoaded('profile') && $this->profile ? ($this->profile->country ?? $this->profile->location ?? null) : null),
             'city' => $this->city ?? ($this->relationLoaded('profile') && $this->profile ? ($this->profile->city ?? null) : null),
 
-            // Verification
+            // ── Verification (3-axis canonical model) ─────────────────────────
+            // AXIS 2: artist application state (can this user act as an artist?)
+            'status' => $this->status,
+            // AXIS 3: featured / blue-check badge (curated; independent of KYC)
             'is_verified' => (bool) $this->is_verified,
+            'verification_badge' => $this->is_verified ? 'verified' : null,
+            // AXIS 1: identity (KYC) state lives on the related user
+            'kyc_status' => $this->resource->user?->kyc_status?->value,
             'is_placeholder' => (bool) ($this->is_placeholder ?? false),
             'claim_status' => $this->claim_status,
-            'verification_badge' => $this->is_verified ? 'verified' : null,
-            'verification_status' => $this->verification_status ?? 'pending',
 
             // Stats
             'total_plays' => (int) ($this->total_plays_count ?? 0),

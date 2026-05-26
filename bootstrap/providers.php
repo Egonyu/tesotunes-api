@@ -10,6 +10,7 @@ return array_filter([
     App\Providers\PodcastServiceProvider::class,
     App\Providers\RateLimitServiceProvider::class,
     App\Providers\RepositoryServiceProvider::class,
+    App\Providers\SettingsServiceProvider::class,
     class_exists(\Laravel\Telescope\TelescopeApplicationServiceProvider::class)
         ? App\Providers\TelescopeServiceProvider::class
         : null,

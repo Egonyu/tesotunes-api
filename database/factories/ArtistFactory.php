@@ -31,7 +31,7 @@ class ArtistFactory extends Factory
             'is_verified' => fake()->boolean(50),
             'verification_badge' => fake()->randomElement(['none', 'verified', 'featured', 'premium']),
             'verified_at' => fake()->boolean(50) ? now() : null,
-            'status' => fake()->randomElement(['pending', 'active', 'suspended', 'rejected']),
+            'status' => fake()->randomElement(['pending', 'approved', 'suspended', 'rejected']),
             'total_plays' => fake()->numberBetween(0, 1000000),
             'total_songs_count' => fake()->numberBetween(0, 100),
             'total_albums_count' => fake()->numberBetween(0, 20),
@@ -67,7 +67,7 @@ class ArtistFactory extends Factory
             'is_verified' => true,
             'verification_badge' => 'verified',
             'verified_at' => now(),
-            'status' => 'active',
+            'status' => 'approved',
         ]);
     }
 
@@ -80,7 +80,7 @@ class ArtistFactory extends Factory
             'is_verified' => true,
             'verification_badge' => 'featured',
             'verified_at' => now(),
-            'status' => 'active',
+            'status' => 'approved',
         ]);
     }
 }

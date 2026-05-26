@@ -9,6 +9,7 @@ Route::middleware('auth:sanctum')->prefix('notifications')->name('api.notificati
     Route::get('/recent', [\App\Http\Controllers\Api\NotificationController::class, 'recent'])->name('recent');
     Route::get('/settings', [\App\Http\Controllers\Api\NotificationController::class, 'settings'])->name('settings');
     Route::put('/settings', [\App\Http\Controllers\Api\NotificationController::class, 'updateSettings'])->name('update-settings');
+    Route::post('/push-token', [\App\Http\Controllers\Api\DeviceTokenController::class, 'store'])->name('push-token');
     Route::post('/mark-all-read', [\App\Http\Controllers\Api\NotificationController::class, 'markAllAsRead'])->name('mark-all-read');
     Route::post('/{notification}/mark-read', [\App\Http\Controllers\Api\NotificationController::class, 'markAsRead'])->name('mark-read');
     Route::delete('/{notification}', [\App\Http\Controllers\Api\NotificationController::class, 'destroy'])->name('delete');
@@ -18,6 +19,7 @@ Route::middleware('auth:sanctum')->prefix('notifications')->name('api.notificati
         Route::get('/analytics', [\App\Http\Controllers\Api\NotificationController::class, 'analytics'])->name('analytics');
         Route::get('/health', [\App\Http\Controllers\Api\NotificationController::class, 'health'])->name('health');
         Route::post('/preview', [\App\Http\Controllers\Api\NotificationController::class, 'preview'])->name('preview');
+        Route::post('/broadcast', [\App\Http\Controllers\Api\NotificationController::class, 'broadcast'])->name('broadcast');
     });
 });
 
