@@ -129,7 +129,7 @@ class FileController extends Controller
         try {
             $validator = Validator::make($request->all(), [
                 'image' => 'required|image|mimes:jpeg,png,jpg,webp|max:5120', // 5MB max
-                'type' => 'required|in:cover,album,artist,playlist',
+                'type' => 'required|in:cover,album,artist,playlist,branding,ad',
                 'resize' => 'boolean',
                 'width' => 'nullable|integer|min:100|max:2000',
                 'height' => 'nullable|integer|min:100|max:2000',
@@ -152,7 +152,9 @@ class FileController extends Controller
 
             // Generate unique filename
             $filename = time().'_'.Str::random(10).'.'.$file->getClientOriginalExtension();
-            $directory = "images/{$type}/".$user->id;
+            $directory = in_array($type, ['branding'])
+                ? "images/{$type}"
+                : "images/{$type}/".$user->id;
 
             // Store original image on configured media disk.
             $storedPath = StorageHelper::store($file, $directory, $filename);

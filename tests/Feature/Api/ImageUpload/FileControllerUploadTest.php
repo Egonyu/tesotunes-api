@@ -306,4 +306,112 @@ class FileControllerUploadTest extends TestCase
         $response->assertOk();
         $this->assertNotEmpty($response->json('data.path'));
     }
+
+    public function test_branding_image_upload_succeeds(): void
+    {
+        $file = UploadedFile::fake()->image('logo.png', 200, 200);
+
+        $response = $this->actingAs($this->user)
+            ->post('/api/uploads/image', [
+                'image' => $file,
+                'type' => 'branding',
+                'resize' => false,
+            ]);
+
+        $response->assertOk()
+            ->assertJson(['success' => true])
+            ->assertJsonStructure(['data' => ['url', 'path', 'type']]);
+
+        $this->assertEquals('branding', $response->json('data.type'));
+        $this->assertStringContainsString('images/branding/', $response->json('data.path'));
+        $this->assertStringStartsWith('http', $response->json('data.url'));
+    }
+
+    public function test_branding_image_stored_in_platform_directory_not_user(): void
+    {
+        $file = UploadedFile::fake()->image('favicon.png', 32, 32);
+
+        $response = $this->actingAs($this->user)
+            ->post('/api/uploads/image', [
+                'image' => $file,
+                'type' => 'branding',
+                'resize' => false,
+            ]);
+
+        $response->assertOk();
+        $path = $response->json('data.path');
+        // Branding files must NOT be scoped to a user directory
+        $this->assertStringNotContainsString((string) $this->user->id, $path);
+        $this->assertStringStartsWith('images/branding/', $path);
+    }
+
+    public function test_ad_image_upload_succeeds(): void
+    {
+        $file = UploadedFile::fake()->image('banner.jpg', 728, 90);
+
+        $response = $this->actingAs($this->user)
+            ->post('/api/uploads/image', [
+                'image' => $file,
+                'type' => 'ad',
+                'resize' => false,
+            ]);
+
+        $response->assertOk()
+            ->assertJson(['success' => true])
+            ->assertJsonStructure(['data' => ['url', 'path', 'type']]);
+
+        $this->assertEquals('ad', $response->json('data.type'));
+        $this->assertStringStartsWith('http', $response->json('data.url'));
+    }
+
+    public function test_branding_image_url_is_absolute(): void
+    {
+        $file = UploadedFile::fake()->image('logo.jpg', 200, 50);
+
+        $response = $this->actingAs($this->user)
+            ->post('/api/uploads/image', [
+                'image' => $file,
+                'type' => 'branding',
+                'resize' => false,
+            ]);
+
+        $response->assertOk();
+        $url = $response->json('data.url');
+        $this->assertNotNull($url);
+        $this->assertStringStartsWith('http', $url, 'URL must be absolute, got: '.$url);
+    }
+
+    // ━━━ Multipart boolean coercion ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // A browser FormData upload can only send strings. The `boolean`
+    // validation rule accepts "0"/"1" but rejects "true"/"false",
+    // so the frontend must send "0"/"1" for the `resize` flag.
+
+    public function test_image_upload_accepts_resize_as_string_zero(): void
+    {
+        $file = UploadedFile::fake()->image('logo.png', 200, 200);
+
+        $response = $this->actingAs($this->user)
+            ->post('/api/uploads/image', [
+                'image' => $file,
+                'type' => 'branding',
+                'resize' => '0',
+            ], ['Accept' => 'application/json']);
+
+        $response->assertOk()->assertJson(['success' => true]);
+    }
+
+    public function test_image_upload_rejects_resize_as_string_false(): void
+    {
+        $file = UploadedFile::fake()->image('logo.png', 200, 200);
+
+        $response = $this->actingAs($this->user)
+            ->post('/api/uploads/image', [
+                'image' => $file,
+                'type' => 'branding',
+                'resize' => 'false',
+            ], ['Accept' => 'application/json']);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors('resize');
+    }
 }
