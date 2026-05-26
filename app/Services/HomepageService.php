@@ -155,7 +155,7 @@ class HomepageService
             $followedArtists = Artist::query()
                 ->with('user')
                 ->whereIn('id', $user->followedArtistIds())
-                ->where('status', 'active')
+                ->whereIn('status', Artist::VISIBLE_STATUSES)
                 ->limit(8)
                 ->get();
 
@@ -598,7 +598,7 @@ class HomepageService
             ->with(['artist', 'album', 'primaryGenre'])
             ->published()
             ->where('visibility', 'public')
-            ->whereHas('artist', fn ($query) => $query->where('status', 'active'));
+            ->whereHas('artist', fn ($query) => $query->whereIn('status', Artist::VISIBLE_STATUSES));
     }
 
     private function songQueryForMode(string $mode)

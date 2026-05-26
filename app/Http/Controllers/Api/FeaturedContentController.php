@@ -9,6 +9,7 @@ use App\Http\Resources\ArtistResource;
 use App\Http\Resources\EventResource;
 use App\Http\Resources\PlaylistResource;
 use App\Http\Resources\SongResource;
+use App\Models\Artist;
 use App\Models\Event;
 use App\Models\FeaturedContent;
 use App\Models\Song;
@@ -68,7 +69,7 @@ class FeaturedContentController extends Controller
     {
         $baseQuery = Song::with(['artist', 'album', 'primaryGenre'])
             ->published()
-            ->whereHas('artist', fn ($query) => $query->where('status', 'active'));
+            ->whereHas('artist', fn ($query) => $query->whereIn('status', Artist::VISIBLE_STATUSES));
 
         $featuredSongs = (clone $baseQuery)
             ->where('is_featured', true)

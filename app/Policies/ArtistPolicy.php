@@ -17,8 +17,10 @@ class ArtistPolicy
             return false;
         }
 
-        // Only active users can follow
-        return $user->is_active && $artist->status === 'active';
+        // Only active users can follow approved artists. Status is a string column;
+        // VISIBLE_STATUSES accepts canonical 'approved' plus legacy 'active'
+        // during the KYC canonicalization grace window.
+        return $user->is_active && in_array($artist->status, Artist::VISIBLE_STATUSES, true);
     }
 
     /**

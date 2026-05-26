@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\AlbumResource;
 use App\Http\Resources\SongResource;
 use App\Models\Album;
+use App\Models\Artist;
 use Illuminate\Http\Request;
 
 class AlbumController extends Controller
@@ -20,7 +21,7 @@ class AlbumController extends Controller
 
         $albums = Album::with(['artist', 'primaryGenre'])
             ->published()
-            ->whereHas('artist', fn ($q) => $q->where('status', 'active'))
+            ->whereHas('artist', fn ($q) => $q->whereIn('status', Artist::VISIBLE_STATUSES))
             ->when($request->filled('type'), fn ($q) => $q->where('album_type', $request->type))
             ->when($request->filled('genre'), fn ($q) => $q->where('primary_genre_id', $request->genre))
             ->when($request->filled('artist'), fn ($q) => $q->where('artist_id', $request->artist))

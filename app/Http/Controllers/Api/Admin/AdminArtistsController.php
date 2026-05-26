@@ -129,7 +129,7 @@ class AdminArtistsController extends Controller
                 'data' => [
                     'total' => Artist::count(),
                     'verified' => Artist::where('is_verified', true)->count(),
-                    'pending_verification' => Artist::where('is_verified', false)->where('status', 'active')->count(),
+                    'pending_verification' => Artist::where('is_verified', false)->whereIn('status', Artist::VISIBLE_STATUSES)->count(),
                     'new_this_month' => Artist::whereMonth('created_at', date('m'))
                         ->whereYear('created_at', date('Y'))
                         ->count(),
@@ -406,7 +406,7 @@ class AdminArtistsController extends Controller
                 'slug' => 'sometimes|string|max:255|unique:artists,slug,'.$artist->id,
                 'bio' => 'sometimes|nullable|string|max:5000',
                 'website' => 'sometimes|nullable|url|max:255',
-                'status' => 'sometimes|in:active,pending,suspended,rejected',
+                'status' => ['sometimes', 'string', \Illuminate\Validation\Rule::in(\App\Enums\ArtistStatus::values())],
                 'is_verified' => 'sometimes',
                 'spotify_url' => 'sometimes|nullable|url|max:255',
                 'apple_music_url' => 'sometimes|nullable|url|max:255',

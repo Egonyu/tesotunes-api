@@ -523,7 +523,7 @@ class ArtistVerificationService
      */
     protected function getAverageApprovalTime(): float
     {
-        $approvedArtists = Artist::where('status', 'active')
+        $approvedArtists = Artist::whereIn('status', Artist::VISIBLE_STATUSES)
             ->whereNotNull('verified_at')
             ->get();
 

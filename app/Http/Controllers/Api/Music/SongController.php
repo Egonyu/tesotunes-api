@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Music;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SongResource;
+use App\Models\Artist;
 use App\Models\ArtistRevenue;
 use App\Models\Payment;
 use App\Models\Song;
@@ -47,7 +48,7 @@ class SongController extends Controller
 
         $songs = Song::with(['artist', 'album', 'primaryGenre'])
             ->published()
-            ->whereHas('artist', fn ($q) => $q->where('status', 'active'))
+            ->whereHas('artist', fn ($q) => $q->whereIn('status', Artist::VISIBLE_STATUSES))
             ->when($request->filled('genre'), fn ($q) => $q->where('primary_genre_id', $request->genre))
             ->when($request->filled('artist'), fn ($q) => $q->where('artist_id', $request->artist))
             ->when($request->filled('album'), fn ($q) => $q->where('album_id', $request->album))

@@ -83,7 +83,35 @@ class Artist extends Model implements HasMedia
         'record_label',
     ];
 
+    /**
+     * Canonical artist application statuses (AXIS 2 of the 3-axis identity model).
+     * Backed by {@see ArtistStatus} enum; exposed as string constants here so legacy
+     * call sites that prefer literals stay grep-friendly. Always prefer the enum.
+     */
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_APPROVED = 'approved';
+
+    public const STATUS_REJECTED = 'rejected';
+
+    public const STATUS_SUSPENDED = 'suspended';
+
+    /**
+     * Statuses an artist filter should accept to keep them visible across the
+     * 2026-05-19 KYC canonicalization rename. Legacy 'active'/'verified' values
+     * were rewritten to 'approved' in prod; the legacy strings are kept here for
+     * one release as a defensive fallback. Drop them in the next release once
+     * we confirm no code path can still write them.
+     *
+     * @var list<string>
+     */
+    public const VISIBLE_STATUSES = ['approved', 'active'];
+
     protected $casts = [
+        // 'status' deliberately NOT cast to the ArtistStatus enum yet — too many
+        // existing tests still create artists with the legacy 'active' string, and
+        // a cast would throw ValueError on write. Add the cast in a follow-up once
+        // those callers are migrated to STATUS_APPROVED. See VISIBLE_STATUSES above.
         'social_links' => 'array',
         'influences' => 'array',
         'is_verified' => 'boolean',

@@ -86,7 +86,7 @@ class SongService
         return Song::with(['artist', 'album', 'primaryGenre'])
             ->published()
             ->whereHas('artist', function ($query) {
-                $query->where('status', 'active');
+                $query->whereIn('status', \App\Models\Artist::VISIBLE_STATUSES);
             })
             ->whereHas('playHistory', function ($query) use ($days) {
                 $query->where('played_at', '>=', now()->subDays($days));
@@ -108,7 +108,7 @@ class SongService
         return Song::with(['artist', 'album', 'primaryGenre'])
             ->published()
             ->whereHas('artist', function ($query) {
-                $query->where('status', 'active');
+                $query->whereIn('status', \App\Models\Artist::VISIBLE_STATUSES);
             })
             ->where('created_at', '>=', now()->subDays($days))
             ->orderBy('created_at', 'desc')
@@ -124,7 +124,7 @@ class SongService
         return Song::with(['artist', 'album', 'primaryGenre'])
             ->published()
             ->whereHas('artist', function ($query) {
-                $query->where('status', 'active');
+                $query->whereIn('status', \App\Models\Artist::VISIBLE_STATUSES);
             })
             ->whereHas('primaryGenre', function ($query) use ($genreSlug) {
                 $query->where('slug', $genreSlug);
@@ -141,7 +141,7 @@ class SongService
         return Song::with(['artist', 'album', 'primaryGenre'])
             ->published()
             ->whereHas('artist', function ($artistQuery) {
-                $artistQuery->where('status', 'active');
+                $artistQuery->whereIn('status', \App\Models\Artist::VISIBLE_STATUSES);
             })
             ->where(function ($q) use ($query) {
                 $escaped = escape_like($query);

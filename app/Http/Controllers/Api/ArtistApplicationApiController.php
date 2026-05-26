@@ -32,7 +32,9 @@ class ArtistApplicationApiController extends Controller
     {
         $user = Auth::user()->load(['artist']);
 
-        if ($user->artist && in_array($user->artist->status, ['active', 'verified'], true)) {
+        // Accept canonical 'approved' plus legacy 'active'/'verified' during
+        // the KYC canonicalization grace window.
+        if ($user->artist && in_array($user->artist->status, [\App\Models\Artist::STATUS_APPROVED, 'active', 'verified'], true)) {
             return response()->json([
                 'success' => true,
                 'data' => [

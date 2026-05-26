@@ -24,7 +24,7 @@ class ArtistController extends Controller
         $perPage = min((int) $request->get('per_page', 20), 100);
 
         $artists = Artist::with('primaryGenre')
-            ->where('status', 'active')
+            ->whereIn('status', Artist::VISIBLE_STATUSES)
             ->when($request->boolean('claimable_only'), fn ($q) => $q->where('is_placeholder', true)->where('claim_status', 'unclaimed'))
             ->when($request->filled('verified_only'), fn ($q) => $q->where('is_verified', $request->boolean('verified_only')))
             ->when($request->filled('country'), fn ($q) => $q->where('country', $request->country))
@@ -54,7 +54,7 @@ class ArtistController extends Controller
             }, 'albums' => function ($q) {
                 $q->where('status', 'published');
             }])
-            ->where('status', 'active')
+            ->whereIn('status', Artist::VISIBLE_STATUSES)
             ->where(function ($q) use ($artist) {
                 $q->where('id', $artist)
                     ->orWhere('slug', $artist)
@@ -126,7 +126,7 @@ class ArtistController extends Controller
     public function events(string $artist): JsonResponse
     {
         $record = Artist::with('user')
-            ->where('status', 'active')
+            ->whereIn('status', Artist::VISIBLE_STATUSES)
             ->where(function ($query) use ($artist) {
                 $query->where('id', $artist)
                     ->orWhere('slug', $artist)
