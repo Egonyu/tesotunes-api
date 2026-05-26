@@ -30,16 +30,28 @@ class PayoutService
 
     protected ZengaPayService $zengaPayService;
 
-    protected function minAmount(): int   { return (int) config('payments.payout.min_amount',  50000); }
-    protected function maxSingle(): int   { return (int) config('payments.payout.max_single', 5000000); }
-    protected function maxDaily(): int    { return (int) config('payments.payout.max_daily', 10000000); }
+    protected function minAmount(): int
+    {
+        return (int) config('payments.payout.min_amount', 50000);
+    }
+
+    protected function maxSingle(): int
+    {
+        return (int) config('payments.payout.max_single', 5000000);
+    }
+
+    protected function maxDaily(): int
+    {
+        return (int) config('payments.payout.max_daily', 10000000);
+    }
+
     protected function feeRate(string $method): float
     {
         return (float) config("payments.payout.fees.{$method}", match ($method) {
-            'mobile_money'  => 1.5,
+            'mobile_money' => 1.5,
             'bank_transfer' => 0.5,
-            'paypal'        => 2.0,
-            default         => 0.0,
+            'paypal' => 2.0,
+            default => 0.0,
         });
     }
 
@@ -274,7 +286,7 @@ class PayoutService
             // Process based on payout method
             $result = match ($payout->payout_method) {
                 ArtistPayout::METHOD_MOBILE_MONEY => $this->processMobileMoneyPayout($payout),
-                ArtistPayout::METHOD_ZENGAPAY     => $this->processZengaPayPayout($payout),
+                ArtistPayout::METHOD_ZENGAPAY => $this->processZengaPayPayout($payout),
                 ArtistPayout::METHOD_BANK_TRANSFER => $this->processBankTransferPayout($payout),
                 ArtistPayout::METHOD_PAYPAL => $this->processPayPalPayout($payout),
                 default => throw new Exception('Unsupported payout method: '.$payout->payout_method)
@@ -538,10 +550,10 @@ class PayoutService
     {
         return match ($method) {
             ArtistPayout::METHOD_MOBILE_MONEY,
-            ArtistPayout::METHOD_ZENGAPAY     => $amount * $this->feeRate('mobile_money') / 100,
+            ArtistPayout::METHOD_ZENGAPAY => $amount * $this->feeRate('mobile_money') / 100,
             ArtistPayout::METHOD_BANK_TRANSFER => $amount * $this->feeRate('bank_transfer') / 100,
-            ArtistPayout::METHOD_PAYPAL        => $amount * $this->feeRate('paypal') / 100,
-            default                            => 0.0,
+            ArtistPayout::METHOD_PAYPAL => $amount * $this->feeRate('paypal') / 100,
+            default => 0.0,
         };
     }
 
@@ -566,11 +578,11 @@ class PayoutService
         );
 
         return [
-            'success'            => $result['success'] ?? false,
-            'message'            => $result['message'] ?? 'ZengaPay disbursement initiated',
-            'transaction_id'     => $result['transactionId'] ?? $result['transaction_id'] ?? null,
+            'success' => $result['success'] ?? false,
+            'message' => $result['message'] ?? 'ZengaPay disbursement initiated',
+            'transaction_id' => $result['transactionId'] ?? $result['transaction_id'] ?? null,
             'provider_reference' => $result['reference'] ?? $payout->transaction_id,
-            'provider'           => 'zengapay',
+            'provider' => 'zengapay',
         ];
     }
 

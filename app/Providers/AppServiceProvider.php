@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Listeners\VerificationEmailTelemetryListener;
 use App\Models\Album;
+use App\Models\ArtistPayout;
 use App\Models\ArtistRevenue;
 use App\Models\Award;
 use App\Models\AwardNomination;
@@ -16,7 +17,6 @@ use App\Models\Like;
 use App\Models\Modules\Forum\ForumReply;
 use App\Models\Modules\Forum\ForumTopic;
 use App\Models\Modules\Forum\Poll;
-use App\Models\ArtistPayout;
 use App\Models\Payment;
 use App\Models\Playlist;
 use App\Models\Setting;

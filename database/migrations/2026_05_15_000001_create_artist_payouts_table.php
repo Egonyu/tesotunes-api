@@ -23,7 +23,7 @@ return new class extends Migration
             $table->decimal('net_amount', 15, 2);
 
             $table->string('status')->default('pending')->index();
-                // pending | approved | processing | completed | failed | rejected | cancelled
+            // pending | approved | processing | completed | failed | rejected | cancelled
 
             // Mobile money / ZengaPay
             $table->string('phone_number')->nullable();

@@ -13,19 +13,28 @@ class ArtistPayout extends Model
     use HasFactory, SoftDeletes;
 
     // ── Status constants ──────────────────────────────────────────────────────
-    const STATUS_PENDING    = 'pending';
-    const STATUS_APPROVED   = 'approved';
+    const STATUS_PENDING = 'pending';
+
+    const STATUS_APPROVED = 'approved';
+
     const STATUS_PROCESSING = 'processing';
-    const STATUS_COMPLETED  = 'completed';
-    const STATUS_FAILED     = 'failed';
-    const STATUS_REJECTED   = 'rejected';
-    const STATUS_CANCELLED  = 'cancelled';
+
+    const STATUS_COMPLETED = 'completed';
+
+    const STATUS_FAILED = 'failed';
+
+    const STATUS_REJECTED = 'rejected';
+
+    const STATUS_CANCELLED = 'cancelled';
 
     // ── Method constants ──────────────────────────────────────────────────────
-    const METHOD_MOBILE_MONEY  = 'mobile_money';
+    const METHOD_MOBILE_MONEY = 'mobile_money';
+
     const METHOD_BANK_TRANSFER = 'bank_transfer';
-    const METHOD_PAYPAL        = 'paypal';
-    const METHOD_ZENGAPAY      = 'zengapay';
+
+    const METHOD_PAYPAL = 'paypal';
+
+    const METHOD_ZENGAPAY = 'zengapay';
 
     protected $fillable = [
         'artist_id',
@@ -44,22 +53,25 @@ class ArtistPayout extends Model
     ];
 
     protected $casts = [
-        'amount'      => 'float',
-        'fee_amount'  => 'float',
-        'net_amount'  => 'float',
-        'metadata'    => 'array',
-        'approved_at'          => 'datetime',
-        'rejected_at'          => 'datetime',
+        'amount' => 'float',
+        'fee_amount' => 'float',
+        'net_amount' => 'float',
+        'metadata' => 'array',
+        'approved_at' => 'datetime',
+        'rejected_at' => 'datetime',
         'processing_started_at' => 'datetime',
-        'completed_at'         => 'datetime',
-        'failed_at'            => 'datetime',
+        'completed_at' => 'datetime',
+        'failed_at' => 'datetime',
     ];
 
     // Protected from mass-assignment so financial fields are always set explicitly
-    public float $amount     = 0.0;
+    public float $amount = 0.0;
+
     public float $fee_amount = 0.0;
+
     public float $net_amount = 0.0;
-    public string $status    = self::STATUS_PENDING;
+
+    public string $status = self::STATUS_PENDING;
 
     // ── Relationships ─────────────────────────────────────────────────────────
 
@@ -127,16 +139,16 @@ class ArtistPayout extends Model
     public function markAsApproved(User $approver): void
     {
         $this->forceFill([
-            'status'              => self::STATUS_APPROVED,
+            'status' => self::STATUS_APPROVED,
             'approved_by_user_id' => $approver->id,
-            'approved_at'         => now(),
+            'approved_at' => now(),
         ])->save();
     }
 
     public function markAsProcessing(): void
     {
         $this->forceFill([
-            'status'                => self::STATUS_PROCESSING,
+            'status' => self::STATUS_PROCESSING,
             'processing_started_at' => now(),
         ])->save();
     }
@@ -144,31 +156,31 @@ class ArtistPayout extends Model
     public function markAsCompleted(array $data = []): void
     {
         $this->forceFill([
-            'status'                  => self::STATUS_COMPLETED,
-            'completed_at'            => now(),
+            'status' => self::STATUS_COMPLETED,
+            'completed_at' => now(),
             'external_transaction_id' => $data['external_transaction_id'] ?? $this->external_transaction_id,
-            'provider_reference'      => $data['provider_reference'] ?? $this->provider_reference,
-            'metadata'                => array_merge($this->metadata ?? [], $data['metadata'] ?? []),
+            'provider_reference' => $data['provider_reference'] ?? $this->provider_reference,
+            'metadata' => array_merge($this->metadata ?? [], $data['metadata'] ?? []),
         ])->save();
     }
 
     public function markAsFailed(string $reason, array $data = []): void
     {
         $this->forceFill([
-            'status'         => self::STATUS_FAILED,
+            'status' => self::STATUS_FAILED,
             'failure_reason' => $reason,
-            'failed_at'      => now(),
-            'metadata'       => array_merge($this->metadata ?? [], $data['metadata'] ?? []),
+            'failed_at' => now(),
+            'metadata' => array_merge($this->metadata ?? [], $data['metadata'] ?? []),
         ])->save();
     }
 
     public function markAsRejected(User $rejector, string $reason): void
     {
         $this->forceFill([
-            'status'              => self::STATUS_REJECTED,
+            'status' => self::STATUS_REJECTED,
             'approved_by_user_id' => $rejector->id,
-            'failure_reason'      => $reason,
-            'rejected_at'         => now(),
+            'failure_reason' => $reason,
+            'rejected_at' => now(),
         ])->save();
     }
 
@@ -183,6 +195,6 @@ class ArtistPayout extends Model
 
     public static function generateTransactionId(): string
     {
-        return 'PAY-' . strtoupper(Str::random(12));
+        return 'PAY-'.strtoupper(Str::random(12));
     }
 }
