@@ -2,8 +2,8 @@
 
 namespace App\Modules\Sacco\Http\Requests;
 
-use App\Modules\Sacco\Models\SaccoLoanProduct;
-use App\Modules\Sacco\Models\SaccoMember;
+use App\Models\Sacco\SaccoLoanProduct;
+use App\Models\Sacco\SaccoMember;
 use Illuminate\Foundation\Http\FormRequest;
 
 class LoanApplicationRequest extends FormRequest

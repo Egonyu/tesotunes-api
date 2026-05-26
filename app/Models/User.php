@@ -68,6 +68,13 @@ class User extends Authenticatable implements MustVerifyEmail
         'national_id_back_path',
         'selfie_with_id_path',
 
+        // KYC status fields (NOT 'kyc_status' — set only via KycService)
+        // 'kyc_status',         // privilege field — use KycService transitions
+        // 'kyc_verified_at',    // set by KycService::markVerified()
+        // 'kyc_submitted_at',   // set by KycService::markPendingReview()
+        // 'kyc_expires_at',     // set by KycService
+        // 'kyc_rejection_reason',
+
         // Profile (including artist fields)
         'avatar',
         'bio',
@@ -176,6 +183,10 @@ class User extends Authenticatable implements MustVerifyEmail
             'phone_verified_at' => 'datetime',
             'verified_at' => 'datetime',
             'two_factor_confirmed_at' => 'datetime',
+            'kyc_status' => \App\Enums\KycStatus::class,
+            'kyc_submitted_at' => 'datetime',
+            'kyc_verified_at' => 'datetime',
+            'kyc_expires_at' => 'datetime',
             'password' => 'hashed',
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
@@ -585,6 +596,37 @@ class User extends Authenticatable implements MustVerifyEmail
     public function wasReferred(): bool
     {
         return ! is_null($this->referrer_id);
+    }
+
+    /**
+     * Record that this user referred another user.
+     * Increments the referrer's count and links the referred user back.
+     */
+    public function recordReferral(self $referred): void
+    {
+        \DB::transaction(function () use ($referred) {
+            $referrerProfile = $this->referralProfile()->firstOrCreate(
+                ['user_id' => $this->id],
+                [
+                    'referral_code' => $this->referral_code ?? $this->generateReferralCode(),
+                    'referrer_id' => $this->referrer_id,
+                    'referral_count' => 0,
+                ]
+            );
+            $referrerProfile->increment('referral_count');
+
+            $referredProfile = $referred->referralProfile()->firstOrCreate(
+                ['user_id' => $referred->id],
+                [
+                    'referral_code' => $referred->referral_code ?? $referred->generateReferralCode(),
+                    'referral_count' => 0,
+                ]
+            );
+            $referredProfile->update([
+                'referrer_id' => $this->id,
+                'referred_at' => now(),
+            ]);
+        });
     }
 
     // Credit system relationships

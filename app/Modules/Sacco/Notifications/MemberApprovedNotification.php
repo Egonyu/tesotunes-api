@@ -3,7 +3,7 @@
 namespace App\Modules\Sacco\Notifications;
 
 use App\Channels\AppNotificationChannel;
-use App\Modules\Sacco\Models\SaccoMember;
+use App\Models\Sacco\SaccoMember;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;

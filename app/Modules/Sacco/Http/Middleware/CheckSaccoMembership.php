@@ -2,7 +2,7 @@
 
 namespace App\Modules\Sacco\Http\Middleware;
 
-use App\Modules\Sacco\Models\SaccoMember;
+use App\Models\Sacco\SaccoMember;
 use Closure;
 use Illuminate\Http\Request;
 

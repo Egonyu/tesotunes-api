@@ -4,10 +4,10 @@ namespace Tests\Feature;
 
 use App\Channels\AppNotificationChannel;
 use App\Models\Podcast;
+use App\Models\Sacco\SaccoMember;
 use App\Models\SaccoLoan;
 use App\Models\Song;
 use App\Models\User;
-use App\Modules\Sacco\Models\SaccoMember;
 use App\Modules\Sacco\Notifications\MemberApprovedNotification;
 use App\Modules\Store\Models\Order;
 use App\Modules\Store\Models\Store;

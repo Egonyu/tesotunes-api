@@ -2,6 +2,7 @@
 
 namespace App\Services\Sacco;
 
+use App\Models\Notification;
 use App\Models\Sacco\SaccoMeeting;
 use App\Models\Sacco\SaccoMember;
 use App\Models\Sacco\SaccoNotification;
@@ -13,11 +14,7 @@ class SaccoGovernanceNotificationService
         $this->notifyMembers(
             'governance_meeting_scheduled',
             'New SACCO meeting scheduled',
-            sprintf(
-                '%s has been scheduled for %s.',
-                $meeting->title,
-                optional($meeting->scheduled_at)->format('M j, Y g:i A')
-            ),
+            sprintf('%s has been scheduled for %s.', $meeting->title, optional($meeting->scheduled_at)->format('M j, Y g:i A')),
             $meeting
         );
     }
@@ -44,8 +41,12 @@ class SaccoGovernanceNotificationService
 
     public function notifyRsvpConfirmed(SaccoMeeting $meeting, SaccoMember $member): void
     {
-        $this->createNotification(
-            $member,
+        if (! $member->user_id) {
+            return;
+        }
+
+        Notification::createForUser(
+            $member->user,
             'governance_rsvp_confirmed',
             'RSVP confirmed',
             sprintf('You are marked as attending %s.', $meeting->title),
@@ -53,36 +54,50 @@ class SaccoGovernanceNotificationService
                 'meeting_id' => $meeting->id,
                 'meeting_title' => $meeting->title,
                 'scheduled_at' => optional($meeting->scheduled_at)->toISOString(),
-            ]
+            ],
+            null,
+            'sacco'
         );
     }
 
     private function notifyMembers(string $type, string $title, string $message, SaccoMeeting $meeting): void
     {
-        SaccoMember::query()
-            ->where('status', SaccoMember::STATUS_ACTIVE)
-            ->get()
-            ->each(function (SaccoMember $member) use ($type, $title, $message, $meeting) {
-                $this->createNotification($member, $type, $title, $message, [
-                    'meeting_id' => $meeting->id,
-                    'meeting_title' => $meeting->title,
-                    'meeting_type' => $meeting->meeting_type,
-                    'scheduled_at' => optional($meeting->scheduled_at)->toISOString(),
-                    'status' => $meeting->status,
-                ]);
-            });
-    }
+        $data = [
+            'meeting_id' => $meeting->id,
+            'meeting_title' => $meeting->title,
+            'meeting_type' => $meeting->meeting_type,
+            'scheduled_at' => optional($meeting->scheduled_at)->toISOString(),
+            'status' => $meeting->status,
+        ];
 
-    private function createNotification(SaccoMember $member, string $type, string $title, string $message, array $data = []): void
-    {
-        SaccoNotification::create([
-            'member_id' => $member->id,
-            'type' => $type,
-            'title' => $title,
-            'message' => $message,
-            'channel' => 'in_app',
-            'data' => $data,
-            'sent_at' => now(),
-        ]);
+        $members = SaccoMember::query()
+            ->where('status', SaccoMember::STATUS_ACTIVE)
+            ->whereNotNull('user_id')
+            ->get(['id', 'user_id']);
+
+        if ($members->isEmpty()) {
+            return;
+        }
+
+        foreach ($members as $member) {
+            SaccoNotification::create([
+                'member_id' => $member->id,
+                'type' => $type,
+                'title' => $title,
+                'message' => $message,
+                'data' => $data,
+                'sent_at' => now(),
+            ]);
+        }
+
+        Notification::createBatchForUsers(
+            $members->pluck('user_id')->toArray(),
+            $type,
+            $title,
+            $message,
+            $data,
+            null,
+            'sacco'
+        );
     }
 }

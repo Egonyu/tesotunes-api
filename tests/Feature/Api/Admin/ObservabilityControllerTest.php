@@ -21,6 +21,14 @@ class ObservabilityControllerTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Isolate from observability_events created by other suites via
+        // the AuditLogObserver / api-group MonitorApiAbuse middleware.
+        ObservabilityEvent::query()->delete();
+    }
+
     public function test_admin_can_view_phase_one_observability_feeds(): void
     {
         config()->set('services.observability.collector_token', 'collector-secret');
@@ -38,7 +46,7 @@ class ObservabilityControllerTest extends TestCase
 
         $customer = User::factory()->create();
 
-        AuditLog::create([
+        AuditLog::withoutEvents(fn () => AuditLog::create([
             'user_id' => $admin->id,
             'action' => 'login_failed',
             'ip_address' => '198.51.100.42',
@@ -48,9 +56,9 @@ class ObservabilityControllerTest extends TestCase
             'trace_id' => 'trace-test-1',
             'session_id' => 'sess-test-1',
             'new_values' => ['reason' => 'bad_password'],
-        ]);
+        ]));
 
-        AuditLog::create([
+        AuditLog::withoutEvents(fn () => AuditLog::create([
             'user_id' => $admin->id,
             'action' => 'login_failed',
             'ip_address' => '198.51.100.42',
@@ -60,7 +68,7 @@ class ObservabilityControllerTest extends TestCase
             'trace_id' => 'trace-test-1b',
             'session_id' => 'sess-test-1b',
             'new_values' => ['reason' => 'bad_password'],
-        ]);
+        ]));
 
         ApiUsageLog::create([
             'user_id' => null,
@@ -101,7 +109,7 @@ class ObservabilityControllerTest extends TestCase
             ],
         ]);
 
-        AuditLog::create([
+        AuditLog::withoutEvents(fn () => AuditLog::create([
             'user_id' => $customer->id,
             'action' => 'payment_webhook_signature_failed',
             'auditable_type' => Payment::class,
@@ -116,7 +124,7 @@ class ObservabilityControllerTest extends TestCase
                 'provider' => 'zengapay',
                 'status' => 'unknown',
             ],
-        ]);
+        ]));
 
         Cache::put('performance:slow_queries:'.now()->format('Y-m-d'), [[
             'query' => 'select * from payments where status = ?',
