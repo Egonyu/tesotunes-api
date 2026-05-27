@@ -51,8 +51,12 @@ class TipController extends Controller
         $artistSharePct = max(0, min(100, (float) app(ArtistSettingsService::class)->getRevenueShare()));
         $artistNetAmount = (int) round($tipAmount * ($artistSharePct / 100));
         $platformFeeAmount = $tipAmount - $artistNetAmount;
+        // `message` is nullable in the validator. Read it once via ?? so that
+        // absent keys don't raise "Undefined array key" warnings (which Laravel
+        // converts to ErrorException → generic 500). Use $tipMessage everywhere.
+        $tipMessage = $validated['message'] ?? null;
 
-        $payment = DB::transaction(function () use ($user, $validated, $recipientUser, $payableType, $payableId, $songId, $artistId, $tipAmount, $artistNetAmount, $platformFeeAmount) {
+        $payment = DB::transaction(function () use ($user, $validated, $recipientUser, $payableType, $payableId, $songId, $artistId, $tipAmount, $artistNetAmount, $platformFeeAmount, $tipMessage) {
             $transaction = $user->spendCredits(
                 (float) $tipAmount,
                 'artist_tip',
@@ -78,7 +82,7 @@ class TipController extends Controller
                 'Tip received',
                 [
                     'payer_user_id' => $user->id,
-                    'message' => $validated['message'] ?? null,
+                    'message' => $tipMessage,
                 ]
             );
 
@@ -113,7 +117,7 @@ class TipController extends Controller
                     'recipient_user_id' => $recipientUser->id,
                     'recipient_type' => $validated['recipient_type'],
                     'recipient_id' => (int) $validated['recipient_id'],
-                    'message' => $validated['message'] ?? null,
+                    'message' => $tipMessage,
                     'credits_amount' => $tipAmount,
                     'artist_net_amount' => $artistNetAmount,
                     'platform_fee' => $platformFeeAmount,
@@ -134,7 +138,7 @@ class TipController extends Controller
             'music',
             'tip_received',
             'You received a tip!',
-            "{$user->name} tipped you ".number_format($tipAmount).' credits'.($validated['message'] ? ': "'.$validated['message'].'"' : '.'),
+            "{$user->name} tipped you ".number_format($tipAmount).' credits'.($tipMessage ? ': "'.$tipMessage.'"' : '.'),
             ['tipper_id' => $user->id, 'tipper_name' => $user->name, 'amount' => $tipAmount],
         );
 
