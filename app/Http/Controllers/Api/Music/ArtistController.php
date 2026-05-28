@@ -12,6 +12,7 @@ use App\Models\UserFollow;
 use App\Notifications\NewFollowerNotification;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class ArtistController extends Controller
 {
@@ -23,21 +24,39 @@ class ArtistController extends Controller
     {
         $perPage = min((int) $request->get('per_page', 20), 100);
 
-        $artists = Artist::with('primaryGenre')
-            ->whereIn('status', Artist::VISIBLE_STATUSES)
-            ->when($request->boolean('claimable_only'), fn ($q) => $q->where('is_placeholder', true)->where('claim_status', 'unclaimed'))
-            ->when($request->filled('verified_only'), fn ($q) => $q->where('is_verified', $request->boolean('verified_only')))
-            ->when($request->filled('country'), fn ($q) => $q->where('country', $request->country))
-            ->when($request->filled('genre'), fn ($q) => $q->where('primary_genre_id', $request->genre))
-            ->when($request->filled('search'), function ($q) use ($request) {
-                $search = '%'.escape_like($request->search).'%';
-                $q->where(function ($artistQuery) use ($search) {
-                    $artistQuery->where('stage_name', 'like', $search)
-                        ->orWhere('name', 'like', $search);
-                });
-            })
-            ->orderByDesc('followers_count')
-            ->paginate($perPage);
+        $buildQuery = function () use ($request, $perPage) {
+            return Artist::with('primaryGenre')
+                ->whereIn('status', Artist::VISIBLE_STATUSES)
+                ->when($request->boolean('claimable_only'), fn ($q) => $q->where('is_placeholder', true)->where('claim_status', 'unclaimed'))
+                ->when($request->filled('verified_only'), fn ($q) => $q->where('is_verified', $request->boolean('verified_only')))
+                ->when($request->filled('country'), fn ($q) => $q->where('country', $request->country))
+                ->when($request->filled('genre'), fn ($q) => $q->where('primary_genre_id', $request->genre))
+                ->when($request->filled('search'), function ($q) use ($request) {
+                    $search = '%'.escape_like($request->search).'%';
+                    $q->where(function ($artistQuery) use ($search) {
+                        $artistQuery->where('stage_name', 'like', $search)
+                            ->orWhere('name', 'like', $search);
+                    });
+                })
+                ->orderByDesc('followers_count')
+                ->paginate($perPage);
+        };
+
+        // Cache anonymous, non-search requests for 5 minutes
+        $shouldCache = ! $request->user() && ! $request->filled('search');
+        if ($shouldCache) {
+            $cacheKey = 'api:artists:list:' . md5(serialize([
+                'pp' => $perPage,
+                'co' => $request->get('claimable_only'),
+                'vo' => $request->get('verified_only'),
+                'c'  => $request->get('country'),
+                'g'  => $request->get('genre'),
+                'pg' => $request->get('page', 1),
+            ]));
+            $artists = Cache::remember($cacheKey, 300, $buildQuery);
+        } else {
+            $artists = $buildQuery();
+        }
 
         return ArtistResource::collection($artists);
     }

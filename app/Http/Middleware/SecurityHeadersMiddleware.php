@@ -53,6 +53,11 @@ class SecurityHeadersMiddleware
             $response->headers->set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
         }
 
+        // X-Robots-Tag: prevent search engines from indexing API responses
+        if ($request->is('api/*')) {
+            $response->headers->set('X-Robots-Tag', 'noindex, nofollow');
+        }
+
         return $response;
     }
 

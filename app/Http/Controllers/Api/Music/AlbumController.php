@@ -8,6 +8,7 @@ use App\Http\Resources\SongResource;
 use App\Models\Album;
 use App\Models\Artist;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class AlbumController extends Controller
 {
@@ -19,18 +20,36 @@ class AlbumController extends Controller
     {
         $perPage = min((int) $request->get('per_page', 20), 100);
 
-        $albums = Album::with(['artist', 'primaryGenre'])
-            ->published()
-            ->whereHas('artist', fn ($q) => $q->whereIn('status', Artist::VISIBLE_STATUSES))
-            ->when($request->filled('type'), fn ($q) => $q->where('album_type', $request->type))
-            ->when($request->filled('genre'), fn ($q) => $q->where('primary_genre_id', $request->genre))
-            ->when($request->filled('artist'), fn ($q) => $q->where('artist_id', $request->artist))
-            ->when($request->filled('year'), fn ($q) => $q->whereYear('release_date', $request->year))
-            ->when($request->filled('search'), function ($q) use ($request) {
-                $q->where('title', 'like', '%'.escape_like($request->search).'%');
-            })
-            ->orderByDesc('release_date')
-            ->paginate($perPage);
+        $buildQuery = function () use ($request, $perPage) {
+            return Album::with(['artist', 'primaryGenre'])
+                ->published()
+                ->whereHas('artist', fn ($q) => $q->whereIn('status', Artist::VISIBLE_STATUSES))
+                ->when($request->filled('type'), fn ($q) => $q->where('album_type', $request->type))
+                ->when($request->filled('genre'), fn ($q) => $q->where('primary_genre_id', $request->genre))
+                ->when($request->filled('artist'), fn ($q) => $q->where('artist_id', $request->artist))
+                ->when($request->filled('year'), fn ($q) => $q->whereYear('release_date', $request->year))
+                ->when($request->filled('search'), function ($q) use ($request) {
+                    $q->where('title', 'like', '%'.escape_like($request->search).'%');
+                })
+                ->orderByDesc('release_date')
+                ->paginate($perPage);
+        };
+
+        // Cache anonymous, non-search requests for 5 minutes
+        $shouldCache = ! $request->user() && ! $request->filled('search');
+        if ($shouldCache) {
+            $cacheKey = 'api:albums:list:' . md5(serialize([
+                'pp' => $perPage,
+                't'  => $request->get('type'),
+                'g'  => $request->get('genre'),
+                'a'  => $request->get('artist'),
+                'y'  => $request->get('year'),
+                'pg' => $request->get('page', 1),
+            ]));
+            $albums = Cache::remember($cacheKey, 300, $buildQuery);
+        } else {
+            $albums = $buildQuery();
+        }
 
         return AlbumResource::collection($albums);
     }

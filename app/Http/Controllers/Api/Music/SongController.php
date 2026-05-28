@@ -16,6 +16,7 @@ use App\Services\SongService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class SongController extends Controller
@@ -46,32 +47,54 @@ class SongController extends Controller
         ];
         $sortField = in_array($sortField, $allowedSortFields, true) ? $sortField : 'created_at';
 
-        $songs = Song::with(['artist', 'album', 'primaryGenre'])
-            ->published()
-            ->whereHas('artist', fn ($q) => $q->whereIn('status', Artist::VISIBLE_STATUSES))
-            ->when($request->filled('genre'), fn ($q) => $q->where('primary_genre_id', $request->genre))
-            ->when($request->filled('artist'), fn ($q) => $q->where('artist_id', $request->artist))
-            ->when($request->filled('album'), fn ($q) => $q->where('album_id', $request->album))
-            ->when($request->filled('is_free'), fn ($q) => $q->where('is_free', $request->boolean('is_free')))
-            ->when($request->filled('search'), function ($q) use ($request) {
-                $q->where('title', 'like', '%'.escape_like($request->search).'%');
-            })
-            ->when($request->filled('period'), function ($q) use ($request) {
-                $days = match ((string) $request->get('period')) {
-                    'day', 'today' => 1,
-                    'week' => 7,
-                    'month' => 30,
-                    'year' => 365,
-                    default => null,
-                };
+        // Build query closure
+        $buildQuery = function () use ($request, $perPage, $sortField, $sortDirection) {
+            return Song::with(['artist', 'album', 'primaryGenre'])
+                ->published()
+                ->whereHas('artist', fn ($q) => $q->whereIn('status', Artist::VISIBLE_STATUSES))
+                ->when($request->filled('genre'), fn ($q) => $q->where('primary_genre_id', $request->genre))
+                ->when($request->filled('artist'), fn ($q) => $q->where('artist_id', $request->artist))
+                ->when($request->filled('album'), fn ($q) => $q->where('album_id', $request->album))
+                ->when($request->filled('is_free'), fn ($q) => $q->where('is_free', $request->boolean('is_free')))
+                ->when($request->filled('search'), function ($q) use ($request) {
+                    $q->where('title', 'like', '%'.escape_like($request->search).'%');
+                })
+                ->when($request->filled('period'), function ($q) use ($request) {
+                    $days = match ((string) $request->get('period')) {
+                        'day', 'today' => 1,
+                        'week' => 7,
+                        'month' => 30,
+                        'year' => 365,
+                        default => null,
+                    };
 
-                if ($days !== null) {
-                    $q->where('created_at', '>=', now()->subDays($days));
-                }
-            })
-            ->orderBy($sortField, $sortDirection)
-            ->orderByDesc('id')
-            ->paginate($perPage);
+                    if ($days !== null) {
+                        $q->where('created_at', '>=', now()->subDays($days));
+                    }
+                })
+                ->orderBy($sortField, $sortDirection)
+                ->orderByDesc('id')
+                ->paginate($perPage);
+        };
+
+        // Cache anonymous, non-search requests for 5 minutes
+        $shouldCache = ! Auth::check() && ! $request->filled('search');
+        if ($shouldCache) {
+            $cacheKey = 'api:songs:list:' . md5(serialize([
+                'pp' => $perPage,
+                'sf' => $sortField,
+                'sd' => $sortDirection,
+                'g' => $request->get('genre'),
+                'a' => $request->get('artist'),
+                'al' => $request->get('album'),
+                'f' => $request->get('is_free'),
+                'p' => $request->get('period'),
+                'pg' => $request->get('page', 1),
+            ]));
+            $songs = Cache::remember($cacheKey, 300, $buildQuery);
+        } else {
+            $songs = $buildQuery();
+        }
 
         return SongResource::collection($songs);
     }

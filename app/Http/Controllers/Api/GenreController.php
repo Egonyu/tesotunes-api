@@ -9,6 +9,7 @@ use App\Http\Resources\GenreResource;
 use App\Http\Resources\SongResource;
 use App\Models\Genre;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class GenreController extends Controller
 {
@@ -19,19 +20,22 @@ class GenreController extends Controller
      */
     public function index(Request $request)
     {
-        $genres = Genre::active()
-            ->ordered()
-            ->withCount(['songs' => function ($query) {
-                $query->where('status', 'published');
-            }])
-            ->when($request->filled('search'), function ($query) use ($request) {
-                $search = '%'.escape_like($request->search).'%';
-                $query->where(function ($genreQuery) use ($search) {
-                    $genreQuery->where('name', 'like', $search)
-                        ->orWhere('description', 'like', $search);
-                });
-            })
-            ->get();
+        // Cache genre list for 30 minutes; skip cache on search
+        if ($request->filled('search')) {
+            $search = '%'.escape_like($request->search).'%';
+            $genres = Genre::active()
+                ->ordered()
+                ->withCount(['songs' => fn ($q) => $q->where('status', 'published')])
+                ->where(fn ($q) => $q->where('name', 'like', $search)->orWhere('description', 'like', $search))
+                ->get();
+        } else {
+            $genres = Cache::remember('api:genres:list', 1800, function () {
+                return Genre::active()
+                    ->ordered()
+                    ->withCount(['songs' => fn ($q) => $q->where('status', 'published')])
+                    ->get();
+            });
+        }
 
         return GenreResource::collection($genres);
     }
