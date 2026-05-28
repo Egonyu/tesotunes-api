@@ -45,12 +45,12 @@ class ArtistController extends Controller
         // Cache anonymous, non-search requests for 5 minutes
         $shouldCache = ! $request->user() && ! $request->filled('search');
         if ($shouldCache) {
-            $cacheKey = 'api:artists:list:' . md5(serialize([
+            $cacheKey = 'api:artists:list:'.md5(serialize([
                 'pp' => $perPage,
                 'co' => $request->get('claimable_only'),
                 'vo' => $request->get('verified_only'),
-                'c'  => $request->get('country'),
-                'g'  => $request->get('genre'),
+                'c' => $request->get('country'),
+                'g' => $request->get('genre'),
                 'pg' => $request->get('page', 1),
             ]));
             $artists = Cache::remember($cacheKey, 300, $buildQuery);

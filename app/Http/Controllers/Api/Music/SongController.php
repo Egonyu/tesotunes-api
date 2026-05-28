@@ -80,7 +80,7 @@ class SongController extends Controller
         // Cache anonymous, non-search requests for 5 minutes
         $shouldCache = ! Auth::check() && ! $request->filled('search');
         if ($shouldCache) {
-            $cacheKey = 'api:songs:list:' . md5(serialize([
+            $cacheKey = 'api:songs:list:'.md5(serialize([
                 'pp' => $perPage,
                 'sf' => $sortField,
                 'sd' => $sortDirection,

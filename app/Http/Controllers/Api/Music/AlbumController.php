@@ -38,12 +38,12 @@ class AlbumController extends Controller
         // Cache anonymous, non-search requests for 5 minutes
         $shouldCache = ! $request->user() && ! $request->filled('search');
         if ($shouldCache) {
-            $cacheKey = 'api:albums:list:' . md5(serialize([
+            $cacheKey = 'api:albums:list:'.md5(serialize([
                 'pp' => $perPage,
-                't'  => $request->get('type'),
-                'g'  => $request->get('genre'),
-                'a'  => $request->get('artist'),
-                'y'  => $request->get('year'),
+                't' => $request->get('type'),
+                'g' => $request->get('genre'),
+                'a' => $request->get('artist'),
+                'y' => $request->get('year'),
                 'pg' => $request->get('page', 1),
             ]));
             $albums = Cache::remember($cacheKey, 300, $buildQuery);
