@@ -44,6 +44,27 @@ class AuthController extends Controller
     }
 
     /**
+     * Write to the security log channel without propagating file-system errors.
+     *
+     * The security log is a daily-rotated file. If the file is owned by a
+     * privileged OS user (e.g. root, from a cron job) and the web process
+     * (www-data) cannot write to it, Monolog throws — which would otherwise
+     * surface as a 500 and lock every user out of login until the file is
+     * manually fixed. This wrapper silently absorbs the failure so that auth
+     * flows remain functional regardless of log-file health.
+     */
+    private function safeSecurityLog(string $level, string $event, array $context): void
+    {
+        try {
+            Log::channel('security')->{$level}($event, $context);
+        } catch (\Throwable) {
+            // Intentionally swallowed — log file permission issues must never
+            // block authentication. The exception handler will still report the
+            // underlying infrastructure problem via AlertingService.
+        }
+    }
+
+    /**
      * Resolve the login throttle key used by the route limiter.
      */
     private function loginThrottleKey(Request $request): string
@@ -207,7 +228,7 @@ class AuthController extends Controller
         $user = User::where('email', $request->email)->first();
 
         if (! $user || ! Hash::check($request->password, $user->password)) {
-            Log::channel('security')->warning('auth.login.failed', [
+            $this->safeSecurityLog('warning', 'auth.login.failed', [
                 'email' => $request->email,
                 'ip' => $request->ip(),
                 'user_agent' => $request->userAgent(),
@@ -230,7 +251,7 @@ class AuthController extends Controller
         }
 
         if (! $user->is_active) {
-            Log::channel('security')->warning('auth.login.blocked', [
+            $this->safeSecurityLog('warning', 'auth.login.blocked', [
                 'user_id' => $user->id,
                 'email' => $user->email,
                 'ip' => $request->ip(),
@@ -263,7 +284,7 @@ class AuthController extends Controller
             $rememberMe = $request->boolean('remember_me');
             Cache::put($pendingKey, ['user_id' => $user->id, 'remember_me' => $rememberMe], now()->addMinutes(10));
 
-            Log::channel('security')->info('auth.login.two_fa_required', [
+            $this->safeSecurityLog('info', 'auth.login.two_fa_required', [
                 'user_id' => $user->id,
                 'email' => $user->email,
                 'ip' => $request->ip(),
@@ -278,7 +299,7 @@ class AuthController extends Controller
 
         // Users without 2FA still require email verification.
         if (! $user->hasVerifiedEmail()) {
-            Log::channel('security')->warning('auth.login.blocked', [
+            $this->safeSecurityLog('warning', 'auth.login.blocked', [
                 'user_id' => $user->id,
                 'email' => $user->email,
                 'ip' => $request->ip(),
@@ -296,15 +317,23 @@ class AuthController extends Controller
         $user->update(['last_login_at' => now()]);
         $this->clearLoginThrottle($request);
 
-        // Security alert for new login
-        $user->notify(new SecurityAlertNotification(
-            SecurityAlertNotification::NEW_LOGIN,
-            [
-                'ip' => $request->ip(),
-                'user_agent' => $request->userAgent(),
-                'time' => now()->format('M d, Y H:i'),
-            ]
-        ));
+        // Security alert for new login — wrapped so a mail/channel failure never blocks auth
+        try {
+            $user->notify(new SecurityAlertNotification(
+                SecurityAlertNotification::NEW_LOGIN,
+                [
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                    'time' => now()->format('M d, Y H:i'),
+                ]
+            ));
+        } catch (\Throwable $e) {
+            Log::error('auth.login.new_login_notification_failed', [
+                'user_id' => $user->id,
+                'exception' => get_class($e),
+                'message' => $e->getMessage(),
+            ]);
+        }
 
         $tokenName = $request->remember_me ? 'long_lived_token' : 'auth_token';
         $token = $user->createToken($tokenName)->plainTextToken;
