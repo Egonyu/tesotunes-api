@@ -406,7 +406,9 @@ class AdminArtistsController extends Controller
                 'slug' => 'sometimes|string|max:255|unique:artists,slug,'.$artist->id,
                 'bio' => 'sometimes|nullable|string|max:5000',
                 'website' => 'sometimes|nullable|url|max:255',
-                'status' => ['sometimes', 'string', \Illuminate\Validation\Rule::in(\App\Enums\ArtistStatus::values())],
+                // Accept legacy 'active' value alongside the canonical enum values.
+                // Old records may still carry 'active'; it is normalised to 'approved' below.
+                'status' => ['sometimes', 'string', \Illuminate\Validation\Rule::in(array_merge(\App\Enums\ArtistStatus::values(), ['active']))],
                 'is_verified' => 'sometimes',
                 'spotify_url' => 'sometimes|nullable|url|max:255',
                 'apple_music_url' => 'sometimes|nullable|url|max:255',
@@ -436,7 +438,10 @@ class AdminArtistsController extends Controller
                 $data['website_url'] = $request->input('website');
             }
             if ($request->has('status')) {
-                $data['status'] = $request->input('status');
+                // Normalise legacy 'active' → 'approved' so old DB values are
+                // silently migrated to the canonical ArtistStatus enum on save.
+                $statusInput = $request->input('status');
+                $data['status'] = $statusInput === 'active' ? 'approved' : $statusInput;
             }
             if ($request->has('is_verified')) {
                 $data['is_verified'] = filter_var($request->input('is_verified'), FILTER_VALIDATE_BOOLEAN);

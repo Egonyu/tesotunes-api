@@ -34,7 +34,9 @@ class ArtistResource extends JsonResource
 
             // ── Verification (3-axis canonical model) ─────────────────────────
             // AXIS 2: artist application state (can this user act as an artist?)
-            'status' => $this->status,
+            // Normalise legacy 'active' → 'approved' so clients always receive
+            // the canonical ArtistStatus enum values.
+            'status' => $this->status === 'active' ? 'approved' : $this->status,
             // AXIS 3: featured / blue-check badge (curated; independent of KYC)
             'is_verified' => (bool) $this->is_verified,
             'verification_badge' => $this->is_verified ? 'verified' : null,

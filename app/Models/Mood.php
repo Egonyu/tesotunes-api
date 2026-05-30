@@ -19,15 +19,12 @@ class Mood extends Model implements HasMedia
         'description',
         'color',
         'is_active',
-        'sort_order',
-        'meta_title',
-        'meta_description',
-        'meta_keywords',
+        'display_order',
     ];
 
     protected $casts = [
         'is_active' => 'boolean',
-        'sort_order' => 'integer',
+        'display_order' => 'integer',
     ];
 
     // Relationships
@@ -44,7 +41,7 @@ class Mood extends Model implements HasMedia
 
     public function scopeOrdered($query)
     {
-        return $query->orderBy('sort_order')->orderBy('name');
+        return $query->orderBy('display_order')->orderBy('name');
     }
 
     // Accessors
