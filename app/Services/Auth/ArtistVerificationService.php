@@ -2,6 +2,7 @@
 
 namespace App\Services\Auth;
 
+use App\Jobs\DispatchArtistUpgradedWebhook;
 use App\Models\Artist;
 use App\Models\AuditLog;
 use App\Models\KYCDocument;
@@ -174,6 +175,9 @@ class ArtistVerificationService
                 'role' => 'artist',
                 'status' => 'active',
             ])->save();
+
+            // n8n automation: artist onboarding email sequence
+            DispatchArtistUpgradedWebhook::dispatch($artist->user->id)->onQueue('webhooks');
 
             // Assign artist role in user_roles table
             $this->assignArtistRole($artist->user, $admin);

@@ -150,7 +150,9 @@ return [
 
     // n8n Workflow Automation
     'n8n' => [
-        'song_approved_webhook' => env('N8N_SONG_APPROVED_WEBHOOK_URL'),
+        'song_approved_webhook'    => env('N8N_SONG_APPROVED_WEBHOOK_URL'),
+        'user_registered_webhook'  => env('N8N_USER_REGISTERED_WEBHOOK_URL'),
+        'artist_upgraded_webhook'  => env('N8N_ARTIST_UPGRADED_WEBHOOK_URL'),
     ],
 
     // Wazuh SIEM Integration

@@ -6,6 +6,7 @@ use App\Enums\Observability\EventOutcome;
 use App\Enums\Observability\SecurityEventType;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
+use App\Jobs\DispatchUserRegisteredWebhook;
 use App\Models\User;
 use App\Models\UserSetting;
 use App\Notifications\SecurityAlertNotification;
@@ -165,6 +166,9 @@ class AuthController extends Controller
         }
 
         event(new Registered($user));
+
+        // n8n automation: welcome email + Listmonk subscriber creation
+        DispatchUserRegisteredWebhook::dispatch($user->id)->onQueue('webhooks');
 
         SecurityEventRecorder::emit(
             SecurityEvent::of(SecurityEventType::AuthRegistered)
