@@ -35,12 +35,12 @@ class DispatchArtistUpgradedWebhook implements ShouldQueue
 
         Http::timeout(10)->post($webhookUrl, [
             'user' => [
-                'id'         => $user->id,
-                'name'       => $user->name,
-                'email'      => $user->email,
-                'phone'      => $user->phone,
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
                 'stage_name' => $user->artist?->stage_name,
-                'slug'       => $user->artist?->slug,
+                'slug' => $user->artist?->slug,
             ],
         ]);
 
@@ -51,7 +51,7 @@ class DispatchArtistUpgradedWebhook implements ShouldQueue
     {
         Log::warning('Artist upgraded webhook failed', [
             'user_id' => $this->userId,
-            'error'   => $e->getMessage(),
+            'error' => $e->getMessage(),
         ]);
     }
 }

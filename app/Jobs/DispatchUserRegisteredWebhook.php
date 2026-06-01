@@ -35,8 +35,8 @@ class DispatchUserRegisteredWebhook implements ShouldQueue
 
         Http::timeout(10)->post($webhookUrl, [
             'user' => [
-                'id'    => $user->id,
-                'name'  => $user->name,
+                'id' => $user->id,
+                'name' => $user->name,
                 'email' => $user->email,
                 'phone' => $user->phone,
             ],
@@ -49,7 +49,7 @@ class DispatchUserRegisteredWebhook implements ShouldQueue
     {
         Log::warning('User registered webhook failed', [
             'user_id' => $this->userId,
-            'error'   => $e->getMessage(),
+            'error' => $e->getMessage(),
         ]);
     }
 }
