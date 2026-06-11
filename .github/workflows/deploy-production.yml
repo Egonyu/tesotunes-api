@@ -255,6 +255,24 @@ jobs:
             php artisan route:list --path=admin/analytics --no-ansi | tee "$DEPLOY_LOG_PATH/tesotunes-routes-$TIMESTAMP.log"
 
             # ------------------------------------------------
+            # Backup database before migrating (kept 14 days)
+            # ------------------------------------------------
+            step "Backing up database before migrations"
+            BACKUP_DIR="/var/www/backup/db"
+            mkdir -p "$BACKUP_DIR"
+            DB_BACKUP_FILE="$BACKUP_DIR/pre-migrate-$TIMESTAMP.sql.gz"
+            DB_NAME=$(grep '^DB_DATABASE=' .env | cut -d= -f2-)
+            DB_USER=$(grep '^DB_USERNAME=' .env | cut -d= -f2-)
+            export MYSQL_PWD=$(grep '^DB_PASSWORD=' .env | cut -d= -f2-)
+            if ! mysqldump --single-transaction --quick --routines --triggers --no-tablespaces -u"$DB_USER" "$DB_NAME" | gzip > "$DB_BACKUP_FILE"; then
+              echo "❌ Pre-migration database backup failed — aborting deploy before touching the schema."
+              exit 1
+            fi
+            unset MYSQL_PWD
+            echo "Database backed up to $DB_BACKUP_FILE ($(du -h "$DB_BACKUP_FILE" | cut -f1))"
+            find "$BACKUP_DIR" -name 'pre-migrate-*.sql.gz' -mtime +14 -delete || true
+
+            # ------------------------------------------------
             # Run migrations
             # ------------------------------------------------
             step "Running database migrations"
