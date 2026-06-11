@@ -3,6 +3,8 @@
 namespace App\Observers;
 
 use App\Models\ArtistRevenue;
+use App\Models\Commerce\Settlement;
+use App\Services\Commerce\SettlementService;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -59,6 +61,9 @@ class ArtistRevenueObserver
 
         // Detect unusual revenue patterns
         $this->detectAnomalies($revenue);
+
+        // Dual-write into the unified commerce ledger (COMMERCE_CORE.md).
+        $this->mirrorToSettlementLedger($revenue);
     }
 
     /**
@@ -123,6 +128,88 @@ class ArtistRevenueObserver
         // Handle status transitions
         if (isset($changes['status'])) {
             $this->handleStatusChange($revenue, $changes['status']);
+
+            if ($changes['status'] === ArtistRevenue::STATUS_CONFIRMED) {
+                $this->clearMirroredSettlement($revenue);
+            }
+        }
+    }
+
+    /**
+     * Dual-write: every ArtistRevenue row mirrors into the unified settlement
+     * ledger (shadow mode — ArtistRevenue stays the read source of truth, so
+     * a ledger failure is logged but never blocks revenue processing).
+     *
+     * Music settlements clear on ArtistRevenue confirmation, not on a time
+     * hold, so pending rows carry a sentinel far-future hold.
+     */
+    public function mirrorToSettlementLedger(ArtistRevenue $revenue): ?Settlement
+    {
+        try {
+            $beneficiary = $revenue->artist?->user;
+
+            if (! $beneficiary) {
+                Log::warning('music.settlement.skipped_no_beneficiary', [
+                    'artist_revenue_id' => $revenue->id,
+                    'artist_id' => $revenue->artist_id,
+                ]);
+
+                return null;
+            }
+
+            $gross = round((float) ($revenue->amount_ugx ?? 0), 2);
+            $net = round((float) ($revenue->net_amount ?? $gross), 2);
+            $fee = round(max(0.0, min($gross, $gross - $net)), 2);
+            $isConfirmed = in_array($revenue->status, [ArtistRevenue::STATUS_CONFIRMED, ArtistRevenue::STATUS_PAID], true);
+
+            $settlement = app(SettlementService::class)->record(
+                beneficiary: $beneficiary,
+                source: $revenue,
+                vertical: Settlement::VERTICAL_MUSIC,
+                kind: (string) $revenue->revenue_type,
+                amounts: ['gross_ugx' => $gross, 'fee_ugx' => $fee],
+                holdUntil: $isConfirmed ? now() : now()->addYears(10),
+                metadata: [
+                    'artist_id' => $revenue->artist_id,
+                    'revenue_date' => (string) $revenue->revenue_date,
+                    'clears_on' => 'artist_revenue_confirmation',
+                ],
+            );
+
+            if ($isConfirmed && $settlement->status === Settlement::STATUS_PENDING) {
+                app(SettlementService::class)->clear($settlement);
+            }
+
+            return $settlement;
+        } catch (\Throwable $e) {
+            Log::error('music.settlement.mirror_failed', [
+                'artist_revenue_id' => $revenue->id,
+                'exception' => get_class($e),
+                'message' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    protected function clearMirroredSettlement(ArtistRevenue $revenue): void
+    {
+        try {
+            $settlement = Settlement::query()
+                ->where('source_type', $revenue->getMorphClass())
+                ->where('source_id', $revenue->getKey())
+                ->where('status', Settlement::STATUS_PENDING)
+                ->first();
+
+            if ($settlement) {
+                app(SettlementService::class)->clear($settlement);
+            }
+        } catch (\Throwable $e) {
+            Log::error('music.settlement.clear_failed', [
+                'artist_revenue_id' => $revenue->id,
+                'exception' => get_class($e),
+                'message' => $e->getMessage(),
+            ]);
         }
     }
 

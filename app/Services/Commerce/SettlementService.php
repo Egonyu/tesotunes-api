@@ -95,6 +95,29 @@ class SettlementService
     }
 
     /**
+     * Promote a single pending settlement to cleared, regardless of its hold
+     * window — used when an upstream lifecycle (e.g. ArtistRevenue
+     * confirmation) is the clearance authority instead of time.
+     */
+    public function clear(Settlement $settlement, ?Carbon $asOf = null): Settlement
+    {
+        if ($settlement->status === Settlement::STATUS_CLEARED) {
+            return $settlement;
+        }
+
+        if ($settlement->status !== Settlement::STATUS_PENDING) {
+            throw new \LogicException("Cannot clear a settlement in status '{$settlement->status}'.");
+        }
+
+        $settlement->forceFill([
+            'status' => Settlement::STATUS_CLEARED,
+            'cleared_at' => $asOf ?? now(),
+        ])->save();
+
+        return $settlement;
+    }
+
+    /**
      * Reverse a settlement (refund, upheld dispute). Allowed from pending or
      * cleared; a paid-out settlement requires a compensating adjustment, not
      * a reversal.
