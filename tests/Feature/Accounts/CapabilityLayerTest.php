@@ -142,6 +142,19 @@ class CapabilityLayerTest extends TestCase
         $this->assertCount(5, $posture);
     }
 
+    public function test_promoter_onboarding_grants_the_promoter_capability(): void
+    {
+        $user = User::factory()->create();
+
+        $profile = app(\App\Modules\Promotions\Services\PromoterOnboardingService::class)
+            ->onboard($user, ['display_name' => 'Dubai Diaries', 'platforms' => ['tiktok']]);
+
+        $this->assertTrue($user->fresh()->hasCapability(Capability::Promoter));
+
+        $grant = $user->capabilities()->where('capability', Capability::Promoter)->first();
+        $this->assertEquals($profile->id, $grant->profile_id);
+    }
+
     public function test_backfill_seeds_grants_from_existing_sources_idempotently(): void
     {
         $artistUser = User::factory()->create();

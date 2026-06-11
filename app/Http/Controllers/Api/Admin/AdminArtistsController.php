@@ -567,6 +567,15 @@ class AdminArtistsController extends Controller
             ]);
             $this->syncArtistModerationState($artist->fresh(), 'approved');
 
+            if ($artist->user) {
+                app(\App\Services\Accounts\CapabilityService::class)->grant(
+                    $artist->user,
+                    \App\Enums\Capability::Artist,
+                    $artist,
+                    auth()->user(),
+                );
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Artist approved successfully.',

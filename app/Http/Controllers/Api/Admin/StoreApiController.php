@@ -317,6 +317,15 @@ class StoreApiController extends Controller
                 'verified_at' => now(),
             ]);
 
+            if ($shop->user) {
+                app(\App\Services\Accounts\CapabilityService::class)->grant(
+                    $shop->user,
+                    \App\Enums\Capability::Seller,
+                    $shop,
+                    auth()->user(),
+                );
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Shop approved successfully.',

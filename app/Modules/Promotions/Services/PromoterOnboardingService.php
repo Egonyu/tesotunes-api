@@ -38,7 +38,7 @@ class PromoterOnboardingService
                 $slug = $baseSlug.'-'.$suffix++;
             }
 
-            return PromoterProfile::create([
+            $profile = PromoterProfile::create([
                 'user_id' => $user->id,
                 'store_id' => $store?->id,
                 'display_name' => $displayName,
@@ -53,6 +53,14 @@ class PromoterOnboardingService
                 'status' => PromoterProfile::STATUS_ACTIVE,
                 'onboarded_at' => now(),
             ]);
+
+            app(\App\Services\Accounts\CapabilityService::class)->grant(
+                $user,
+                \App\Enums\Capability::Promoter,
+                $profile,
+            );
+
+            return $profile;
         });
     }
 
