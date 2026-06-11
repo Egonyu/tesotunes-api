@@ -85,6 +85,15 @@ Schedule::command('credits:distribute-listen-earn')
     ->onOneServer()
     ->runInBackground();
 
+// ── Commerce settlement clearance ─────────────────────────────
+// Promotes pending settlements past their dispute-hold window to cleared
+Schedule::command('commerce:clear-due-settlements')
+    ->hourly()
+    ->name('commerce-settlement-clearance')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
 // ── Health monitoring ─────────────────────────────────────────
 Schedule::command('monitor:health')
     ->everyFiveMinutes()

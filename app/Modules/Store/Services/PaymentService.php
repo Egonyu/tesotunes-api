@@ -2,9 +2,11 @@
 
 namespace App\Modules\Store\Services;
 
+use App\Models\Commerce\Settlement;
 use App\Models\Payment;
 use App\Models\User;
 use App\Modules\Store\Models\Order;
+use App\Services\Commerce\SettlementService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -176,7 +178,43 @@ class PaymentService
                 'status' => Order::STATUS_PROCESSING,
             ]);
 
+            $this->recordSellerSettlement($order);
+
             return true;
         });
+    }
+
+    /**
+     * Record the store owner's proceeds in the unified settlement ledger.
+     * Rides the payment-confirmation transaction so a paid order without a
+     * settlement row cannot exist. Idempotent via the ledger's source key.
+     */
+    private function recordSellerSettlement(Order $order): void
+    {
+        $order->loadMissing('store.user');
+        $beneficiary = $order->store?->user;
+
+        if (! $beneficiary) {
+            Log::warning('store.settlement.skipped_no_beneficiary', [
+                'order_id' => $order->id,
+                'store_id' => $order->store_id,
+            ]);
+
+            return;
+        }
+
+        app(SettlementService::class)->record(
+            beneficiary: $beneficiary,
+            source: $order,
+            vertical: Settlement::VERTICAL_STORE,
+            kind: 'sale',
+            amounts: [
+                'gross_ugx' => $order->total_ugx,
+                'fee_ugx' => $order->platform_fee_ugx,
+                'gross_credits' => $order->total_credits,
+                'fee_credits' => $order->platform_fee_credits,
+            ],
+            metadata: ['order_number' => $order->order_number],
+        );
     }
 }
