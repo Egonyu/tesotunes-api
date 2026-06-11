@@ -4,6 +4,7 @@ namespace App\Modules\Promotions\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Album;
+use App\Models\Event;
 use App\Models\Song;
 use App\Modules\Promotions\Models\PromotionApplication;
 use App\Modules\Promotions\Models\PromotionOpportunity;
@@ -38,7 +39,7 @@ class OpportunityController extends Controller
         }
 
         if ($request->filled('promotable_type')) {
-            $morphMap = ['song' => Song::class, 'album' => Album::class];
+            $morphMap = ['song' => Song::class, 'album' => Album::class, 'event' => Event::class];
             $type = $morphMap[$request->string('promotable_type')->toString()] ?? null;
 
             if ($type) {
@@ -79,7 +80,7 @@ class OpportunityController extends Controller
         $this->authorize('create', PromotionOpportunity::class);
 
         $data = $request->validate([
-            'promotable_type' => ['required', Rule::in(['song', 'album'])],
+            'promotable_type' => ['required', Rule::in(['song', 'album', 'event'])],
             'promotable_id' => 'required|integer',
             'title' => 'required|string|max:255',
             'brief' => 'nullable|string|max:5000',
@@ -92,16 +93,19 @@ class OpportunityController extends Controller
             'budget_min_ugx' => 'nullable|numeric|min:0',
             'budget_max_ugx' => 'nullable|numeric|min:0',
             'budget_credits' => 'nullable|integer|min:0',
+            'max_awards' => 'nullable|integer|min:1|max:20',
             'deadline_at' => 'nullable|date|after:today',
             'deliverables' => 'nullable|array',
         ]);
 
-        $morphMap = ['song' => Song::class, 'album' => Album::class];
+        $morphMap = ['song' => Song::class, 'album' => Album::class, 'event' => Event::class];
         $modelClass = $morphMap[$data['promotable_type']];
         $promotable = $modelClass::findOrFail($data['promotable_id']);
 
         // Ownership check — only the content owner can post an opportunity for it
-        $ownerId = $promotable->user_id ?? $promotable->artist?->user_id ?? null;
+        $ownerId = $data['promotable_type'] === 'event'
+            ? ($promotable->organizer_id ?? $promotable->user_id ?? $promotable->artist?->user_id)
+            : ($promotable->user_id ?? $promotable->artist?->user_id);
         if ($ownerId !== $request->user()->id && ! in_array($request->user()->role, ['admin', 'super_admin'])) {
             return response()->json(['message' => 'You do not own this content.'], 403);
         }
@@ -221,10 +225,20 @@ class OpportunityController extends Controller
 
         $this->authorize('manageApplications', $opportunity);
 
-        try {
-            $this->opportunityService->award($opportunity, $application);
+        $payment = $request->validate([
+            'payment_method' => ['required', Rule::in(['ugx', 'credits'])],
+        ]);
 
-            return response()->json(['message' => 'Application awarded successfully.']);
+        try {
+            $this->opportunityService->award($opportunity, $application, $payment);
+
+            return response()->json([
+                'message' => 'Application awarded and funded. The promoter can start work.',
+                'data' => [
+                    'order_id' => $application->fresh()->order_id,
+                    'slots_remaining' => max(0, (int) $opportunity->fresh()->max_awards - (int) $opportunity->fresh()->awarded_count),
+                ],
+            ]);
         } catch (\Throwable $e) {
             return response()->json(['message' => $e->getMessage()], 422);
         }

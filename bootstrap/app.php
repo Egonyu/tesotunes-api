@@ -60,6 +60,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
             'admin.exceptions' => \App\Http\Middleware\HandleAdminExceptions::class,
+            'capability' => \App\Http\Middleware\CapabilityMiddleware::class,
             'kyc' => \App\Http\Middleware\EnsureKycVerified::class,
             'role' => \App\Http\Middleware\RoleMiddleware::class,
             'permission' => \App\Http\Middleware\PermissionMiddleware::class,

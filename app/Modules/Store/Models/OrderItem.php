@@ -57,6 +57,11 @@ class OrderItem extends Model
         'verified_by',
         'rejection_reason',
         'dispute_reason',
+        // Promotion deal linkage (opportunity award escrow)
+        'promotable_type',
+        'promotable_id',
+        'opportunity_id',
+        'application_id',
     ];
 
     protected $casts = [

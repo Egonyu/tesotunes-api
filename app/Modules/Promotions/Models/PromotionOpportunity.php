@@ -28,6 +28,7 @@ class PromotionOpportunity extends Model
         'budget_min_ugx',
         'budget_max_ugx',
         'budget_credits',
+        'max_awards',
         'deadline_at',
         'deliverables',
         'metadata',
@@ -136,6 +137,24 @@ class PromotionOpportunity extends Model
         return $this->belongsTo(PromotionApplication::class, 'awarded_application_id');
     }
 
+    public function awardedApplications(): HasMany
+    {
+        return $this->applications()->where('status', PromotionApplication::STATUS_AWARDED);
+    }
+
+    public function hasOpenSlots(): bool
+    {
+        return (int) $this->awarded_count < max(1, (int) $this->max_awards);
+    }
+
+    /**
+     * The denormalized opportunity counters only exist on music content.
+     */
+    private function promotableTracksCounters(): bool
+    {
+        return in_array($this->promotable_type, [\App\Models\Song::class, \App\Models\Album::class], true);
+    }
+
     // --- Scopes ---
 
     public function scopeOpen($query)
@@ -200,20 +219,35 @@ class PromotionOpportunity extends Model
         return true;
     }
 
+    /**
+     * Award one slot to an application. The opportunity keeps accepting
+     * applications until all slots are filled, then transitions to AWARDED.
+     */
     public function award(PromotionApplication $application): bool
     {
-        if (! $this->canTransitionTo(self::STATUS_AWARDED)) {
+        if (! in_array($this->status, [self::STATUS_OPEN, self::STATUS_REVIEWING], true)) {
             return false;
         }
 
+        if (! $this->hasOpenSlots()) {
+            return false;
+        }
+
+        $isFirstAward = (int) $this->awarded_count === 0;
+        $newAwardedCount = (int) $this->awarded_count + 1;
+        $isFilled = $newAwardedCount >= max(1, (int) $this->max_awards);
+
         $this->forceFill([
-            'status' => self::STATUS_AWARDED,
-            'awarded_application_id' => $application->id,
-            'awarded_at' => now(),
+            'awarded_count' => $newAwardedCount,
+            'awarded_application_id' => $isFirstAward ? $application->id : $this->awarded_application_id,
+            'awarded_at' => $this->awarded_at ?? now(),
+            ...($isFilled ? ['status' => self::STATUS_AWARDED] : []),
         ])->save();
 
-        if ($this->promotable_type && $this->promotable_id) {
-            $this->promotable?->decrement('active_opportunity_count');
+        if ($this->promotable_type && $this->promotable_id && $this->promotableTracksCounters()) {
+            if ($isFilled) {
+                $this->promotable?->decrement('active_opportunity_count');
+            }
             $this->promotable?->increment('total_promotions_count');
         }
 

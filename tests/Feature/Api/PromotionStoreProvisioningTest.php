@@ -32,6 +32,14 @@ class PromotionStoreProvisioningTest extends TestCase
             'stage_name' => 'Auto Store Artist',
         ]);
 
+        // Merged promotions model: listing promotion services requires the
+        // promoter capability — selling promo work makes you a promoter,
+        // regardless of also being an artist.
+        app(\App\Services\Accounts\CapabilityService::class)->grant(
+            $artistUser,
+            \App\Enums\Capability::Promoter,
+        );
+
         $response = $this->actingAs($artistUser, 'sanctum')->postJson('/api/promotions', [
             'title' => 'Instagram Reel Push',
             'short_description' => 'One reel and story support',

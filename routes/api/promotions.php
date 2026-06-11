@@ -8,8 +8,8 @@ Route::prefix('promotions')->name('promotions.')->group(function () {
     Route::get('/platforms/list', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'platforms'])->name('platforms');
     Route::get('/{slug}', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'show'])->name('show');
 
-    // Seller actions — artist role required
-    Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->group(function () {
+    // Seller actions — promoter capability required (admins always pass)
+    Route::middleware(['auth:sanctum', 'capability:promoter'])->group(function () {
         Route::post('/', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'store'])->name('store');
         Route::put('/{product}', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'update'])->name('update');
         Route::delete('/{product}', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'destroy'])->name('destroy');
@@ -25,8 +25,8 @@ Route::prefix('promotions')->name('promotions.')->group(function () {
         Route::post('/orders/{orderId}/review', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'review'])->name('orders.review');
     });
 
-    // Seller order actions — artist role required
-    Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->group(function () {
+    // Seller order actions — promoter capability required (admins always pass)
+    Route::middleware(['auth:sanctum', 'capability:promoter'])->group(function () {
         Route::post('/orders/{orderId}/verify', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'verifyCompletionById'])->name('orders.verify');
         Route::post('/orders/{orderId}/reject', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'rejectCompletionById'])->name('orders.reject');
     });
