@@ -2,13 +2,18 @@
 
 namespace App\Services\Store;
 
+use App\Models\Commerce\Settlement;
 use App\Models\User;
 use App\Modules\Store\Models\Order;
 use App\Modules\Store\Models\OrderItem;
 use App\Modules\Store\Models\Product;
+use App\Services\Commerce\SettlementService;
+use Illuminate\Support\Facades\Log;
 
 class PromotionSettlementService
 {
+    public function __construct(private readonly SettlementService $ledger) {}
+
     public function buildBreakdown(Order $order, Product $promotion, ?User $seller = null): array
     {
         $grossUgx = (float) ($order->paid_ugx ?: $order->total_ugx ?: $promotion->price_ugx ?: 0);
@@ -54,6 +59,8 @@ class PromotionSettlementService
             'product_snapshot' => $snapshot,
         ])->save();
 
+        $this->recordLedgerSettlement($orderItem, $breakdown);
+
         return $this->summarize($orderItem->fresh());
     }
 
@@ -98,7 +105,70 @@ class PromotionSettlementService
             'product_snapshot' => $snapshot,
         ])->save();
 
+        $this->reverseLedgerSettlement($orderItem, $reason);
+
         return $this->summarize($orderItem->fresh());
+    }
+
+    /**
+     * Escrow semantics: the promoter's money enters the unified ledger only
+     * when the buyer (or an admin resolving a dispute) accepts the delivery
+     * proof — never at payment time. Idempotent via the ledger's source key.
+     */
+    private function recordLedgerSettlement(OrderItem $orderItem, array $breakdown): void
+    {
+        $beneficiary = User::find($breakdown['seller_user_id'] ?? null);
+
+        if (! $beneficiary) {
+            Log::warning('promotions.settlement.skipped_no_beneficiary', [
+                'order_item_id' => $orderItem->id,
+                'breakdown_seller_user_id' => $breakdown['seller_user_id'] ?? null,
+            ]);
+
+            return;
+        }
+
+        $this->ledger->record(
+            beneficiary: $beneficiary,
+            source: $orderItem,
+            vertical: Settlement::VERTICAL_PROMOTIONS,
+            kind: 'promo_service',
+            amounts: [
+                'gross_ugx' => (float) ($breakdown['gross_ugx'] ?? 0),
+                'fee_ugx' => (float) ($breakdown['platform_fee_ugx'] ?? 0),
+                'gross_credits' => (int) ($breakdown['gross_credits'] ?? 0),
+                'fee_credits' => (int) ($breakdown['platform_fee_credits'] ?? 0),
+            ],
+            metadata: [
+                'promotion_id' => $breakdown['promotion_id'] ?? null,
+                'store_id' => $breakdown['store_id'] ?? null,
+                'order_id' => $orderItem->order_id,
+            ],
+        );
+    }
+
+    private function reverseLedgerSettlement(OrderItem $orderItem, ?string $reason): void
+    {
+        $settlement = Settlement::query()
+            ->where('source_type', $orderItem->getMorphClass())
+            ->where('source_id', $orderItem->getKey())
+            ->where('kind', 'promo_service')
+            ->first();
+
+        if (! $settlement || $settlement->status === Settlement::STATUS_REVERSED) {
+            return;
+        }
+
+        if ($settlement->status === Settlement::STATUS_PAID_OUT) {
+            Log::warning('promotions.settlement.reverse_after_payout_requires_adjustment', [
+                'settlement_id' => $settlement->id,
+                'order_item_id' => $orderItem->id,
+            ]);
+
+            return;
+        }
+
+        $this->ledger->reverse($settlement, $reason ?? 'promotion order reversed');
     }
 
     public function summarize(OrderItem $orderItem): array
