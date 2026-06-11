@@ -3,7 +3,28 @@
 **Date:** 2026-06-11
 **Prod snapshot:** `tesotunes_prod_20260611.sql.gz` (MariaDB 11.4, 183 tables, ~103 MB, 137 users / 237 songs)
 **Reference:** `php artisan migrate:fresh` from the 42 migration files (MySQL, `tesotunes_schema_ref`)
-**Repair:** `database/migrations/2026_06_11_000001_reconcile_production_schema_drift.php`
+**Repair:** `php artisan db:reconcile-production-drift` (one-shot operational command — NOT a migration)
+
+## Migration policy (standing rule)
+
+The base migrations are the ground-up source of truth and must read like a
+database designed from scratch:
+
+1. **No patch migrations.** Files named `fix_…`, `add_missing_…`, or
+   "reconcile" grab-bags do not enter `database/migrations/`. If an
+   environment drifts, that is an *operations* problem — repair it with a
+   one-shot guarded artisan command (like `db:reconcile-production-drift`),
+   run once, verified, then deleted.
+2. **New migrations are domain-scoped and deliberate.** One coherent domain
+   concern per file (e.g. `create_commerce_ledger_tables`), designed as if it
+   had always been part of the schema: full constraints, indexes, FKs, and
+   sensible defaults from day one.
+3. **`migrate:fresh` must always produce the canonical schema.** Any change
+   that would make a fresh install differ from a migrated install is wrong.
+4. **Schema-touching changes are tested against a restored prod snapshot
+   first** (`tesotunes_prod_snapshot` locally), never against prod, and the
+   information_schema drift diff is the acceptance check — `migrate:status`
+   is bookkeeping, not ground truth.
 
 ## Summary
 
@@ -65,10 +86,14 @@ snapshot restore as the canonical pre-deploy test target.
 3. **Never trust `migrate:status` alone** — it reports bookkeeping, not reality. The
    information_schema diff is the ground truth check.
 
-## Rollout plan for the repair migration
+## Rollout runbook for the reconciliation command
 
-1. Deploy ships the migration through the normal pipeline; the new backup step runs first.
-2. On prod it will: create the 3 missing tables, recreate the 5 empty store tables,
-   add the missing columns/indexes, fix the 9 type drifts, drop the 7 empty-events columns.
-3. Post-deploy check: `php artisan migrate:status | tail` plus a smoke call to
-   `/api/store/public/products` (was 500-ing on the missing `stores` table joins).
+1. Deploy the release containing `app/Console/Commands/ReconcileProductionSchemaDrift.php`
+   (no migration runs — the migration set is untouched).
+2. On the server: take a manual backup (or rely on the deploy's pre-migrate dump), then
+   `php artisan db:reconcile-production-drift` (interactive confirm; `--force` to skip).
+3. It will: create the 3 missing tables, recreate the 5 empty store tables, add the
+   missing columns/indexes, fix the 9 type drifts, drop the 7 empty-events columns.
+   Re-running is a safe no-op.
+4. Verify: smoke call `/api/store/public/products` (was 500-ing on the missing `stores`
+   table joins), then delete the command in a follow-up commit — it is a one-shot tool.

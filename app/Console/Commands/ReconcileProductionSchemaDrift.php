@@ -1,40 +1,62 @@
 <?php
 
-use Illuminate\Database\Migrations\Migration;
+namespace App\Console\Commands;
+
+use Illuminate\Console\Command;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * One-shot reconciliation of production schema drift (see docs/architecture/SCHEMA_BASELINE.md).
+ * ONE-SHOT OPERATIONAL COMMAND — delete after production has been reconciled.
  *
- * Production was found to diverge from the migration-defined schema:
- *  - `stores`, `product_categories`, `store_category_pivot` missing entirely
- *  - `store_products/orders/order_items/carts/cart_items` exist in an older shape (all empty)
- *  - 30+ additive columns missing on `songs`, `users`, `likes`, `permissions`
- *  - 21 indexes missing (notably promoter_profiles unique constraints)
- *  - 9 column type/nullability drifts
+ * Brings the production database in line with the migration-defined schema
+ * (see docs/architecture/SCHEMA_BASELINE.md for the full audit). This is
+ * deliberately NOT a migration: the base migrations are the ground-up source
+ * of truth and already build the correct schema; this repairs the one
+ * environment (production) that drifted before the migration squash.
  *
- * Every operation is guarded so this migration is a no-op on databases that
- * already match the reference schema (local dev, CI, fresh installs). Tables
- * are only dropped when they are BOTH drifted AND empty — never with data.
+ * Every operation is guarded (hasTable / hasColumn / hasIndex / must-be-empty)
+ * so the command is idempotent and a safe no-op on healthy databases.
+ *
+ * Verified against a restored production snapshot on 2026-06-11:
+ *  - repairs the drifted snapshot to zero diff vs the reference schema
+ *  - no-ops on a freshly migrated database
+ *  - no-ops when run a second time
  */
-return new class extends Migration
+class ReconcileProductionSchemaDrift extends Command
 {
-    public function up(): void
+    protected $signature = 'db:reconcile-production-drift {--force : Skip the confirmation prompt}';
+
+    protected $description = 'One-shot repair of production schema drift (safe no-op on healthy schemas)';
+
+    public function handle(): int
     {
-        $this->recreateDriftedEmptyStoreTables();
-        $this->createMissingStoreTables();
-        $this->restoreExternalForeignKeys();
-        $this->addMissingColumns();
-        $this->fixColumnTypes();
-        $this->addMissingIndexes();
-        $this->dropLegacyColumnsFromEmptyEventsTable();
+        $this->warn('This will alter the schema of the connected database: '.DB::connection()->getDatabaseName());
+
+        if (! $this->option('force') && ! $this->confirm('A pre-run mysqldump backup must already exist. Continue?')) {
+            $this->info('Aborted.');
+
+            return self::FAILURE;
+        }
+
+        $this->step('Recreating drifted empty store tables', fn () => $this->recreateDriftedEmptyStoreTables());
+        $this->step('Creating missing store tables', fn () => $this->createMissingStoreTables());
+        $this->step('Restoring external foreign keys', fn () => $this->restoreExternalForeignKeys());
+        $this->step('Adding missing columns', fn () => $this->addMissingColumns());
+        $this->step('Fixing column types', fn () => $this->fixColumnTypes());
+        $this->step('Adding missing indexes', fn () => $this->addMissingIndexes());
+        $this->step('Dropping legacy columns from empty events table', fn () => $this->dropLegacyColumnsFromEmptyEventsTable());
+
+        $this->info('Schema reconciliation complete. Re-run the drift diff to verify (see SCHEMA_BASELINE.md).');
+
+        return self::SUCCESS;
     }
 
-    public function down(): void
+    private function step(string $label, callable $action): void
     {
-        // One-way reconciliation: reversing would reintroduce the drift.
+        $this->line(" -> {$label}");
+        $action();
     }
 
     /**
@@ -44,7 +66,6 @@ return new class extends Migration
      */
     private function recreateDriftedEmptyStoreTables(): void
     {
-        // Sentinel column from the current generation of the store schema.
         $isOldGeneration = Schema::hasTable('store_products')
             && ! Schema::hasColumn('store_products', 'price_credits');
 
@@ -52,15 +73,12 @@ return new class extends Migration
             return;
         }
 
-        // loyalty_rewards.product_id references store_products from outside the
-        // drop set — detach it here; createMissingStoreTables() re-attaches it.
         if (Schema::hasTable('loyalty_rewards')) {
             Schema::table('loyalty_rewards', function (Blueprint $table) {
                 $table->dropForeign('loyalty_rewards_product_id_foreign');
             });
         }
 
-        // Children before parents (FK order). Refuse to touch tables with rows.
         $dropOrder = ['store_order_items', 'store_cart_items', 'store_orders', 'store_carts', 'store_products'];
 
         foreach ($dropOrder as $tableName) {
@@ -70,7 +88,7 @@ return new class extends Migration
 
             $rowCount = DB::table($tableName)->count();
             if ($rowCount > 0) {
-                throw new RuntimeException(
+                throw new \RuntimeException(
                     "Refusing to drop drifted table `{$tableName}` — it contains {$rowCount} rows. Reconcile manually."
                 );
             }
@@ -82,7 +100,7 @@ return new class extends Migration
     private function createMissingStoreTables(): void
     {
         // Definitions copied verbatim from 0001_01_01_000007_create_engagement_extension_tables.php
-        // (the canonical source). Kept in sync manually — this file is a one-shot repair.
+        // (the canonical source).
         if (! Schema::hasTable('stores')) {
             Schema::create('stores', function (Blueprint $table) {
                 $table->id();
@@ -339,10 +357,6 @@ return new class extends Migration
         }
     }
 
-    /**
-     * Re-attach the loyalty_rewards → store_products FK if it was detached
-     * during the drop/recreate (matches the reference schema definition).
-     */
     private function restoreExternalForeignKeys(): void
     {
         if (! Schema::hasTable('loyalty_rewards') || ! Schema::hasTable('store_products')) {
@@ -521,8 +535,6 @@ return new class extends Migration
         }
 
         if (DB::table('events')->count() > 0) {
-            // Populated events table: leave legacy columns in place, documented
-            // in SCHEMA_BASELINE.md, rather than risk discarding data.
             return;
         }
 
@@ -530,4 +542,4 @@ return new class extends Migration
             $table->dropColumn($present);
         });
     }
-};
+}
