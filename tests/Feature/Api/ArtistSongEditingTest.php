@@ -34,6 +34,58 @@ class ArtistSongEditingTest extends TestCase
         ]);
     }
 
+    public function test_artist_cannot_upload_song_into_another_artists_album(): void
+    {
+        $otherArtist = Artist::factory()->create();
+        $foreignAlbum = \App\Models\Album::factory()->create(['artist_id' => $otherArtist->id]);
+
+        $response = $this->actingAs($this->artistUser)->post('/api/artist/songs', [
+            'title' => 'Intrusion Attempt',
+            'audio' => UploadedFile::fake()->create('song.mp3', 1024, 'audio/mpeg'),
+            'album_id' => $foreignAlbum->id,
+        ], ['Accept' => 'application/json']);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['album_id']);
+    }
+
+    public function test_artist_can_upload_song_into_their_own_album(): void
+    {
+        $ownAlbum = \App\Models\Album::factory()->create(['artist_id' => $this->artist->id]);
+
+        $response = $this->actingAs($this->artistUser)->post('/api/artist/songs', [
+            'title' => 'Own Album Song',
+            'audio' => UploadedFile::fake()->create('song.mp3', 1024, 'audio/mpeg'),
+            'album_id' => $ownAlbum->id,
+        ], ['Accept' => 'application/json']);
+
+        $response->assertCreated();
+        $this->assertDatabaseHas('songs', [
+            'title' => 'Own Album Song',
+            'album_id' => $ownAlbum->id,
+            'artist_id' => $this->artist->id,
+        ]);
+    }
+
+    public function test_artist_cannot_move_song_into_another_artists_album(): void
+    {
+        $song = Song::factory()->create([
+            'artist_id' => $this->artist->id,
+            'user_id' => $this->artistUser->id,
+        ]);
+        $otherArtist = Artist::factory()->create();
+        $foreignAlbum = \App\Models\Album::factory()->create(['artist_id' => $otherArtist->id]);
+
+        $response = $this->actingAs($this->artistUser)->putJson("/api/artist/songs/{$song->id}", [
+            'album_id' => $foreignAlbum->id,
+        ]);
+
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['album_id']);
+
+        $this->assertNull($song->fresh()->album_id);
+    }
+
     public function test_artist_can_update_song_metadata_and_cover(): void
     {
         $originalGenre = Genre::factory()->create();

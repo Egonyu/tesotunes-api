@@ -136,9 +136,14 @@ class AuthController extends Controller
             ], 422);
         }
 
-        // Purge any soft-deleted ghost record with this email so the DB unique
-        // index doesn't block a legitimate re-registration.
-        User::onlyTrashed()->where('email', $request->email)->forceDelete();
+        // A soft-deleted account still owns its history (earnings, transactions,
+        // uploads). Never destroy it to free the email — recovery is a support flow.
+        if (User::onlyTrashed()->where('email', $request->email)->exists()) {
+            return response()->json([
+                'message' => 'An account with this email was previously deleted. Please contact support to restore it.',
+                'code' => 'ACCOUNT_PREVIOUSLY_DELETED',
+            ], 409);
+        }
 
         $user = User::create([
             'name' => $request->name,

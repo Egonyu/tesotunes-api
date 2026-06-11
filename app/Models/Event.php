@@ -247,6 +247,30 @@ class Event extends Model
         });
     }
 
+    /**
+     * Whether the user may run door/finance operations for this event:
+     * platform admins, the event owner, or staff with an ops-capable role.
+     */
+    public function canBeOperatedBy(User $user): bool
+    {
+        if ($user->hasAnyRole(['admin', 'super_admin'])) {
+            return true;
+        }
+
+        if (static::query()->whereKey($this->id)->ownedByUser($user)->exists()) {
+            return true;
+        }
+
+        return $this->staffMembers()
+            ->where('user_id', $user->id)
+            ->whereIn('role', [
+                EventStaffMember::ROLE_FINANCE,
+                EventStaffMember::ROLE_CHECK_IN,
+                EventStaffMember::ROLE_ANALYST,
+            ])
+            ->exists();
+    }
+
     public function scopeByCategory($query, $category)
     {
         return $query->where('category', $category);

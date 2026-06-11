@@ -192,7 +192,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 |--------------------------------------------------------------------------
 | Require admin authentication
 */
-Route::middleware(['auth:sanctum', 'role:admin|super_admin'])->prefix('admin')->name('admin.')->group(function () {
+Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin')->name('admin.')->group(function () {
 
     // Store Administration
     Route::prefix('stores')->name('stores.')->group(function () {

@@ -49,6 +49,133 @@ class EventTicketContractTest extends TestCase
             ->assertJsonPath('data.event.id', $event->id);
     }
 
+    public function test_unrelated_user_cannot_validate_someone_elses_ticket(): void
+    {
+        $holder = User::factory()->create();
+        $stranger = User::factory()->create();
+        $event = Event::factory()->published()->create();
+
+        $attendee = EventAttendee::create([
+            'uuid' => (string) \Str::uuid(),
+            'confirmation_code' => 'TKT-PRIVATE',
+            'event_id' => $event->id,
+            'user_id' => $holder->id,
+            'attendee_name' => 'Holder Name',
+            'attendee_email' => $holder->email,
+            'status' => 'confirmed',
+        ]);
+
+        $this->actingAs($stranger)
+            ->getJson('/api/tickets/validate/'.$attendee->confirmation_code)
+            ->assertForbidden()
+            ->assertJsonPath('valid', false);
+    }
+
+    public function test_unrelated_user_cannot_check_in_a_ticket(): void
+    {
+        $holder = User::factory()->create();
+        $stranger = User::factory()->create();
+        $event = Event::factory()->published()->create();
+
+        $attendee = EventAttendee::create([
+            'uuid' => (string) \Str::uuid(),
+            'confirmation_code' => 'TKT-DOOR-1',
+            'event_id' => $event->id,
+            'user_id' => $holder->id,
+            'attendee_name' => 'Holder Name',
+            'attendee_email' => $holder->email,
+            'status' => 'confirmed',
+        ]);
+
+        $this->actingAs($stranger)
+            ->postJson('/api/tickets/check-in', ['ticket_number' => 'TKT-DOOR-1'])
+            ->assertForbidden();
+
+        $this->assertNull($attendee->fresh()->checked_in_at);
+    }
+
+    public function test_ticket_holder_cannot_check_in_their_own_ticket(): void
+    {
+        $holder = User::factory()->create();
+        $event = Event::factory()->published()->create();
+
+        EventAttendee::create([
+            'uuid' => (string) \Str::uuid(),
+            'confirmation_code' => 'TKT-SELF-1',
+            'event_id' => $event->id,
+            'user_id' => $holder->id,
+            'attendee_name' => 'Holder Name',
+            'attendee_email' => $holder->email,
+            'status' => 'confirmed',
+        ]);
+
+        $this->actingAs($holder)
+            ->postJson('/api/tickets/check-in', ['ticket_number' => 'TKT-SELF-1'])
+            ->assertForbidden();
+    }
+
+    public function test_event_owner_can_check_in_a_ticket(): void
+    {
+        $organizer = User::factory()->create();
+        $holder = User::factory()->create();
+        $event = Event::factory()->published()->create([
+            'organizer_id' => $organizer->id,
+            'user_id' => $organizer->id,
+        ]);
+
+        $attendee = EventAttendee::create([
+            'uuid' => (string) \Str::uuid(),
+            'confirmation_code' => 'TKT-OWNER-1',
+            'event_id' => $event->id,
+            'user_id' => $holder->id,
+            'attendee_name' => 'Holder Name',
+            'attendee_email' => $holder->email,
+            'status' => 'confirmed',
+        ]);
+
+        $this->actingAs($organizer)
+            ->postJson('/api/tickets/check-in', ['ticket_number' => 'TKT-OWNER-1'])
+            ->assertOk();
+
+        $this->assertNotNull($attendee->fresh()->checked_in_at);
+    }
+
+    public function test_check_in_staff_member_can_check_in_a_ticket(): void
+    {
+        $organizer = User::factory()->create();
+        $staffUser = User::factory()->create();
+        $holder = User::factory()->create();
+        $event = Event::factory()->published()->create([
+            'organizer_id' => $organizer->id,
+            'user_id' => $organizer->id,
+        ]);
+
+        \App\Models\EventStaffMember::create([
+            'uuid' => (string) \Str::uuid(),
+            'event_id' => $event->id,
+            'user_id' => $staffUser->id,
+            'invited_by_user_id' => $organizer->id,
+            'role' => \App\Models\EventStaffMember::ROLE_CHECK_IN,
+            'is_active' => true,
+        ]);
+
+        $attendee = EventAttendee::create([
+            'uuid' => (string) \Str::uuid(),
+            'confirmation_code' => 'TKT-STAFF-9',
+            'event_id' => $event->id,
+            'user_id' => $holder->id,
+            'attendee_name' => 'Holder Name',
+            'attendee_email' => $holder->email,
+            'status' => 'confirmed',
+        ]);
+
+        $this->actingAs($staffUser)
+            ->postJson('/api/tickets/check-in', ['ticket_number' => 'TKT-STAFF-9'])
+            ->assertOk();
+
+        $this->assertNotNull($attendee->fresh()->checked_in_at);
+    }
+
     public function test_wallet_purchase_uses_event_tickets_table_contract(): void
     {
         $user = User::factory()->create([

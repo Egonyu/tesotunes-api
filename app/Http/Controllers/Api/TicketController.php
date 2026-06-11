@@ -438,7 +438,7 @@ class TicketController extends Controller
     /**
      * GET /api/tickets/validate/{ticketNumber}
      */
-    public function validateTicket(string $ticketNumber)
+    public function validateTicket(Request $request, string $ticketNumber)
     {
         $registration = EventAttendee::with(['event'])
             ->where('confirmation_code', $ticketNumber)
@@ -446,6 +446,15 @@ class TicketController extends Controller
 
         if (! $registration) {
             return response()->json(['message' => 'Invalid ticket number', 'valid' => false], 404);
+        }
+
+        // Only the ticket holder or someone operating the event may inspect a
+        // ticket — otherwise any account could enumerate confirmation codes.
+        $user = $request->user();
+        $isHolder = $registration->user_id !== null && $registration->user_id === $user->id;
+
+        if (! $isHolder && (! $registration->event || ! $registration->event->canBeOperatedBy($user))) {
+            return response()->json(['message' => 'You do not have access to this ticket.', 'valid' => false], 403);
         }
 
         return response()->json([
@@ -477,10 +486,15 @@ class TicketController extends Controller
             'ticket_number' => 'required|string',
         ]);
 
-        $registration = EventAttendee::where('confirmation_code', $validated['ticket_number'])->first();
+        $registration = EventAttendee::with('event')->where('confirmation_code', $validated['ticket_number'])->first();
 
         if (! $registration) {
             return response()->json(['message' => 'Invalid ticket number'], 404);
+        }
+
+        // Check-in is a door operation: event owner, ops staff, or admin only.
+        if (! $registration->event || ! $registration->event->canBeOperatedBy($request->user())) {
+            return response()->json(['message' => 'You do not have access to check in tickets for this event.'], 403);
         }
 
         if ($registration->status === 'cancelled') {

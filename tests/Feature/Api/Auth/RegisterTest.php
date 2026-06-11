@@ -355,6 +355,25 @@ class RegisterTest extends TestCase
         }
     }
 
+    public function test_register_rejects_soft_deleted_email_without_destroying_the_account(): void
+    {
+        $deleted = User::factory()->create();
+        $deletedId = $deleted->id;
+        $deleted->delete();
+
+        $payload = $this->validPayload(['email' => $deleted->email]);
+
+        $response = $this->postJson($this->registerUrl, $payload);
+
+        $response->assertConflict()
+            ->assertJson(['code' => 'ACCOUNT_PREVIOUSLY_DELETED']);
+
+        $this->assertNotNull(
+            User::onlyTrashed()->find($deletedId),
+            'Soft-deleted account must never be force-deleted by a registration attempt'
+        );
+    }
+
     public function test_register_does_not_redirect_returns_json(): void
     {
         $payload = $this->validPayload();
