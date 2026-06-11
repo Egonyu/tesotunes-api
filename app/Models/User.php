@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Enums\Capability;
+use App\Enums\CapabilityStatus;
+use App\Models\Accounts\UserCapability;
 use App\Models\Concerns\HasNormalizedProfile;
 use App\Models\Concerns\HasSubscriptionCapabilities;
 use App\Modules\Podcast\Traits\HasPodcast;
@@ -673,8 +676,32 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->normalizeEventOrganizerProfile($this->eventOrganizerProfileAttributes());
     }
 
+    /**
+     * Capability grants held by this account (artist, seller, organizer,
+     * promoter, label). See docs/architecture/CAPABILITIES.md.
+     */
+    public function capabilities(): HasMany
+    {
+        return $this->hasMany(UserCapability::class);
+    }
+
+    public function hasCapability(Capability $capability): bool
+    {
+        return $this->capabilities()
+            ->where('capability', $capability)
+            ->where('status', CapabilityStatus::Granted)
+            ->exists();
+    }
+
     public function isEventOrganizer(): bool
     {
+        if ($this->hasCapability(Capability::Organizer)) {
+            return true;
+        }
+
+        // Legacy fallback: the organizer flag previously lived inside the
+        // settings JSON blob. Remove once capabilities:backfill has run in
+        // every environment.
         return (bool) ($this->getEventOrganizerProfile()['enabled'] ?? false);
     }
 
