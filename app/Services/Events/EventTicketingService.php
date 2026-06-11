@@ -2,12 +2,14 @@
 
 namespace App\Services\Events;
 
+use App\Models\Commerce\Settlement;
 use App\Models\Event;
 use App\Models\EventAttendee;
 use App\Models\EventDiscountCode;
 use App\Models\EventTicket;
 use App\Models\Payment;
 use App\Models\User;
+use App\Services\Commerce\SettlementService;
 use App\Services\Payment\ZengaPayService;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Support\Collection;
@@ -194,6 +196,7 @@ class EventTicketingService
                 $payment->markAsCompleted([
                     'provider_reference' => $payment->payment_reference,
                 ]);
+                $this->recordOrganizerSettlement($payment, $event, $feeBreakdown, $paymentMethod);
             } elseif (in_array($paymentMethod, ['mtn_momo', 'airtel_money'], true)) {
                 $this->initiateMobileMoneyCollection($payment, $validated['phone'] ?? null);
             }
@@ -253,11 +256,63 @@ class EventTicketingService
                 $attendee->confirm($payment->payment_reference);
             });
 
+            $firstAttendee = $attendees->first();
+            $event = $firstAttendee?->event;
+            $feeBreakdown = (array) data_get($firstAttendee?->attendee_metadata, 'fee_breakdown', []);
+
+            if ($event && $feeBreakdown !== []) {
+                $this->recordOrganizerSettlement($payment, $event, $feeBreakdown, (string) $firstAttendee->payment_method);
+            }
+
             $this->stampPaymentData($payment, [
                 'event_ticketing_settled_at' => now()->toIso8601String(),
                 'settled_attendee_count' => $attendees->count(),
             ]);
         });
+    }
+
+    /**
+     * Record the event owner's proceeds in the unified settlement ledger.
+     * Gross = discounted ticket base, fee = platform commission + processing
+     * (so net equals the fee calculator's organizer_net_amount). Funds are
+     * held until the event ends. Idempotent via the ledger's source key.
+     */
+    private function recordOrganizerSettlement(Payment $payment, Event $event, array $feeBreakdown, string $paymentMethod): void
+    {
+        $beneficiary = $event->organizer ?? $event->user ?? $event->artist?->user;
+
+        if (! $beneficiary) {
+            Log::warning('events.settlement.skipped_no_beneficiary', [
+                'event_id' => $event->id,
+                'payment_id' => $payment->id,
+            ]);
+
+            return;
+        }
+
+        $amounts = $paymentMethod === 'credits'
+            ? [
+                'gross_credits' => (int) round((float) ($feeBreakdown['total_credits'] ?? 0)),
+                'fee_credits' => 0,
+            ]
+            : [
+                'gross_ugx' => (float) ($feeBreakdown['discounted_base_amount'] ?? 0),
+                'fee_ugx' => (float) ($feeBreakdown['total_fee_amount'] ?? 0),
+            ];
+
+        app(SettlementService::class)->record(
+            beneficiary: $beneficiary,
+            source: $payment,
+            vertical: Settlement::VERTICAL_EVENTS,
+            kind: 'ticket_sale',
+            amounts: $amounts,
+            holdUntil: $event->ends_at ?? $event->starts_at,
+            metadata: [
+                'event_id' => $event->id,
+                'payment_method' => $paymentMethod,
+                'quantity' => (int) ($feeBreakdown['quantity'] ?? 0),
+            ],
+        );
     }
 
     public function failPendingOrderPayment(Payment $payment, ?string $reason = null): void
