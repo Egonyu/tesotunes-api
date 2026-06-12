@@ -49,6 +49,8 @@ jobs:
             --exclude="tests" \
             --exclude=".env" \
             --exclude="storage/logs" \
+            --exclude="deployment" \
+            --exclude="deployment.tar.gz" \
             ./ deployment/
           RSYNC_EXIT=$?
           set -e
