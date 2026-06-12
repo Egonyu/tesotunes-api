@@ -321,4 +321,20 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Sponsored slots
+    |--------------------------------------------------------------------------
+    |
+    | Platform-sponsored cards woven into the Edula feed from the admin
+    | Featured Content inventory. One card after every N organic items;
+    | always labeled sponsored on the client.
+    |
+    */
+
+    'sponsored' => [
+        'enabled' => env('FEED_SPONSORED_ENABLED', true),
+        'every' => env('FEED_SPONSORED_EVERY', 5),
+    ],
+
 ];

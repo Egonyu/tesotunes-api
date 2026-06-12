@@ -101,6 +101,11 @@ class FeedController extends Controller
         $offset = ($page - 1) * $perPage;
         $pageItems = $merged->slice($offset, $perPage)->values();
 
+        // Weave platform-sponsored cards between organic items (clearly
+        // labeled on the client; inventory from admin Featured Content).
+        $pageItems = app(\App\Services\Feed\SponsoredSlotsService::class)
+            ->injectInto($pageItems, $page);
+
         if ($user) {
             $this->analyticsService->trackView($user, 'for_you');
         }
