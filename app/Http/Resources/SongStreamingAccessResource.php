@@ -21,7 +21,13 @@ class SongStreamingAccessResource extends JsonResource
             : null;
 
         return [
-            // `stream_url` is the canonical playback field.
+            // `hls_master_url` is the preferred playback source: adaptive
+            // bitrate, segment-based start. Clients fall back to `stream_url`
+            // (progressive) when it is null or HLS playback is unavailable.
+            'hls_master_url' => $canStream && $this->hls_master_path
+                ? StorageHelper::url($this->hls_master_path)
+                : null,
+            // `stream_url` is the canonical progressive playback field.
             // `audio_url` is an alias emitted for backward compatibility — both resolve to the same URL.
             // Clients should read `stream_url`; `audio_url` will be removed in a future API version.
             'stream_url' => $streamingUrl,

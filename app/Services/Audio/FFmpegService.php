@@ -82,6 +82,65 @@ class FFmpegService
     }
 
     /**
+     * Generate one HLS rendition: AAC audio segmented into .ts chunks with a
+     * VOD playlist, written into $outputDir (index.m3u8 + seg_XXX.ts).
+     *
+     * @param  string  $inputPath  Path to the source audio file
+     * @param  string  $outputDir  Directory for this rendition's playlist + segments
+     * @param  int  $bitrateKbps  Audio bitrate for the rendition (e.g. 64, 128, 320)
+     * @param  int  $segmentSeconds  Target segment duration
+     * @return bool Success status
+     */
+    public function generateHlsRendition(string $inputPath, string $outputDir, int $bitrateKbps, int $segmentSeconds = 6): bool
+    {
+        try {
+            if (! is_dir($outputDir)) {
+                mkdir($outputDir, 0755, true);
+            }
+
+            $command = sprintf(
+                '%s -i %s -vn -ac 2 -c:a aac -b:a %dk -ar 44100 -threads %d '
+                .'-hls_time %d -hls_playlist_type vod -hls_list_size 0 '
+                .'-hls_segment_filename %s -y %s',
+                $this->ffmpegBinary,
+                escapeshellarg($inputPath),
+                $bitrateKbps,
+                $this->threads,
+                $segmentSeconds,
+                escapeshellarg($outputDir.DIRECTORY_SEPARATOR.'seg_%03d.ts'),
+                escapeshellarg($outputDir.DIRECTORY_SEPARATOR.'index.m3u8')
+            );
+
+            if (config('ffmpeg.error_handling.log_commands', true)) {
+                Log::info('FFmpeg HLS command', ['command' => $command]);
+            }
+
+            $result = Process::timeout($this->timeout)->run($command);
+
+            if ($result->failed()) {
+                Log::error('FFmpeg HLS rendition failed', [
+                    'input' => $inputPath,
+                    'output_dir' => $outputDir,
+                    'bitrate_kbps' => $bitrateKbps,
+                    'error' => $result->errorOutput(),
+                ]);
+
+                return false;
+            }
+
+            return true;
+        } catch (\Exception $e) {
+            Log::error('FFmpeg HLS rendition exception', [
+                'error' => $e->getMessage(),
+                'input' => $inputPath,
+                'output_dir' => $outputDir,
+            ]);
+
+            return false;
+        }
+    }
+
+    /**
      * Generate 30-second preview clip
      *
      * @param  string  $inputPath  Path to input file

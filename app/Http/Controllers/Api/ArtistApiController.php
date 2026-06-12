@@ -815,6 +815,12 @@ class ArtistApiController extends Controller
         // Update artist song count
         $artist->increment('total_songs_count');
 
+        // Build the adaptive-streaming ladder in the background. Failure or a
+        // missing ffmpeg never affects publication — stream_url stays the fallback.
+        if (config('music.hls.enabled', true)) {
+            \App\Jobs\Audio\TranscodeToHlsJob::dispatch($song);
+        }
+
         // Clear upload limit cache
         cache()->forget("artist_uploads_{$artist->id}_".now()->format('Y_m'));
 

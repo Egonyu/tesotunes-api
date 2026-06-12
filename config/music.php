@@ -120,6 +120,24 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Adaptive streaming (HLS)
+    |--------------------------------------------------------------------------
+    |
+    | Songs are transcoded into an HLS ladder so playback starts immediately
+    | and adapts to the listener's connection. Segments live on the song
+    | storage disk (Spaces in production, behind the CDN).
+    |
+    */
+
+    'hls' => [
+        'enabled' => env('MUSIC_HLS_ENABLED', true),
+        'bitrates' => [64, 128, 320], // kbps rungs of the ladder
+        'segment_seconds' => env('MUSIC_HLS_SEGMENT_SECONDS', 6),
+        'base_path' => 'hls/songs',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | ISRC Configuration
     |--------------------------------------------------------------------------
     |
