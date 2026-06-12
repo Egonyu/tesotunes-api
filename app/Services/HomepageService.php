@@ -365,14 +365,34 @@ class HomepageService
             return null;
         }
 
-        $songs = $this->songQueryForMode($mode)
+        // Collaborative layer: songs by OTHER artists that this artist's
+        // listeners also play (co-occurrence over the last 90 days), ranked
+        // by how many distinct listeners share them.
+        $coListenSongIds = $this->coListenedSongIds($recentArtist, $context, 6);
+
+        $coListenSongs = $coListenSongIds->isNotEmpty()
+            ? $this->songQueryForMode($mode)
+                ->whereIn('id', $coListenSongIds->keys())
+                ->get()
+                ->sortByDesc(fn (Song $song) => $coListenSongIds->get($song->id, 0))
+                ->values()
+            : collect();
+
+        $sameArtistSongs = $this->songQueryForMode($mode)
             ->where('artist_id', $recentArtist->id)
             ->whereNotIn('id', $context['recent_song_ids'])
             ->orderByDesc('play_count')
-            ->limit(8)
+            ->limit(8 - $coListenSongs->count())
             ->get();
 
-        if ($songs->isEmpty()) {
+        $items = $coListenSongs
+            ->map(fn (Song $song) => $this->songItem($song, 'Listeners also play', 'Fans of '.$recentArtist->stage_name.' play this'))
+            ->concat($sameArtistSongs->map(fn (Song $song) => $this->songItem($song, 'Because you listened', $recentArtist->stage_name)))
+            ->unique(fn (array $item) => $item['id'])
+            ->take(8)
+            ->values();
+
+        if ($items->isEmpty()) {
             return null;
         }
 
@@ -381,24 +401,68 @@ class HomepageService
             'because_you_listened',
             'main',
             'Because you listened to '.$recentArtist->stage_name,
-            'We are leaning into your strongest repeat artist signal.',
-            $songs->map(fn (Song $song) => $this->songItem($song, 'Because you listened', $recentArtist->stage_name))->values(),
+            'What this artist\'s listeners are playing — plus their own strongest tracks.',
+            $items,
             'square'
         );
     }
 
+    /**
+     * Songs by other artists that co-occur in the listening histories of this
+     * artist's audience: song_id => distinct co-listener count.
+     *
+     * @return \Illuminate\Support\Collection<int, int>
+     */
+    private function coListenedSongIds(Artist $artist, array $context, int $limit): Collection
+    {
+        $listenerIds = PlayHistory::query()
+            ->where('artist_id', $artist->id)
+            ->where('played_at', '>=', now()->subDays(90))
+            ->when($context['user'], fn ($query) => $query->where('user_id', '!=', $context['user']->id))
+            ->distinct()
+            ->limit(200)
+            ->pluck('user_id');
+
+        if ($listenerIds->isEmpty()) {
+            return collect();
+        }
+
+        return PlayHistory::query()
+            ->whereIn('user_id', $listenerIds)
+            ->where('artist_id', '!=', $artist->id)
+            ->where('played_at', '>=', now()->subDays(90))
+            ->where('skipped', false)
+            ->whereNotIn('song_id', $context['recent_song_ids'])
+            ->selectRaw('song_id, COUNT(DISTINCT user_id) as co_listeners')
+            ->groupBy('song_id')
+            ->orderByDesc('co_listeners')
+            ->limit($limit)
+            ->pluck('co_listeners', 'song_id');
+    }
+
     private function buildRecommendedTodayModule(array $context, string $mode = 'all'): ?array
     {
-        $candidates = $this->songQueryForMode($mode)
-            ->limit(40)
-            ->get();
+        // Candidate pool: newest + most-played + genre-affinity lanes. The
+        // previous unordered limit(40) effectively scored only the oldest
+        // rows in the table, so new music could never surface here.
+        $newest = $this->songQueryForMode($mode)->orderByDesc('created_at')->limit(40)->get();
+        $popular = $this->songQueryForMode($mode)->orderByDesc('play_count')->limit(40)->get();
+        $affinity = $context['genre_ids']->isNotEmpty()
+            ? $this->songQueryForMode($mode)->whereIn('primary_genre_id', $context['genre_ids'])->orderByDesc('like_count')->limit(30)->get()
+            : collect();
+
+        $candidates = $newest->concat($popular)->concat($affinity)->unique('id')->values();
 
         if ($candidates->isEmpty()) {
             return null;
         }
 
+        // Deterministic daily rotation: same user sees a stable shelf all
+        // day, but it reshuffles overnight even when the catalog is static.
+        $rotationSeed = ($context['user']?->id ?? 0).':'.now()->format('Y-m-d');
+
         $songs = $candidates
-            ->map(function (Song $song) use ($context, $mode) {
+            ->map(function (Song $song) use ($context, $mode, $rotationSeed) {
                 $score = 0;
                 $score += min((int) $song->play_count, 150000) / 1500;
                 $score += min((int) $song->like_count, 25000) / 500;
@@ -407,6 +471,7 @@ class HomepageService
                 $score += $context['genre_ids']->contains($song->primary_genre_id) ? 16 : 0;
                 $score += $context['followed_artist_ids']->contains($song->artist_id) ? 20 : 0;
                 $score -= $context['recent_song_ids']->contains($song->id) ? 18 : 0;
+                $score += (crc32($rotationSeed.':'.$song->id) % 100) / 12.5;
                 $score += match ($mode) {
                     'fresh' => now()->diffInDays($song->created_at) <= 7 ? 18 : 0,
                     'uganda' => $this->songFeelsRegional($song) ? 14 : 0,
@@ -629,12 +694,45 @@ class HomepageService
             ->orderByDesc('play_count');
     }
 
+    /**
+     * Trending = engagement in the last 14 days, not all-time play counts.
+     * Completed plays count full, partial plays half, skips nothing — so the
+     * shelf moves with what listeners are actually playing this week. Songs
+     * with all-time popularity backfill when the window is sparse.
+     */
     private function trendingSongs(int $limit, string $mode = 'all'): Collection
     {
-        return $this->songQueryForMode($mode)
+        $windowedScores = PlayHistory::query()
+            ->where('played_at', '>=', now()->subDays(14))
+            ->where('skipped', false)
+            ->selectRaw('song_id, SUM(CASE WHEN completed = 1 THEN 1.0 ELSE 0.5 END) as recent_score')
+            ->groupBy('song_id')
+            ->orderByDesc('recent_score')
+            ->limit($limit * 3)
+            ->pluck('recent_score', 'song_id');
+
+        $trending = collect();
+
+        if ($windowedScores->isNotEmpty()) {
+            $trending = $this->songQueryForMode($mode)
+                ->whereIn('id', $windowedScores->keys())
+                ->get()
+                ->sortByDesc(fn (Song $song) => (float) $windowedScores->get($song->id, 0))
+                ->take($limit)
+                ->values();
+        }
+
+        if ($trending->count() >= $limit) {
+            return $trending;
+        }
+
+        $backfill = $this->songQueryForMode($mode)
+            ->whereNotIn('id', $trending->pluck('id'))
             ->orderByDesc('play_count')
-            ->limit($limit)
+            ->limit($limit - $trending->count())
             ->get();
+
+        return $trending->concat($backfill)->values();
     }
 
     private function songFeelsRegional(Song $song): bool
