@@ -17,12 +17,11 @@ class ForumTopicObserver
     {
         try {
             Activity::create([
-                'actor_id' => $topic->user_id,
-                'actor_type' => 'App\Models\User',
-                'action' => 'created_forum_topic',
+                'user_id' => $topic->user_id,
+                'type' => 'created_forum_topic',
                 'subject_type' => 'App\Models\Modules\Forum\ForumTopic',
                 'subject_id' => $topic->id,
-                'metadata' => [
+                'properties' => [
                     'category_id' => $topic->category_id,
                     'category_name' => $topic->category->name ?? null,
                     'is_pinned' => $topic->is_pinned,
@@ -69,15 +68,16 @@ class ForumTopicObserver
         // If topic is marked as featured or pinned, create activity
         if ($topic->isDirty('is_featured') && $topic->is_featured) {
             try {
+                // Platform action attributed to the topic author — the
+                // activities table requires a real user_id.
                 Activity::create([
-                    'actor_id' => 0, // System action
-                    'actor_type' => 'System',
-                    'action' => 'featured_forum_topic',
+                    'user_id' => $topic->user_id,
+                    'type' => 'featured_forum_topic',
                     'subject_type' => 'App\Models\Modules\Forum\ForumTopic',
                     'subject_id' => $topic->id,
-                    'metadata' => [
+                    'properties' => [
                         'category_id' => $topic->category_id,
-                        'original_author_id' => $topic->user_id,
+                        'featured_by_platform' => true,
                     ],
                 ]);
 

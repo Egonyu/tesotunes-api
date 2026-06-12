@@ -13,12 +13,11 @@ class PollObserver
     {
         try {
             Activity::create([
-                'actor_id' => $poll->user_id,
-                'actor_type' => 'App\Models\User',
-                'action' => 'created_poll',
+                'user_id' => $poll->user_id,
+                'type' => 'created_poll',
                 'subject_type' => 'App\Models\Modules\Forum\Poll',
                 'subject_id' => $poll->id,
-                'metadata' => [
+                'properties' => [
                     'poll_type' => $poll->poll_type,
                     'category' => $poll->category,
                     'is_multiple' => $poll->allow_multiple_votes,
@@ -64,12 +63,11 @@ class PollObserver
         if ($poll->isDirty('status') && $poll->status === 'closed') {
             try {
                 Activity::create([
-                    'actor_id' => $poll->user_id,
-                    'actor_type' => 'App\Models\User',
-                    'action' => 'closed_poll',
+                    'user_id' => $poll->user_id,
+                    'type' => 'closed_poll',
                     'subject_type' => 'App\Models\Modules\Forum\Poll',
                     'subject_id' => $poll->id,
-                    'metadata' => [
+                    'properties' => [
                         'total_votes' => $poll->votes()->count(),
                         'total_voters' => $poll->votes()->distinct('user_id')->count('user_id'),
                     ],

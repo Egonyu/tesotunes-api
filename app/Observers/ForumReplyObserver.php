@@ -18,12 +18,11 @@ class ForumReplyObserver
         try {
             // Create activity for reply
             Activity::create([
-                'actor_id' => $reply->user_id,
-                'actor_type' => 'App\Models\User',
-                'action' => 'replied_forum_topic',
+                'user_id' => $reply->user_id,
+                'type' => 'replied_forum_topic',
                 'subject_type' => 'App\Models\Modules\Forum\ForumReply',
                 'subject_id' => $reply->id,
-                'metadata' => [
+                'properties' => [
                     'topic_id' => $reply->topic_id,
                     'topic_title' => $reply->topic->title ?? null,
                     'parent_id' => $reply->parent_id,
@@ -71,12 +70,11 @@ class ForumReplyObserver
         if ($reply->isDirty('is_solution') && $reply->is_solution) {
             try {
                 Activity::create([
-                    'actor_id' => $reply->topic->user_id, // Topic author marked it
-                    'actor_type' => 'App\Models\User',
-                    'action' => 'marked_solution',
+                    'user_id' => $reply->topic->user_id, // Topic author marked it
+                    'type' => 'marked_solution',
                     'subject_type' => 'App\Models\Modules\Forum\ForumReply',
                     'subject_id' => $reply->id,
-                    'metadata' => [
+                    'properties' => [
                         'topic_id' => $reply->topic_id,
                         'reply_author_id' => $reply->user_id,
                         'topic_title' => $reply->topic->title ?? null,
