@@ -51,6 +51,10 @@ class MigrationPolicyGuardTest extends TestCase
         '2026_05_19_000001_canonicalize_kyc_to_three_axis_model.php',
         '2026_05_19_120000_add_audit_fields_to_settings_table.php',
         '2026_05_19_130000_create_setting_audits_table.php',
+        '2026_06_11_100000_create_settlements_table.php',
+        '2026_06_11_200000_create_user_capabilities_table.php',
+        '2026_06_11_300000_add_award_slots_to_promotion_opportunities.php',
+        '2026_06_11_400000_add_hls_delivery_to_songs.php',
     ];
 
     private const BANNED_NAME_FRAGMENTS = [
