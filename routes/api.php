@@ -68,7 +68,7 @@ Route::get('/featured', [\App\Http\Controllers\Api\FeaturedContentController::cl
 Route::get('/homepage', [\App\Http\Controllers\Api\HomepageController::class, 'index'])->name('api.homepage');
 
 // Events & Tickets API Routes
-require __DIR__.'/api/events.php';
+require app_path('Modules/Events/Routes/api.php');
 
 // Artist API Routes — Dashboard, Songs, Albums, Profile, Earnings, Analytics, Catalog
 require __DIR__.'/api/artist.php';

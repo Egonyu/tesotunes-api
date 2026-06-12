@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\Admin;
+namespace App\Modules\Events\Http\Controllers\Admin;
 
 use App\Helpers\StorageHelper;
 use App\Http\Controllers\Controller;

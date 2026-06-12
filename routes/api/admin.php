@@ -88,18 +88,18 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::delete('/users/{id}', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'destroy'])->name('users.destroy');
 
     // Events API
-    Route::get('/events/stats', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'stats'])->name('events.stats');
-    Route::get('/events', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'index'])->name('events.index');
-    Route::get('/events/{id}', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'show'])->name('events.show');
-    Route::post('/events', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'store'])->name('events.store');
-    Route::put('/events/{id}', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'update'])->name('events.update');
-    Route::delete('/events/{id}', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'destroy'])->name('events.destroy');
-    Route::post('/events/{id}/publish', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'publish'])->name('events.publish');
-    Route::post('/events/{id}/toggle-featured', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'toggleFeatured'])->name('events.toggle-featured');
-    Route::get('/events/{id}/analytics', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'analytics'])->name('events.analytics');
-    Route::get('/events/{id}/analytics/export', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'exportAnalytics'])->name('events.analytics.export');
-    Route::get('/events/{id}/attendees', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'attendees'])->name('events.attendees');
-    Route::get('/events/{id}/registrations', [\App\Http\Controllers\Api\Admin\EventsApiController::class, 'registrations'])->name('events.registrations');
+    Route::get('/events/stats', [\App\Modules\Events\Http\Controllers\Admin\EventsApiController::class, 'stats'])->name('events.stats');
+    Route::get('/events', [\App\Modules\Events\Http\Controllers\Admin\EventsApiController::class, 'index'])->name('events.index');
+    Route::get('/events/{id}', [\App\Modules\Events\Http\Controllers\Admin\EventsApiController::class, 'show'])->name('events.show');
+    Route::post('/events', [\App\Modules\Events\Http\Controllers\Admin\EventsApiController::class, 'store'])->name('events.store');
+    Route::put('/events/{id}', [\App\Modules\Events\Http\Controllers\Admin\EventsApiController::class, 'update'])->name('events.update');
+    Route::delete('/events/{id}', [\App\Modules\Events\Http\Controllers\Admin\EventsApiController::class, 'destroy'])->name('events.destroy');
+    Route::post('/events/{id}/publish', [\App\Modules\Events\Http\Controllers\Admin\EventsApiController::class, 'publish'])->name('events.publish');
+    Route::post('/events/{id}/toggle-featured', [\App\Modules\Events\Http\Controllers\Admin\EventsApiController::class, 'toggleFeatured'])->name('events.toggle-featured');
+    Route::get('/events/{id}/analytics', [\App\Modules\Events\Http\Controllers\Admin\EventsApiController::class, 'analytics'])->name('events.analytics');
+    Route::get('/events/{id}/analytics/export', [\App\Modules\Events\Http\Controllers\Admin\EventsApiController::class, 'exportAnalytics'])->name('events.analytics.export');
+    Route::get('/events/{id}/attendees', [\App\Modules\Events\Http\Controllers\Admin\EventsApiController::class, 'attendees'])->name('events.attendees');
+    Route::get('/events/{id}/registrations', [\App\Modules\Events\Http\Controllers\Admin\EventsApiController::class, 'registrations'])->name('events.registrations');
 
     // Ad management
     Route::get('/ads/analytics', [\App\Http\Controllers\Api\Admin\AdminAdsController::class, 'analytics'])->name('ads.analytics');
