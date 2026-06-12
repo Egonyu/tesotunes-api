@@ -110,6 +110,21 @@ class HlsPipelineTest extends TestCase
         $this->assertNotNull($withHls->json('data.stream_url'));
     }
 
+    public function test_backfill_command_queues_only_songs_without_a_ladder(): void
+    {
+        Queue::fake();
+
+        $needsLadder = $this->publishedSong();
+        $alreadyDone = $this->publishedSong();
+        $alreadyDone->forceFill(['hls_master_path' => "hls/songs/{$alreadyDone->id}/master.m3u8"])->save();
+
+        $this->artisan('hls:backfill', ['--limit' => 10])
+            ->assertSuccessful();
+
+        Queue::assertPushed(TranscodeToHlsJob::class, fn (TranscodeToHlsJob $job) => $job->song->id === $needsLadder->id);
+        Queue::assertNotPushed(TranscodeToHlsJob::class, fn (TranscodeToHlsJob $job) => $job->song->id === $alreadyDone->id);
+    }
+
     private function publishedSong(): Song
     {
         $user = User::factory()->create();
