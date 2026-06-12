@@ -92,15 +92,8 @@ Route::prefix('v1')
         require __DIR__.'/api/v1/api.php';
     });
 
-// Store Module API Routes (if enabled)
-if (config('store.enabled', false)) {
-    Route::prefix('v1/store')
-        ->name('api.v1.store.')
-        ->middleware('deprecated:2026-06-30,/api/store')
-        ->group(function () {
-            require app_path('Modules/Store/Routes/api.php');
-        });
-}
+// The /api/v1/store mount was retired ahead of its 2026-06-30 sunset:
+// web reads /api/store/* and the mobile app was verified clean of v1/store.
 
 // The Store module provider registers /api/store routes when STORE_ENABLED is
 // set at application boot. Tests enable the module later in setUp(), so we

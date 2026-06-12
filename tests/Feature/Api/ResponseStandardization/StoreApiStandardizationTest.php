@@ -5,7 +5,7 @@
  *
  * Covers three route layers:
  * 1. Store AJAX routes (/api/store/*) - cart, orders, promotions
- * 2. Store Module routes (/api/v1/store/*) - public stores, products, buyer/seller
+ * 2. Store Module routes (/api/store/*) - public stores, products, buyer/seller
  * 3. Admin Store routes (/api/admin/store/*) - admin management
  *
  * Response format:
@@ -112,10 +112,10 @@ test('store ajax endpoints return json for unauthenticated', function () {
     }
 });
 
-// ─── Store Module Public Routes (/api/v1/store/public/*) ─────
+// ─── Store Module Public Routes (/api/store/public/*) ─────
 
 test('public stores index returns paginated data', function () {
-    $response = $this->getJson('/api/v1/store/public/stores');
+    $response = $this->getJson('/api/store/public/stores');
 
     if (in_array($response->status(), [404, 500])) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -133,7 +133,7 @@ test('public stores index returns paginated data', function () {
 });
 
 test('public stores featured returns data', function () {
-    $response = $this->getJson('/api/v1/store/public/stores/featured');
+    $response = $this->getJson('/api/store/public/stores/featured');
 
     if (in_array($response->status(), [404, 500])) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -146,7 +146,7 @@ test('public stores featured returns data', function () {
 });
 
 test('public store show returns data wrapper', function () {
-    $response = $this->getJson('/api/v1/store/public/stores/1');
+    $response = $this->getJson('/api/store/public/stores/1');
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -165,7 +165,7 @@ test('public store show returns data wrapper', function () {
 });
 
 test('public products index returns paginated data', function () {
-    $response = $this->getJson('/api/v1/store/public/products');
+    $response = $this->getJson('/api/store/public/products');
 
     if (in_array($response->status(), [404, 500])) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -183,7 +183,7 @@ test('public products index returns paginated data', function () {
 });
 
 test('public products featured returns data', function () {
-    $response = $this->getJson('/api/v1/store/public/products/featured');
+    $response = $this->getJson('/api/store/public/products/featured');
 
     if (in_array($response->status(), [404, 500])) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -196,7 +196,7 @@ test('public products featured returns data', function () {
 });
 
 test('public products trending returns data', function () {
-    $response = $this->getJson('/api/v1/store/public/products/trending');
+    $response = $this->getJson('/api/store/public/products/trending');
 
     if (in_array($response->status(), [404, 500])) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -209,7 +209,7 @@ test('public products trending returns data', function () {
 });
 
 test('public product show returns data wrapper', function () {
-    $response = $this->getJson('/api/v1/store/public/products/1');
+    $response = $this->getJson('/api/store/public/products/1');
 
     if ($response->status() === 500) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -228,7 +228,7 @@ test('public product show returns data wrapper', function () {
 });
 
 test('product availability returns data wrapper', function () {
-    $response = $this->getJson('/api/v1/store/public/products/1/availability');
+    $response = $this->getJson('/api/store/public/products/1/availability');
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -241,7 +241,7 @@ test('product availability returns data wrapper', function () {
 });
 
 test('product reviews returns data', function () {
-    $response = $this->getJson('/api/v1/store/public/products/1/reviews');
+    $response = $this->getJson('/api/store/public/products/1/reviews');
 
     if ($response->status() === 500 || $response->status() === 404) {
         expect($response->headers->get('Content-Type'))->toContain('json');
@@ -255,8 +255,8 @@ test('product reviews returns data', function () {
 
 test('public store endpoints contain no success key', function () {
     $endpoints = [
-        '/api/v1/store/public/stores',
-        '/api/v1/store/public/products',
+        '/api/store/public/stores',
+        '/api/store/public/products',
     ];
 
     foreach ($endpoints as $endpoint) {
@@ -272,7 +272,7 @@ test('public store endpoints contain no success key', function () {
 // ─── Store Module Auth Routes ────────────────────────────────
 
 test('store cart requires authentication', function () {
-    $response = $this->getJson('/api/v1/store/cart');
+    $response = $this->getJson('/api/store/cart');
 
     // Route may not exist yet (404) or require auth (401)
     expect($response->headers->get('Content-Type'))->toContain('json');
@@ -282,7 +282,7 @@ test('store cart requires authentication', function () {
 });
 
 test('store orders requires authentication', function () {
-    $response = $this->getJson('/api/v1/store/orders');
+    $response = $this->getJson('/api/store/orders');
 
     // Route may not exist yet (404) or require auth (401)
     expect($response->headers->get('Content-Type'))->toContain('json');
@@ -292,7 +292,7 @@ test('store orders requires authentication', function () {
 });
 
 test('seller store creation requires auth', function () {
-    $response = $this->postJson('/api/v1/store/seller/stores', [
+    $response = $this->postJson('/api/store/seller/stores', [
         'name' => 'Test Store',
     ]);
 
@@ -400,8 +400,8 @@ test('admin store responses include success key', function () {
 
 test('all store endpoints return json content type', function () {
     $endpoints = [
-        '/api/v1/store/public/stores',
-        '/api/v1/store/public/products',
+        '/api/store/public/stores',
+        '/api/store/public/products',
     ];
 
     foreach ($endpoints as $endpoint) {
