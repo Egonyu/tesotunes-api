@@ -285,6 +285,50 @@ class WebhookTest extends TestCase
             ->assertJsonPath('new_status', Payment::STATUS_COMPLETED);
     }
 
+    public function test_webhook_blocks_source_ip_outside_allowlist(): void
+    {
+        config()->set('services.webhooks.ip_allowlist', ['203.0.113.0/24']);
+
+        // The test client reports 127.0.0.1, which is outside the allowlist.
+        $response = $this->postSignedWebhook([
+            'transactionId' => 'TXN-blocked-by-ip',
+            'transactionStatus' => 'SUCCESS',
+        ]);
+
+        $response->assertStatus(403);
+        $response->assertJson(['message' => 'Forbidden.']);
+    }
+
+    public function test_webhook_allows_source_ip_inside_allowlist(): void
+    {
+        config()->set('services.webhooks.ip_allowlist', ['127.0.0.1', '203.0.113.0/24']);
+
+        // 127.0.0.1 is allowlisted, so the request passes the IP gate and the
+        // signed-but-unknown transaction falls through to the 404 handler.
+        $response = $this->postSignedWebhook([
+            'transactionId' => 'TXN-allowlisted-unknown',
+            'externalReference' => 'REF-allowlisted-unknown',
+            'transactionStatus' => 'SUCCESS',
+        ]);
+
+        $response->assertStatus(404);
+        $response->assertJson(['message' => 'Payment not found']);
+    }
+
+    public function test_webhook_allowlist_is_disabled_when_empty(): void
+    {
+        config()->set('services.webhooks.ip_allowlist', []);
+
+        $response = $this->postSignedWebhook([
+            'transactionId' => 'TXN-no-allowlist',
+            'externalReference' => 'REF-no-allowlist',
+            'transactionStatus' => 'SUCCESS',
+        ]);
+
+        // No allowlist configured → fail-open; the request is not blocked.
+        $this->assertNotSame(403, $response->status());
+    }
+
     private function postSignedWebhook(array $payload)
     {
         $json = json_encode($payload, JSON_THROW_ON_ERROR);

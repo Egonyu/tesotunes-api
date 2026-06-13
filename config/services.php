@@ -116,6 +116,19 @@ return [
         'base_url' => env('ZENGAPAY_BASE_URL', 'https://api.zengapay.com/v1'),
     ],
 
+    /*
+    | Incoming webhook hardening. The IP allowlist is an optional comma-separated
+    | list of IPs / CIDR ranges (e.g. "196.0.0.0/16,41.210.0.0/16"). When empty
+    | the allowlist is disabled (fail-open) so local and CI traffic is never
+    | blocked; signature verification remains the primary authenticity control.
+    */
+    'webhooks' => [
+        'ip_allowlist' => array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) env('WEBHOOK_IP_ALLOWLIST', ''))
+        ))),
+    ],
+
     'distribution' => [
         'webhook_secret' => env('DISTRIBUTION_WEBHOOK_SECRET'),
         'webhook_secrets' => [
