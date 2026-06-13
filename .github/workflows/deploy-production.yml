@@ -348,8 +348,18 @@ jobs:
 
             # Set correct ownership for web server
             step "Fixing ownership and reloading services"
+            # The release dir is just application code — small, safe to chown fully.
             sudo chown -R www-data:www-data $NEW_RELEASE 2>/dev/null || true
-            sudo chown -R www-data:www-data $SHARED_PATH/storage 2>/dev/null || true
+            # Shared storage holds every uploaded audio file, artwork, and HLS
+            # segment. A blind `chown -R` over that tree grew past the 30m SSH
+            # command timeout and failed the deploy *after* the symlink had
+            # already switched (so the release was live but the job went red).
+            # Only fix entries not already owned by www-data, and hard-cap the
+            # pass so it can never hang the pipeline again.
+            sudo timeout 240 bash -c '
+              find "'"$SHARED_PATH"'/storage" \( -not -user www-data -o -not -group www-data \) -print0 2>/dev/null \
+                | xargs -0 -r chown www-data:www-data 2>/dev/null
+            ' || echo "⚠️ Shared-storage ownership pass timed out or was incomplete (non-fatal; files written by php-fpm are already www-data)."
 
             # Reload PHP-FPM to clear opcache and realpath cache
             sudo systemctl reload php8.4-fpm || sudo systemctl reload php-fpm || true
