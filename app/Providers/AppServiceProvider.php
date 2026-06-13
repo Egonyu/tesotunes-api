@@ -144,6 +144,11 @@ class AppServiceProvider extends ServiceProvider
         // Set global Eloquent pagination defaults
         \Illuminate\Database\Eloquent\Model::$snakeAttributes = true;
 
+        // Surface N+1 queries during development and CI, but never let strict
+        // mode take down production: an un-eager-loaded relation should fail the
+        // test suite, not a live request.
+        \Illuminate\Database\Eloquent\Model::preventLazyLoading(! $this->app->isProduction());
+
         // Register observers for financial models
         Payment::observe(PaymentObserver::class);
         ArtistPayout::observe(ArtistPayoutObserver::class);

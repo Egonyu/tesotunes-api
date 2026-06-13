@@ -1137,8 +1137,14 @@ class User extends Authenticatable implements MustVerifyEmail
 
         $permissions = $this->permissions ?? [];
 
+        // Resolve roles without tripping the lazy-loading guard: honour an
+        // already eager-loaded relation, otherwise fetch it explicitly.
+        $roles = $this->relationLoaded('activeRoles')
+            ? $this->activeRoles
+            : $this->activeRoles()->get();
+
         // Get permissions from active roles
-        foreach ($this->activeRoles as $role) {
+        foreach ($roles as $role) {
             // Get from JSON column
             $permissions = array_merge($permissions, $role->permissions ?? []);
 

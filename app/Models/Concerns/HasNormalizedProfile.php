@@ -109,8 +109,9 @@ trait HasNormalizedProfile
             return $profileDisplayName;
         }
 
-        if ($this->artist) {
-            return $this->artist->stage_name;
+        $artist = $this->relationLoaded('artist') ? $this->artist : $this->artist()->first();
+        if ($artist) {
+            return $artist->stage_name;
         }
 
         $firstName = $this->profileValue('first_name', $this->attributes['first_name'] ?? '');

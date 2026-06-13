@@ -4,6 +4,7 @@ namespace App\Observers;
 
 use App\Models\Activity;
 use App\Models\Modules\Forum\Poll;
+use App\Models\Modules\Forum\PollOption;
 use App\Services\FeedItemService;
 use Illuminate\Support\Facades\Log;
 
@@ -26,7 +27,8 @@ class PollObserver
                 ],
             ]);
 
-            $user = $poll->user;
+            $user = $poll->loadMissing('user')->user;
+            $optionCount = PollOption::whereHas('question', fn ($query) => $query->where('poll_id', $poll->id))->count();
             FeedItemService::create([
                 'type' => 'poll_created',
                 'module' => 'forum',
@@ -45,7 +47,7 @@ class PollObserver
                     'category' => $poll->category,
                     'credits_reward' => $poll->credits_reward,
                     'ends_at' => $poll->ends_at?->toIso8601String(),
-                    'option_count' => $poll->options?->count() ?? 0,
+                    'option_count' => $optionCount,
                 ],
             ]);
 

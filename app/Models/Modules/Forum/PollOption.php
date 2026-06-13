@@ -57,10 +57,13 @@ class PollOption extends Model
 
     public function getPercentageAttribute(): float
     {
-        // Use eager-loaded siblings when available to avoid N+1; fall back to a single aggregate query.
+        // Use eager-loaded siblings when available to avoid N+1; otherwise
+        // aggregate directly by question_id rather than traversing the inverse
+        // `question` relation, which is rarely hydrated on a child option and
+        // would otherwise trip the lazy-loading guard.
         $total = $this->relationLoaded('question') && $this->question?->relationLoaded('options')
             ? ($this->question->options->sum('response_count') ?: 0)
-            : ($this->question?->options()->sum('response_count') ?? 0);
+            : (int) static::query()->where('question_id', $this->question_id)->sum('response_count');
 
         return $total > 0 ? round(($this->response_count / $total) * 100, 1) : 0.0;
     }

@@ -25,7 +25,7 @@ class ArtistController extends Controller
         $perPage = min((int) $request->get('per_page', 20), 100);
 
         $buildQuery = function () use ($request, $perPage) {
-            return Artist::with('primaryGenre')
+            return Artist::with(['primaryGenre', 'user'])
                 ->whereIn('status', Artist::VISIBLE_STATUSES)
                 ->when($request->boolean('claimable_only'), fn ($q) => $q->where('is_placeholder', true)->where('claim_status', 'unclaimed'))
                 ->when($request->filled('verified_only'), fn ($q) => $q->where('is_verified', $request->boolean('verified_only')))

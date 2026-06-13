@@ -132,7 +132,7 @@ class ObservabilityControllerTest extends TestCase
             'timestamp' => now()->toIso8601String(),
         ]], 86400);
 
-        ObservabilityEvent::query()->create([
+        $firstEvent = ObservabilityEvent::query()->create([
             'event_key' => 'test:suggestion:1',
             'source_type' => 'test',
             'source_id' => 's1',
@@ -548,7 +548,7 @@ class ObservabilityControllerTest extends TestCase
             'severity' => 'high',
             'summary' => 'Investigate suspicious webhook activity',
             'notes' => 'Started from admin test',
-            'event_ids' => [1],
+            'event_ids' => [$firstEvent->id],
         ]);
 
         $createResponse
@@ -584,7 +584,7 @@ class ObservabilityControllerTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.status', 'resolved')
             ->assertJsonPath('data.notes', 'Escalated to payments operations')
-            ->assertJsonPath('data.metadata.activity.2.context.detached_event_ids.0', 1)
+            ->assertJsonPath('data.metadata.activity.2.context.detached_event_ids.0', $firstEvent->id)
             ->assertJsonPath('data.metadata.activity.2.context.note_appended', true)
             ->assertJsonPath('data.metadata.note_entries.0.body', 'Escalated to payments operations');
 

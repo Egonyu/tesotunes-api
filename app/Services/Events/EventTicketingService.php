@@ -513,6 +513,7 @@ class EventTicketingService
     private function getOrderAttendees(Payment $payment): Collection
     {
         return EventAttendee::query()
+            ->with(['event.organizer', 'event.user', 'event.artist.user'])
             ->where('payment_reference', $payment->payment_reference)
             ->orderBy('id')
             ->get();
