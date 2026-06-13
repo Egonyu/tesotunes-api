@@ -46,6 +46,11 @@ enum SecurityEventType: string
     case IntegrityBulkDeletion = 'integrity.bulk.deletion';
     case IntegritySensitiveFieldChanged = 'integrity.sensitive_field.changed';
 
+    // ── Money pipeline & media ───────────────────────────────────────────
+    case CommerceSettlementClearanceFailed = 'commerce.settlement.clearance_failed';
+    case CommercePayoutReversed = 'commerce.payout.reversed';
+    case MediaHlsTranscodeFailed = 'media.hls.transcode_failed';
+
     public function domain(): SecurityDomain
     {
         return match ($this) {
@@ -66,7 +71,11 @@ enum SecurityEventType: string
             self::PaymentStatusChanged,
             self::PaymentFailed,
             self::PaymentRefundRequested,
-            self::PaymentPayoutRequested => SecurityDomain::Payments,
+            self::PaymentPayoutRequested,
+            self::CommerceSettlementClearanceFailed,
+            self::CommercePayoutReversed => SecurityDomain::Payments,
+
+            self::MediaHlsTranscodeFailed => SecurityDomain::System,
 
             self::ApiRateLimitExceeded,
             self::ApiNotFoundScan,
@@ -102,7 +111,10 @@ enum SecurityEventType: string
             self::PaymentStatusChanged,
             self::PaymentFailed => 'payment',
             self::PaymentRefundRequested => 'refund',
-            self::PaymentPayoutRequested => 'payout',
+            self::PaymentPayoutRequested,
+            self::CommercePayoutReversed => 'payout',
+            self::CommerceSettlementClearanceFailed => 'settlement',
+            self::MediaHlsTranscodeFailed => 'media',
 
             self::ApiRateLimitExceeded => 'rate_limit',
             self::ApiNotFoundScan => 'scan',
@@ -134,6 +146,8 @@ enum SecurityEventType: string
             self::PaymentFailed,
             self::PaymentRefundRequested,
             self::PaymentPayoutRequested,
+            self::CommercePayoutReversed,
+            self::MediaHlsTranscodeFailed,
             self::ApiRateLimitExceeded,
             self::ApiNotFoundScan,
             self::ApiBotDetected,
@@ -146,7 +160,8 @@ enum SecurityEventType: string
             self::ApiForbiddenProbe,
             self::IntegrityPrivilegeChanged,
             self::IntegrityBulkDeletion,
-            self::IntegritySensitiveFieldChanged => EventSeverity::High,
+            self::IntegritySensitiveFieldChanged,
+            self::CommerceSettlementClearanceFailed => EventSeverity::High,
         };
     }
 
@@ -171,7 +186,9 @@ enum SecurityEventType: string
 
             self::AuthLoginFailed,
             self::PaymentWebhookSignatureFailed,
-            self::PaymentFailed => EventOutcome::Failed,
+            self::PaymentFailed,
+            self::CommerceSettlementClearanceFailed,
+            self::MediaHlsTranscodeFailed => EventOutcome::Failed,
 
             self::AuthLockout,
             self::AuthUnauthorized,
@@ -180,6 +197,7 @@ enum SecurityEventType: string
 
             self::AuthLoginSuspicious,
             self::PaymentWebhookReplayed,
+            self::CommercePayoutReversed,
             self::ApiNotFoundScan,
             self::ApiBotDetected => EventOutcome::Suspicious,
         };
@@ -214,6 +232,9 @@ enum SecurityEventType: string
             self::IntegritySettingChanged => 'Platform setting changed',
             self::IntegrityBulkDeletion => 'Bulk deletion performed',
             self::IntegritySensitiveFieldChanged => 'Sensitive field modified',
+            self::CommerceSettlementClearanceFailed => 'Settlement clearance failed',
+            self::CommercePayoutReversed => 'Settlement reversed',
+            self::MediaHlsTranscodeFailed => 'HLS transcode failed',
         };
     }
 

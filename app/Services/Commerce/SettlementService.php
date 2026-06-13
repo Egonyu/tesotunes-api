@@ -2,8 +2,11 @@
 
 namespace App\Services\Commerce;
 
+use App\Enums\Observability\SecurityEventType;
 use App\Models\Commerce\Settlement;
 use App\Models\User;
+use App\Services\Observability\SecurityEvent;
+use App\Services\Observability\SecurityEventRecorder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -106,6 +109,12 @@ class SettlementService
         }
 
         if ($settlement->status !== Settlement::STATUS_PENDING) {
+            $this->emitSettlementSignal(
+                SecurityEventType::CommerceSettlementClearanceFailed,
+                $settlement,
+                "Cannot clear settlement #{$settlement->id} in status '{$settlement->status}'.",
+            );
+
             throw new \LogicException("Cannot clear a settlement in status '{$settlement->status}'.");
         }
 
@@ -133,6 +142,13 @@ class SettlementService
             'reversed_at' => now(),
             'reversal_reason' => $reason,
         ])->save();
+
+        $this->emitSettlementSignal(
+            SecurityEventType::CommercePayoutReversed,
+            $settlement,
+            "Settlement #{$settlement->id} reversed: {$reason}",
+            ['reason' => $reason],
+        );
 
         return $settlement;
     }
@@ -190,6 +206,34 @@ class SettlementService
         }
 
         return $summary;
+    }
+
+    /**
+     * Surface a money-pipeline anomaly to the observability stream. Fire-and-
+     * forget: telemetry must never break a settlement operation.
+     *
+     * @param  array<string, mixed>  $details
+     */
+    private function emitSettlementSignal(
+        SecurityEventType $type,
+        Settlement $settlement,
+        string $summary,
+        array $details = []
+    ): void {
+        SecurityEventRecorder::emit(
+            SecurityEvent::of($type)
+                ->summary($summary)
+                ->actor('user', $settlement->beneficiary_user_id, null)
+                ->target('/settlements', null, 'settlement', $settlement->id)
+                ->details(array_merge([
+                    'vertical' => $settlement->vertical,
+                    'kind' => $settlement->kind,
+                    'status' => $settlement->status,
+                    'net_ugx' => (float) $settlement->net_ugx,
+                    'net_credits' => (int) $settlement->net_credits,
+                ], $details))
+                ->rawRef(['source' => 'settlement', 'id' => (string) $settlement->id])
+        );
     }
 
     private function defaultHoldUntil(string $vertical): ?Carbon

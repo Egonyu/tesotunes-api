@@ -2,8 +2,11 @@
 
 namespace App\Jobs\Audio;
 
+use App\Enums\Observability\SecurityEventType;
 use App\Models\Song;
 use App\Services\Audio\FFmpegService;
+use App\Services\Observability\SecurityEvent;
+use App\Services\Observability\SecurityEventRecorder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -113,6 +116,19 @@ class TranscodeToHlsJob implements ShouldQueue
         ]);
 
         $this->mergeProcessingStatus(['hls' => 'failed']);
+
+        SecurityEventRecorder::emit(
+            SecurityEvent::of(SecurityEventType::MediaHlsTranscodeFailed)
+                ->summary("HLS transcode permanently failed for song #{$this->song->id}")
+                ->actor('artist', $this->song->artist_id, null)
+                ->target('/songs', null, 'song', $this->song->id)
+                ->details([
+                    'song_id' => $this->song->id,
+                    'error' => $exception->getMessage(),
+                    'exception' => $exception::class,
+                ])
+                ->rawRef(['source' => 'song', 'id' => (string) $this->song->id])
+        );
     }
 
     /**
