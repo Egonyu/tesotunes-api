@@ -7,10 +7,13 @@ use App\Models\SubscriptionPlan;
 use App\Models\User;
 use App\Models\UserSubscription;
 use App\Services\Revenue\StreamingRateService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class StreamingRateServiceTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_it_uses_subscription_plan_rate_and_platform_commission(): void
     {
         Setting::set('platform_commissions', [
@@ -86,5 +89,18 @@ class StreamingRateServiceTest extends TestCase
         $this->assertSame(5.0, $payout['rate_per_stream']);
         $this->assertSame(15.0, $payout['commission_percent']);
         $this->assertSame(4.25, $payout['net_amount']);
+    }
+
+    public function test_admin_configured_default_rates_override_code_constants(): void
+    {
+        Setting::set('streaming_default_free_rate_ugx', '7.5', Setting::TYPE_STRING, Setting::GROUP_PAYMENTS);
+        Setting::set('streaming_default_premium_rate_ugx', '20', Setting::TYPE_STRING, Setting::GROUP_PAYMENTS);
+
+        $service = app(StreamingRateService::class);
+
+        // No subscription → free default, now sourced from settings.
+        $this->assertSame(7.5, $service->resolveRateForUserId(null, false));
+        // fallbackPremium → premium default, now sourced from settings.
+        $this->assertSame(20.0, $service->resolveRateForUserId(null, true));
     }
 }

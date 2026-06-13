@@ -27,8 +27,8 @@ class StreamingRateService
     {
         if (! $userId) {
             return $fallbackPremium
-                ? self::DEFAULT_PREMIUM_STREAM_RATE_UGX
-                : self::DEFAULT_FREE_STREAM_RATE_UGX;
+                ? $this->defaultPremiumRate()
+                : $this->defaultFreeRate();
         }
 
         $subscription = $this->resolveActiveSubscription($userId);
@@ -47,13 +47,13 @@ class StreamingRateService
         if ($plan) {
             $premiumTiers = ['premium', 'artist', 'label', 'vip'];
             if (in_array(strtolower((string) ($plan->tier ?? $plan->slug ?? '')), $premiumTiers, true)) {
-                return self::DEFAULT_PREMIUM_STREAM_RATE_UGX;
+                return $this->defaultPremiumRate();
             }
         }
 
         return $fallbackPremium
-            ? self::DEFAULT_PREMIUM_STREAM_RATE_UGX
-            : self::DEFAULT_FREE_STREAM_RATE_UGX;
+            ? $this->defaultPremiumRate()
+            : $this->defaultFreeRate();
     }
 
     public function resolveStreamingCommissionPercent(): float
@@ -62,6 +62,28 @@ class StreamingRateService
         $configured = (float) ($commissions['streaming_percent'] ?? self::DEFAULT_STREAMING_COMMISSION_PERCENT);
 
         return round($configured, 2);
+    }
+
+    /**
+     * Admin-configurable default free-tier stream rate. Falls back to the code
+     * constant only when no setting row exists.
+     */
+    public function defaultFreeRate(): float
+    {
+        $configured = (float) Setting::get('streaming_default_free_rate_ugx', self::DEFAULT_FREE_STREAM_RATE_UGX);
+
+        return $configured > 0 ? round($configured, 2) : self::DEFAULT_FREE_STREAM_RATE_UGX;
+    }
+
+    /**
+     * Admin-configurable default premium-tier stream rate. Falls back to the
+     * code constant only when no setting row exists.
+     */
+    public function defaultPremiumRate(): float
+    {
+        $configured = (float) Setting::get('streaming_default_premium_rate_ugx', self::DEFAULT_PREMIUM_STREAM_RATE_UGX);
+
+        return $configured > 0 ? round($configured, 2) : self::DEFAULT_PREMIUM_STREAM_RATE_UGX;
     }
 
     public function calculateStreamPayout(?int $userId = null, bool $fallbackPremium = false): array
@@ -133,8 +155,8 @@ class StreamingRateService
 
     public function getStreamingConfigurationSummary(): array
     {
-        $freePayout = $this->calculatePayoutFromRate(self::DEFAULT_FREE_STREAM_RATE_UGX);
-        $premiumPayout = $this->calculatePayoutFromRate(self::DEFAULT_PREMIUM_STREAM_RATE_UGX);
+        $freePayout = $this->calculatePayoutFromRate($this->defaultFreeRate());
+        $premiumPayout = $this->calculatePayoutFromRate($this->defaultPremiumRate());
         $commissionPercent = number_format($freePayout['commission_percent'], 2, '.', '');
 
         return [
