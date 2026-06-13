@@ -67,6 +67,40 @@ class PublicSongListingArtistStatusTest extends TestCase
         $this->assertContains($song->id, $ids->all(), 'Legacy active-status artist must still surface during compat window');
     }
 
+    public function test_artist_songs_endpoint_returns_published_songs_for_approved_artist(): void
+    {
+        // Regression: GET /api/artists/{slug}/songs filtered artists on the bare
+        // string 'active', so after canonicalization an approved artist's
+        // profile showed zero songs even though they appeared in /api/songs.
+        $artist = Artist::factory()->create([
+            'status' => Artist::STATUS_APPROVED,
+        ]);
+
+        $song = Song::factory()->create([
+            'artist_id' => $artist->id,
+            'status' => 'published',
+        ]);
+
+        $response = $this->getJson("/api/artists/{$artist->slug}/songs");
+
+        $response->assertOk();
+        $ids = collect($response->json('data'))->pluck('id');
+        $this->assertContains($song->id, $ids->all(), "An approved artist's published song must appear on /api/artists/{slug}/songs");
+    }
+
+    public function test_artist_albums_endpoint_resolves_for_approved_artist(): void
+    {
+        $artist = Artist::factory()->create([
+            'status' => Artist::STATUS_APPROVED,
+        ]);
+
+        // The endpoint must resolve the approved artist (200), not 404 on the
+        // old 'active'-only gate.
+        $response = $this->getJson("/api/artists/{$artist->slug}/albums");
+
+        $response->assertOk();
+    }
+
     public function test_public_artists_list_includes_approved_artist(): void
     {
         $artist = Artist::factory()->create([

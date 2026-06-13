@@ -96,7 +96,7 @@ class ArtistController extends Controller
     {
         $perPage = min((int) $request->get('per_page', 20), 100);
 
-        $record = Artist::where('status', 'active')
+        $record = Artist::whereIn('status', Artist::VISIBLE_STATUSES)
             ->where(function ($q) use ($artist) {
                 $q->where('id', $artist)
                     ->orWhere('slug', $artist)
@@ -121,7 +121,7 @@ class ArtistController extends Controller
     {
         $perPage = min((int) $request->get('per_page', 10), 100);
 
-        $record = Artist::where('status', 'active')
+        $record = Artist::whereIn('status', Artist::VISIBLE_STATUSES)
             ->where(function ($q) use ($artist) {
                 $q->where('id', $artist)
                     ->orWhere('slug', $artist)
