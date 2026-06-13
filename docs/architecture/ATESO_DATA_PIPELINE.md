@@ -70,10 +70,15 @@ sentence pair task
 ## Reward economics
 
 - Rewards are **credits, granted on acceptance**, recorded as `settlements`
-  (`vertical: contributions`, `kind: translation_accepted`) — pending → cleared on
-  acceptance → withdrawable via the existing KYC-gated payout flow.
+  (`vertical: contributions`, `kind: translation_accepted` / `validation_accepted`) —
+  pending → cleared on acceptance → withdrawable via the existing KYC-gated payout flow.
+- **Target rates:** ~200 UGX-equivalent per accepted translation pair (floor 100);
+  validation at **50%** of the translation rate; **trusted-tier 1.3× multiplier** for
+  contributors above the gold pass-rate threshold.
 - Funded from a **daily pool** (like `credits:distribute-listen-earn`): admins set
-  the pool; per-pair value floats with volume so spend is capped, never open-ended.
+  the pool; per-pair value floats *down* with volume so spend is capped, never
+  open-ended. **Start conservative** (~200–500 accepted pairs/day) and raise as quality
+  proves out. **Per-contributor daily cap** blunts farming and keeps spend predictable.
 - Leaderboards + badges (existing referral-leaderboard pattern) carry the
   non-monetary motivation; money stays small ("airtime money"), pride stays big.
 
@@ -85,19 +90,25 @@ sentence pair task
 - `contribution_submissions` — task FK, user FK, raw_text, normalized_text, status
   (submitted|accepted|rejected|superseded), agreement_score, settled flag.
 - `contribution_validations` — submission FK, validator FK, verdict, suggested_fix.
-- `corpus_pairs` — the export table: en_text, ateso_text, register, provenance
-  (contributor ids, validation trail), license_version, quality_score, corpus_version.
+- `contribution_submissions` also carries **`region`** (dialect tag, default
+  `ug` / Ugandan Ateso) so the export can be split by variant later.
+- `corpus_pairs` — the export table: en_text, ateso_text, register, **region**,
+  provenance (contributor ids, validation trail), `license_version`
+  (e.g. `CC-BY-SA-4.0`), quality_score, corpus_version.
 - `contributor_profiles` — gold pass-rate, tier, totals (or fold into capability
   metadata: `Capability::Contributor`).
 
 ## Consent, licensing, provenance
 
-- First contribution requires explicit acceptance of data terms: contributions are
-  licensed for corpus use/publication (recommend CC-BY-SA or CC0 for the corpus
-  release — decide before launch), attribution optional and pseudonymous.
+- First contribution requires explicit acceptance of data terms: the contributor
+  grants TesoTunes a **broad, irrevocable, sublicensable** license over their
+  contributions (so the platform may train models, license to partners, and publish);
+  the **public corpus release is CC-BY-SA 4.0**, attribution pseudonymous. Capture the
+  consent event (terms version + timestamp) once per contributor.
 - Artists opt in per song before lyrics enter the task pool.
-- Exports are versioned (`ateso-corpus-v2.jsonl`), carry per-pair provenance and
-  quality scores, and never include PII. Export command: `corpus:export {--version=}`.
+- Exports are versioned (`ateso-corpus-v2.jsonl`), carry per-pair provenance, region,
+  `license_version`, and quality scores, and never include PII. Export command:
+  `corpus:export {--version=}`.
 
 ## Build order
 
@@ -110,11 +121,43 @@ sentence pair task
 | 9.5 | Edula task cards + daily challenge |
 | 9.6 | Admin console (pool, thresholds, review queue, corpus health) + `corpus:export` |
 
-## Open decisions (need your call before 9.1)
+## Ratified decisions (settled — build to these)
 
-1. Corpus license: CC-BY-SA vs CC0 vs custom.
-2. Reward sizing: suggested start UGX 100–300 per accepted pair equivalent, validation
-   ~40% of that — tune against the daily pool.
-3. House orthography reference: which spelling convention the style guide follows.
-4. Whether transcription (audio → Ateso text) is in scope for v1 — valuable for ASR
-   later, but doubles the review burden.
+1. **License — dual structure.** Contributors grant TesoTunes a broad, irrevocable,
+   sublicensable license (so the platform may train proprietary models, license to
+   partners, AND publish openly). The **public corpus release is CC-BY-SA 4.0** —
+   share-alike keeps the community's labor from being privately enclosed by a
+   competitor, attribution credits the Iteso community + TesoTunes. Switch the public
+   release to **CC-BY 4.0** only if institutional partnerships (Masakhane, university,
+   big-tech African-language programs) become a priority and copyleft friction blocks
+   them. No custom license. The two grants are tracked separately: `corpus_pairs`
+   stamps the *public release* `license_version` (e.g. `CC-BY-SA-4.0`); the contributor
+   grant is captured once at consent time (see Consent below).
+
+2. **Reward sizing.** ~**200 UGX-equivalent in credits per accepted pair** (floor 100),
+   floating down against the daily pool as volume rises. **Validation pays 50%** of the
+   translation rate to start (validators are the bottleneck — tune via validation-queue
+   depth, not guesswork). **Trusted-tier 1.3× multiplier** concentrates spend on
+   gold-passing contributors. Start the **daily pool conservative** (~200–500 accepted
+   pairs/day ≈ 40k–100k UGX/day) and raise it as quality proves out — never start
+   generous. **Per-contributor daily cap** (reuse the credits daily-limit pattern).
+   Paid in credits, not direct cash, so KYC-gated withdrawal friction deters farming.
+
+3. **Orthography.** Align the house style to the existing **`ateso-bible-corpus`
+   orthography (Ugandan Ateso, no tone marking)** so old + new data stay mixable.
+   **Store raw AND normalized** on every submission (raw is never lost → re-normalizable
+   later). **Primary dialect = Ugandan Ateso**, but **tag dialect/region on every pair**
+   (`region` column) so Uganda-Teso vs Kenya-Iteso can be split/filtered later. Edge
+   cases (vowel length, loanwords, variant calls) ratified by a **2–3 person
+   native-speaker panel**; the style guide is **versioned**.
+
+4. **Transcription — out of v1.** v1 is **text-only** (lyrics translation, Edula
+   micro-tasks, daily challenge) to prove the core loop. Audio→text transcription is
+   deferred to **v2**, where it becomes lightweight *alignment/verification* of songs
+   whose lyrics are already on the platform, gated behind a proven trusted-validator
+   pool. The `contribution_tasks.type` enum still includes `transcribe` for forward
+   compatibility, but no transcription task is dispatched or rewarded in v1.
+
+**Adjacent parameters (confirmed):** redundancy **N=3** independent translations per
+pair (tunable per task); **collusion guard** — no self-validation, no validating
+accounts you referred (referral graph already exists).
