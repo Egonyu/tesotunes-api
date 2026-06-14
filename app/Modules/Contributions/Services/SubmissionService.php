@@ -6,17 +6,22 @@ use App\Models\User;
 use App\Modules\Contributions\Models\ContributionSubmission;
 use App\Modules\Contributions\Models\ContributionTask;
 use App\Modules\Contributions\Models\ContributorProfile;
+use App\Modules\Contributions\Support\TextNormalizer;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Records contributor translations against open tasks, enforcing the
  * participation guards: consent, task availability, one-answer-per-task, and
  * the redundancy target that closes a task once enough answers are in.
- * Acceptance + scoring + reward live in 9.3/9.4.
+ * Gold-task answers are scored on submit (reputation); peer acceptance of
+ * normal tasks lands in AcceptanceService. Reward settles in 9.4.
  */
 class SubmissionService
 {
-    public function __construct(private readonly ConsentService $consent) {}
+    public function __construct(
+        private readonly ConsentService $consent,
+        private readonly ReputationService $reputation,
+    ) {}
 
     /**
      * @throws \DomainException on a guard violation (controller maps to 422)
@@ -55,7 +60,17 @@ class SubmissionService
             ]);
             $submission->task()->associate($task);
             $submission->user()->associate($user);
-            $submission->save();
+
+            // Gold salting: score the answer against the hidden gold answer and
+            // fold the result into the contributor's reputation immediately.
+            if ($task->isGold()) {
+                $passed = TextNormalizer::matches($text, (string) $task->gold_answer);
+                $submission->gold_passed = $passed;
+                $submission->save();
+                $this->reputation->recordGoldResult($user, $passed);
+            } else {
+                $submission->save();
+            }
 
             $task->forceFill([
                 'submission_count' => $task->submission_count + 1,

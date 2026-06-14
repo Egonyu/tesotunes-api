@@ -48,4 +48,22 @@ return [
         'reviewer_min_pass_rate' => 95,
         'min_gold_attempts' => 10,
     ],
+
+    // Per-tier validator vote weight — trusted reviewers count for more, so the
+    // quality gate concentrates on people who pass golds.
+    'validation_weights' => [
+        'novice' => 1.0,
+        'trusted' => 1.5,
+        'reviewer' => 2.0,
+    ],
+
+    'acceptance' => [
+        // Minimum number of peer validations a submission needs before it can
+        // be accepted, and the minimum weighted approval to clear the gate.
+        'min_validations' => 2,
+        'approval_threshold' => 2.0,
+        // Bonus added to the agreement score for each independent submission that
+        // normalizes to the same text (translator convergence).
+        'convergence_bonus' => 10,
+    ],
 ];

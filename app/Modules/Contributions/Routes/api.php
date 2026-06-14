@@ -2,6 +2,7 @@
 
 use App\Modules\Contributions\Http\Controllers\Api\ContributionConsentController;
 use App\Modules\Contributions\Http\Controllers\Api\ContributionTaskController;
+use App\Modules\Contributions\Http\Controllers\Api\ContributionValidationController;
 use App\Modules\Contributions\Http\Controllers\Api\LyricOptInController;
 use Illuminate\Support\Facades\Route;
 
@@ -23,4 +24,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/songs/{song}/optin', [LyricOptInController::class, 'show'])->name('songs.optin.show');
     Route::post('/songs/{song}/optin', [LyricOptInController::class, 'store'])->name('songs.optin.store');
     Route::delete('/songs/{song}/optin', [LyricOptInController::class, 'destroy'])->name('songs.optin.destroy');
+
+    // Peer validation + quality gate (9.3)
+    Route::get('/validations/queue', [ContributionValidationController::class, 'queue'])->name('validations.queue');
+    Route::post('/submissions/{submission}/validate', [ContributionValidationController::class, 'store'])->name('submissions.validate');
 });
