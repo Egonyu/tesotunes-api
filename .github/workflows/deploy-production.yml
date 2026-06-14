@@ -364,8 +364,19 @@ jobs:
             # Reload PHP-FPM to clear opcache and realpath cache
             sudo systemctl reload php8.4-fpm || sudo systemctl reload php-fpm || true
 
-            # Restart workers
-            sudo supervisorctl restart tesotunes-worker:* || true
+            # Reload queue workers the zero-downtime way: queue:restart sets a
+            # cache flag so each worker exits cleanly after its current job and
+            # is respawned by supervisor on the new release. This is
+            # non-blocking — unlike `supervisorctl restart`, which blocks until
+            # every worker stops and will hang the whole deploy past the SSH
+            # timeout if a job is wedged. Bounded force-restart as a fallback.
+            php artisan queue:restart 2>/dev/null || true
+            if ! sudo timeout 30 supervisorctl restart tesotunes-worker:* 2>/dev/null; then
+              echo "⚠️ Graceful worker restart slow; forcing."
+              sudo supervisorctl signal KILL tesotunes-worker:* 2>/dev/null || true
+              sleep 2
+              sudo supervisorctl start tesotunes-worker:* 2>/dev/null || true
+            fi
 
             # ------------------------------------------------
             # Verify promoted release is healthy before cleanup
