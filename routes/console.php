@@ -85,6 +85,14 @@ Schedule::command('credits:distribute-listen-earn')
     ->onOneServer()
     ->runInBackground();
 
+// ── Ateso corpus daily challenge ──────────────────────────────
+// Publishes the themed prompt of the day (no-ops when the module is off).
+Schedule::command('contributions:daily-challenge')
+    ->dailyAt('04:00')
+    ->name('ateso-daily-challenge')
+    ->withoutOverlapping()
+    ->onOneServer();
+
 // ── Commerce settlement clearance ─────────────────────────────
 // Promotes pending settlements past their dispute-hold window to cleared
 Schedule::command('commerce:clear-due-settlements')

@@ -106,6 +106,11 @@ class FeedController extends Controller
         $pageItems = app(\App\Services\Feed\SponsoredSlotsService::class)
             ->injectInto($pageItems, $page);
 
+        // Weave "Earn" translation task cards (Ateso corpus). No-ops unless the
+        // contributions module + feed cards are enabled.
+        $pageItems = app(\App\Modules\Contributions\Services\ContributionFeedSlotsService::class)
+            ->injectInto($pageItems, $page, $user);
+
         if ($user) {
             $this->analyticsService->trackView($user, 'for_you');
         }

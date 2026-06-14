@@ -66,4 +66,24 @@ return [
         // normalizes to the same text (translator convergence).
         'convergence_bonus' => 10,
     ],
+
+    // Edula feed: weave an "Earn" task card in after every N organic items.
+    'feed' => [
+        'enabled' => env('CONTRIBUTIONS_FEED_CARDS', true),
+        'every' => 6,
+        'max_per_page' => 2,
+    ],
+
+    /*
+    | Daily challenge rotation — themed prompts targeting registers/domains the
+    | corpus lacks. The scheduled command publishes one per day, picked by
+    | day-of-year. Source is the lyric language (Ateso) → English by default.
+    */
+    'daily_challenges' => [
+        ['register' => 'greeting', 'prompt' => 'Ijaarakini'],
+        ['register' => 'market', 'prompt' => 'Ainap'],
+        ['register' => 'family', 'prompt' => 'Toto'],
+        ['register' => 'weather', 'prompt' => 'Akipi'],
+        ['register' => 'proverb', 'prompt' => 'Emam ŋes itunga'],
+    ],
 ];
