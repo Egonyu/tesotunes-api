@@ -37,6 +37,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Operator console (9.6) — admin only.
     Route::middleware('role:admin,super_admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/overview', [ContributionAdminController::class, 'overview'])->name('overview');
+        Route::get('/tasks', [ContributionAdminController::class, 'tasks'])->name('tasks.index');
+        Route::post('/tasks/import', [ContributionAdminController::class, 'importTasks'])->name('tasks.import');
+        Route::post('/tasks/{task}/close', [ContributionAdminController::class, 'closeTask'])->name('tasks.close');
         Route::post('/gold', [ContributionAdminController::class, 'seedGold'])->name('gold');
         Route::post('/export', [ContributionAdminController::class, 'export'])->name('export');
     });

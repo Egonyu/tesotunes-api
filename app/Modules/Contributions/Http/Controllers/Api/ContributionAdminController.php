@@ -9,6 +9,7 @@ use App\Modules\Contributions\Models\ContributionTask;
 use App\Modules\Contributions\Models\ContributorProfile;
 use App\Modules\Contributions\Models\CorpusPair;
 use App\Modules\Contributions\Services\CorpusExportService;
+use App\Modules\Contributions\Services\TaskAuthoringService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -92,6 +93,85 @@ class ContributionAdminController extends Controller
             'message' => 'Gold item seeded.',
             'data' => ['uuid' => $task->uuid],
         ], 201);
+    }
+
+    /**
+     * GET /api/contributions/admin/tasks — browse/manage the curated task pool.
+     */
+    public function tasks(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => ['sometimes', 'string'],
+            'register' => ['sometimes', 'string'],
+            'gold' => ['sometimes', 'boolean'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $tasks = ContributionTask::query()
+            ->where('type', ContributionTask::TYPE_TRANSLATE)
+            ->when($validated['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
+            ->when($validated['register'] ?? null, fn ($q, $r) => $q->where('register', $r))
+            ->when(array_key_exists('gold', $validated), fn ($q) => $q->where('is_gold', $validated['gold']))
+            ->latest('id')
+            ->paginate($validated['per_page'] ?? 25);
+
+        return response()->json([
+            'success' => true,
+            'data' => $tasks->getCollection()->map(fn (ContributionTask $task) => [
+                'uuid' => $task->uuid,
+                'prompt_text' => $task->prompt_text,
+                'source_lang' => $task->source_lang,
+                'target_lang' => $task->target_lang,
+                'register' => $task->register,
+                'is_gold' => (bool) $task->is_gold,
+                'status' => $task->status,
+                'submission_count' => $task->submission_count,
+            ])->all(),
+            'meta' => [
+                'current_page' => $tasks->currentPage(),
+                'last_page' => $tasks->lastPage(),
+                'total' => $tasks->total(),
+            ],
+        ]);
+    }
+
+    /**
+     * POST /api/contributions/admin/tasks/import — bulk-author curated prompts.
+     * The primary way to fill and steer the task pool.
+     */
+    public function importTasks(Request $request, TaskAuthoringService $authoring): JsonResponse
+    {
+        $validated = $request->validate([
+            'direction' => ['required', 'in:en_to_teo,teo_to_en'],
+            'register' => ['nullable', 'string', 'max:40'],
+            'region' => ['nullable', 'string', 'max:8'],
+            'prompts' => ['required', 'array', 'min:1', 'max:1000'],
+            'prompts.*' => ['string', 'max:2000'],
+        ]);
+
+        $result = $authoring->import(
+            $validated['prompts'],
+            $validated['direction'],
+            $validated['register'] ?? null,
+            $validated['region'] ?? null,
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => "Created {$result['created']} task(s), skipped {$result['skipped']} duplicate(s).",
+            'data' => $result,
+        ], 201);
+    }
+
+    /**
+     * POST /api/contributions/admin/tasks/{task}/close — retire a task.
+     */
+    public function closeTask(string $task): JsonResponse
+    {
+        $taskModel = ContributionTask::query()->where('uuid', $task)->firstOrFail();
+        $taskModel->forceFill(['status' => ContributionTask::STATUS_CLOSED])->save();
+
+        return response()->json(['success' => true, 'message' => 'Task closed.']);
     }
 
     /**

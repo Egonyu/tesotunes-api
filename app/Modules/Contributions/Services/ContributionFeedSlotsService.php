@@ -60,18 +60,33 @@ class ContributionFeedSlotsService
      */
     public function earnCards(?User $user, int $limit): Collection
     {
-        $tasks = collect();
-
-        if ($challenge = $this->dailyChallenge->today()) {
-            $tasks->push($challenge);
+        // Earn cards are an authenticated, one-answer-per-task mechanic — guests
+        // can't submit, so there's nothing to show them.
+        if (! $user) {
+            return collect();
         }
 
-        $more = ContributionTask::query()
+        // Open translate tasks this user has NOT already answered. Excluding
+        // submitted tasks is what stops the feed re-serving work they've done.
+        $open = ContributionTask::query()
             ->where('type', ContributionTask::TYPE_TRANSLATE)
             ->where('status', ContributionTask::STATUS_OPEN)
             ->where('is_gold', false)
+            ->whereDoesntHave('submissions', fn ($s) => $s->where('user_id', $user->id));
+
+        // Surface the daily challenge first — but only if they haven't answered
+        // it yet (the same exclusion the rest of the pool gets).
+        $challenge = $this->dailyChallenge->today();
+        $challengeAvailable = $challenge
+            && ! $challenge->submissions()->where('user_id', $user->id)->exists();
+
+        $tasks = collect();
+        if ($challengeAvailable) {
+            $tasks->push($challenge);
+        }
+
+        $more = $open
             ->when($challenge, fn ($q) => $q->where('id', '!=', $challenge->id))
-            ->when($user, fn ($q) => $q->whereDoesntHave('submissions', fn ($s) => $s->where('user_id', $user->id)))
             ->inRandomOrder()
             ->limit($limit)
             ->get();

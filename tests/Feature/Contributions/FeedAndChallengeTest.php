@@ -4,8 +4,10 @@ namespace Tests\Feature\Contributions;
 
 use App\Models\User;
 use App\Modules\Contributions\Models\ContributionTask;
+use App\Modules\Contributions\Services\ConsentService;
 use App\Modules\Contributions\Services\ContributionFeedSlotsService;
 use App\Modules\Contributions\Services\DailyChallengeService;
+use App\Modules\Contributions\Services\SubmissionService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Collection;
 use Tests\TestCase;
@@ -83,5 +85,34 @@ class FeedAndChallengeTest extends TestCase
         $cards = app(ContributionFeedSlotsService::class)->earnCards(User::factory()->create(), 2);
 
         $this->assertTrue((bool) $cards->first()['is_daily_challenge']);
+    }
+
+    public function test_earn_cards_exclude_tasks_the_user_already_answered(): void
+    {
+        config(['contributions.enabled' => true, 'contributions.feed.enabled' => true]);
+        $task = $this->openTask('Eong ajokis');
+        $challenge = app(DailyChallengeService::class)->publishToday();
+
+        $user = User::factory()->create();
+        app(ConsentService::class)->recordConsent($user);
+
+        // Answer both the regular task and the daily challenge.
+        app(SubmissionService::class)->submit($user, $task, 'I am well');
+        app(SubmissionService::class)->submit($user, $challenge, 'good morning');
+
+        $cards = app(ContributionFeedSlotsService::class)->earnCards($user, 5);
+
+        // Neither should resurface for this user.
+        $this->assertCount(0, $cards);
+    }
+
+    public function test_earn_cards_are_empty_for_guests(): void
+    {
+        config(['contributions.enabled' => true, 'contributions.feed.enabled' => true]);
+        $this->openTask('Eong ajokis');
+
+        $cards = app(ContributionFeedSlotsService::class)->earnCards(null, 5);
+
+        $this->assertCount(0, $cards);
     }
 }
