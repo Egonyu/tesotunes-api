@@ -14,6 +14,7 @@ enum Capability: string
     case Organizer = 'organizer';
     case Promoter = 'promoter';
     case Label = 'label';
+    case Contributor = 'contributor';
 
     public function label(): string
     {
@@ -23,6 +24,7 @@ enum Capability: string
             self::Organizer => 'Event organizer',
             self::Promoter => 'Promoter',
             self::Label => 'Label',
+            self::Contributor => 'Corpus contributor',
         };
     }
 }

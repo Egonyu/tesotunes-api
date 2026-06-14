@@ -139,7 +139,9 @@ class CapabilityLayerTest extends TestCase
         $posture = collect($response->json('data'))->keyBy('capability');
         $this->assertSame('granted', $posture['promoter']['status']);
         $this->assertSame('none', $posture['label']['status']);
-        $this->assertCount(5, $posture);
+        // One posture entry per Capability case (artist, seller, organizer,
+        // promoter, label, contributor).
+        $this->assertCount(6, $posture);
     }
 
     public function test_promoter_onboarding_grants_the_promoter_capability(): void

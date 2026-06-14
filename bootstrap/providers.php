@@ -5,6 +5,7 @@ return array_filter([
     App\Modules\Sacco\Providers\SaccoServiceProvider::class,
     App\Modules\Promotions\Providers\PromotionsServiceProvider::class,
     App\Modules\Store\Providers\StoreServiceProvider::class,
+    App\Modules\Contributions\Providers\ContributionsServiceProvider::class,
     App\Providers\AppServiceProvider::class,
     App\Providers\AuditLoggingServiceProvider::class,
     App\Providers\PodcastServiceProvider::class,
