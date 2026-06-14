@@ -4,6 +4,7 @@ namespace App\Modules\Contributions\Services;
 
 use App\Models\User;
 use App\Modules\Contributions\Models\ContributionTask;
+use App\Modules\Contributions\Support\ContributionsModule;
 use Illuminate\Support\Collection;
 
 /**
@@ -22,7 +23,7 @@ class ContributionFeedSlotsService
      */
     public function injectInto(Collection $pageItems, int $page = 1, ?User $user = null): Collection
     {
-        if (! config('contributions.enabled', false) || ! config('contributions.feed.enabled', true)) {
+        if (! ContributionsModule::feedCardsEnabled()) {
             return $pageItems;
         }
 

@@ -77,6 +77,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'observability.collector' => \App\Http\Middleware\VerifyObservabilityCollectorToken::class,
             'loyalty.tier' => \App\Http\Middleware\CheckLoyaltyTierAccess::class,
             'deprecated' => \App\Http\Middleware\DeprecationMiddleware::class,
+            'contributions.enabled' => \App\Http\Middleware\EnsureContributionsEnabled::class,
         ]);
 
         // Add security headers to all requests

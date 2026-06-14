@@ -6,14 +6,41 @@ use App\Modules\Contributions\Http\Controllers\Api\ContributionTaskController;
 use App\Modules\Contributions\Http\Controllers\Api\ContributionValidationController;
 use App\Modules\Contributions\Http\Controllers\Api\ContributorProfileController;
 use App\Modules\Contributions\Http\Controllers\Api\LyricOptInController;
+use App\Modules\Contributions\Support\ContributionsModule;
 use Illuminate\Support\Facades\Route;
 
 /*
 | Contributions module API routes. Mounted under /api/contributions by the
-| module provider, behind auth:sanctum. Only loaded when CONTRIBUTIONS_ENABLED.
+| module provider, behind auth:sanctum. Routes are always registered; the
+| contributor-facing group is gated by the runtime `contributions.enabled`
+| toggle. The admin group stays reachable so operators can manage and flip the
+| toggle even while the feature is switched off for users.
 */
 
-Route::middleware('auth:sanctum')->group(function () {
+// Public availability — lets the web decide whether to surface the nav links
+// and Edula cards. No auth, no toggle gate.
+Route::get('/status', fn () => response()->json([
+    'success' => true,
+    'data' => [
+        'enabled' => ContributionsModule::enabled(),
+        'feed_cards_enabled' => ContributionsModule::feedCardsEnabled(),
+    ],
+]))->name('status');
+
+// Admin operator console — reachable regardless of the toggle (role-gated).
+Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/settings', [ContributionAdminController::class, 'settings'])->name('settings.show');
+    Route::put('/settings', [ContributionAdminController::class, 'updateSettings'])->name('settings.update');
+    Route::get('/overview', [ContributionAdminController::class, 'overview'])->name('overview');
+    Route::get('/tasks', [ContributionAdminController::class, 'tasks'])->name('tasks.index');
+    Route::post('/tasks/import', [ContributionAdminController::class, 'importTasks'])->name('tasks.import');
+    Route::post('/tasks/{task}/close', [ContributionAdminController::class, 'closeTask'])->name('tasks.close');
+    Route::post('/gold', [ContributionAdminController::class, 'seedGold'])->name('gold');
+    Route::post('/export', [ContributionAdminController::class, 'export'])->name('export');
+});
+
+// Contributor-facing surface — gated by the runtime on/off toggle.
+Route::middleware(['auth:sanctum', 'contributions.enabled'])->group(function () {
     // Data-terms consent (9.1)
     Route::get('/consent', [ContributionConsentController::class, 'show'])->name('consent.show');
     Route::post('/consent', [ContributionConsentController::class, 'store'])->name('consent.store');
@@ -33,14 +60,4 @@ Route::middleware('auth:sanctum')->group(function () {
     // Peer validation + quality gate (9.3)
     Route::get('/validations/queue', [ContributionValidationController::class, 'queue'])->name('validations.queue');
     Route::post('/submissions/{submission}/validate', [ContributionValidationController::class, 'store'])->name('submissions.validate');
-
-    // Operator console (9.6) — admin only.
-    Route::middleware('role:admin,super_admin')->prefix('admin')->name('admin.')->group(function () {
-        Route::get('/overview', [ContributionAdminController::class, 'overview'])->name('overview');
-        Route::get('/tasks', [ContributionAdminController::class, 'tasks'])->name('tasks.index');
-        Route::post('/tasks/import', [ContributionAdminController::class, 'importTasks'])->name('tasks.import');
-        Route::post('/tasks/{task}/close', [ContributionAdminController::class, 'closeTask'])->name('tasks.close');
-        Route::post('/gold', [ContributionAdminController::class, 'seedGold'])->name('gold');
-        Route::post('/export', [ContributionAdminController::class, 'export'])->name('export');
-    });
 });

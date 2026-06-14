@@ -10,6 +10,7 @@ use App\Modules\Contributions\Models\ContributorProfile;
 use App\Modules\Contributions\Models\CorpusPair;
 use App\Modules\Contributions\Services\CorpusExportService;
 use App\Modules\Contributions\Services\TaskAuthoringService;
+use App\Modules\Contributions\Support\ContributionsModule;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -19,6 +20,47 @@ use Illuminate\Http\Request;
  */
 class ContributionAdminController extends Controller
 {
+    /**
+     * GET /api/contributions/admin/settings — the on/off toggles.
+     */
+    public function settings(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'enabled' => ContributionsModule::enabled(),
+                'feed_cards_enabled' => ContributionsModule::feedCardsEnabled(),
+            ],
+        ]);
+    }
+
+    /**
+     * PUT /api/contributions/admin/settings — flip the module / Edula cards.
+     */
+    public function updateSettings(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'enabled' => ['sometimes', 'boolean'],
+            'feed_cards_enabled' => ['sometimes', 'boolean'],
+        ]);
+
+        if (array_key_exists('enabled', $validated)) {
+            ContributionsModule::setEnabled($validated['enabled']);
+        }
+        if (array_key_exists('feed_cards_enabled', $validated)) {
+            ContributionsModule::setFeedCardsEnabled($validated['feed_cards_enabled']);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Settings updated.',
+            'data' => [
+                'enabled' => ContributionsModule::enabled(),
+                'feed_cards_enabled' => ContributionsModule::feedCardsEnabled(),
+            ],
+        ]);
+    }
+
     /**
      * GET /api/contributions/admin/overview — corpus + pipeline health.
      */

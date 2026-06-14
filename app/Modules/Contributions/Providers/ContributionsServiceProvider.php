@@ -32,18 +32,14 @@ class ContributionsServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        if (! $this->isEnabled()) {
-            return;
-        }
-
+        // Routes are always registered so the runtime on/off toggle (a Setting,
+        // flipped from the admin panel) works even with route caching. The
+        // contributor-facing routes carry the `contributions.enabled` middleware,
+        // which 503s when the module is switched off; the admin routes stay
+        // reachable so operators can manage and re-enable it.
         Route::middleware('api')
             ->prefix('api/contributions')
             ->name('contributions.api.')
             ->group($this->modulePath.'/Routes/api.php');
-    }
-
-    protected function isEnabled(): bool
-    {
-        return (bool) config('contributions.enabled', false);
     }
 }

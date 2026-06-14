@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Modules\Contributions\Services\DailyChallengeService;
+use App\Modules\Contributions\Support\ContributionsModule;
 use Illuminate\Console\Command;
 
 /**
@@ -17,7 +18,7 @@ class PublishDailyChallengeCommand extends Command
 
     public function handle(DailyChallengeService $service): int
     {
-        if (! config('contributions.enabled', false)) {
+        if (! ContributionsModule::enabled()) {
             $this->info('Contributions module disabled — skipping.');
 
             return self::SUCCESS;
