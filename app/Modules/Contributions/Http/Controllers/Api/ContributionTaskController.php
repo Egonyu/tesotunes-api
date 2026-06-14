@@ -64,12 +64,19 @@ class ContributionTaskController extends Controller
     {
         $validated = $request->validate([
             'translation' => ['required', 'string', 'max:2000'],
+            'dialect' => ['nullable', 'string', 'max:16'],
+            'code_switched' => ['sometimes', 'boolean'],
+            'note' => ['nullable', 'string', 'max:500'],
         ]);
 
         $taskModel = ContributionTask::query()->where('uuid', $task)->firstOrFail();
 
         try {
-            $submission = $this->submissions->submit($request->user(), $taskModel, $validated['translation']);
+            $submission = $this->submissions->submit($request->user(), $taskModel, $validated['translation'], [
+                'dialect' => $validated['dialect'] ?? null,
+                'code_switched' => (bool) ($validated['code_switched'] ?? false),
+                'note' => $validated['note'] ?? null,
+            ]);
         } catch (\DomainException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }

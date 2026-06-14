@@ -35,6 +35,7 @@ class ContributionSubmission extends Model
             'agreement_score' => 'decimal:2',
             'is_gold_attempt' => 'boolean',
             'gold_passed' => 'boolean',
+            'is_code_switched' => 'boolean',
             'settled' => 'boolean',
             'settled_at' => 'datetime',
             'metadata' => 'array',

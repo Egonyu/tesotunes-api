@@ -17,15 +17,18 @@ class CorpusExportService
      *
      * @return array{version: string, path: string, count: int}
      */
-    public function export(?string $version = null, string $disk = 'local'): array
+    public function export(?string $version = null, string $disk = 'local', ?bool $includeCodeSwitched = null): array
     {
         $version = $version ?: 'v'.now()->format('Ymd_His');
         $relativePath = "exports/ateso-corpus-{$version}.jsonl";
+        $includeCodeSwitched ??= (bool) config('contributions.export_include_code_switched', true);
 
         $lines = [];
         $count = 0;
 
         CorpusPair::query()
+            // A "pure" corpus can drop mixed-language pairs; by default they stay.
+            ->when(! $includeCodeSwitched, fn ($q) => $q->where('is_code_switched', false))
             ->orderBy('id')
             ->chunkById(500, function ($pairs) use (&$lines, &$count, $version) {
                 foreach ($pairs as $pair) {
@@ -58,7 +61,9 @@ class CorpusExportService
             'en' => $pair->en_text,
             'ateso' => $pair->ateso_text,
             'region' => $pair->region,
+            'dialect' => $pair->dialect,
             'register' => $pair->register,
+            'code_switched' => (bool) $pair->is_code_switched,
             'quality_score' => (float) $pair->quality_score,
             'license' => $pair->license_version,
             'corpus_version' => $version,

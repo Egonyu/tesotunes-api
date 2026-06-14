@@ -24,6 +24,7 @@ class CorpusPair extends Model
         return [
             'provenance' => 'array',
             'quality_score' => 'decimal:2',
+            'is_code_switched' => 'boolean',
             'exported_at' => 'datetime',
         ];
     }

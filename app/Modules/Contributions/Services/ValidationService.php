@@ -24,6 +24,7 @@ class ValidationService
     private const VERDICTS = [
         ContributionValidation::VERDICT_AGREE,
         ContributionValidation::VERDICT_MINOR_FIX,
+        ContributionValidation::VERDICT_VALID_VARIANT,
         ContributionValidation::VERDICT_REJECT,
     ];
 

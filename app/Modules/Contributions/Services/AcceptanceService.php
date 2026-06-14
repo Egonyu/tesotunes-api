@@ -4,42 +4,46 @@ namespace App\Modules\Contributions\Services;
 
 use App\Modules\Contributions\Models\ContributionSubmission;
 use App\Modules\Contributions\Models\ContributionTask;
+use App\Modules\Contributions\Models\ContributionValidation;
 use App\Modules\Contributions\Models\ContributorProfile;
 use App\Modules\Contributions\Models\CorpusPair;
 use App\Modules\Contributions\Support\TextNormalizer;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Decides when a task's answers have converged enough to accept one and mint a
- * corpus pair. Acceptance = enough peer validations + weighted approval over
- * threshold, with a bonus for independent translators who agree. Gold tasks
- * never mint pairs (their answer is already known — they only score people).
+ * Accepts peer-validated translations and mints corpus pairs. Ateso is
+ * dialect-rich, so this accepts EVERY distinct variant that clears the gate —
+ * not a single "winner" — each as its own dialect-tagged pair. A submission
+ * clears the gate with enough validations and weighted approval (agree /
+ * minor-fix / valid-variant count for, reject counts against). Convergent
+ * duplicates of an already-accepted variant are folded in (no second pair).
+ * Gold tasks never mint pairs. Idempotent and safe to call after every vote.
  */
 class AcceptanceService
 {
     public function __construct(private readonly RewardService $rewards) {}
 
     /**
-     * Evaluate a task; accept the winning submission and mint a corpus pair if
-     * the gate is cleared. Idempotent and safe to call after every validation.
+     * @return Collection<int, CorpusPair> the pairs newly minted this run
      */
-    public function evaluate(ContributionTask $task): ?CorpusPair
+    public function evaluate(ContributionTask $task): Collection
     {
         if ($task->isGold()) {
-            return null;
+            return collect();
         }
 
         return DB::transaction(function () use ($task) {
-            /** @var ContributionTask $task */
+            /** @var ContributionTask|null $task */
             $task = ContributionTask::query()->lockForUpdate()->find($task->id);
 
             if (! $task || $task->status === ContributionTask::STATUS_CLOSED) {
-                return null;
+                return collect();
             }
 
             $submissions = $task->submissions()->with(['validations.validator', 'user'])->get();
             if ($submissions->isEmpty()) {
-                return null;
+                return collect();
             }
 
             $cfg = config('contributions.acceptance');
@@ -47,131 +51,131 @@ class AcceptanceService
             $threshold = (float) ($cfg['approval_threshold'] ?? 2.0);
             $convergenceBonus = (float) ($cfg['convergence_bonus'] ?? 10);
 
-            $best = null;
-            $bestApproval = 0.0;
+            // Variant keys already minted for this task, so we never double-mint.
+            $acceptedKeys = $submissions
+                ->where('status', ContributionSubmission::STATUS_ACCEPTED)
+                ->map(fn ($s) => TextNormalizer::key((string) $s->normalized_text))
+                ->filter()->unique()->values()->all();
 
-            foreach ($submissions as $submission) {
-                if ($submission->status !== ContributionSubmission::STATUS_SUBMITTED) {
+            // Weighted approval for every still-open submission with enough votes.
+            $approvals = [];
+            $qualifying = $submissions
+                ->filter(fn ($s) => $s->status === ContributionSubmission::STATUS_SUBMITTED)
+                ->filter(fn ($s) => $s->validations->count() >= $minValidations)
+                ->filter(function ($s) use (&$approvals, $threshold) {
+                    $approvals[$s->id] = $this->approval($s);
+
+                    return $approvals[$s->id] >= $threshold;
+                });
+
+            $newPairs = collect();
+
+            foreach ($qualifying->groupBy(fn ($s) => TextNormalizer::key((string) $s->normalized_text)) as $key => $group) {
+                $rep = $group->sortByDesc(fn ($s) => $approvals[$s->id])->first();
+
+                // Already minted for this variant → fold convergent dupes in.
+                if (in_array($key, $acceptedKeys, true)) {
+                    $this->supersede($group);
+
                     continue;
                 }
 
-                $validations = $submission->validations;
-                if ($validations->count() < $minValidations) {
-                    continue;
-                }
+                $convergence = $group->count() - 1;
+                $score = round(min(100.0, ($approvals[$rep->id] * 20) + ($convergence * $convergenceBonus)), 2);
 
-                $approval = 0.0;
-                foreach ($validations as $v) {
-                    $approval += match ($v->verdict) {
-                        'agree', 'minor_fix' => (float) $v->weight,
-                        'reject' => -(float) $v->weight,
-                        default => 0.0,
-                    };
-                }
+                $newPairs->push($this->accept($task, $rep, $score, $submissions));
+                $acceptedKeys[] = $key;
 
-                if ($approval < $threshold) {
-                    continue;
-                }
-
-                $convergence = $this->convergenceCount($submissions, $submission);
-                $score = min(100.0, ($approval * 20) + ($convergence * $convergenceBonus));
-
-                if ($best === null || $approval > $bestApproval) {
-                    $best = ['submission' => $submission, 'score' => round($score, 2)];
-                    $bestApproval = $approval;
-                }
+                // Convergent duplicates reinforce the variant but don't mint again.
+                $this->supersede($group->reject(fn ($s) => $s->id === $rep->id));
             }
 
-            if ($best === null) {
-                return null;
-            }
-
-            return $this->accept($task, $best['submission'], $best['score'], $submissions);
+            return $newPairs;
         });
     }
 
-    private function accept(
-        ContributionTask $task,
-        ContributionSubmission $winner,
-        float $score,
-        $allSubmissions
-    ): CorpusPair {
-        $winner->forceFill([
+    private function accept(ContributionTask $task, ContributionSubmission $rep, float $score, Collection $allSubmissions): CorpusPair
+    {
+        $rep->forceFill([
             'status' => ContributionSubmission::STATUS_ACCEPTED,
             'agreement_score' => $score,
         ])->save();
 
-        foreach ($allSubmissions as $other) {
-            if ($other->id !== $winner->id && $other->status === ContributionSubmission::STATUS_SUBMITTED) {
-                $other->forceFill(['status' => ContributionSubmission::STATUS_SUPERSEDED])->save();
-            }
-        }
-
-        $task->forceFill(['status' => ContributionTask::STATUS_CLOSED])->save();
-
-        ContributorProfile::query()->where('user_id', $winner->user_id)
+        ContributorProfile::query()->where('user_id', $rep->user_id)
             ->update(['submissions_accepted' => DB::raw('submissions_accepted + 1')]);
 
-        [$enText, $atesoText] = $this->orientPair($task, $winner);
+        [$enText, $atesoText] = $this->orientPair($task, $rep);
 
         $pair = new CorpusPair([
             'en_text' => $enText,
             'ateso_text' => $atesoText,
             'register' => $task->register,
             'region' => $task->region,
+            'dialect' => $rep->dialect,
+            'is_code_switched' => (bool) $rep->is_code_switched,
             'quality_score' => $score,
             'license_version' => config('contributions.license_version'),
             'provenance' => [
                 'task_uuid' => $task->uuid,
-                'accepted_user_id' => $winner->user_id,
+                'accepted_user_id' => $rep->user_id,
+                'dialect' => $rep->dialect,
                 'contributor_ids' => $allSubmissions->pluck('user_id')->unique()->values()->all(),
-                'validator_ids' => $winner->validations->pluck('validator_user_id')->unique()->values()->all(),
+                'validator_ids' => $rep->validations->pluck('validator_user_id')->unique()->values()->all(),
             ],
         ]);
-        $pair->submission()->associate($winner);
+        $pair->submission()->associate($rep);
         if ($task->source_type && $task->source_id) {
             $pair->source()->associate($task->source);
         }
         $pair->save();
 
-        // Close the loop: pay the translator and the validators who approved.
-        $this->rewards->rewardAcceptance($winner);
+        // Pay the translator and the validators who approved this variant.
+        $this->rewards->rewardAcceptance($rep);
 
         return $pair;
     }
 
     /**
-     * Resolve which side of the pair is English. The task's prompt_text is the
-     * source; the winning submission is the target translation.
-     *
+     * Weighted approval: approving verdicts add their weight, rejects subtract.
+     */
+    private function approval(ContributionSubmission $submission): float
+    {
+        $approval = 0.0;
+        foreach ($submission->validations as $v) {
+            if (in_array($v->verdict, ContributionValidation::APPROVING_VERDICTS, true)) {
+                $approval += (float) $v->weight;
+            } elseif ($v->verdict === ContributionValidation::VERDICT_REJECT) {
+                $approval -= (float) $v->weight;
+            }
+        }
+
+        return $approval;
+    }
+
+    /**
+     * @param  Collection<int, ContributionSubmission>  $submissions
+     */
+    private function supersede(Collection $submissions): void
+    {
+        foreach ($submissions as $s) {
+            if ($s->status === ContributionSubmission::STATUS_SUBMITTED) {
+                $s->forceFill(['status' => ContributionSubmission::STATUS_SUPERSEDED])->save();
+            }
+        }
+    }
+
+    /**
      * @return array{0: string, 1: string} [en_text, ateso_text]
      */
-    private function orientPair(ContributionTask $task, ContributionSubmission $winner): array
+    private function orientPair(ContributionTask $task, ContributionSubmission $rep): array
     {
         $source = (string) $task->prompt_text;
-        $target = (string) $winner->normalized_text;
+        $target = (string) $rep->normalized_text;
 
         if ($task->source_lang === 'en') {
             return [$source, $target];
         }
 
-        // Source is Ateso (the common lyric case) → submission is the English side.
         return [$target, $source];
-    }
-
-    /**
-     * How many OTHER submissions on the task normalize to the same text.
-     */
-    private function convergenceCount($submissions, ContributionSubmission $submission): int
-    {
-        $key = TextNormalizer::key((string) $submission->normalized_text);
-        if ($key === '') {
-            return 0;
-        }
-
-        return $submissions
-            ->filter(fn ($s) => $s->id !== $submission->id)
-            ->filter(fn ($s) => TextNormalizer::key((string) $s->normalized_text) === $key)
-            ->count();
     }
 }

@@ -57,6 +57,7 @@ class MigrationPolicyGuardTest extends TestCase
         '2026_06_11_400000_add_hls_delivery_to_songs.php',
         '2026_06_14_100000_create_contribution_pipeline_tables.php',
         '2026_06_14_110000_create_song_lyric_optins_table.php',
+        '2026_06_14_120000_add_variant_capture_to_contributions.php',
     ];
 
     private const BANNED_NAME_FRAGMENTS = [

@@ -26,6 +26,27 @@ return [
 
     'default_region' => 'ug', // Ugandan Ateso
 
+    // Ateso varieties/dialects a contributor can tag their work with. Codes are
+    // stable keys; labels are for the UI. Ateso is dialect-rich, so a "different"
+    // answer is a tagged variant, not a wrong answer.
+    'dialects' => [
+        'katakwi' => 'Katakwi / Usuk',
+        'amuria' => 'Amuria',
+        'soroti' => 'Soroti',
+        'serere' => 'Serere',
+        'kumi' => 'Kumi',
+        'ngora' => 'Ngora',
+        'bukedea' => 'Bukedea',
+        'pallisa' => 'Pallisa',
+        'tororo' => 'Tororo',
+        'kenya' => 'Kenya-Teso',
+        'general' => 'Unsure / General',
+    ],
+
+    // Include code-switched (mixed-language) pairs in exports by default; they
+    // can be filtered out for a "pure" corpus. Real usage is the point.
+    'export_include_code_switched' => true,
+
     // Independent translations gathered per task before agreement scoring.
     'redundancy_target' => 3,
 

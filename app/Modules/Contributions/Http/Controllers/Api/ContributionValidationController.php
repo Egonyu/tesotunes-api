@@ -60,7 +60,7 @@ class ContributionValidationController extends Controller
     public function store(Request $request, string $submission): JsonResponse
     {
         $validated = $request->validate([
-            'verdict' => ['required', 'string', 'in:agree,minor_fix,reject'],
+            'verdict' => ['required', 'string', 'in:agree,minor_fix,valid_variant,reject'],
             'suggested_fix' => ['nullable', 'string', 'max:2000'],
         ]);
 

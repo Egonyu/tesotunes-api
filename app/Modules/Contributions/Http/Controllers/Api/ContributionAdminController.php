@@ -69,6 +69,10 @@ class ContributionAdminController extends Controller
         $validated = $request->validate([
             'prompt_text' => ['required', 'string', 'max:2000'],
             'gold_answer' => ['required', 'string', 'max:2000'],
+            // Additional accepted forms (dialectal variants) so a valid variant
+            // never fails a gold.
+            'gold_answers' => ['sometimes', 'array', 'max:20'],
+            'gold_answers.*' => ['string', 'max:2000'],
             'source_lang' => ['sometimes', 'string', 'max:8'],
             'target_lang' => ['sometimes', 'string', 'max:8'],
             'region' => ['sometimes', 'string', 'max:8'],
@@ -84,6 +88,7 @@ class ContributionAdminController extends Controller
             'prompt_text' => $validated['prompt_text'],
             'is_gold' => true,
             'gold_answer' => $validated['gold_answer'],
+            'gold_answers' => $validated['gold_answers'] ?? null,
             'redundancy_target' => (int) config('contributions.redundancy_target', 3),
             'status' => ContributionTask::STATUS_OPEN,
         ]);

@@ -26,7 +26,10 @@ class SubmissionService
     /**
      * @throws \DomainException on a guard violation (controller maps to 422)
      */
-    public function submit(User $user, ContributionTask $task, string $rawText): ContributionSubmission
+    /**
+     * @param  array{dialect?: ?string, code_switched?: bool, note?: ?string}  $variant
+     */
+    public function submit(User $user, ContributionTask $task, string $rawText, array $variant = []): ContributionSubmission
     {
         if ($this->consent->needsConsent($user)) {
             throw new \DomainException('You must accept the contribution data terms before submitting.');
@@ -45,9 +48,14 @@ class SubmissionService
             throw new \DomainException('You have already submitted a translation for this task.');
         }
 
-        return DB::transaction(function () use ($user, $task, $text) {
+        return DB::transaction(function () use ($user, $task, $text, $variant) {
             /** @var ContributionTask $task */
             $task = ContributionTask::query()->lockForUpdate()->findOrFail($task->id);
+
+            // Dialect defaults to the contributor's declared variety when they
+            // don't pick one per-submission.
+            $dialect = $variant['dialect']
+                ?? ContributorProfile::query()->where('user_id', $user->id)->value('dialect');
 
             $submission = new ContributionSubmission([
                 'raw_text' => $text,
@@ -55,16 +63,19 @@ class SubmissionService
                 // then it mirrors the raw text so the column is always populated.
                 'normalized_text' => $text,
                 'region' => $task->region,
+                'dialect' => $dialect,
+                'is_code_switched' => (bool) ($variant['code_switched'] ?? false),
+                'note' => $variant['note'] ?? null,
                 'status' => ContributionSubmission::STATUS_SUBMITTED,
                 'is_gold_attempt' => $task->isGold(),
             ]);
             $submission->task()->associate($task);
             $submission->user()->associate($user);
 
-            // Gold salting: score the answer against the hidden gold answer and
-            // fold the result into the contributor's reputation immediately.
+            // Gold salting: score against the hidden gold answer OR any accepted
+            // dialectal variant in gold_answers, so a valid variant never fails.
             if ($task->isGold()) {
-                $passed = TextNormalizer::matches($text, (string) $task->gold_answer);
+                $passed = $this->matchesGold($task, $text);
                 $submission->gold_passed = $passed;
                 $submission->save();
                 $this->reputation->recordGoldResult($user, $passed);
@@ -92,5 +103,24 @@ class SubmissionService
             ->where('contribution_task_id', $task->id)
             ->where('user_id', $user->id)
             ->exists();
+    }
+
+    /**
+     * A gold submission passes if it matches the primary gold answer or any of
+     * the additional accepted forms (dialectal variants).
+     */
+    private function matchesGold(ContributionTask $task, string $text): bool
+    {
+        if (TextNormalizer::matches($text, (string) $task->gold_answer)) {
+            return true;
+        }
+
+        foreach ((array) $task->gold_answers as $answer) {
+            if (is_string($answer) && TextNormalizer::matches($text, $answer)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

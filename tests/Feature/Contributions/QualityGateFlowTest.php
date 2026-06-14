@@ -58,6 +58,19 @@ class QualityGateFlowTest extends TestCase
         $this->assertTrue((bool) $submission->gold_passed);
     }
 
+    public function test_gold_passes_on_an_accepted_dialectal_variant(): void
+    {
+        $task = $this->translateTask(gold: true, goldAnswer: 'I am fine');
+        $task->forceFill(['gold_answers' => ['I am well', 'i am okay']])->save();
+        $user = $this->consentedUser();
+
+        // Not the primary answer, but a listed accepted variant → passes.
+        app(SubmissionService::class)->submit($user, $task, 'I am well');
+
+        $profile = ContributorProfile::where('user_id', $user->id)->first();
+        $this->assertSame(1, $profile->gold_passed);
+    }
+
     public function test_wrong_gold_answer_does_not_pass(): void
     {
         $task = $this->translateTask(gold: true, goldAnswer: 'I am fine');
@@ -118,7 +131,10 @@ class QualityGateFlowTest extends TestCase
         $task->refresh();
 
         $this->assertSame(ContributionSubmission::STATUS_ACCEPTED, $winner->status);
-        $this->assertSame(ContributionTask::STATUS_CLOSED, $task->status);
+        // Multi-variant: acceptance mints a pair but keeps the task open so other
+        // dialectal variants can still be gathered and accepted — it no longer
+        // hard-closes on the first acceptance.
+        $this->assertNotSame(ContributionTask::STATUS_CLOSED, $task->status);
 
         $pair = CorpusPair::where('contribution_submission_id', $winner->id)->first();
         $this->assertNotNull($pair);
@@ -126,12 +142,41 @@ class QualityGateFlowTest extends TestCase
         $this->assertSame('I greet you', $pair->en_text);     // accepted translation
         $this->assertSame('CC-BY-SA-4.0', $pair->license_version);
 
-        // Sibling submission is superseded.
+        // The other, un-reviewed submission is a *different* variant with no
+        // votes — it stays open for review, not superseded.
         $this->assertSame(
-            ContributionSubmission::STATUS_SUPERSEDED,
+            ContributionSubmission::STATUS_SUBMITTED,
             ContributionSubmission::where('contribution_task_id', $task->id)
                 ->where('user_id', '!=', $author->id)->first()->status
         );
+    }
+
+    public function test_two_distinct_dialect_variants_both_get_accepted(): void
+    {
+        config(['contributions.acceptance.min_validations' => 1, 'contributions.acceptance.approval_threshold' => 1.0]);
+
+        $task = $this->translateTask();
+        $submissions = app(SubmissionService::class);
+        $validations = app(ValidationService::class);
+
+        // Two contributors give genuinely different (both valid) translations.
+        $a = $this->consentedUser();
+        $b = $this->consentedUser();
+        $submissions->submit($a, $task, 'I greet you', ['dialect' => 'soroti']);
+        $submissions->submit($b, $task, 'greetings to you', ['dialect' => 'kumi']);
+
+        $subA = ContributionSubmission::where('contribution_task_id', $task->id)->where('user_id', $a->id)->first();
+        $subB = ContributionSubmission::where('contribution_task_id', $task->id)->where('user_id', $b->id)->first();
+
+        // A peer approves A; another marks B a valid variant (different dialect).
+        $validations->validate($this->consentedUser(), $subA, 'agree');
+        $validations->validate($this->consentedUser(), $subB, 'valid_variant');
+
+        // Both variants are accepted as separate, dialect-tagged corpus pairs.
+        $this->assertSame(2, CorpusPair::where('contribution_submission_id', $subA->id)
+            ->orWhere('contribution_submission_id', $subB->id)->count());
+        $this->assertSame('soroti', CorpusPair::where('contribution_submission_id', $subA->id)->value('dialect'));
+        $this->assertSame('kumi', CorpusPair::where('contribution_submission_id', $subB->id)->value('dialect'));
     }
 
     public function test_gold_tasks_never_mint_corpus_pairs(): void

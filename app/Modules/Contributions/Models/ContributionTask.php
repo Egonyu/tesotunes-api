@@ -37,12 +37,13 @@ class ContributionTask extends Model
      * gold_answer is sensitive (it would leak the gold-standard answer key) and
      * is never serialised to API responses.
      */
-    protected $hidden = ['gold_answer'];
+    protected $hidden = ['gold_answer', 'gold_answers'];
 
     protected function casts(): array
     {
         return [
             'is_gold' => 'boolean',
+            'gold_answers' => 'array',
             'redundancy_target' => 'integer',
             'submission_count' => 'integer',
             'metadata' => 'array',

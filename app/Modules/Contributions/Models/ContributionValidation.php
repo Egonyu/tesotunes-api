@@ -20,7 +20,14 @@ class ContributionValidation extends Model
 
     public const VERDICT_MINOR_FIX = 'minor_fix';
 
+    // "Correct, but a different dialect/usage than mine" — a valid variant, not
+    // an error. Counts toward acceptance like agree, never rejects the work.
+    public const VERDICT_VALID_VARIANT = 'valid_variant';
+
     public const VERDICT_REJECT = 'reject';
+
+    /** Verdicts that count as approval (the submission is acceptable). */
+    public const APPROVING_VERDICTS = [self::VERDICT_AGREE, self::VERDICT_MINOR_FIX, self::VERDICT_VALID_VARIANT];
 
     protected $guarded = ['id'];
 
