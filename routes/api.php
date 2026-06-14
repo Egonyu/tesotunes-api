@@ -48,6 +48,9 @@ require __DIR__.'/api/payment.php';
 // Webhook API Routes (ZengaPay, etc.)
 require __DIR__.'/api/webhooks.php';
 
+// Unified account dashboard (all users)
+require __DIR__.'/api/dashboard.php';
+
 // Social API Routes (follows, shares, comments)
 require __DIR__.'/api/social.php';
 
