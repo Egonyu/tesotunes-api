@@ -1,5 +1,6 @@
 <?php
 
+use App\Modules\Contributions\Http\Controllers\Api\ContributionAdminController;
 use App\Modules\Contributions\Http\Controllers\Api\ContributionConsentController;
 use App\Modules\Contributions\Http\Controllers\Api\ContributionTaskController;
 use App\Modules\Contributions\Http\Controllers\Api\ContributionValidationController;
@@ -32,4 +33,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Peer validation + quality gate (9.3)
     Route::get('/validations/queue', [ContributionValidationController::class, 'queue'])->name('validations.queue');
     Route::post('/submissions/{submission}/validate', [ContributionValidationController::class, 'store'])->name('submissions.validate');
+
+    // Operator console (9.6) — admin only.
+    Route::middleware('role:admin,super_admin')->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/overview', [ContributionAdminController::class, 'overview'])->name('overview');
+        Route::post('/gold', [ContributionAdminController::class, 'seedGold'])->name('gold');
+        Route::post('/export', [ContributionAdminController::class, 'export'])->name('export');
+    });
 });
