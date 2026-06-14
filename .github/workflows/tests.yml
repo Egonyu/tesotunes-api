@@ -52,7 +52,11 @@ jobs:
         with:
           php-version: ${{ matrix.php }}
           extensions: mbstring, xml, ctype, json, zip, gd, sqlite3, redis, mysql, bcmath, intl
-          coverage: xdebug
+          # Coverage was never consumed (the Codecov upload was gated to a PHP
+          # version not in the matrix), but loading xdebug pushed the 999-test
+          # run past its 512M limit and OOM-killed the process *after* every
+          # test passed. Run without a coverage driver: faster and stable.
+          coverage: none
           tools: composer:v2
 
       - name: Get Composer cache directory
@@ -101,13 +105,6 @@ jobs:
           SESSION_DRIVER: array
         run: composer test
         continue-on-error: false
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        if: matrix.php == '8.3'
-        with:
-          files: ./coverage.xml
-          fail_ci_if_error: false
 
   code-quality:
     name: Code Quality

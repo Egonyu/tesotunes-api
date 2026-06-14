@@ -83,11 +83,11 @@
         "test": [
             "Composer\\Config::disableProcessTimeout",
             "@test:prepare",
-            "@php -d memory_limit=512M vendor/bin/pest"
+            "@php -d memory_limit=1024M vendor/bin/pest"
         ],
         "test:fast": [
             "Composer\\Config::disableProcessTimeout",
-            "@php -d memory_limit=512M vendor/bin/pest"
+            "@php -d memory_limit=1024M vendor/bin/pest"
         ],
         "migrations:verify": [
             "@php artisan test tests/Feature/BaselineSchemaRegressionTest.php tests/Feature/MigrationPolicyGuardTest.php"
