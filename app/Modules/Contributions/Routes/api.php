@@ -3,6 +3,7 @@
 use App\Modules\Contributions\Http\Controllers\Api\ContributionConsentController;
 use App\Modules\Contributions\Http\Controllers\Api\ContributionTaskController;
 use App\Modules\Contributions\Http\Controllers\Api\ContributionValidationController;
+use App\Modules\Contributions\Http\Controllers\Api\ContributorProfileController;
 use App\Modules\Contributions\Http\Controllers\Api\LyricOptInController;
 use Illuminate\Support\Facades\Route;
 
@@ -15,6 +16,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Data-terms consent (9.1)
     Route::get('/consent', [ContributionConsentController::class, 'show'])->name('consent.show');
     Route::post('/consent', [ContributionConsentController::class, 'store'])->name('consent.store');
+
+    // Contributor standing + earnings (9.4)
+    Route::get('/profile', [ContributorProfileController::class, 'show'])->name('profile.show');
 
     // Contributor translation tasks (9.2)
     Route::get('/tasks', [ContributionTaskController::class, 'index'])->name('tasks.index');

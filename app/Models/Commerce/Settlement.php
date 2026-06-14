@@ -35,6 +35,8 @@ class Settlement extends Model
 
     public const VERTICAL_PROMOTIONS = 'promotions';
 
+    public const VERTICAL_CONTRIBUTIONS = 'contributions';
+
     /**
      * Amounts and lifecycle fields are NOT fillable — they are computed and
      * transitioned exclusively by SettlementService.

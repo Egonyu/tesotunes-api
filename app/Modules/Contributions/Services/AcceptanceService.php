@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\DB;
  */
 class AcceptanceService
 {
+    public function __construct(private readonly RewardService $rewards) {}
+
     /**
      * Evaluate a task; accept the winning submission and mint a corpus pair if
      * the gate is cleared. Idempotent and safe to call after every validation.
@@ -35,7 +37,7 @@ class AcceptanceService
                 return null;
             }
 
-            $submissions = $task->submissions()->with('validations')->get();
+            $submissions = $task->submissions()->with(['validations.validator', 'user'])->get();
             if ($submissions->isEmpty()) {
                 return null;
             }
@@ -131,6 +133,9 @@ class AcceptanceService
             $pair->source()->associate($task->source);
         }
         $pair->save();
+
+        // Close the loop: pay the translator and the validators who approved.
+        $this->rewards->rewardAcceptance($winner);
 
         return $pair;
     }
