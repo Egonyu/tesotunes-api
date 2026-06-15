@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Album;
 use App\Models\Artist;
 use App\Models\Genre;
 use App\Models\Playlist;
@@ -22,6 +23,7 @@ class DiscoverController extends Controller
         $results = [
             'songs' => [],
             'artists' => [],
+            'albums' => [],
             'playlists' => [],
         ];
 
@@ -59,17 +61,36 @@ class DiscoverController extends Controller
                 $results['artists'] = $artistQuery->take($limit)->get();
             }
 
-            // Search playlists
+            // Search albums
+            if ($type === 'all' || $type === 'albums') {
+                $albumQuery = Album::published()
+                    ->with(['artist'])
+                    ->where(function ($q) use ($query) {
+                        $q->where('title', 'LIKE', "%{$query}%")
+                            ->orWhereHas('artist', function ($subQuery) use ($query) {
+                                $subQuery->where('stage_name', 'LIKE', "%{$query}%");
+                            });
+                    });
+
+                if ($genre) {
+                    $albumQuery->where('primary_genre_id', $genre);
+                }
+
+                $this->applySorting($albumQuery, $sortBy, $query, 'title');
+                $results['albums'] = $albumQuery->take($limit)->get();
+            }
+
+            // Search playlists (the playlists table uses `name`, not `title`).
             if ($type === 'all' || $type === 'playlists') {
                 $playlistQuery = Playlist::public()
                     ->with(['owner'])
                     ->withCount(['songs', 'followers'])
                     ->where(function ($q) use ($query) {
-                        $q->where('title', 'LIKE', "%{$query}%")
+                        $q->where('name', 'LIKE', "%{$query}%")
                             ->orWhere('description', 'LIKE', "%{$query}%");
                     });
 
-                $this->applySorting($playlistQuery, $sortBy, $query, 'title');
+                $this->applySorting($playlistQuery, $sortBy, $query, 'name');
                 $results['playlists'] = $playlistQuery->take($limit)->get();
             }
         }
