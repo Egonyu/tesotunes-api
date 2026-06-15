@@ -27,6 +27,13 @@ class SearchEndpointTest extends TestCase
         $this->assertGreaterThanOrEqual(1, count($response->json('data.results.songs')));
         $this->assertGreaterThanOrEqual(1, count($response->json('data.results.artists')));
         $this->assertGreaterThanOrEqual(1, count($response->json('data.results.albums')));
+
+        // Results carry image URLs (artist avatar falls back to a generated
+        // avatar, so it is always present). Song/album artwork resolves on the
+        // media disk in production.
+        $this->assertNotEmpty($response->json('data.results.artists.0.avatar_url'));
+        $this->assertArrayHasKey('artwork_url', $response->json('data.results.songs.0'));
+        $this->assertArrayHasKey('artwork_url', $response->json('data.results.albums.0'));
     }
 
     public function test_playlist_search_uses_the_name_column_and_does_not_crash(): void

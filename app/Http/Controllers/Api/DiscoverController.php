@@ -45,7 +45,8 @@ class DiscoverController extends Controller
                 }
 
                 $this->applySorting($songQuery, $sortBy, $query, 'title');
-                $results['songs'] = $songQuery->take($limit)->get();
+                $results['songs'] = $songQuery->take($limit)->get()
+                    ->each->append('artwork_url');
             }
 
             // Search artists
@@ -58,7 +59,8 @@ class DiscoverController extends Controller
                     });
 
                 $this->applySorting($artistQuery, $sortBy, $query, 'stage_name');
-                $results['artists'] = $artistQuery->take($limit)->get();
+                $results['artists'] = $artistQuery->take($limit)->get()
+                    ->each->append('avatar_url');
             }
 
             // Search albums
@@ -77,7 +79,8 @@ class DiscoverController extends Controller
                 }
 
                 $this->applySorting($albumQuery, $sortBy, $query, 'title');
-                $results['albums'] = $albumQuery->take($limit)->get();
+                $results['albums'] = $albumQuery->take($limit)->get()
+                    ->each->append('artwork_url');
             }
 
             // Search playlists (the playlists table uses `name`, not `title`).
