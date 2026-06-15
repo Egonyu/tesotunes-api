@@ -1,0 +1,137 @@
+How much is the salt?
+I want to buy salt.
+Give me some salt.
+Do you have salt?
+The salt is finished.
+How much is the sugar?
+I want to buy sugar.
+Give me some sugar.
+Do you have sugar?
+The sugar is finished.
+How much is the beans?
+I want to buy beans.
+Give me some beans.
+Do you have beans?
+The beans is finished.
+How much is the maize?
+I want to buy maize.
+Give me some maize.
+Do you have maize?
+The maize is finished.
+How much is the rice?
+I want to buy rice.
+Give me some rice.
+Do you have rice?
+The rice is finished.
+How much is the milk?
+I want to buy milk.
+Give me some milk.
+Do you have milk?
+The milk is finished.
+How much is the soap?
+I want to buy soap.
+Give me some soap.
+Do you have soap?
+The soap is finished.
+How much is the matches?
+I want to buy matches.
+Give me some matches.
+Do you have matches?
+The matches is finished.
+How much is the cassava?
+I want to buy cassava.
+Give me some cassava.
+Do you have cassava?
+The cassava is finished.
+How much is the millet?
+I want to buy millet.
+Give me some millet.
+Do you have millet?
+The millet is finished.
+How much is the groundnuts?
+I want to buy groundnuts.
+Give me some groundnuts.
+Do you have groundnuts?
+The groundnuts is finished.
+How much is the tomatoes?
+I want to buy tomatoes.
+Give me some tomatoes.
+Do you have tomatoes?
+The tomatoes is finished.
+How much is the onions?
+I want to buy onions.
+Give me some onions.
+Do you have onions?
+The onions is finished.
+How much is the fish?
+I want to buy fish.
+Give me some fish.
+Do you have fish?
+The fish is finished.
+How much is the meat?
+I want to buy meat.
+Give me some meat.
+Do you have meat?
+The meat is finished.
+How much is the bread?
+I want to buy bread.
+Give me some bread.
+Do you have bread?
+The bread is finished.
+How much is the oil?
+I want to buy oil.
+Give me some oil.
+Do you have oil?
+The oil is finished.
+How much is the firewood?
+I want to buy firewood.
+Give me some firewood.
+Do you have firewood?
+The firewood is finished.
+How much is the charcoal?
+I want to buy charcoal.
+Give me some charcoal.
+Do you have charcoal?
+The charcoal is finished.
+How much is the water?
+I want to buy water.
+Give me some water.
+Do you have water?
+The water is finished.
+How much is this?
+It is too expensive.
+Reduce the price, please.
+I do not have enough money.
+Give me two kilograms.
+Do you have change?
+I will come back later.
+Wrap it for me, please.
+That is a fair price.
+Where is the market?
+The market is busy today.
+I am selling tomatoes.
+Weigh the salt for me.
+Weigh the sugar for me.
+Weigh the beans for me.
+Weigh the maize for me.
+Weigh the rice for me.
+Weigh the milk for me.
+Weigh the soap for me.
+Weigh the matches for me.
+Weigh the cassava for me.
+Weigh the millet for me.
+Weigh the groundnuts for me.
+Weigh the tomatoes for me.
+Weigh the onions for me.
+Weigh the fish for me.
+Weigh the meat for me.
+Weigh the bread for me.
+Weigh the oil for me.
+Weigh the firewood for me.
+Weigh the charcoal for me.
+Weigh the water for me.
+Bring it closer.
+Show me another one.
+Is it fresh?
+When did it arrive?
+I will take two.

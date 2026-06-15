@@ -1,0 +1,94 @@
+Where is the market?
+I am going to the market.
+The market is near here.
+How far is the market?
+Take me to the market.
+Meet me at the market.
+Where is the church?
+I am going to the church.
+The church is near here.
+How far is the church?
+Take me to the church.
+Meet me at the church.
+Where is the school?
+I am going to the school.
+The school is near here.
+How far is the school?
+Take me to the school.
+Meet me at the school.
+Where is the hospital?
+I am going to the hospital.
+The hospital is near here.
+How far is the hospital?
+Take me to the hospital.
+Meet me at the hospital.
+Where is the well?
+I am going to the well.
+The well is near here.
+How far is the well?
+Take me to the well.
+Meet me at the well.
+Where is the garden?
+I am going to the garden.
+The garden is near here.
+How far is the garden?
+Take me to the garden.
+Meet me at the garden.
+Where is the home?
+I am going to the home.
+The home is near here.
+How far is the home?
+Take me to the home.
+Meet me at the home.
+Where is the shop?
+I am going to the shop.
+The shop is near here.
+How far is the shop?
+Take me to the shop.
+Meet me at the shop.
+Where is the borehole?
+I am going to the borehole.
+The borehole is near here.
+How far is the borehole?
+Take me to the borehole.
+Meet me at the borehole.
+Where is the road?
+I am going to the road.
+The road is near here.
+How far is the road?
+Take me to the road.
+Meet me at the road.
+Where is the river?
+I am going to the river.
+The river is near here.
+How far is the river?
+Take me to the river.
+Meet me at the river.
+Where is the town?
+I am going to the town.
+The town is near here.
+How far is the town?
+Take me to the town.
+Meet me at the town.
+Where is the clinic?
+I am going to the clinic.
+The clinic is near here.
+How far is the clinic?
+Take me to the clinic.
+Meet me at the clinic.
+Where is the mosque?
+I am going to the mosque.
+The mosque is near here.
+How far is the mosque?
+Take me to the mosque.
+Meet me at the mosque.
+Turn left.
+Turn right.
+Go straight ahead.
+It is over there.
+Follow this road.
+It is not far.
+Cross the river.
+Wait for me at the junction.
+Come this way.
+Stop here.

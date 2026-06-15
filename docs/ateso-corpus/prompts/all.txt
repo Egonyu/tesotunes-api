@@ -1,0 +1,1013 @@
+Good morning.
+Good afternoon.
+Good evening.
+Good night.
+How are you?
+I am fine, thank you.
+How is your family?
+How was your night?
+Welcome.
+Welcome home.
+It is good to see you.
+Safe journey.
+See you tomorrow.
+Greet your family for me.
+Have a good day.
+How is the work?
+How is home?
+Long time, no see.
+Goodbye.
+Travel well.
+Thank you very much.
+You are welcome.
+Please come in.
+Sit down, please.
+How are the children?
+How did you sleep?
+We thank God.
+Greetings to everyone.
+Take care of yourself.
+I am happy to see you.
+How is everyone at home?
+May God bless you.
+Sorry for the loss.
+Congratulations.
+Well done.
+Be patient.
+This is my mother.
+Where is your mother?
+My mother is at home.
+How is your mother?
+I love my mother.
+Call your mother.
+My mother is not feeling well.
+This is my father.
+Where is your father?
+My father is at home.
+How is your father?
+I love my father.
+Call your father.
+My father is not feeling well.
+This is my brother.
+Where is your brother?
+My brother is at home.
+How is your brother?
+I love my brother.
+Call your brother.
+My brother is not feeling well.
+This is my sister.
+Where is your sister?
+My sister is at home.
+How is your sister?
+I love my sister.
+Call your sister.
+My sister is not feeling well.
+This is my grandmother.
+Where is your grandmother?
+My grandmother is at home.
+How is your grandmother?
+I love my grandmother.
+Call your grandmother.
+My grandmother is not feeling well.
+This is my grandfather.
+Where is your grandfather?
+My grandfather is at home.
+How is your grandfather?
+I love my grandfather.
+Call your grandfather.
+My grandfather is not feeling well.
+This is my aunt.
+Where is your aunt?
+My aunt is at home.
+How is your aunt?
+I love my aunt.
+Call your aunt.
+My aunt is not feeling well.
+This is my uncle.
+Where is your uncle?
+My uncle is at home.
+How is your uncle?
+I love my uncle.
+Call your uncle.
+My uncle is not feeling well.
+This is my child.
+Where is your child?
+My child is at home.
+How is your child?
+I love my child.
+Call your child.
+My child is not feeling well.
+This is my wife.
+Where is your wife?
+My wife is at home.
+How is your wife?
+I love my wife.
+Call your wife.
+My wife is not feeling well.
+This is my husband.
+Where is your husband?
+My husband is at home.
+How is your husband?
+I love my husband.
+Call your husband.
+My husband is not feeling well.
+This is my friend.
+Where is your friend?
+My friend is at home.
+How is your friend?
+I love my friend.
+Call your friend.
+My friend is not feeling well.
+This is my neighbour.
+Where is your neighbour?
+My neighbour is at home.
+How is your neighbour?
+I love my neighbour.
+Call your neighbour.
+My neighbour is not feeling well.
+This is my son.
+Where is your son?
+My son is at home.
+How is your son?
+I love my son.
+Call your son.
+My son is not feeling well.
+This is my daughter.
+Where is your daughter?
+My daughter is at home.
+How is your daughter?
+I love my daughter.
+Call your daughter.
+My daughter is not feeling well.
+I have two brothers and one sister.
+My parents live in the village.
+She is my elder sister.
+We are a big family.
+My grandmother tells us stories.
+The children are playing outside.
+My father went to the garden.
+My mother is cooking food.
+Our family eats together.
+How much is the salt?
+I want to buy salt.
+Give me some salt.
+Do you have salt?
+The salt is finished.
+How much is the sugar?
+I want to buy sugar.
+Give me some sugar.
+Do you have sugar?
+The sugar is finished.
+How much is the beans?
+I want to buy beans.
+Give me some beans.
+Do you have beans?
+The beans is finished.
+How much is the maize?
+I want to buy maize.
+Give me some maize.
+Do you have maize?
+The maize is finished.
+How much is the rice?
+I want to buy rice.
+Give me some rice.
+Do you have rice?
+The rice is finished.
+How much is the milk?
+I want to buy milk.
+Give me some milk.
+Do you have milk?
+The milk is finished.
+How much is the soap?
+I want to buy soap.
+Give me some soap.
+Do you have soap?
+The soap is finished.
+How much is the matches?
+I want to buy matches.
+Give me some matches.
+Do you have matches?
+The matches is finished.
+How much is the cassava?
+I want to buy cassava.
+Give me some cassava.
+Do you have cassava?
+The cassava is finished.
+How much is the millet?
+I want to buy millet.
+Give me some millet.
+Do you have millet?
+The millet is finished.
+How much is the groundnuts?
+I want to buy groundnuts.
+Give me some groundnuts.
+Do you have groundnuts?
+The groundnuts is finished.
+How much is the tomatoes?
+I want to buy tomatoes.
+Give me some tomatoes.
+Do you have tomatoes?
+The tomatoes is finished.
+How much is the onions?
+I want to buy onions.
+Give me some onions.
+Do you have onions?
+The onions is finished.
+How much is the fish?
+I want to buy fish.
+Give me some fish.
+Do you have fish?
+The fish is finished.
+How much is the meat?
+I want to buy meat.
+Give me some meat.
+Do you have meat?
+The meat is finished.
+How much is the bread?
+I want to buy bread.
+Give me some bread.
+Do you have bread?
+The bread is finished.
+How much is the oil?
+I want to buy oil.
+Give me some oil.
+Do you have oil?
+The oil is finished.
+How much is the firewood?
+I want to buy firewood.
+Give me some firewood.
+Do you have firewood?
+The firewood is finished.
+How much is the charcoal?
+I want to buy charcoal.
+Give me some charcoal.
+Do you have charcoal?
+The charcoal is finished.
+How much is the water?
+I want to buy water.
+Give me some water.
+Do you have water?
+The water is finished.
+How much is this?
+It is too expensive.
+Reduce the price, please.
+I do not have enough money.
+Give me two kilograms.
+Do you have change?
+I will come back later.
+Wrap it for me, please.
+That is a fair price.
+Where is the market?
+The market is busy today.
+I am selling tomatoes.
+Weigh the salt for me.
+Weigh the sugar for me.
+Weigh the beans for me.
+Weigh the maize for me.
+Weigh the rice for me.
+Weigh the milk for me.
+Weigh the soap for me.
+Weigh the matches for me.
+Weigh the cassava for me.
+Weigh the millet for me.
+Weigh the groundnuts for me.
+Weigh the tomatoes for me.
+Weigh the onions for me.
+Weigh the fish for me.
+Weigh the meat for me.
+Weigh the bread for me.
+Weigh the oil for me.
+Weigh the firewood for me.
+Weigh the charcoal for me.
+Weigh the water for me.
+Bring it closer.
+Show me another one.
+Is it fresh?
+When did it arrive?
+I will take two.
+I am cooking posho.
+Do you want some posho?
+The posho is ready.
+I like posho.
+There is no posho left.
+I am cooking beans.
+Do you want some beans?
+The beans is ready.
+I like beans.
+There is no beans left.
+I am cooking cassava.
+Do you want some cassava?
+The cassava is ready.
+I like cassava.
+There is no cassava left.
+I am cooking millet bread.
+Do you want some millet bread?
+The millet bread is ready.
+I like millet bread.
+There is no millet bread left.
+I am cooking sweet potatoes.
+Do you want some sweet potatoes?
+The sweet potatoes is ready.
+I like sweet potatoes.
+There is no sweet potatoes left.
+I am cooking greens.
+Do you want some greens?
+The greens is ready.
+I like greens.
+There is no greens left.
+I am cooking porridge.
+Do you want some porridge?
+The porridge is ready.
+I like porridge.
+There is no porridge left.
+I am cooking rice.
+Do you want some rice?
+The rice is ready.
+I like rice.
+There is no rice left.
+I am cooking chicken.
+Do you want some chicken?
+The chicken is ready.
+I like chicken.
+There is no chicken left.
+I am cooking fish.
+Do you want some fish?
+The fish is ready.
+I like fish.
+There is no fish left.
+I am cooking meat.
+Do you want some meat?
+The meat is ready.
+I like meat.
+There is no meat left.
+I am cooking matoke.
+Do you want some matoke?
+The matoke is ready.
+I like matoke.
+There is no matoke left.
+The food is delicious.
+Wash your hands before eating.
+Let us eat together.
+I am still hungry.
+Bring me some water.
+The water is boiling.
+Add a little salt.
+The food is too hot.
+Serve the children first.
+Thank you for the food.
+I have eaten enough.
+Keep the rest for later.
+My head is paining.
+I have a problem with my head.
+My stomach is paining.
+I have a problem with my stomach.
+My leg is paining.
+I have a problem with my leg.
+My arm is paining.
+I have a problem with my arm.
+My eye is paining.
+I have a problem with my eye.
+My tooth is paining.
+I have a problem with my tooth.
+My back is paining.
+I have a problem with my back.
+My chest is paining.
+I have a problem with my chest.
+My ear is paining.
+I have a problem with my ear.
+My hand is paining.
+I have a problem with my hand.
+My foot is paining.
+I have a problem with my foot.
+My throat is paining.
+I have a problem with my throat.
+I am not feeling well.
+I have a headache.
+I have a fever.
+Please call the doctor.
+Take this medicine three times a day.
+Drink plenty of water.
+Go to the hospital.
+The child is sick.
+She is getting better.
+Rest for a few days.
+Where is the nearest clinic?
+Do not forget your medicine.
+I feel much better now.
+Wash the wound carefully.
+Get some sleep.
+We are planting millet.
+The millet is growing well.
+It is time to harvest the millet.
+We grow millet in this garden.
+We are planting cassava.
+The cassava is growing well.
+It is time to harvest the cassava.
+We grow cassava in this garden.
+We are planting maize.
+The maize is growing well.
+It is time to harvest the maize.
+We grow maize in this garden.
+We are planting groundnuts.
+The groundnuts is growing well.
+It is time to harvest the groundnuts.
+We grow groundnuts in this garden.
+We are planting sorghum.
+The sorghum is growing well.
+It is time to harvest the sorghum.
+We grow sorghum in this garden.
+We are planting sweet potatoes.
+The sweet potatoes is growing well.
+It is time to harvest the sweet potatoes.
+We grow sweet potatoes in this garden.
+We are planting beans.
+The beans is growing well.
+It is time to harvest the beans.
+We grow beans in this garden.
+We are planting cotton.
+The cotton is growing well.
+It is time to harvest the cotton.
+We grow cotton in this garden.
+We are planting sunflower.
+The sunflower is growing well.
+It is time to harvest the sunflower.
+We grow sunflower in this garden.
+The rains have come.
+The soil is dry.
+Let us go to the garden early.
+Bring the hoe.
+We need to weed the field.
+The harvest was good this year.
+Store the grain carefully.
+The cattle are grazing.
+Take the goats to the field.
+It is planting season.
+Dig the ground well.
+The cow is in the compound.
+Where is the cow?
+Feed the cow.
+The cow is hungry.
+Sell the cow.
+The cow is sick.
+The goat is in the compound.
+Where is the goat?
+Feed the goat.
+The goat is hungry.
+Sell the goat.
+The goat is sick.
+The chicken is in the compound.
+Where is the chicken?
+Feed the chicken.
+The chicken is hungry.
+Sell the chicken.
+The chicken is sick.
+The dog is in the compound.
+Where is the dog?
+Feed the dog.
+The dog is hungry.
+Sell the dog.
+The dog is sick.
+The cat is in the compound.
+Where is the cat?
+Feed the cat.
+The cat is hungry.
+Sell the cat.
+The cat is sick.
+The sheep is in the compound.
+Where is the sheep?
+Feed the sheep.
+The sheep is hungry.
+Sell the sheep.
+The sheep is sick.
+The pig is in the compound.
+Where is the pig?
+Feed the pig.
+The pig is hungry.
+Sell the pig.
+The pig is sick.
+The donkey is in the compound.
+Where is the donkey?
+Feed the donkey.
+The donkey is hungry.
+Sell the donkey.
+The donkey is sick.
+The hen is in the compound.
+Where is the hen?
+Feed the hen.
+The hen is hungry.
+Sell the hen.
+The hen is sick.
+The cock is in the compound.
+Where is the cock?
+Feed the cock.
+The cock is hungry.
+Sell the cock.
+The cock is sick.
+The cows are coming home.
+The dog is barking.
+The hen has laid eggs.
+Tie the goat over there.
+The animals need water.
+The cat is sleeping.
+Do not let the goats enter the garden.
+It is raining.
+The sun is very hot.
+It is cold this morning.
+The wind is strong.
+It looks like it will rain.
+The sky is clear.
+There is a lot of dust.
+The river is full.
+It rained heavily last night.
+The weather is good today.
+Take an umbrella.
+It is getting dark.
+The dry season has come.
+The clouds are gathering.
+It is too sunny to walk.
+I have one children.
+I have two children.
+I have three children.
+I have four children.
+I have five children.
+I have six children.
+I have seven children.
+I have eight children.
+I have nine children.
+I have ten children.
+Give me one.
+Give me two.
+Give me three.
+Give me four.
+Give me five.
+Give me six.
+Give me seven.
+Give me eight.
+Give me nine.
+Give me ten.
+I will come on Monday.
+I will come on Tuesday.
+I will come on Wednesday.
+I will come on Thursday.
+I will come on Friday.
+I will come on Saturday.
+I will come on Sunday.
+We meet every Monday.
+We meet every Tuesday.
+We meet every Wednesday.
+We meet every Thursday.
+We meet every Friday.
+We meet every Saturday.
+We meet every Sunday.
+What time is it?
+It is morning.
+It is midday.
+It is evening.
+Wait a moment.
+I will be back soon.
+Come early tomorrow.
+We are late.
+Hurry up.
+Today is a good day.
+See you next week.
+It happened yesterday.
+We will travel next month.
+The meeting is at noon.
+It costs one thousand shillings.
+It costs two thousand shillings.
+It costs three thousand shillings.
+It costs four thousand shillings.
+It costs five thousand shillings.
+It costs six thousand shillings.
+It costs seven thousand shillings.
+It costs eight thousand shillings.
+It costs nine thousand shillings.
+It costs ten thousand shillings.
+We are one people.
+We are two people.
+We are three people.
+We are four people.
+We are five people.
+We are six people.
+We are seven people.
+We are eight people.
+We are nine people.
+We are ten people.
+Count from one to ten.
+How many do you want?
+Add two more.
+There are many.
+There are only a few.
+It is half past two.
+Come back in an hour.
+I will wait ten minutes.
+Where is the market?
+I am going to the market.
+The market is near here.
+How far is the market?
+Take me to the market.
+Meet me at the market.
+Where is the church?
+I am going to the church.
+The church is near here.
+How far is the church?
+Take me to the church.
+Meet me at the church.
+Where is the school?
+I am going to the school.
+The school is near here.
+How far is the school?
+Take me to the school.
+Meet me at the school.
+Where is the hospital?
+I am going to the hospital.
+The hospital is near here.
+How far is the hospital?
+Take me to the hospital.
+Meet me at the hospital.
+Where is the well?
+I am going to the well.
+The well is near here.
+How far is the well?
+Take me to the well.
+Meet me at the well.
+Where is the garden?
+I am going to the garden.
+The garden is near here.
+How far is the garden?
+Take me to the garden.
+Meet me at the garden.
+Where is the home?
+I am going to the home.
+The home is near here.
+How far is the home?
+Take me to the home.
+Meet me at the home.
+Where is the shop?
+I am going to the shop.
+The shop is near here.
+How far is the shop?
+Take me to the shop.
+Meet me at the shop.
+Where is the borehole?
+I am going to the borehole.
+The borehole is near here.
+How far is the borehole?
+Take me to the borehole.
+Meet me at the borehole.
+Where is the road?
+I am going to the road.
+The road is near here.
+How far is the road?
+Take me to the road.
+Meet me at the road.
+Where is the river?
+I am going to the river.
+The river is near here.
+How far is the river?
+Take me to the river.
+Meet me at the river.
+Where is the town?
+I am going to the town.
+The town is near here.
+How far is the town?
+Take me to the town.
+Meet me at the town.
+Where is the clinic?
+I am going to the clinic.
+The clinic is near here.
+How far is the clinic?
+Take me to the clinic.
+Meet me at the clinic.
+Where is the mosque?
+I am going to the mosque.
+The mosque is near here.
+How far is the mosque?
+Take me to the mosque.
+Meet me at the mosque.
+Turn left.
+Turn right.
+Go straight ahead.
+It is over there.
+Follow this road.
+It is not far.
+Cross the river.
+Wait for me at the junction.
+Come this way.
+Stop here.
+I am going to fetch water.
+She is washing clothes.
+He is digging in the garden.
+The children are going to school.
+I am sweeping the compound.
+We are collecting firewood.
+I woke up early today.
+Let us start work.
+I am tired from the journey.
+Close the door.
+Open the window.
+Light the lamp.
+Switch off the radio.
+Bring a chair.
+Help me carry this.
+I am washing the dishes.
+Sweep the floor.
+Lock the house.
+Put it down here.
+Pick it up.
+I am washing my face.
+Brush your teeth.
+Comb your hair.
+Make some tea.
+Boil the water.
+Hang the clothes to dry.
+Feed the baby.
+Rock the baby to sleep.
+Carry the water on your head.
+Grind the millet.
+Cut the firewood.
+Sharpen the knife.
+I am happy.
+I am tired.
+I am hungry.
+I am thirsty.
+I am sad.
+I am afraid.
+I am sick.
+I am cold.
+I am hot.
+I am angry.
+I am well.
+I am busy.
+Are you happy?
+Are you tired?
+Are you hungry?
+Are you thirsty?
+Are you sad?
+Are you afraid?
+Are you sick?
+Are you cold?
+Are you hot?
+Are you angry?
+Are you well?
+Are you busy?
+Do not worry.
+I am very happy today.
+She is crying.
+He is laughing.
+Be strong.
+I missed you.
+I am proud of you.
+Do not be afraid.
+Everything will be fine.
+Cheer up.
+What is your name?
+Where do you come from?
+How old are you?
+What do you do?
+Where do you live?
+What did you say?
+Who is that?
+What is this?
+Why are you late?
+When will you come?
+How many are you?
+What do you want?
+Can you help me?
+Do you understand?
+What happened?
+Where are you going?
+Whose is this?
+Which one do you want?
+Are you ready?
+Can you hear me?
+What is the matter?
+Where have you been?
+How was your journey?
+Is anyone home?
+May I come in?
+Could you repeat that?
+What time will you arrive?
+How much do you need?
+Where did you put it?
+Who told you that?
+What is wrong?
+Have you eaten?
+Where is everybody?
+Are we there yet?
+What should I do?
+I am going to school.
+The teacher is in class.
+Read this book.
+Write your name.
+Listen carefully.
+Do your homework.
+The exam is tomorrow.
+I passed my exams.
+Pay attention in class.
+Bring your pen and book.
+School begins at eight.
+Learn something new every day.
+Ask the teacher if you do not understand.
+Practice every day.
+Education is important.
+He is a teacher.
+He is a farmer.
+He is a nurse.
+He is a trader.
+He is a driver.
+He is a pastor.
+He is a builder.
+He is a tailor.
+He is a student.
+He is a doctor.
+He is a fisherman.
+She works as a teacher.
+She works as a farmer.
+She works as a nurse.
+She works as a trader.
+She works as a driver.
+She works as a pastor.
+She works as a builder.
+She works as a tailor.
+She works as a student.
+She works as a doctor.
+She works as a fisherman.
+I am going to work.
+The work is finished.
+Let us work together.
+He is a hard worker.
+Take a short rest.
+We start work at seven.
+Do the work carefully.
+I need more help.
+The job is difficult.
+Well done, keep it up.
+Report to me tomorrow.
+Finish before evening.
+How much does it cost?
+I have no money.
+Lend me some money.
+I will pay you tomorrow.
+Keep the change.
+Save your money.
+The price went up.
+It is cheap.
+It is expensive.
+Count the money.
+Give me a loan.
+I paid the school fees.
+Money is tight these days.
+Can I pay later?
+Do you accept mobile money?
+Where is the bus?
+The taxi is full.
+How much is the fare?
+Stop the car here.
+I am travelling to town.
+The road is bad.
+Drive slowly.
+We missed the bus.
+Take me to the hospital.
+The journey is long.
+Wait for the next vehicle.
+Get on the boda boda.
+The bicycle has a puncture.
+Park over there.
+We arrived safely.
+Please.
+Thank you.
+Sorry.
+Excuse me.
+Yes.
+No.
+Maybe.
+I do not know.
+Wait a minute.
+Come here.
+Listen to me.
+Speak slowly.
+I agree.
+You are right.
+That is true.
+Let me think.
+No problem.
+It is okay.
+Tell me more.
+I am coming.
+Hold on.
+Let us go.
+Be careful.
+Good idea.
+I forgot.
+Remind me.
+Of course.
+Never mind.
+Slow down.
+Calm down.
+Welcome back.
+Long time.
+How is life?
+What is new?
+Take it easy.
+See you soon.
+Give me a moment.
+I am almost there.
+Do not be late.
+Let me know.
+It is up to you.
+As you wish.
+I will try.
+Trust me.
+We shall see.
+Unity is strength.
+Patience pays.
+Haste makes waste.
+A friend in need is a friend indeed.
+Little by little fills the pot.
+One hand cannot tie a bundle.
+The early bird catches the worm.
+Where there is a will, there is a way.
+Honesty is the best policy.
+Do not count your chickens before they hatch.
+A stitch in time saves nine.
+Many hands make light work.
+Empty vessels make the most noise.
+When the elephants fight, the grass suffers.
+A good name is better than riches.
+Let us pray.
+We are going to church.
+God is good.
+Thank God.
+God bless you.
+The service starts at nine.
+Read the Bible.
+Sing a song of praise.
+Have faith.
+We praise the Lord.
+May God protect you.
+Pray for us.
+The choir is singing.
+Give thanks always.
+Peace be with you.
+We meet for prayers on Sunday.
+Trust in God.
+The pastor is preaching.
+Bow your head and pray.
+God answers prayers.
+Call me later.
+I will call you back.
+The phone is off.
+There is no network here.
+Send me a message.
+My battery is low.
+I missed your call.
+Can you hear me?
+Speak louder, please.
+Save my number.
+Add me some airtime.
+The line is busy.
+Text me the address.
+I will send you the money by phone.
+Charge the phone.
+Come inside.
+Wait outside.
+Open the door.
+Close the window.
+Sweep the room.
+Make the bed.
+Sit on the mat.
+The roof is leaking.
+Light the fire.
+Fetch a chair.
+The house is clean.
+Tidy up the room.
+Lock the gate.
+Where do you sleep?
+Our home is small.
+Put on your shoes.
+Wear a warm sweater.
+Wash these clothes.
+Your shirt is dirty.
+This dress is beautiful.
+Take off your hat.
+The clothes are dry.
+Fold the clothes.
+I need new shoes.
+Iron my shirt.
+Cover yourself, it is cold.
+Where is my jacket?
+The children are playing.
+Let us play football.
+Come and play with us.
+It is your turn.
+You have won.
+Play fair.
+Run faster.
+Throw the ball.
+We are dancing.
+Sing with me.
+Tell us a story.
+That was fun.
+Let us go and swim.
+Be careful when you run.

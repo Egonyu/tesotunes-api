@@ -1,0 +1,34 @@
+I am happy.
+I am tired.
+I am hungry.
+I am thirsty.
+I am sad.
+I am afraid.
+I am sick.
+I am cold.
+I am hot.
+I am angry.
+I am well.
+I am busy.
+Are you happy?
+Are you tired?
+Are you hungry?
+Are you thirsty?
+Are you sad?
+Are you afraid?
+Are you sick?
+Are you cold?
+Are you hot?
+Are you angry?
+Are you well?
+Are you busy?
+Do not worry.
+I am very happy today.
+She is crying.
+He is laughing.
+Be strong.
+I missed you.
+I am proud of you.
+Do not be afraid.
+Everything will be fine.
+Cheer up.

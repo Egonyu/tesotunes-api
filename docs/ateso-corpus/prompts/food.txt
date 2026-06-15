@@ -1,0 +1,72 @@
+I am cooking posho.
+Do you want some posho?
+The posho is ready.
+I like posho.
+There is no posho left.
+I am cooking beans.
+Do you want some beans?
+The beans is ready.
+I like beans.
+There is no beans left.
+I am cooking cassava.
+Do you want some cassava?
+The cassava is ready.
+I like cassava.
+There is no cassava left.
+I am cooking millet bread.
+Do you want some millet bread?
+The millet bread is ready.
+I like millet bread.
+There is no millet bread left.
+I am cooking sweet potatoes.
+Do you want some sweet potatoes?
+The sweet potatoes is ready.
+I like sweet potatoes.
+There is no sweet potatoes left.
+I am cooking greens.
+Do you want some greens?
+The greens is ready.
+I like greens.
+There is no greens left.
+I am cooking porridge.
+Do you want some porridge?
+The porridge is ready.
+I like porridge.
+There is no porridge left.
+I am cooking rice.
+Do you want some rice?
+The rice is ready.
+I like rice.
+There is no rice left.
+I am cooking chicken.
+Do you want some chicken?
+The chicken is ready.
+I like chicken.
+There is no chicken left.
+I am cooking fish.
+Do you want some fish?
+The fish is ready.
+I like fish.
+There is no fish left.
+I am cooking meat.
+Do you want some meat?
+The meat is ready.
+I like meat.
+There is no meat left.
+I am cooking matoke.
+Do you want some matoke?
+The matoke is ready.
+I like matoke.
+There is no matoke left.
+The food is delicious.
+Wash your hands before eating.
+Let us eat together.
+I am still hungry.
+Bring me some water.
+The water is boiling.
+Add a little salt.
+The food is too hot.
+Serve the children first.
+Thank you for the food.
+I have eaten enough.
+Keep the rest for later.

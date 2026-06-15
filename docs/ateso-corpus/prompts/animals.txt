@@ -1,0 +1,67 @@
+The cow is in the compound.
+Where is the cow?
+Feed the cow.
+The cow is hungry.
+Sell the cow.
+The cow is sick.
+The goat is in the compound.
+Where is the goat?
+Feed the goat.
+The goat is hungry.
+Sell the goat.
+The goat is sick.
+The chicken is in the compound.
+Where is the chicken?
+Feed the chicken.
+The chicken is hungry.
+Sell the chicken.
+The chicken is sick.
+The dog is in the compound.
+Where is the dog?
+Feed the dog.
+The dog is hungry.
+Sell the dog.
+The dog is sick.
+The cat is in the compound.
+Where is the cat?
+Feed the cat.
+The cat is hungry.
+Sell the cat.
+The cat is sick.
+The sheep is in the compound.
+Where is the sheep?
+Feed the sheep.
+The sheep is hungry.
+Sell the sheep.
+The sheep is sick.
+The pig is in the compound.
+Where is the pig?
+Feed the pig.
+The pig is hungry.
+Sell the pig.
+The pig is sick.
+The donkey is in the compound.
+Where is the donkey?
+Feed the donkey.
+The donkey is hungry.
+Sell the donkey.
+The donkey is sick.
+The hen is in the compound.
+Where is the hen?
+Feed the hen.
+The hen is hungry.
+Sell the hen.
+The hen is sick.
+The cock is in the compound.
+Where is the cock?
+Feed the cock.
+The cock is hungry.
+Sell the cock.
+The cock is sick.
+The cows are coming home.
+The dog is barking.
+The hen has laid eggs.
+Tie the goat over there.
+The animals need water.
+The cat is sleeping.
+Do not let the goats enter the garden.

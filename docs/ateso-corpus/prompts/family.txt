@@ -1,0 +1,114 @@
+This is my mother.
+Where is your mother?
+My mother is at home.
+How is your mother?
+I love my mother.
+Call your mother.
+My mother is not feeling well.
+This is my father.
+Where is your father?
+My father is at home.
+How is your father?
+I love my father.
+Call your father.
+My father is not feeling well.
+This is my brother.
+Where is your brother?
+My brother is at home.
+How is your brother?
+I love my brother.
+Call your brother.
+My brother is not feeling well.
+This is my sister.
+Where is your sister?
+My sister is at home.
+How is your sister?
+I love my sister.
+Call your sister.
+My sister is not feeling well.
+This is my grandmother.
+Where is your grandmother?
+My grandmother is at home.
+How is your grandmother?
+I love my grandmother.
+Call your grandmother.
+My grandmother is not feeling well.
+This is my grandfather.
+Where is your grandfather?
+My grandfather is at home.
+How is your grandfather?
+I love my grandfather.
+Call your grandfather.
+My grandfather is not feeling well.
+This is my aunt.
+Where is your aunt?
+My aunt is at home.
+How is your aunt?
+I love my aunt.
+Call your aunt.
+My aunt is not feeling well.
+This is my uncle.
+Where is your uncle?
+My uncle is at home.
+How is your uncle?
+I love my uncle.
+Call your uncle.
+My uncle is not feeling well.
+This is my child.
+Where is your child?
+My child is at home.
+How is your child?
+I love my child.
+Call your child.
+My child is not feeling well.
+This is my wife.
+Where is your wife?
+My wife is at home.
+How is your wife?
+I love my wife.
+Call your wife.
+My wife is not feeling well.
+This is my husband.
+Where is your husband?
+My husband is at home.
+How is your husband?
+I love my husband.
+Call your husband.
+My husband is not feeling well.
+This is my friend.
+Where is your friend?
+My friend is at home.
+How is your friend?
+I love my friend.
+Call your friend.
+My friend is not feeling well.
+This is my neighbour.
+Where is your neighbour?
+My neighbour is at home.
+How is your neighbour?
+I love my neighbour.
+Call your neighbour.
+My neighbour is not feeling well.
+This is my son.
+Where is your son?
+My son is at home.
+How is your son?
+I love my son.
+Call your son.
+My son is not feeling well.
+This is my daughter.
+Where is your daughter?
+My daughter is at home.
+How is your daughter?
+I love my daughter.
+Call your daughter.
+My daughter is not feeling well.
+I have two brothers and one sister.
+My parents live in the village.
+She is my elder sister.
+We are a big family.
+My grandmother tells us stories.
+The children are playing outside.
+My father went to the garden.
+My mother is cooking food.
+Our family eats together.
