@@ -45,12 +45,16 @@ class MoodController extends Controller
     /**
      * GET /api/content/moods/{mood}
      *
-     * Show a single mood with its popular songs.
+     * Show a single mood with its popular songs. The {mood} segment is the
+     * slug (the front-end routes by slug); a numeric id is also accepted.
      */
-    public function show(Request $request, int $mood): JsonResponse
+    public function show(Request $request, string $mood): JsonResponse
     {
         try {
-            $moodModel = Mood::active()->findOrFail($mood);
+            $moodModel = Mood::active()
+                ->where('slug', $mood)
+                ->when(is_numeric($mood), fn ($query) => $query->orWhere('id', (int) $mood))
+                ->firstOrFail();
 
             $perPage = min((int) $request->get('per_page', 20), 100);
 
@@ -70,7 +74,20 @@ class MoodController extends Controller
                     'color' => $moodModel->color,
                     'artwork_url' => $moodModel->artwork_url,
                     'song_count' => $moodModel->song_count,
-                    'songs' => $songs->items(),
+                    'songs' => $songs->getCollection()->map(fn ($song) => [
+                        'id' => $song->id,
+                        'title' => $song->title,
+                        'slug' => $song->slug,
+                        'duration_seconds' => $song->duration_seconds,
+                        'play_count' => $song->play_count,
+                        'artwork_url' => $song->artwork_url,
+                        'audio_url' => $song->audio_url,
+                        'artist' => $song->artist ? [
+                            'id' => $song->artist->id,
+                            'name' => $song->artist->stage_name ?? $song->artist->name,
+                            'slug' => $song->artist->slug,
+                        ] : null,
+                    ])->values(),
                 ],
                 'meta' => [
                     'current_page' => $songs->currentPage(),

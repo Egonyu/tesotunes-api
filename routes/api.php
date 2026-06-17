@@ -112,6 +112,9 @@ require __DIR__.'/api/promotions.php';
 // Cross-module notifications and device token management
 require __DIR__.'/api/notifications.php';
 
+// Support / contact-the-team messages (delivered to admins as notifications)
+require __DIR__.'/api/support.php';
+
 // SACCO Module API Routes
 require __DIR__.'/api/sacco.php';
 
