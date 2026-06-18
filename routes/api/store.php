@@ -27,8 +27,9 @@ Route::middleware(['auth:sanctum'])->prefix('store')->name('store.')->group(func
         Route::post('/order-items/{orderItem}/dispute', [App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'dispute'])->name('dispute');
     });
 
-    // Seller Promotion endpoints (Artist)
-    Route::middleware('role:artist,admin,super_admin')->prefix('seller/promotions')->name('seller.promotions.')->group(function () {
+    // Seller Promotion endpoints — gated on the seller capability so any shop
+    // owner (not just artists) can manage them. Admins always pass.
+    Route::middleware('capability:seller')->prefix('seller/promotions')->name('seller.promotions.')->group(function () {
         Route::get('/', [App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'index'])->name('index');
         Route::post('/', [App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'store'])->name('store');
         Route::put('/{product}', [App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'update'])->name('update');
