@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Modules\Promotions\Models\PromoterProfile;
 use App\Modules\Store\Models\Store;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class PromoterOnboardingService
@@ -87,6 +88,11 @@ class PromoterOnboardingService
      *
      * Artists already have stores created at artist onboarding.
      * Non-artist users get a generic 'promoter' type store here.
+     *
+     * Store provisioning is a convenience (needed later for payouts), not a hard
+     * requirement for becoming a promoter — a profile may exist with a null
+     * store. So any failure here (e.g. the store subsystem unavailable) is logged
+     * and swallowed rather than aborting the whole onboarding.
      */
     public function ensureStore(User $user): ?Store
     {
@@ -94,31 +100,40 @@ class PromoterOnboardingService
             return null;
         }
 
-        $existing = Store::where('user_id', $user->id)->first();
+        try {
+            $existing = Store::where('user_id', $user->id)->first();
 
-        if ($existing) {
-            return $existing;
+            if ($existing) {
+                return $existing;
+            }
+
+            $name = ($user->display_name ?? $user->name ?? $user->username ?? 'Promoter').' Store';
+            $baseSlug = Str::slug($user->username ?? $name);
+            $slug = $baseSlug;
+            $suffix = 1;
+
+            while (Store::withTrashed()->where('slug', $slug)->exists()) {
+                $slug = $baseSlug.'-'.$suffix++;
+            }
+
+            return Store::create([
+                'user_id' => $user->id,
+                'owner_type' => User::class,
+                'owner_id' => $user->id,
+                'name' => $name,
+                'slug' => $slug,
+                'store_type' => config('promotions.default_store_type', 'promoter'),
+                'subscription_tier' => config('promotions.default_store_tier', 'free'),
+                'status' => Store::STATUS_ACTIVE,
+                'description' => 'Promoter services store',
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Promoter onboarding: store provisioning failed, continuing without a store.', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
         }
-
-        $name = ($user->display_name ?? $user->name ?? $user->username ?? 'Promoter').' Store';
-        $baseSlug = Str::slug($user->username ?? $name);
-        $slug = $baseSlug;
-        $suffix = 1;
-
-        while (Store::withTrashed()->where('slug', $slug)->exists()) {
-            $slug = $baseSlug.'-'.$suffix++;
-        }
-
-        return Store::create([
-            'user_id' => $user->id,
-            'owner_type' => User::class,
-            'owner_id' => $user->id,
-            'name' => $name,
-            'slug' => $slug,
-            'store_type' => config('promotions.default_store_type', 'promoter'),
-            'subscription_tier' => config('promotions.default_store_tier', 'free'),
-            'status' => Store::STATUS_ACTIVE,
-            'description' => 'Promoter services store',
-        ]);
     }
 }

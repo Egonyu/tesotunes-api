@@ -87,6 +87,8 @@ class PromoterOnboardingController extends Controller
                 'message' => $alreadyExisted ? 'You are already a promoter.' : 'Welcome! Your promoter profile is ready.',
             ], $alreadyExisted ? 200 : 201);
         } catch (\Throwable $e) {
+            report($e);
+
             return response()->json(['message' => 'Onboarding failed. Please try again.'], 500);
         }
     }
