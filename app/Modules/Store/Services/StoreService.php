@@ -2,9 +2,11 @@
 
 namespace App\Modules\Store\Services;
 
+use App\Enums\Capability;
 use App\Models\Artist;
 use App\Models\User;
 use App\Modules\Store\Models\Store;
+use App\Services\Accounts\CapabilityService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -62,6 +64,12 @@ class StoreService
             if (isset($data['banner'])) {
                 $this->uploadBanner($store, $data['banner']);
             }
+
+            // Opening a shop grants the Seller capability — the authorization
+            // source of truth for seller routes. Without this, a non-artist who
+            // opens a shop would be locked out of managing it once the seller
+            // gates move from role:artist to capability:seller.
+            app(CapabilityService::class)->grant($user, Capability::Seller, $store);
 
             return $store;
         });
