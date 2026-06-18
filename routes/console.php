@@ -93,6 +93,15 @@ Schedule::command('contributions:daily-challenge')
     ->withoutOverlapping()
     ->onOneServer();
 
+// ── KYC completion reminders ──────────────────────────────────
+// Nudges users with incomplete identity verification once a fortnight.
+// Per-user frequency cap lives in the command, so a weekly cadence is safe.
+Schedule::command('kyc:remind')
+    ->weeklyOn(1, '09:00')
+    ->name('kyc-reminders')
+    ->withoutOverlapping()
+    ->onOneServer();
+
 // ── Commerce settlement clearance ─────────────────────────────
 // Promotes pending settlements past their dispute-hold window to cleared
 Schedule::command('commerce:clear-due-settlements')
