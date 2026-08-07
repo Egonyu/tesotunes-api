@@ -77,7 +77,7 @@ Route::prefix('sacco')
             Route::prefix('savings')->name('savings.')->group(function () {
                 Route::post('accounts', [\App\Modules\Sacco\Http\Controllers\SaccoSavingsController::class, 'openAccount'])->name('accounts.open');
                 Route::post('deposit', [\App\Modules\Sacco\Http\Controllers\SaccoSavingsController::class, 'deposit'])->name('deposit');
-                Route::post('withdraw', [\App\Modules\Sacco\Http\Controllers\SaccoSavingsController::class, 'withdraw'])->name('withdraw');
+                Route::post('withdraw', [\App\Modules\Sacco\Http\Controllers\SaccoSavingsController::class, 'withdraw'])->middleware('wallet.pin')->name('withdraw');
                 Route::get('accounts/{account}', [\App\Modules\Sacco\Http\Controllers\SaccoSavingsController::class, 'show'])->name('accounts.show');
                 Route::get('transactions/{account}', [\App\Modules\Sacco\Http\Controllers\SaccoSavingsController::class, 'transactions'])->name('transactions');
                 Route::get('balance/{account}', [\App\Modules\Sacco\Http\Controllers\SaccoSavingsController::class, 'balance'])->name('balance');
@@ -106,7 +106,7 @@ Route::prefix('sacco')
             Route::prefix('shares')->name('shares.')->group(function () {
                 Route::post('purchase', [\App\Modules\Sacco\Http\Controllers\SaccoSharesController::class, 'purchase'])->name('purchase');
                 Route::post('buy', [\App\Modules\Sacco\Http\Controllers\SaccoSharesController::class, 'purchase'])->name('buy');
-                Route::post('transfer', [\App\Modules\Sacco\Http\Controllers\SaccoSharesController::class, 'transfer'])->name('transfer');
+                Route::post('transfer', [\App\Modules\Sacco\Http\Controllers\SaccoSharesController::class, 'transfer'])->middleware('wallet.pin')->name('transfer');
                 Route::get('member/{member}', [\App\Modules\Sacco\Http\Controllers\SaccoSharesController::class, 'memberShares'])->name('member');
                 Route::get('value', [\App\Modules\Sacco\Http\Controllers\SaccoSharesController::class, 'currentValue'])->name('value');
             });

@@ -54,7 +54,7 @@ Route::middleware('auth:sanctum')->prefix('payments')->name('api.payments.')->gr
     Route::post(
         '/wallet/withdraw',
         [\App\Http\Controllers\Api\PaymentController::class, 'withdraw']
-    )->middleware('kyc:withdrawal')->name('wallet.withdraw');
+    )->middleware(['kyc:withdrawal', 'wallet.pin'])->name('wallet.withdraw');
 
     // Check ZengaPay transaction status
     Route::get(

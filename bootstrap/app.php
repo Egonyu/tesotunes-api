@@ -62,6 +62,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin.exceptions' => \App\Http\Middleware\HandleAdminExceptions::class,
             'capability' => \App\Http\Middleware\CapabilityMiddleware::class,
             'kyc' => \App\Http\Middleware\EnsureKycVerified::class,
+            'wallet.pin' => \App\Http\Middleware\EnsureWalletPinVerified::class,
             'role' => \App\Http\Middleware\RoleMiddleware::class,
             'permission' => \App\Http\Middleware\PermissionMiddleware::class,
             'artist.events.access' => \App\Http\Middleware\ArtistEventAccessMiddleware::class,

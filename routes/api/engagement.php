@@ -33,7 +33,7 @@ Route::prefix('polls')->name('api.polls.')->group(function () {
 
 // ── Tips — Authenticated ──────────────────────────────────────────────────
 Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/tips', [TipController::class, 'store'])->name('api.tips.store');
+    Route::post('/tips', [TipController::class, 'store'])->middleware('wallet.pin')->name('api.tips.store');
 });
 
 // ── Artists search — Public ───────────────────────────────────────────────

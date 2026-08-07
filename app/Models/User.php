@@ -164,6 +164,7 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     protected $hidden = [
         'password',
+        'wallet_pin',
         'remember_token',
         'phone',
         'nin_number',
@@ -191,6 +192,10 @@ class User extends Authenticatable implements MustVerifyEmail
             'kyc_verified_at' => 'datetime',
             'kyc_expires_at' => 'datetime',
             'password' => 'hashed',
+            // Wallet PIN — written ONLY via App\Services\Wallet\WalletPinService.
+            'wallet_pin' => 'hashed',
+            'wallet_pin_set_at' => 'datetime',
+            'wallet_pin_locked_until' => 'datetime',
             'is_active' => 'boolean',
             'last_login_at' => 'datetime',
             'last_admin_login_at' => 'datetime',
