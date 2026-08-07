@@ -27,9 +27,9 @@ Route::middleware(['auth:sanctum'])->prefix('store')->name('store.')->group(func
         Route::post('/order-items/{orderItem}/dispute', [App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'dispute'])->name('dispute');
     });
 
-    // Seller Promotion endpoints — gated on the seller capability so any shop
-    // owner (not just artists) can manage them. Admins always pass.
-    Route::middleware('capability:seller')->prefix('seller/promotions')->name('seller.promotions.')->group(function () {
+    // Seller Promotion endpoints — sellers (any shop owner, not just artists)
+    // plus artists, who had access before the capability gate. Admins always pass.
+    Route::middleware('capability:seller,artist')->prefix('seller/promotions')->name('seller.promotions.')->group(function () {
         Route::get('/', [App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'index'])->name('index');
         Route::post('/', [App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'store'])->name('store');
         Route::put('/{product}', [App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'update'])->name('update');
@@ -208,7 +208,7 @@ Route::middleware(['auth:sanctum'])->prefix('store')->name('store.')->group(func
     // Order API endpoints
     Route::prefix('orders')->name('orders.')->group(function () {
         Route::get('/', [\App\Modules\Store\Http\Controllers\Api\OrderController::class, 'index'])->name('index');
-        Route::post('/', [\App\Modules\Store\Http\Controllers\Api\OrderController::class, 'store'])->name('store');
+        Route::post('/', [\App\Modules\Store\Http\Controllers\Api\OrderController::class, 'store'])->middleware('wallet.pin')->name('store');
         Route::get('/{orderNumber}', [\App\Modules\Store\Http\Controllers\Api\OrderController::class, 'show'])->name('show');
         Route::post('/{orderNumber}/cancel', [\App\Modules\Store\Http\Controllers\Api\OrderController::class, 'cancel'])->name('cancel');
     });

@@ -115,6 +115,9 @@ require __DIR__.'/api/notifications.php';
 // Support / contact-the-team messages (delivered to admins as notifications)
 require __DIR__.'/api/support.php';
 
+// Wallet transaction PIN (authorizes money movement)
+require __DIR__.'/api/wallet.php';
+
 // SACCO Module API Routes
 require __DIR__.'/api/sacco.php';
 

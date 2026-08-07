@@ -40,6 +40,14 @@ return new class extends Migration
             $table->timestamp('kyc_expires_at')->nullable();
             $table->text('kyc_rejection_reason')->nullable();
 
+            // Wallet transaction PIN — hashed, set ONLY via
+            // App\Services\Wallet\WalletPinService. Authorizes money movement
+            // per-session; distinct from KYC (identity) and password (login).
+            $table->string('wallet_pin')->nullable();
+            $table->timestamp('wallet_pin_set_at')->nullable();
+            $table->unsignedTinyInteger('wallet_pin_failed_attempts')->default(0);
+            $table->timestamp('wallet_pin_locked_until')->nullable();
+
             $table->string('avatar')->nullable();
             $table->text('bio')->nullable();
             $table->string('display_name')->nullable();
