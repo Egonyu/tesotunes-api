@@ -86,6 +86,13 @@ return [
         // Bonus added to the agreement score for each independent submission that
         // normalizes to the same text (translator convergence).
         'convergence_bonus' => 10,
+        // An operator's verdict is authoritative: it carries this weight and, when
+        // `admin_clears_gate` is on, satisfies the minimum-validations quorum on
+        // its own. This is the cold-start release valve — without it a small
+        // contributor pool can never reach quorum, so nothing is ever accepted
+        // and no one is ever paid. Admin verdicts are never rewarded.
+        'admin_weight' => 2.0,
+        'admin_clears_gate' => true,
     ],
 
     // Edula feed: weave an "Earn" task card in after every N organic items.

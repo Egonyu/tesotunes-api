@@ -35,6 +35,8 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin')->
     Route::get('/tasks', [ContributionAdminController::class, 'tasks'])->name('tasks.index');
     Route::post('/tasks/import', [ContributionAdminController::class, 'importTasks'])->name('tasks.import');
     Route::post('/tasks/{task}/close', [ContributionAdminController::class, 'closeTask'])->name('tasks.close');
+    Route::get('/submissions', [ContributionAdminController::class, 'submissions'])->name('submissions.index');
+    Route::post('/submissions/bulk-review', [ContributionAdminController::class, 'bulkReview'])->name('submissions.bulk-review');
     Route::post('/gold', [ContributionAdminController::class, 'seedGold'])->name('gold');
     Route::post('/export', [ContributionAdminController::class, 'export'])->name('export');
 });
