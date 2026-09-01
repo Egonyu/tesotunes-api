@@ -799,6 +799,10 @@ class PaymentController extends Controller
                 'status' => Payment::STATUS_FAILED,
                 'failed_at' => now(),
                 'failure_reason' => $result['message'] ?? 'Withdrawal initiation failed',
+                // Keep the provider's own words on the record. Without this the
+                // three payouts that failed in production left provider_response
+                // empty, and diagnosing them meant grepping the server logs.
+                'provider_response' => $result['raw_response'] ?? $payment->provider_response,
             ])->save();
 
             $this->observability()->recordAudit($payment->fresh(), 'payment_withdrawal_failed', [
