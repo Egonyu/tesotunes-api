@@ -33,6 +33,12 @@ class RewardService
         }
 
         foreach ($winner->validations as $validation) {
+            // Operator verdicts are moderation, not contribution — never paid,
+            // otherwise an admin could clear and bank their own reviews.
+            if (($validation->metadata['admin_review'] ?? false) === true) {
+                continue;
+            }
+
             if (in_array($validation->verdict, ['agree', 'minor_fix'], true)) {
                 $this->rewardValidation($validation->validator, $validation, $winner);
             }

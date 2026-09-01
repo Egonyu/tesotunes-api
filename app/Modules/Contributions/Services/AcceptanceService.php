@@ -58,10 +58,11 @@ class AcceptanceService
                 ->filter()->unique()->values()->all();
 
             // Weighted approval for every still-open submission with enough votes.
+            // An operator verdict satisfies quorum on its own (cold-start valve).
             $approvals = [];
             $qualifying = $submissions
                 ->filter(fn ($s) => $s->status === ContributionSubmission::STATUS_SUBMITTED)
-                ->filter(fn ($s) => $s->validations->count() >= $minValidations)
+                ->filter(fn ($s) => $s->validations->count() >= $minValidations || $this->hasAdminApproval($s))
                 ->filter(function ($s) use (&$approvals, $threshold) {
                     $approvals[$s->id] = $this->approval($s);
 
@@ -150,6 +151,22 @@ class AcceptanceService
         }
 
         return $approval;
+    }
+
+    /**
+     * True when an operator has approved this submission — which lets it clear
+     * the quorum requirement alone, so a thin contributor pool never deadlocks.
+     */
+    private function hasAdminApproval(ContributionSubmission $submission): bool
+    {
+        if (! config('contributions.acceptance.admin_clears_gate', true)) {
+            return false;
+        }
+
+        return $submission->validations->contains(
+            fn (ContributionValidation $v) => ($v->metadata['admin_review'] ?? false)
+                && in_array($v->verdict, ContributionValidation::APPROVING_VERDICTS, true)
+        );
     }
 
     /**

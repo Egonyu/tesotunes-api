@@ -6,8 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Commerce\Settlement;
 use App\Modules\Contributions\Models\ContributionSubmission;
 use App\Modules\Contributions\Models\ContributionTask;
+use App\Modules\Contributions\Models\ContributionValidation;
 use App\Modules\Contributions\Models\ContributorProfile;
 use App\Modules\Contributions\Models\CorpusPair;
+use App\Modules\Contributions\Services\AdminReviewService;
 use App\Modules\Contributions\Services\CorpusExportService;
 use App\Modules\Contributions\Services\TaskAuthoringService;
 use App\Modules\Contributions\Support\ContributionsModule;
@@ -88,6 +90,11 @@ class ContributionAdminController extends Controller
                 'submissions' => [
                     'awaiting_validation' => ContributionSubmission::where('status', ContributionSubmission::STATUS_SUBMITTED)->count(),
                     'accepted' => ContributionSubmission::where('status', ContributionSubmission::STATUS_ACCEPTED)->count(),
+                    // Open work nobody has voted on at all — the backlog that
+                    // silently starves contributors of payouts.
+                    'never_reviewed' => ContributionSubmission::where('status', ContributionSubmission::STATUS_SUBMITTED)
+                        ->doesntHave('validations')->count(),
+                    'total' => ContributionSubmission::count(),
                 ],
                 'contributors' => [
                     'total' => ContributorProfile::count(),
@@ -219,6 +226,116 @@ class ContributionAdminController extends Controller
         $taskModel->forceFill(['status' => ContributionTask::STATUS_CLOSED])->save();
 
         return response()->json(['success' => true, 'message' => 'Task closed.']);
+    }
+
+    /**
+     * GET /api/contributions/admin/submissions — the full review backlog.
+     *
+     * Unlike the peer queue (which hides your own work, gold items, and things
+     * you've already voted on), this lists EVERY submission so nothing can be
+     * stranded invisible. Defaults to the open backlog.
+     */
+    public function submissions(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => ['sometimes', 'string', 'in:submitted,accepted,rejected,superseded,all'],
+            'user_id' => ['sometimes', 'integer'],
+            'dialect' => ['sometimes', 'string', 'max:40'],
+            'unreviewed' => ['sometimes', 'boolean'],
+            'search' => ['sometimes', 'string', 'max:200'],
+            'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $status = $validated['status'] ?? ContributionSubmission::STATUS_SUBMITTED;
+
+        $submissions = ContributionSubmission::query()
+            ->with([
+                'task:id,uuid,prompt_text,source_lang,target_lang,register,is_gold',
+                'user:id,name',
+                'validations:id,contribution_submission_id,verdict,weight,metadata',
+            ])
+            ->when($status !== 'all', fn ($q) => $q->where('status', $status))
+            ->when($validated['user_id'] ?? null, fn ($q, $id) => $q->where('user_id', $id))
+            ->when($validated['dialect'] ?? null, fn ($q, $d) => $q->where('dialect', $d))
+            ->when($validated['unreviewed'] ?? false, fn ($q) => $q->doesntHave('validations'))
+            ->when($validated['search'] ?? null, function ($q, $term) {
+                $escaped = addcslashes($term, '%_\\');
+                $q->where(fn ($sub) => $sub->where('raw_text', 'like', "%{$escaped}%")
+                    ->orWhereHas('task', fn ($t) => $t->where('prompt_text', 'like', "%{$escaped}%")));
+            })
+            ->latest('id')
+            ->paginate($validated['per_page'] ?? 25);
+
+        $minValidations = (int) config('contributions.acceptance.min_validations', 2);
+        $threshold = (float) config('contributions.acceptance.approval_threshold', 2.0);
+
+        return response()->json([
+            'success' => true,
+            'data' => $submissions->getCollection()->map(function (ContributionSubmission $s) use ($minValidations, $threshold) {
+                $approval = 0.0;
+                foreach ($s->validations as $v) {
+                    if (in_array($v->verdict, ContributionValidation::APPROVING_VERDICTS, true)) {
+                        $approval += (float) $v->weight;
+                    } elseif ($v->verdict === ContributionValidation::VERDICT_REJECT) {
+                        $approval -= (float) $v->weight;
+                    }
+                }
+
+                return [
+                    'uuid' => $s->uuid,
+                    'translation' => $s->raw_text,
+                    'source_text' => $s->task?->prompt_text,
+                    'source_lang' => $s->task?->source_lang,
+                    'target_lang' => $s->task?->target_lang,
+                    'register' => $s->task?->register,
+                    'is_gold' => (bool) ($s->task?->is_gold),
+                    'dialect' => $s->dialect,
+                    'is_code_switched' => (bool) $s->is_code_switched,
+                    'status' => $s->status,
+                    'settled' => (bool) $s->settled,
+                    'contributor' => $s->user ? ['id' => $s->user->id, 'name' => $s->user->name] : null,
+                    'validations_count' => $s->validations->count(),
+                    'approval' => round($approval, 2),
+                    'validations_needed' => max(0, $minValidations - $s->validations->count()),
+                    'clears_threshold' => $approval >= $threshold,
+                    'created_at' => $s->created_at?->toIso8601String(),
+                ];
+            })->all(),
+            'meta' => [
+                'current_page' => $submissions->currentPage(),
+                'last_page' => $submissions->lastPage(),
+                'total' => $submissions->total(),
+                'min_validations' => $minValidations,
+                'approval_threshold' => $threshold,
+            ],
+        ]);
+    }
+
+    /**
+     * POST /api/contributions/admin/submissions/bulk-review — apply one verdict
+     * across many submissions and settle whatever clears the gate.
+     */
+    public function bulkReview(Request $request, AdminReviewService $review): JsonResponse
+    {
+        $validated = $request->validate([
+            'uuids' => ['required', 'array', 'min:1', 'max:200'],
+            'uuids.*' => ['string', 'uuid'],
+            'verdict' => ['required', 'string', 'in:agree,minor_fix,valid_variant,reject'],
+            'suggested_fix' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $result = $review->bulkReview(
+            $request->user(),
+            $validated['uuids'],
+            $validated['verdict'],
+            $validated['suggested_fix'] ?? null,
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => "Reviewed {$result['reviewed']} submission(s); {$result['accepted']} pair(s) accepted.",
+            'data' => $result,
+        ]);
     }
 
     /**
