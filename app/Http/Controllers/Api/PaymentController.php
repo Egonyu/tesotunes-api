@@ -624,8 +624,62 @@ class PaymentController extends Controller
                 'ugx_balance' => (float) ($user->ugx_balance ?? 0),
                 'credits_balance' => (float) $user->credit_balance,
                 'currency' => 'UGX',
+                'in_flight' => $this->inFlightPayments($request),
             ],
         ]);
+    }
+
+    /**
+     * Money the user has committed that has not landed: still pending or
+     * processing, plus anything that failed recently enough that they are
+     * probably still wondering where it went.
+     *
+     * Without this the wallet is silent about in-transit funds — a top-up once
+     * sat in processing for over 30 days with nothing on screen to explain it.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    protected function inFlightPayments(Request $request): array
+    {
+        /** @var int $staleAfterHours */
+        $staleAfterHours = 24;
+
+        $payments = Payment::query()
+            ->where('user_id', $request->user()->id)
+            ->whereIn('payment_type', ['wallet_topup', 'withdrawal', 'credits_purchase', 'credits_sale'])
+            ->where(function ($query) {
+                $query
+                    ->whereIn('status', [Payment::STATUS_PENDING, Payment::STATUS_PROCESSING])
+                    ->orWhere(function ($recent) {
+                        $recent
+                            ->where('status', Payment::STATUS_FAILED)
+                            ->where('created_at', '>=', now()->subDays(7));
+                    });
+            })
+            ->latest('created_at')
+            ->limit(5)
+            ->get();
+
+        return $payments->map(function (Payment $payment) use ($staleAfterHours) {
+            $isSettling = in_array($payment->status, [Payment::STATUS_PENDING, Payment::STATUS_PROCESSING], true);
+            $ageHours = $payment->created_at ? $payment->created_at->diffInHours(now()) : 0;
+
+            return [
+                'reference' => $payment->transaction_reference ?? $payment->payment_reference,
+                'type' => $payment->payment_type,
+                'direction' => in_array($payment->payment_type, ['withdrawal', 'credits_sale'], true) ? 'out' : 'in',
+                'amount' => (float) $payment->amount,
+                'currency' => $payment->currency ?? 'UGX',
+                'status' => $payment->status,
+                'provider' => $payment->provider ?? $payment->payment_provider,
+                'failure_reason' => $payment->failure_reason,
+                'created_at' => $payment->created_at?->toIso8601String(),
+                'age_hours' => $ageHours,
+                // Still settling well past the point a mobile-money confirmation
+                // should have arrived — the client surfaces this as "check on it".
+                'is_stale' => $isSettling && $ageHours >= $staleAfterHours,
+            ];
+        })->all();
     }
 
     /**
