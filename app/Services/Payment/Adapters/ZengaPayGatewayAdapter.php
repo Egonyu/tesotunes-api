@@ -3,6 +3,7 @@
 namespace App\Services\Payment\Adapters;
 
 use Exception;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -75,7 +76,9 @@ class ZengaPayGatewayAdapter
 
             return [
                 'success' => false,
+                'status' => $response['status'] ?? null,
                 'message' => $response['message'] ?? 'Collection request failed',
+                'raw_response' => $response['raw'] ?? $response['data'] ?? null,
             ];
         } catch (Exception $e) {
             Log::error('ZengaPay charge failed', [
@@ -106,6 +109,12 @@ class ZengaPayGatewayAdapter
                 'amount' => (int) $data['amount'],
                 'external_reference' => $data['reference'],
                 'narration' => $data['description'] ?? 'TesoTunes Payout',
+                // Required by ZengaPay on /transfers: it selects between paying a
+                // saved contact_id and paying a raw msisdn. We always pay a raw
+                // number, so this is always false. Omitting it fails the request
+                // with 422 "The use contact field is required." — which is what
+                // made every payout to date fail.
+                'use_contact' => false,
             ];
 
             $response = $this->makeRequest('POST', '/transfers', $payload);
@@ -124,7 +133,9 @@ class ZengaPayGatewayAdapter
 
             return [
                 'success' => false,
+                'status' => $response['status'] ?? null,
                 'message' => $response['message'] ?? 'Payout request failed',
+                'raw_response' => $response['raw'] ?? $response['data'] ?? null,
             ];
         } catch (Exception $e) {
             Log::error('ZengaPay payout failed', [
@@ -279,8 +290,10 @@ class ZengaPayGatewayAdapter
 
             return [
                 'success' => false,
-                'message' => $body['message'] ?? $body['error'] ?? 'API request failed',
+                'status' => $response->status(),
+                'message' => $this->describeError($body, $response->status()),
                 'data' => $body,
+                'raw' => $body,
             ];
         } catch (Exception $e) {
             Log::error('ZengaPay HTTP request failed', [
@@ -291,6 +304,50 @@ class ZengaPayGatewayAdapter
 
             throw $e;
         }
+    }
+
+    /**
+     * Turn a ZengaPay error body into something a human can act on.
+     *
+     * ZengaPay returns Laravel-style validation bags with no `message` key —
+     * e.g. {"use_contact": ["The use contact field is required."]} — which the
+     * old fallback flattened to the useless string "API request failed",
+     * costing a trip through the server logs to diagnose every failure.
+     */
+    protected function describeError(array $body, int $status): string
+    {
+        // ZengaPay rate-limits /transfers hard — two calls seconds apart is
+        // enough to trip it, and a user tapping "withdraw" twice will. Say what
+        // to do instead of echoing "429 Too Many Requests" at them.
+        if ($status === 429) {
+            return 'Too many payment requests just now. Wait a minute and try again — nothing was charged.';
+        }
+
+        if (is_string($body['message'] ?? null) && $body['message'] !== '') {
+            return $body['message'];
+        }
+
+        if (is_string($body['error'] ?? null) && $body['error'] !== '') {
+            return $body['error'];
+        }
+
+        // Validation bag: surface the field messages themselves.
+        $messages = [];
+        foreach ($body as $field => $value) {
+            foreach (Arr::wrap($value) as $entry) {
+                if (is_string($entry) && $entry !== '') {
+                    $messages[] = is_string($field) && ! is_numeric($field)
+                        ? "{$field}: {$entry}"
+                        : $entry;
+                }
+            }
+        }
+
+        if ($messages !== []) {
+            return 'ZengaPay rejected the request ('.$status.') — '.implode('; ', array_slice($messages, 0, 3));
+        }
+
+        return "ZengaPay request failed with HTTP {$status}";
     }
 
     /**
