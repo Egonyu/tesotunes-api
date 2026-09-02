@@ -66,12 +66,33 @@ class WithdrawalKycGateTest extends TestCase
 
         $this->actingAs($user, 'sanctum')
             ->postJson('/api/payments/wallet/withdraw', [
-                'amount' => 1000,
+                'amount' => 5000,
                 'phone' => '256772123456',
             ])
             ->assertForbidden()
             ->assertJsonPath('error', 'kyc_required')
             ->assertJsonPath('redirect', '/account/verify-identity')
             ->assertJsonStructure(['missing_steps']);
+    }
+
+    /**
+     * The floor exists because ZengaPay's per-transaction charge does not scale
+     * down: a measured 1,000 UGX movement lost roughly 220 to fees. Below the
+     * configured minimum the user is mostly paying charges to move their own
+     * money, so the request is refused before it reaches the provider.
+     */
+    public function test_a_withdrawal_below_the_configured_minimum_is_rejected(): void
+    {
+        config()->set('payments.wallet_withdrawal.min_amount', 5000);
+
+        $user = $this->verifiedUser(['ugx_balance' => 20000]);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/payments/wallet/withdraw', [
+                'amount' => 4999,
+                'phone' => '256772123456',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['amount']);
     }
 }
