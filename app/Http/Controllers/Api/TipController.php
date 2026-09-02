@@ -7,6 +7,7 @@ use App\Models\Artist;
 use App\Models\ArtistRevenue;
 use App\Models\Payment;
 use App\Models\Song;
+use App\Services\Credits\CreditObservabilityService;
 use App\Services\CrossModuleNotificationService;
 use App\Services\Settings\ArtistSettingsService;
 use Illuminate\Http\Exceptions\HttpResponseException;
@@ -83,13 +84,19 @@ class TipController extends Controller
             // user_credits row: the fan was debited, the artist received
             // nothing, and no error was raised. A 500-credit tip was lost this
             // way.
-            $recipientUser->addCredits(
+            app(CreditObservabilityService::class)->award(
+                $recipientUser,
                 (float) $artistNetAmount,
                 'tip_received',
                 'Tip received',
                 [
-                    'payer_user_id' => $user->id,
-                    'message' => $tipMessage,
+                    'severity' => 'critical', // the fan has already been debited
+                    'metadata' => [
+                        'payer_user_id' => $user->id,
+                        'payer_transaction_id' => $transaction->id,
+                        'gross_amount' => $tipAmount,
+                        'message' => $tipMessage,
+                    ],
                 ]
             );
 

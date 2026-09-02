@@ -110,6 +110,57 @@ return new class extends Migration
             $table->index(['user_id', 'type', 'created_at']);
         });
 
+        /*
+         * Credit movements that should have happened and did not.
+         *
+         * The mirror of payment_issues for the credits ledger, with one
+         * structural difference that matters: a payment issue always has its
+         * payment to point at, whereas a credit issue usually exists *because*
+         * no credit_transactions row was ever written. So the subject here is
+         * the user and the intended amount, and credit_transaction_id is
+         * nullable — populated only when the issue concerns a movement that did
+         * land but was wrong.
+         *
+         * This table exists because four award paths silently skipped every
+         * account without a wallet row for four months. The credits ledger
+         * reconciled perfectly throughout, because a ledger can only ever
+         * record what arrived; nothing anywhere recorded what didn't.
+         */
+        Schema::create('credit_issues', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('credit_transaction_id')->nullable()->constrained()->nullOnDelete();
+
+            // What was being paid for: the tip payment, the play, the top-up.
+            $table->nullableMorphs('sourceable');
+
+            $table->string('issue_type', 50)->index();
+            // The award path, matching credit_transactions.source — so an
+            // operator can see at a glance which earning route is failing.
+            $table->string('source', 50)->nullable()->index();
+            $table->decimal('amount', 15, 2)->default(0);
+
+            $table->string('title');
+            $table->text('description')->nullable();
+            $table->string('status', 30)->default('open')->index();
+            $table->string('severity', 20)->default('medium');
+
+            // Whether the credits ultimately reached the account.
+            $table->boolean('credits_awarded')->default(false);
+
+            $table->string('resolution_type', 30)->nullable();
+            $table->text('resolution_notes')->nullable();
+            $table->timestamp('resolved_at')->nullable();
+            $table->foreignId('resolved_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->json('metadata')->nullable();
+            $table->unsignedInteger('auto_resolve_attempts')->default(0);
+            $table->timestamps();
+
+            $table->index(['status', 'severity']);
+            $table->index(['issue_type', 'status']);
+            $table->index(['user_id', 'status']);
+        });
+
         Schema::create('artist_revenues', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
@@ -281,6 +332,7 @@ return new class extends Migration
             'subscription_plans',
             'royalty_splits',
             'artist_revenues',
+            'credit_issues',
             'credit_transactions',
             'user_credits',
             'payment_issues',

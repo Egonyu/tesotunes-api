@@ -7,6 +7,7 @@ use App\Models\PlayHistory;
 use App\Models\Song;
 use App\Models\UserPlaybackPosition;
 use App\Notifications\StreamMilestoneNotification;
+use App\Services\Credits\CreditObservabilityService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -126,11 +127,12 @@ class PlayerController extends Controller
                     // A first listen is exactly when an account is least likely
                     // to have a wallet row yet, so this must create one rather
                     // than skip the bonus it is meant to award.
-                    $user->addCredits(
+                    app(CreditObservabilityService::class)->award(
+                        $user,
                         50,
                         'first_listen_bonus',
                         'Bonus for completing your first song listen on TesoTunes!',
-                        ['song_id' => $song->id]
+                        ['sourceable' => $song, 'metadata' => ['song_id' => $song->id]]
                     );
                 } catch (\Throwable) {
                     // Non-critical — don't interrupt the play response

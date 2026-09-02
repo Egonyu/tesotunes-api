@@ -11,6 +11,7 @@ use App\Notifications\AdminPaymentNotification;
 use App\Notifications\ArtistRevenueNotification;
 use App\Notifications\PaymentFailedNotification;
 use App\Notifications\PaymentSuccessNotification;
+use App\Services\Credits\CreditObservabilityService;
 use App\Services\Loyalty\PaymentLoyaltyService;
 use App\Services\Sacco\SavingsAutoDepositService;
 use Illuminate\Notifications\Notification as BaseNotification;
@@ -631,14 +632,19 @@ class PaymentObserver
             // Real money has already changed hands by this point, so the bonus
             // must not depend on the account happening to have a wallet row —
             // the helper creates one.
-            $user->addCredits(
+            app(CreditObservabilityService::class)->award(
+                $user,
                 (float) $bonusCredits,
                 'topup_bonus',
                 'Top-up bonus ('.number_format($amount).' UGX topped up)',
                 [
-                    'payment_id' => $payment->id,
-                    'top_up_amount' => $amount,
-                    'bonus_pct' => (int) ($bonusPct * 100),
+                    'severity' => 'critical', // real money has already changed hands
+                    'sourceable' => $payment,
+                    'metadata' => [
+                        'payment_id' => $payment->id,
+                        'top_up_amount' => $amount,
+                        'bonus_pct' => (int) ($bonusPct * 100),
+                    ],
                 ]
             );
 

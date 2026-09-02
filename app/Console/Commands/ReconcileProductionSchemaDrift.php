@@ -40,6 +40,7 @@ class ReconcileProductionSchemaDrift extends Command
             return self::FAILURE;
         }
 
+        $this->step('Creating credit_issues', fn () => $this->createCreditIssuesTable());
         $this->step('Recreating drifted empty store tables', fn () => $this->recreateDriftedEmptyStoreTables());
         $this->step('Creating missing store tables', fn () => $this->createMissingStoreTables());
         $this->step('Restoring external foreign keys', fn () => $this->restoreExternalForeignKeys());
@@ -57,6 +58,51 @@ class ReconcileProductionSchemaDrift extends Command
     {
         $this->line(" -> {$label}");
         $action();
+    }
+
+    /**
+     * credit_issues was added to the commerce/billing base migration, which had
+     * already run everywhere — so the table exists for a fresh install but not
+     * on a live database. Repairing that here rather than adding a patch
+     * migration keeps the base file the single description of the schema.
+     *
+     * Must match 0001_01_01_000003_create_commerce_billing_tables.php exactly.
+     */
+    private function createCreditIssuesTable(): void
+    {
+        if (Schema::hasTable('credit_issues')) {
+            $this->line('    already present, nothing to do');
+
+            return;
+        }
+
+        Schema::create('credit_issues', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('credit_transaction_id')->nullable()->constrained()->nullOnDelete();
+            $table->nullableMorphs('sourceable');
+            $table->string('issue_type', 50)->index();
+            $table->string('source', 50)->nullable()->index();
+            $table->decimal('amount', 15, 2)->default(0);
+            $table->string('title');
+            $table->text('description')->nullable();
+            $table->string('status', 30)->default('open')->index();
+            $table->string('severity', 20)->default('medium');
+            $table->boolean('credits_awarded')->default(false);
+            $table->string('resolution_type', 30)->nullable();
+            $table->text('resolution_notes')->nullable();
+            $table->timestamp('resolved_at')->nullable();
+            $table->foreignId('resolved_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->json('metadata')->nullable();
+            $table->unsignedInteger('auto_resolve_attempts')->default(0);
+            $table->timestamps();
+
+            $table->index(['status', 'severity']);
+            $table->index(['issue_type', 'status']);
+            $table->index(['user_id', 'status']);
+        });
+
+        $this->line('    created');
     }
 
     /**

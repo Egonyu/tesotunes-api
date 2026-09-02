@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\PlayHistory;
 use App\Models\User;
+use App\Services\Credits\CreditObservabilityService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -91,14 +92,17 @@ class DistributeListenToEarnPool extends Command
             try {
                 // Through the User helper so a listener with no wallet row gets
                 // one rather than silently forfeiting their share of the pool.
-                $user->addCredits(
+                app(CreditObservabilityService::class)->award(
+                    $user,
                     (float) $credits,
                     'listen_earn',
                     "Listen-to-earn pool share ({$listener->total_seconds}s listened)",
                     [
-                        'pool_size' => $poolSize,
-                        'seconds_listened' => (int) $listener->total_seconds,
-                        'pool_share_pct' => round($share * 100, 2),
+                        'metadata' => [
+                            'pool_size' => $poolSize,
+                            'seconds_listened' => (int) $listener->total_seconds,
+                            'pool_share_pct' => round($share * 100, 2),
+                        ],
                     ]
                 );
 
