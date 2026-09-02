@@ -150,10 +150,24 @@ class Ad extends Model
         });
     }
 
-    /** Exclude ads whose spend today has reached or exceeded their daily_budget_ugx. */
+    /**
+     * Exclude ads whose spend today has reached or exceeded their daily_budget_ugx.
+     *
+     * The day boundary is computed in PHP and bound, rather than asking the
+     * database for CURDATE(). That made "today" mean the database server's
+     * today, which is only the application's today while both clocks happen to
+     * agree — they diverge on any host whose MySQL session timezone is not the
+     * app's, and the budget then reads as unspent for the hours they disagree.
+     *
+     * Comparing against a half-open range also leaves created_at indexable,
+     * which DATE(created_at) = ... did not.
+     */
     public function scopeWithinDailyBudget(Builder $query): Builder
     {
-        return $query->where(function (Builder $q) {
+        $dayStart = now()->startOfDay();
+        $nextDayStart = now()->addDay()->startOfDay();
+
+        return $query->where(function (Builder $q) use ($dayStart, $nextDayStart) {
             $q->whereNull('daily_budget_ugx')
                 ->orWhere(function (Builder $inner) {
                     $inner->whereNull('cost_per_impression_ugx')
@@ -163,13 +177,15 @@ class Ad extends Model
                     COALESCE(cost_per_impression_ugx, 0) * (
                         SELECT COUNT(*) FROM ad_impressions
                         WHERE ad_impressions.ad_id = ads.id
-                        AND DATE(ad_impressions.created_at) = CURDATE()
+                        AND ad_impressions.created_at >= ?
+                        AND ad_impressions.created_at < ?
                     ) + COALESCE(cost_per_click_ugx, 0) * (
                         SELECT COUNT(*) FROM ad_impressions
                         WHERE ad_impressions.ad_id = ads.id AND clicked = 1
-                        AND DATE(ad_impressions.created_at) = CURDATE()
+                        AND ad_impressions.created_at >= ?
+                        AND ad_impressions.created_at < ?
                     ) < daily_budget_ugx
-                ');
+                ', [$dayStart, $nextDayStart, $dayStart, $nextDayStart]);
         });
     }
 
