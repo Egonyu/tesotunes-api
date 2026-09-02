@@ -40,7 +40,22 @@ return [
     */
 
     'wallet_withdrawal' => [
+        /*
+         * The absolute floor, and the subscriber floor. Nobody may cash out
+         * below this: a measured 1,000 UGX movement lost roughly 220 to
+         * ZengaPay charges, so under 5,000 the user is mostly paying fees to
+         * move their own money.
+         */
         'min_amount' => (int) env('WALLET_WITHDRAWAL_MIN', 5000),
+
+        /*
+         * The floor for accounts without an active subscription. Subscribers
+         * cash out in smaller pieces because their subscription offsets the
+         * per-transaction charge; everyone else waits until the transfer is
+         * large enough to be worth its fee.
+         */
+        'min_amount_free' => (int) env('WALLET_WITHDRAWAL_MIN_FREE', 25000),
+
         'max_single' => (int) env('WALLET_WITHDRAWAL_MAX_SINGLE', 5000000),
     ],
 

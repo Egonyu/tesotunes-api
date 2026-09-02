@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Models\PaymentIssue;
 use App\Models\SubscriptionPlan;
+use App\Models\User;
 use App\Services\Payment\PaymentObservabilityService;
 use App\Services\Payment\ZengaPayService;
 use App\Services\PaymentService;
@@ -619,12 +620,30 @@ class PaymentController extends Controller
     {
         $user = $request->user();
 
+        $balance = (float) ($user->ugx_balance ?? 0);
+        $tierFloor = $this->withdrawalFloorFor($user);
+
         return response()->json([
             'data' => [
-                'ugx_balance' => (float) ($user->ugx_balance ?? 0),
+                'ugx_balance' => $balance,
                 'credits_balance' => (float) $user->credit_balance,
                 'currency' => 'UGX',
                 'in_flight' => $this->inFlightPayments($request),
+
+                /*
+                 * What this account may cash out, so the dialog can say so up
+                 * front instead of letting someone type an amount and meet a
+                 * 422 they had no way to predict.
+                 */
+                'withdrawal' => [
+                    'tier_minimum' => $tierFloor,
+                    'absolute_minimum' => (int) config('payments.wallet_withdrawal.min_amount', 5000),
+                    'max_single' => (int) config('payments.wallet_withdrawal.max_single', 5000000),
+                    'subscribed' => $user->activeSubscription()->exists(),
+                    // Below the tier floor the only permitted cash-out is all
+                    // of it, so the dialog can offer exactly that.
+                    'whole_balance_only' => $balance > 0 && $balance < $tierFloor,
+                ],
             ],
         ]);
     }
@@ -696,29 +715,70 @@ class PaymentController extends Controller
     }
 
     /**
+     * The smallest partial cash-out this account may make.
+     *
+     * Subscribers get the absolute floor; everyone else waits until the
+     * transfer is big enough to be worth the provider's flat charge. Either
+     * way a full-balance cash-out is always permitted — see withdraw().
+     */
+    private function withdrawalFloorFor(User $user): int
+    {
+        $subscribed = $user->activeSubscription()->exists();
+
+        return (int) config(
+            $subscribed
+                ? 'payments.wallet_withdrawal.min_amount'
+                : 'payments.wallet_withdrawal.min_amount_free',
+            $subscribed ? 5000 : 25000,
+        );
+    }
+
+    /**
      * POST /api/payments/wallet/withdraw — request withdrawal
      */
     public function withdraw(Request $request): JsonResponse
     {
-        $minimum = (int) config('payments.wallet_withdrawal.min_amount', 5000);
+        $floor = (int) config('payments.wallet_withdrawal.min_amount', 5000);
         $maximum = (int) config('payments.wallet_withdrawal.max_single', 5000000);
 
         $validated = $request->validate([
-            'amount' => "required|numeric|min:{$minimum}|max:{$maximum}",
+            'amount' => "required|numeric|min:{$floor}|max:{$maximum}",
             'phone' => 'required|string|min:9',
             'provider' => 'nullable|string|in:mtn_momo,airtel_money,zengapay',
         ], [
-            'amount.min' => "The smallest cash out is UGX {$minimum}. Provider charges make anything less mostly fees.",
+            'amount.min' => "The smallest cash out is UGX {$floor}. Provider charges make anything less mostly fees.",
         ]);
 
         $user = $request->user();
         $amount = (float) $validated['amount'];
+        $balance = (float) ($user->ugx_balance ?? 0);
 
-        if (($user->ugx_balance ?? 0) < $amount) {
+        if ($balance < $amount) {
             return response()->json([
                 'data' => [
                     'success' => false,
                     'message' => 'Insufficient wallet balance.',
+                ],
+            ], 422);
+        }
+
+        /*
+         * Accounts without a subscription cash out in larger pieces, because
+         * the provider's per-transaction charge does not shrink with the
+         * transfer — but taking everything out is always allowed, whatever the
+         * tier. A floor a user cannot reach is not a tier, it is their own
+         * money held hostage until they subscribe, and on this platform today
+         * no balance has ever reached the free-tier floor.
+         */
+        $tierFloor = $this->withdrawalFloorFor($user);
+
+        if ($amount < $tierFloor && $amount < $balance) {
+            return response()->json([
+                'data' => [
+                    'success' => false,
+                    'message' => "Cash out UGX {$tierFloor} or more, or take the whole balance out at once.",
+                    'tier_minimum' => $tierFloor,
+                    'whole_balance' => $balance,
                 ],
             ], 422);
         }

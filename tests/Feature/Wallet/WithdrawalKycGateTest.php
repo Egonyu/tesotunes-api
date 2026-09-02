@@ -95,4 +95,51 @@ class WithdrawalKycGateTest extends TestCase
             ->assertStatus(422)
             ->assertJsonValidationErrors(['amount']);
     }
+
+    /**
+     * An account with no subscription waits for a larger transfer, because the
+     * provider's charge does not shrink with the amount.
+     */
+    public function test_an_unsubscribed_account_cannot_take_a_small_slice(): void
+    {
+        config()->set('payments.wallet_withdrawal.min_amount', 5000);
+        config()->set('payments.wallet_withdrawal.min_amount_free', 25000);
+
+        $user = $this->verifiedUser(['ugx_balance' => 60000]);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/payments/wallet/withdraw', [
+                'amount' => 6000,
+                'phone' => '256772123456',
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('data.tier_minimum', 25000);
+    }
+
+    /**
+     * The escape that stops a tier becoming a hostage: whatever the floor, a
+     * user may always take out everything they hold. Without this, every
+     * balance on the platform today sits below the free-tier floor and could
+     * never be withdrawn at all.
+     */
+    public function test_the_whole_balance_can_always_be_taken_out(): void
+    {
+        config()->set('payments.wallet_withdrawal.min_amount', 5000);
+        config()->set('payments.wallet_withdrawal.min_amount_free', 25000);
+
+        $user = $this->verifiedUser(['ugx_balance' => 6000]);
+
+        $response = $this->actingAs($user, 'sanctum')
+            ->postJson('/api/payments/wallet/withdraw', [
+                'amount' => 6000,
+                'phone' => '256772123456',
+            ]);
+
+        // It must get past the tier gate — whatever the provider then does with
+        // it is not what this test is about.
+        $this->assertNotSame(
+            'Cash out UGX 25000 or more, or take the whole balance out at once.',
+            $response->json('data.message'),
+        );
+    }
 }
