@@ -628,7 +628,10 @@ class PaymentObserver
         $bonusCredits = (int) round($amount * $bonusPct);
 
         try {
-            $user->creditWallet?->addCredits(
+            // Real money has already changed hands by this point, so the bonus
+            // must not depend on the account happening to have a wallet row —
+            // the helper creates one.
+            $user->addCredits(
                 (float) $bonusCredits,
                 'topup_bonus',
                 'Top-up bonus ('.number_format($amount).' UGX topped up)',

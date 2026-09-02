@@ -63,4 +63,44 @@ class TipCreditsFlowTest extends TestCase
             'amount' => 125,
         ]);
     }
+
+    /**
+     * The tip has to land on the other side too.
+     *
+     * The recipient was credited through `creditWallet?->addCredits(...)`,
+     * which silently does nothing when the artist has never held a wallet row —
+     * and 40% of production accounts had none. The fan was debited, the artist
+     * received nothing, and no error was raised anywhere. The existing coverage
+     * missed it by only ever asserting the sender's side of the transfer.
+     */
+    public function test_a_tip_reaches_an_artist_who_has_never_held_a_credit_wallet(): void
+    {
+        $sender = User::factory()->create();
+        $sender->ensureCreditWallet()->update(['balance' => 500]);
+
+        $artistUser = User::factory()->create(['is_artist' => true]);
+        $artistUser->assignRole('artist', $artistUser->id);
+        $artist = Artist::factory()->create(['user_id' => $artistUser->id]);
+
+        // The condition that used to swallow the credit.
+        $artistUser->creditWallet()->delete();
+        $this->assertNull($artistUser->fresh()->creditWallet);
+
+        $this->actingAs($sender)->postJson('/api/tips', [
+            'recipient_id' => $artist->id,
+            'recipient_type' => 'artist',
+            'amount' => 125,
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('credit_transactions', [
+            'user_id' => $artistUser->id,
+            'source' => 'tip_received',
+        ]);
+
+        $this->assertGreaterThan(
+            0,
+            (float) $artistUser->fresh()->creditWallet?->balance,
+            'The artist should hold the net share of the tip, not nothing.',
+        );
+    }
 }

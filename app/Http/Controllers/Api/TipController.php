@@ -75,8 +75,15 @@ class TipController extends Controller
                 ], 422));
             }
 
-            // Credit the artist's wallet with their net share
-            $recipientUser->creditWallet?->addCredits(
+            // Credit the artist's wallet with their net share.
+            //
+            // Via the User helper, which creates the wallet if the artist has
+            // never had one. Reaching through creditWallet?-> instead meant the
+            // credit silently evaporated for the 40% of accounts with no
+            // user_credits row: the fan was debited, the artist received
+            // nothing, and no error was raised. A 500-credit tip was lost this
+            // way.
+            $recipientUser->addCredits(
                 (float) $artistNetAmount,
                 'tip_received',
                 'Tip received',

@@ -89,7 +89,9 @@ class DistributeListenToEarnPool extends Command
             }
 
             try {
-                $user->creditWallet?->addCredits(
+                // Through the User helper so a listener with no wallet row gets
+                // one rather than silently forfeiting their share of the pool.
+                $user->addCredits(
                     (float) $credits,
                     'listen_earn',
                     "Listen-to-earn pool share ({$listener->total_seconds}s listened)",

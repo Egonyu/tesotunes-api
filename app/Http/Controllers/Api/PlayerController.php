@@ -123,7 +123,10 @@ class PlayerController extends Controller
 
             if ($qualifiedCount === 1) {
                 try {
-                    $user->creditWallet?->addCredits(
+                    // A first listen is exactly when an account is least likely
+                    // to have a wallet row yet, so this must create one rather
+                    // than skip the bonus it is meant to award.
+                    $user->addCredits(
                         50,
                         'first_listen_bonus',
                         'Bonus for completing your first song listen on TesoTunes!',
