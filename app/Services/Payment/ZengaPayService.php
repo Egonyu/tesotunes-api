@@ -372,8 +372,12 @@ class ZengaPayService
         ];
     }
 
-    public function recordWebhookSignatureFailure(array $payload, ?string $signature = null): void
-    {
+    public function recordWebhookSignatureFailure(
+        array $payload,
+        ?string $signature = null,
+        ?string $rawBody = null,
+        ?string $headerName = null,
+    ): void {
         $data = $this->extractWebhookData($payload);
         $payment = $this->locatePayment($data['transaction_id'], $data['external_reference']);
 
@@ -385,6 +389,12 @@ class ZengaPayService
             'status' => $data['status'],
             'provider' => 'zengapay',
             'payload_keys' => array_keys($payload),
+            // Without these a rejection cannot be replayed or compared, which is
+            // how 52 production failures went undiagnosed. Secrets are never
+            // included — only the HMACs they produce.
+            'signature_header' => $headerName,
+            'raw_body' => $rawBody === null ? null : mb_substr($rawBody, 0, 2000),
+            'expected_signatures' => $this->signatureDiagnostics($rawBody ?? '', $payload),
         ], $payment);
 
         if (! $payment) {
@@ -523,28 +533,56 @@ class ZengaPayService
         return $normalized;
     }
 
+    /**
+     * What we would have accepted, so a rejection can be compared against what
+     * the provider sent instead of merely logged as "invalid".
+     *
+     * Secrets never appear in the output — only their index and the resulting
+     * HMAC, which is safe to persist.
+     *
+     * @return array<int, array{secret_index:int, candidate:string, hmac_sha256_hex:string}>
+     */
+    public function signatureDiagnostics(string $rawBody, array $parsedPayload = [], int $limit = 8): array
+    {
+        $secrets = $this->webhookSecrets();
+
+        if ($secrets === []) {
+            return [];
+        }
+
+        $candidates = array_slice($this->signaturePayloadCandidates($rawBody, $parsedPayload), 0, $limit);
+        $diagnostics = [];
+
+        foreach ($secrets as $secretIndex => $secret) {
+            foreach ($candidates as $candidate) {
+                $diagnostics[] = [
+                    'secret_index' => $secretIndex,
+                    'candidate' => mb_substr($candidate, 0, 160),
+                    'hmac_sha256_hex' => hash_hmac('sha256', $candidate, $secret),
+                ];
+            }
+        }
+
+        return $diagnostics;
+    }
+
     protected function signaturePayloadCandidates(string $payload, array $parsedPayload = []): array
     {
-        $candidates = [$payload];
-
         if ($parsedPayload === []) {
-            return $candidates;
+            return [$payload];
         }
 
         $normalized = $this->sortPayloadRecursively($parsedPayload);
         $flat = $this->flattenPayload($normalized);
 
-        $json = json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        if (is_string($json)) {
-            $candidates[] = $json;
-        }
+        // Field-set concatenations come first: the documented scheme leads the
+        // list, so it is what a diagnostics dump shows and what a reader sees as
+        // the intended contract. The raw body and generic encodings follow as
+        // fallbacks for older payload shapes.
+        $candidates = [];
 
         if ($flat !== []) {
             ksort($flat);
-
-            $candidates[] = json_encode($flat, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-            $candidates[] = implode('|', array_values($flat));
-            $candidates[] = implode('', array_values($flat));
 
             foreach ($this->selectedSignatureFieldSets($flat) as $selected) {
                 if ($selected === []) {
@@ -554,6 +592,19 @@ class ZengaPayService
                 $candidates[] = implode('', $selected);
                 $candidates[] = implode('|', $selected);
             }
+        }
+
+        $candidates[] = $payload;
+
+        $json = json_encode($normalized, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if (is_string($json)) {
+            $candidates[] = $json;
+        }
+
+        if ($flat !== []) {
+            $candidates[] = json_encode($flat, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            $candidates[] = implode('|', array_values($flat));
+            $candidates[] = implode('', array_values($flat));
         }
 
         return array_values(array_unique(array_filter($candidates, fn ($candidate) => is_string($candidate) && $candidate !== '')));
@@ -574,6 +625,7 @@ class ZengaPayService
 
         $amount = $flat['data.transactionAmount']
             ?? $flat['transactionAmount']
+            ?? $flat['data.amount']
             ?? $flat['amount']
             ?? null;
 
@@ -588,7 +640,13 @@ class ZengaPayService
             ?? $flat['external_reference']
             ?? null;
 
-        $phone = $flat['data.customerPhoneNumber']
+        // `msisdn` is the field ZengaPay actually signs with; the camelCase
+        // variants below are from an older payload shape and are kept as
+        // fallbacks. Omitting msisdn is why the documented signature string was
+        // never among our candidates.
+        $phone = $flat['data.msisdn']
+            ?? $flat['msisdn']
+            ?? $flat['data.customerPhoneNumber']
             ?? $flat['customerPhoneNumber']
             ?? $flat['phoneNumber']
             ?? null;
@@ -598,6 +656,21 @@ class ZengaPayService
         $currencyVariants = $this->signatureValueVariants($currency);
 
         $fieldSets = [];
+
+        // The scheme ZengaPay documents: transactionReference + msisdn + amount,
+        // concatenated in that order. Tried first because it is the only one the
+        // provider claims to use; everything below is legacy guesswork retained
+        // so an older payload shape still verifies.
+        foreach ($amountVariants as $amountVariant) {
+            $documented = array_values(array_filter(
+                [$transactionReference, $phone, $amountVariant],
+                fn ($value) => $value !== null && $value !== ''
+            ));
+
+            if (count($documented) === 3) {
+                $fieldSets[] = $documented;
+            }
+        }
 
         foreach ($statusVariants as $statusVariant) {
             foreach ($amountVariants as $amountVariant) {
