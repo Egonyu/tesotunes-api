@@ -263,17 +263,37 @@ class KycService
             $missing[] = 'phone_verified';
         }
 
-        if (in_array($action, [self::ACTION_WITHDRAWAL, self::ACTION_PAYOUT_METHOD_CHANGE], true)) {
-            $profile = $user->artistProfile;
-            $hasPayoutMethod = $profile
-                && ($profile->mobile_money_number || $profile->bank_account);
-
-            if (! $hasPayoutMethod) {
-                $missing[] = 'payout_method';
-            }
+        if (in_array($action, [self::ACTION_WITHDRAWAL, self::ACTION_PAYOUT_METHOD_CHANGE], true)
+            && ! $this->hasPayoutDestination($user)
+        ) {
+            $missing[] = 'payout_method';
         }
 
         return $missing;
+    }
+
+    /**
+     * Whether we know where to send this user's money.
+     *
+     * This previously consulted the artist profile alone, which made the step
+     * unsatisfiable for anyone without one — a plain listener could complete
+     * every other requirement and still never withdraw from their wallet. The
+     * gate predates the user wallet gaining a cash-out flow.
+     *
+     * An artist payout profile still counts, because artist earnings settle to
+     * a stored destination. For everyone else the account's own mobile money
+     * number is the destination, which is what the wallet withdrawal endpoint
+     * actually sends to.
+     */
+    private function hasPayoutDestination(User $user): bool
+    {
+        $profile = $user->artistProfile;
+
+        if ($profile && ($profile->mobile_money_number || $profile->bank_account)) {
+            return true;
+        }
+
+        return ! empty($user->phone);
     }
 
     /**
