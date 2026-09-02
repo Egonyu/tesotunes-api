@@ -700,10 +700,15 @@ class PaymentController extends Controller
      */
     public function withdraw(Request $request): JsonResponse
     {
+        $minimum = (int) config('payments.wallet_withdrawal.min_amount', 5000);
+        $maximum = (int) config('payments.wallet_withdrawal.max_single', 5000000);
+
         $validated = $request->validate([
-            'amount' => 'required|numeric|min:1000',
+            'amount' => "required|numeric|min:{$minimum}|max:{$maximum}",
             'phone' => 'required|string|min:9',
             'provider' => 'nullable|string|in:mtn_momo,airtel_money,zengapay',
+        ], [
+            'amount.min' => "The smallest cash out is UGX {$minimum}. Provider charges make anything less mostly fees.",
         ]);
 
         $user = $request->user();
@@ -810,6 +815,26 @@ class PaymentController extends Controller
                 'reference' => $reference,
                 'message' => $result['message'] ?? 'Withdrawal initiation failed',
             ]);
+
+            // Raise an issue, not just an audit line. Every payout in production
+            // history failed while the operator issues queue stayed empty,
+            // because this branch only ever wrote an audit entry.
+            $this->observability()->recordIssue(
+                $payment->fresh(),
+                PaymentIssue::TYPE_PROVIDER_ERROR,
+                "Withdrawal #{$payment->id} rejected by the provider",
+                [
+                    'description' => $result['message'] ?? 'Withdrawal initiation failed',
+                    'severity' => 'high',
+                    'money_deducted' => false,
+                    'service_delivered' => false,
+                    'provider_status' => (string) ($result['status'] ?? ''),
+                    'metadata' => [
+                        'reference' => $reference,
+                        'provider_response' => $result['raw_response'] ?? null,
+                    ],
+                ]
+            );
 
             return response()->json([
                 'data' => [
