@@ -223,7 +223,7 @@ class Post extends Model
                 'New Comment',
                 "{$user->name} commented on your post",
                 ['post_id' => $this->id, 'comment_id' => $comment->id],
-                Route::has('frontend.social.post') ? route('frontend.social.post', $this->id) : url("/social/posts/{$this->id}"),
+                Route::has('frontend.social.post') ? route('frontend.social.post', $this->id) : \App\Helpers\FrontendUrl::to("/social/posts/{$this->id}"),
                 'social',
                 $this,
                 $user->id
@@ -257,7 +257,7 @@ class Post extends Model
                 'Post Shared',
                 "{$user->name} shared your post",
                 ['post_id' => $this->id, 'shared_post_id' => $sharedPost->id],
-                Route::has('frontend.social.post') ? route('frontend.social.post', $sharedPost->id) : url("/social/posts/{$sharedPost->id}"),
+                Route::has('frontend.social.post') ? route('frontend.social.post', $sharedPost->id) : \App\Helpers\FrontendUrl::to("/social/posts/{$sharedPost->id}"),
                 'social',
                 $this,
                 $user->id

@@ -466,7 +466,7 @@ class Playlist extends Model
                     'song_id' => $song->id,
                     'activity_type' => $activityType,
                 ],
-                Route::has('playlist.show') ? route('playlist.show', $this->slug) : url("/playlists/{$this->slug}"),
+                Route::has('playlist.show') ? route('playlist.show', $this->slug) : \App\Helpers\FrontendUrl::to("/playlists/{$this->slug}"),
                 'social',
                 $this,
                 $user->id

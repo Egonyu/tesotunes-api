@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Music;
 
+use App\Helpers\FrontendUrl;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AlbumResource;
 use App\Http\Resources\ArtistResource;
@@ -213,7 +214,7 @@ class ArtistController extends Controller
                     'country' => $event->country ?? 'Uganda',
                 ],
                 'is_virtual' => (bool) $event->is_virtual,
-                'tickets_url' => url("/events/{$event->id}"),
+                'tickets_url' => FrontendUrl::to("/events/{$event->id}"),
                 'ticket_price_min' => $prices->isNotEmpty() ? (float) $prices->min() : null,
                 'ticket_price_max' => $prices->isNotEmpty() ? (float) $prices->max() : null,
                 'attendees_count' => (int) ($event->attendee_count ?? $event->confirmed_attendees_count),

@@ -1014,7 +1014,7 @@ class User extends Authenticatable implements MustVerifyEmail
                 'New Follower',
                 "{$this->name} started following you",
                 ['follower_id' => $this->id],
-                Route::has('user.profile') ? route('user.profile', $this->id) : url("/users/{$this->id}"),
+                Route::has('user.profile') ? route('user.profile', $this->id) : \App\Helpers\FrontendUrl::to("/users/{$this->id}"),
                 'social',
                 $this,
                 $this->id

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\Music;
 
+use App\Helpers\FrontendUrl;
 use App\Helpers\StorageHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PlaylistResource;
@@ -692,7 +693,7 @@ class PlaylistController extends Controller
         return response()->json([
             'data' => [
                 'invite_token' => $token,
-                'invite_url' => url("/playlists/invite/{$token}"),
+                'invite_url' => FrontendUrl::to("/playlists/invite/{$token}"),
                 'expires_at' => $expiresAt?->toIso8601String(),
                 'requires_approval' => (bool) $playlist->collaboration_requires_approval,
             ],
