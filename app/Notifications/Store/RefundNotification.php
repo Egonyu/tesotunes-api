@@ -3,6 +3,7 @@
 namespace App\Notifications\Store;
 
 use App\Channels\AppNotificationChannel;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -10,6 +11,7 @@ use Illuminate\Notifications\Notification;
 
 class RefundNotification extends Notification implements ShouldQueue
 {
+    use BuildsFrontendUrls;
     use Queueable;
 
     protected $order;
@@ -55,7 +57,7 @@ class RefundNotification extends Notification implements ShouldQueue
         }
 
         $mail->line('The refund will be credited to your original payment method within 3-5 business days.')
-            ->action('View Order Details', url("/store/orders/{$this->order->id}"))
+            ->action('View Order Details', $this->frontendUrl("/store/orders/{$this->order->id}"))
             ->line('If you have any questions, please contact our support team.');
 
         return $mail->line('Thank you for your patience!');
@@ -75,7 +77,7 @@ class RefundNotification extends Notification implements ShouldQueue
             'order_number' => $this->order->order_number ?? $this->order->id,
             'amount' => $this->amount,
             'reason' => $this->reason,
-            'action_url' => url("/store/orders/{$this->order->id}"),
+            'action_url' => $this->frontendUrl("/store/orders/{$this->order->id}"),
         ];
     }
 }

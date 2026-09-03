@@ -3,6 +3,7 @@
 namespace App\Notifications\Store;
 
 use App\Channels\AppNotificationChannel;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -10,6 +11,7 @@ use Illuminate\Notifications\Notification;
 
 class OrderStatusNotification extends Notification implements ShouldQueue
 {
+    use BuildsFrontendUrls;
     use Queueable;
 
     protected $order;
@@ -52,27 +54,27 @@ class OrderStatusNotification extends Notification implements ShouldQueue
                 $mail->subject("✅ Order #{$orderId} Confirmed!")
                     ->line('Your order has been confirmed and is being processed.')
                     ->line("**Order Total:** UGX {$total}")
-                    ->action('Track Your Order', url("/store/orders/{$this->order->id}"));
+                    ->action('Track Your Order', $this->frontendUrl("/store/orders/{$this->order->id}"));
                 break;
 
             case 'processing':
                 $mail->subject("📦 Order #{$orderId} Being Prepared")
                     ->line('Good news! Your order is now being prepared for shipment.')
-                    ->action('Track Your Order', url("/store/orders/{$this->order->id}"));
+                    ->action('Track Your Order', $this->frontendUrl("/store/orders/{$this->order->id}"));
                 break;
 
             case 'shipped':
                 $mail->subject("🚚 Order #{$orderId} Shipped!")
                     ->line('Your order is on its way!')
                     ->line('You can track your delivery using the link below.')
-                    ->action('Track Delivery', url("/store/orders/{$this->order->id}"));
+                    ->action('Track Delivery', $this->frontendUrl("/store/orders/{$this->order->id}"));
                 break;
 
             case 'delivered':
                 $mail->subject("✅ Order #{$orderId} Delivered")
                     ->line('Your order has been delivered. We hope you enjoy your purchase!')
                     ->line('If you have any issues, please contact our support team.')
-                    ->action('Leave a Review', url("/store/orders/{$this->order->id}/review"));
+                    ->action('Leave a Review', $this->frontendUrl("/store/orders/{$this->order->id}/review"));
                 break;
 
             case 'cancelled':
@@ -87,7 +89,7 @@ class OrderStatusNotification extends Notification implements ShouldQueue
             default:
                 $mail->subject("Order #{$orderId} Status Update")
                     ->line("Your order status has been updated to: **{$this->status}**")
-                    ->action('View Order', url("/store/orders/{$this->order->id}"));
+                    ->action('View Order', $this->frontendUrl("/store/orders/{$this->order->id}"));
         }
 
         return $mail->line('Thank you for shopping with TesoTunes Store!');
@@ -115,7 +117,7 @@ class OrderStatusNotification extends Notification implements ShouldQueue
             'order_number' => $this->order->order_number ?? $this->order->id,
             'status' => $this->status,
             'notes' => $this->notes,
-            'action_url' => url("/store/orders/{$this->order->id}"),
+            'action_url' => $this->frontendUrl("/store/orders/{$this->order->id}"),
         ];
     }
 

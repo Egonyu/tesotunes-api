@@ -54,8 +54,15 @@ class ReferralLinkTest extends TestCase
         $this->assertStringNotContainsString('.com//register', $user->referral_link);
     }
 
-    /** With no frontend configured, fall back rather than produce a broken link. */
-    public function test_it_falls_back_to_app_url_when_no_frontend_is_configured(): void
+    /**
+     * With no frontend configured, fall back by stripping the api. host rather
+     * than pointing at the API domain, which serves no pages.
+     *
+     * This assertion previously expected api.example.com, because the first fix
+     * carried its own naive fallback. The shared helper the rest of the project
+     * already used does the better thing, and the link now follows it.
+     */
+    public function test_it_falls_back_off_the_api_host_when_no_frontend_is_configured(): void
     {
         config()->set('app.url', 'https://api.example.com');
         config()->set('app.frontend_url', null);
@@ -63,6 +70,6 @@ class ReferralLinkTest extends TestCase
         $user = User::factory()->create();
         $user->generateReferralCode();
 
-        $this->assertStringStartsWith('https://api.example.com/register?ref=', $user->referral_link);
+        $this->assertStringStartsWith('https://example.com/register?ref=', $user->referral_link);
     }
 }

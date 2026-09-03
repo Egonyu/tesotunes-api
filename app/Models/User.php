@@ -603,12 +603,7 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         $code = $this->referral_code ?? $this->generateReferralCode();
 
-        // ?: rather than config()'s default: the key exists and may hold null
-        // when FRONTEND_URL is unset, and a default only applies to a missing
-        // key. Without this the base comes back empty and the link is relative.
-        $base = rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/');
-
-        return $base.'/register?ref='.$code;
+        return \App\Helpers\FrontendUrl::to('/register?ref='.$code);
     }
 
     /**

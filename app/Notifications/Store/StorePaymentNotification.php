@@ -4,6 +4,7 @@ namespace App\Notifications\Store;
 
 use App\Channels\AppNotificationChannel;
 use App\Modules\Store\Models\Order;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -11,6 +12,7 @@ use Illuminate\Notifications\Notification;
 
 class StorePaymentNotification extends Notification implements ShouldQueue
 {
+    use BuildsFrontendUrls;
     use Queueable;
 
     public function __construct(
@@ -40,7 +42,7 @@ class StorePaymentNotification extends Notification implements ShouldQueue
                 ->line("- Amount: UGX {$formattedAmount}")
                 ->line('- Payment: '.ucfirst($this->paymentMethod))
                 ->line("- Transaction: {$this->transactionId}")
-                ->action('View Order', url("/store/orders/{$this->order->id}"))
+                ->action('View Order', $this->frontendUrl("/store/orders/{$this->order->id}"))
                 ->line('Thank you for shopping on TesoTunes!');
         }
 
@@ -52,7 +54,7 @@ class StorePaymentNotification extends Notification implements ShouldQueue
             ->line("- Order: #{$this->order->order_number}")
             ->line("- Your Earnings: UGX {$formattedAmount}")
             ->line("- Transaction: {$this->transactionId}")
-            ->action('View Sales', url('/store/seller/orders'))
+            ->action('View Sales', $this->frontendUrl('/store/seller/orders'))
             ->line('Keep up the great work!');
     }
 

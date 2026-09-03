@@ -4,12 +4,14 @@ namespace App\Notifications\Store;
 
 use App\Channels\AppNotificationChannel;
 use App\Modules\Store\Models\Store;
+use App\Notifications\Concerns\BuildsFrontendUrls;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class MonthlyReportNotification extends Notification
 {
+    use BuildsFrontendUrls;
     use Queueable;
 
     public function __construct(
@@ -29,7 +31,7 @@ class MonthlyReportNotification extends Notification
             ->greeting("Hi {$notifiable->name},")
             ->line("Your monthly store report for **{$this->store->name}** is ready.")
             ->line('Reports include sales, product performance, and customer analytics.')
-            ->action('View Store Dashboard', url("/store/{$this->store->slug}/dashboard"));
+            ->action('View Store Dashboard', $this->frontendUrl("/store/{$this->store->slug}/dashboard"));
 
         foreach ($this->reportPaths as $label => $path) {
             if ($path && file_exists(storage_path("app/{$path}"))) {
