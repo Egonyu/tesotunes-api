@@ -37,6 +37,20 @@ class ArtistApiController extends Controller
 {
     private static ?array $songTableColumns = null;
 
+    /**
+     * A link to a page on the frontend.
+     *
+     * url() builds against app.url, which is the API domain — so the artist
+     * referral links it produced pointed at api.tesotunes.com/join/..., a 404.
+     * Anything a person is meant to open in a browser belongs on the frontend.
+     */
+    private function frontendUrl(string $path): string
+    {
+        // ?: rather than config()'s default: the key exists and may hold null
+        // when FRONTEND_URL is unset, and a default only applies to a missing key.
+        return rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/').'/'.ltrim($path, '/');
+    }
+
     public function __construct(
         private readonly NotificationRoutingService $notificationRoutingService,
         private readonly SongMultipartUploadService $songMultipartUploadService,
@@ -2021,8 +2035,8 @@ class ArtistApiController extends Controller
                 ],
                 'link' => [
                     'referral_code' => $artist->slug,
-                    'referral_link' => url("/join/{$artist->slug}"),
-                    'branded_link' => url("/join/{$artist->slug}"),
+                    'referral_link' => $this->frontendUrl("/join/{$artist->slug}"),
+                    'branded_link' => $this->frontendUrl("/join/{$artist->slug}"),
                     'qr_code_url' => null,
                 ],
                 'recent_signups' => [],
@@ -2046,8 +2060,8 @@ class ArtistApiController extends Controller
         return response()->json([
             'data' => [
                 'referral_code' => $artist->slug,
-                'referral_link' => url("/join/{$artist->slug}"),
-                'branded_link' => url("/join/{$artist->slug}"),
+                'referral_link' => $this->frontendUrl("/join/{$artist->slug}"),
+                'branded_link' => $this->frontendUrl("/join/{$artist->slug}"),
                 'qr_code_url' => null,
             ],
         ]);

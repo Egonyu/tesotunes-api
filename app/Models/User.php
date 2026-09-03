@@ -591,11 +591,24 @@ class User extends Authenticatable implements MustVerifyEmail
     /**
      * Get the user's referral link
      */
+    /**
+     * The link a person shares to refer somebody.
+     *
+     * This used url(), which builds against app.url — the API domain. Every
+     * link it produced pointed at api.tesotunes.com/register, which is a 404:
+     * the registration page lives on the frontend. A referral link that goes
+     * nowhere is worse than none at all, because it looks like it works.
+     */
     public function getReferralLinkAttribute(): string
     {
         $code = $this->referral_code ?? $this->generateReferralCode();
 
-        return url('/register?ref='.$code);
+        // ?: rather than config()'s default: the key exists and may hold null
+        // when FRONTEND_URL is unset, and a default only applies to a missing
+        // key. Without this the base comes back empty and the link is relative.
+        $base = rtrim((string) (config('app.frontend_url') ?: config('app.url')), '/');
+
+        return $base.'/register?ref='.$code;
     }
 
     /**
