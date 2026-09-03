@@ -431,6 +431,27 @@ class ReconcileProductionSchemaDrift extends Command
             });
         }
 
+        /*
+         * credit_rates gained the columns that make a rate a rule rather than
+         * just a number: an operator label, a cooldown, a lifetime cap, a
+         * campaign window and an ordering. The base migration carries them for
+         * fresh installs; this brings an existing database up to it.
+         */
+        $creditRateColumns = [
+            'display_name' => fn (Blueprint $t) => $t->string('display_name')->nullable()->after('activity_type'),
+            'cooldown_minutes' => fn (Blueprint $t) => $t->unsignedInteger('cooldown_minutes')->nullable(),
+            'max_per_user_lifetime' => fn (Blueprint $t) => $t->unsignedInteger('max_per_user_lifetime')->nullable(),
+            'starts_at' => fn (Blueprint $t) => $t->timestamp('starts_at')->nullable(),
+            'ends_at' => fn (Blueprint $t) => $t->timestamp('ends_at')->nullable(),
+            'sort_order' => fn (Blueprint $t) => $t->unsignedInteger('sort_order')->default(0),
+        ];
+
+        foreach ($creditRateColumns as $column => $definition) {
+            if (! Schema::hasColumn('credit_rates', $column)) {
+                Schema::table('credit_rates', fn (Blueprint $table) => $definition($table));
+            }
+        }
+
         if (! Schema::hasColumn('likes', 'liked_at')) {
             Schema::table('likes', function (Blueprint $table) {
                 $table->timestamp('liked_at')->nullable();
