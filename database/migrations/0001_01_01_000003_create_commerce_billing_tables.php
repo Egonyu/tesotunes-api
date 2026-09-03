@@ -8,14 +8,45 @@ return new class extends Migration
 {
     public function up(): void
     {
+        /*
+         * What each rewardable activity pays, and the rules around it.
+         *
+         * This is the pricing and regulation surface for everything the
+         * platform pays people to do. It was previously three incompatible
+         * vocabularies at once — the table said activity_type/credits_per_action,
+         * the model said base_rate/max_daily/cooldown_minutes, and the service
+         * queried action/credits_earned. None of them agreed, the table stayed
+         * empty, and CreditService::getRate() threw "Unknown column" every time
+         * it was called. That is why no referral, daily-login or social credit
+         * has ever been awarded on this platform.
+         *
+         * One vocabulary now, matching the columns that actually exist.
+         */
         Schema::create('credit_rates', function (Blueprint $table) {
             $table->id();
             $table->string('activity_type', 50)->unique();
+            $table->string('display_name')->nullable();
             $table->decimal('credits_per_action', 10, 2);
+
+            // Regulation: how much of this a person may earn, how often.
             $table->decimal('daily_limit', 10, 2)->nullable();
+            $table->unsignedInteger('cooldown_minutes')->nullable();
+            $table->unsignedInteger('max_per_user_lifetime')->nullable();
+
+            /*
+             * Campaign window. A marketing push is a rate that pays more
+             * between two dates, so the window belongs beside the rate rather
+             * than in someone's calendar — leaving both null means always on.
+             */
+            $table->timestamp('starts_at')->nullable();
+            $table->timestamp('ends_at')->nullable();
+
             $table->text('description')->nullable();
             $table->boolean('is_active')->default(true);
+            $table->unsignedInteger('sort_order')->default(0);
             $table->timestamps();
+
+            $table->index(['is_active', 'activity_type']);
         });
 
         Schema::create('payments', function (Blueprint $table) {

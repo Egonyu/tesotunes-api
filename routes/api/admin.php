@@ -12,6 +12,21 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::get('/payments/{payment}', [\App\Http\Controllers\Api\Admin\PaymentObservabilityController::class, 'show'])->name('payments.show');
 });
 
+/*
+ * Reward rules — what the platform pays people to do.
+ *
+ * Rates, daily ceilings, cooldowns and campaign windows are operator settings,
+ * not constants in a service. Marketing retunes a reward here.
+ */
+Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin')->name('api.admin.')->group(function () {
+    Route::get('/reward-rules/referrals', [\App\Http\Controllers\Api\Admin\AdminRewardRuleController::class, 'referrals'])->name('reward-rules.referrals');
+    Route::get('/reward-rules/issues', [\App\Http\Controllers\Api\Admin\AdminRewardRuleController::class, 'issues'])->name('reward-rules.issues');
+    Route::get('/reward-rules', [\App\Http\Controllers\Api\Admin\AdminRewardRuleController::class, 'index'])->name('reward-rules.index');
+    Route::post('/reward-rules', [\App\Http\Controllers\Api\Admin\AdminRewardRuleController::class, 'store'])->name('reward-rules.store');
+    Route::put('/reward-rules/{rewardRule}', [\App\Http\Controllers\Api\Admin\AdminRewardRuleController::class, 'update'])->name('reward-rules.update');
+    Route::delete('/reward-rules/{rewardRule}', [\App\Http\Controllers\Api\Admin\AdminRewardRuleController::class, 'destroy'])->name('reward-rules.destroy');
+});
+
 // Admin Dashboard & Settings API — SECURED (dashboard stats are sensitive)
 Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions'])->prefix('admin')->name('api.admin.')->group(function () {
     Route::get('/dashboard/stats', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'stats'])->name('dashboard.stats');

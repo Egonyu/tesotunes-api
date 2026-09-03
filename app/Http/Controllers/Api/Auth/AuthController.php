@@ -7,10 +7,13 @@ use App\Enums\Observability\SecurityEventType;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Jobs\DispatchUserRegisteredWebhook;
+use App\Models\CreditRate;
 use App\Models\User;
+use App\Models\UserReferral;
 use App\Models\UserSetting;
 use App\Notifications\SecurityAlertNotification;
 use App\Notifications\WelcomeNotification;
+use App\Services\Credits\RewardRuleService;
 use App\Services\Observability\SecurityEvent;
 use App\Services\Observability\SecurityEventRecorder;
 use App\Services\RecaptchaService;
@@ -121,6 +124,10 @@ class AuthController extends Controller
             'country' => 'nullable|string|max:2',
             'date_of_birth' => 'nullable|date|before:today',
             'recaptcha_token' => 'nullable|string',
+            // The code from a /register?ref=CODE link. Registration used to
+            // drop it on the floor: nothing here accepted it, so referrer_id
+            // was never set and no referral has ever paid out.
+            'referral_code' => 'nullable|string|max:32',
         ]);
 
         if ($validator->fails()) {
@@ -145,6 +152,11 @@ class AuthController extends Controller
             ], 409);
         }
 
+        // Resolve the referral code before the account exists, so a bad code is
+        // simply ignored rather than blocking a signup. Growth should never be
+        // gated on a mistyped link.
+        $referrer = $this->resolveReferrer($request->input('referral_code'));
+
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
@@ -153,9 +165,14 @@ class AuthController extends Controller
             'country' => $request->country ?? 'UG',
             'date_of_birth' => $request->date_of_birth,
             'role' => 'user',
+            'referrer_id' => $referrer?->id,
             // HIGH-6 fix: Do NOT auto-verify email — require email verification flow
             // 'email_verified_at' => now(), // REMOVED: security risk
         ]);
+
+        if ($referrer) {
+            $this->rewardReferral($referrer, $user);
+        }
 
         try {
             if (Schema::hasTable('user_settings')) {
@@ -207,6 +224,67 @@ class AuthController extends Controller
             'data' => new UserResource($this->loadAuthRelations($user, ['settings'])),
             'requires_email_verification' => true,
         ], 201);
+    }
+
+    /**
+     * Find the account behind a referral code.
+     *
+     * Codes live in two places — users.referral_code and the user_referrals
+     * profile — because the profile table was added alongside the column rather
+     * than instead of it. Both are checked so a link works whichever one issued
+     * it. An unknown code returns null and the signup carries on without a
+     * referrer.
+     */
+    private function resolveReferrer(?string $code): ?User
+    {
+        $code = trim((string) $code);
+
+        if ($code === '') {
+            return null;
+        }
+
+        $referrer = User::where('referral_code', $code)->first();
+
+        if (! $referrer) {
+            $referrerId = UserReferral::where('referral_code', $code)->value('user_id');
+            $referrer = $referrerId ? User::find($referrerId) : null;
+        }
+
+        return $referrer;
+    }
+
+    /**
+     * Pay both sides of a referral, and record the link.
+     *
+     * Rates, ceilings and campaign windows all come from credit_rates, so what
+     * a referral is worth is an operator decision. Nothing here throws: a
+     * signup must succeed even if the reward does not, and a reward that fails
+     * leaves a CreditIssue behind rather than disappearing.
+     */
+    private function rewardReferral(User $referrer, User $newUser): void
+    {
+        try {
+            $referrer->recordReferral($newUser);
+
+            $rewards = app(RewardRuleService::class);
+
+            $rewards->award($referrer, CreditRate::REFERRAL_SIGNUP, [
+                'sourceable' => $newUser,
+                'metadata' => ['referred_user_id' => $newUser->id],
+            ]);
+
+            $rewards->award($newUser, CreditRate::REFERRAL_WELCOME, [
+                'sourceable' => $referrer,
+                'metadata' => ['referrer_id' => $referrer->id],
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('auth.register.referral_reward_failed', [
+                'referrer_id' => $referrer->id,
+                'new_user_id' => $newUser->id,
+                'exception' => get_class($e),
+                'message' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

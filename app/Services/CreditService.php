@@ -336,11 +336,22 @@ class CreditService
             ->sum('amount');
     }
 
+    /**
+     * What an activity pays.
+     *
+     * This queried `action` and `credits_earned`, neither of which is a column
+     * on credit_rates — so it raised "Unknown column" on every call and took
+     * the whole award down with it. That is why no daily-login, social or
+     * referral credit has ever been paid on this platform. The constants remain
+     * as the fallback for an activity with no row yet.
+     */
     private function getRate(string $activity): float
     {
-        return CreditRate::where('action', $activity)
-            ->where('is_active', true)
-            ->value('credits_earned') ?? (self::BASE_RATES[$activity] ?? 1.0);
+        $rate = CreditRate::query()->live()->forActivity($activity)->value('credits_per_action');
+
+        return $rate !== null
+            ? (float) $rate
+            : (self::BASE_RATES[$activity] ?? 1.0);
     }
 
     private function getLoginStreak(User $user): int
