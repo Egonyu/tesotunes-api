@@ -170,6 +170,23 @@ class AuthController extends Controller
             // 'email_verified_at' => now(), // REMOVED: security risk
         ]);
 
+        /*
+         * Issue this account its own code straight away.
+         *
+         * Codes were only ever minted lazily, by a model accessor nothing
+         * called — so not one account on the platform had a shareable link, and
+         * a referral programme nobody can share is not a programme. Failure
+         * here must not cost somebody their signup.
+         */
+        try {
+            $user->generateReferralCode();
+        } catch (\Throwable $e) {
+            Log::error('auth.register.referral_code_failed', [
+                'user_id' => $user->id,
+                'message' => $e->getMessage(),
+            ]);
+        }
+
         if ($referrer) {
             $this->rewardReferral($referrer, $user);
         }
