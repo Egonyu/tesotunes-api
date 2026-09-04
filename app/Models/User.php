@@ -674,9 +674,18 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->ensureCreditWallet()->spendCredits($amount, $source, $description, $metadata);
     }
 
+    /**
+     * Credit-earning activity, read off the ledger.
+     *
+     * This pointed at UserActivityCredit, a model that was never written and
+     * whose table was never migrated, so touching the relation threw. The
+     * ledger already records every award with its source and time, which is
+     * what a parallel activity table would only have duplicated.
+     */
     public function creditActivities(): HasMany
     {
-        return $this->hasMany(UserActivityCredit::class);
+        return $this->hasMany(CreditTransaction::class)
+            ->where('type', CreditTransaction::TYPE_EARNED);
     }
 
     public function getEventOrganizerAttribute(): array

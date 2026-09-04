@@ -5,9 +5,10 @@ namespace App\Services;
 use App\Models\CreditRate;
 use App\Models\CreditTransaction;
 use App\Models\User;
-use App\Models\UserActivityCredit;
 use App\Models\UserCredit;
 use App\Notifications\CreditsEarnedNotification;
+use App\Services\Credits\RewardRuleService;
+use Carbon\Carbon;
 
 class CreditService
 {
@@ -99,39 +100,36 @@ class CreditService
      */
     public function awardDailyLoginBonus(User $user): ?CreditTransaction
     {
-        $today = today();
         $source = 'daily_login';
 
-        // Check if already claimed today
-        $alreadyClaimed = UserActivityCredit::where('user_id', $user->id)
-            ->where('activity_type', $source)
-            ->where('activity_date', $today)
-            ->exists();
+        /*
+         * "Already claimed today" is the rate's own 1440-minute cooldown, and
+         * the rules engine reads it off the ledger — so the check, the rate and
+         * the daily ceiling all come from one place an operator can edit,
+         * instead of a hand-rolled query against a table that never existed.
+         */
+        $streakDays = $this->getLoginStreak($user);
 
-        if ($alreadyClaimed) {
+        $outcome = app(RewardRuleService::class)->award($user, $source, [
+            'description' => 'Daily login bonus',
+            'metadata' => ['streak_days' => $streakDays],
+        ]);
+
+        if (! $outcome->awarded) {
             return null;
         }
 
-        $credits = $this->getRate('daily_login');
-
-        // Streak bonus
-        $streakDays = $this->getLoginStreak($user);
+        // The streak bonus stays a separate award so it reads as its own line
+        // on the ledger, and so a missing weekly_streak rate cannot swallow the
+        // daily bonus that already landed.
         if ($streakDays >= 7) {
-            $credits += $this->getRate('weekly_streak');
+            app(RewardRuleService::class)->award($user, 'weekly_streak', [
+                'description' => 'Seven day streak',
+                'metadata' => ['streak_days' => $streakDays],
+            ]);
         }
 
-        // Record the activity
-        UserActivityCredit::create([
-            'user_id' => $user->id,
-            'activity_type' => $source,
-            'activity_date' => $today,
-            'credits_earned' => $credits,
-            'activity_data' => ['streak_days' => $streakDays],
-        ]);
-
-        return $this->awardCredits($user, $credits, $source, 'Daily login bonus', [
-            'streak_days' => $streakDays,
-        ]);
+        return $outcome->transaction;
     }
 
     /**
@@ -188,11 +186,22 @@ class CreditService
     /**
      * Get user's credit wallet, create if doesn't exist
      */
+    /**
+     * The account's credit wallet, created if it is missing.
+     *
+     * This read `$user->creditWallet ?: ...->create(...)`. The relation caches
+     * its result, so a null from the first call survived the row being created
+     * — and the dashboard calls this more than once per request. The second
+     * call saw the stale null and inserted again, hitting the unique index on
+     * user_id and 500ing the whole endpoint for anybody without a wallet.
+     *
+     * ensureCreditWallet is a firstOrCreate against the database, so it cannot
+     * be fooled by a stale relation, and it is the one way the rest of the
+     * codebase already gets a wallet.
+     */
     public function getUserWallet(User $user): UserCredit
     {
-        return $user->creditWallet ?: $user->creditWallet()->create([
-            'currency' => 'credits',
-        ]);
+        return $user->ensureCreditWallet();
     }
 
     /**
@@ -212,17 +221,27 @@ class CreditService
     {
         $wallet = $this->getUserWallet($user);
 
-        // Get transaction statistics
+        /*
+         * The model carries both spellings — TYPE_EARN 'earn' and TYPE_EARNED
+         * 'earned' — and every row ever written uses the longer one. These
+         * three sums asked for the short spelling, so all of them returned
+         * zero for every account on the platform. Match on both rather than
+         * pick a side, since either may appear until the duplicate constants
+         * are retired.
+         */
+        $earnedTypes = [CreditTransaction::TYPE_EARNED, CreditTransaction::TYPE_EARN];
+        $spentTypes = [CreditTransaction::TYPE_SPENT, CreditTransaction::TYPE_SPEND];
+
         $totalEarned = CreditTransaction::where('user_id', $user->id)
-            ->where('type', 'earn')
+            ->whereIn('type', $earnedTypes)
             ->sum('amount');
 
         $totalSpent = CreditTransaction::where('user_id', $user->id)
-            ->where('type', 'spend')
+            ->whereIn('type', $spentTypes)
             ->sum('amount');
 
         $thisMonth = CreditTransaction::where('user_id', $user->id)
-            ->where('type', 'earn')
+            ->whereIn('type', $earnedTypes)
             ->whereMonth('created_at', now()->month)
             ->whereYear('created_at', now()->year)
             ->sum('amount');
@@ -354,23 +373,47 @@ class CreditService
             : (self::BASE_RATES[$activity] ?? 1.0);
     }
 
+    /**
+     * Consecutive days this account has claimed its login bonus.
+     *
+     * Read off the credits ledger rather than a parallel activity table. The
+     * table this used to query, user_activity_credits, was never created — no
+     * model, no migration — so every call threw and took the whole credits
+     * dashboard down with it, which is why the page showed a zero balance to
+     * people who had credits.
+     *
+     * Deriving it also removes the second source of truth. The old code wrote
+     * its activity row *before* awarding the credits, so a failed award left a
+     * record claiming a bonus that never arrived — the same shape of gap that
+     * hid the missing tips.
+     */
     private function getLoginStreak(User $user): int
     {
+        $days = CreditTransaction::query()
+            ->where('user_id', $user->id)
+            ->where('source', 'daily_login')
+            ->where('created_at', '>=', today()->subDays(30))
+            ->pluck('created_at')
+            ->map(fn ($at) => Carbon::parse($at)->toDateString())
+            ->unique()
+            ->flip();
+
+        // A streak is only broken by missing a whole day, so it may end on
+        // today or on yesterday — otherwise everybody reads as zero until the
+        // moment they claim.
+        $cursor = $days->has(today()->toDateString())
+            ? today()
+            : today()->subDay();
+
+        if (! $days->has($cursor->toDateString())) {
+            return 0;
+        }
+
         $streak = 0;
-        $date = today();
 
-        while ($date->gte(today()->subDays(30))) {
-            $hasLogin = UserActivityCredit::where('user_id', $user->id)
-                ->where('activity_type', 'daily_login')
-                ->where('activity_date', $date)
-                ->exists();
-
-            if ($hasLogin) {
-                $streak++;
-                $date->subDay();
-            } else {
-                break;
-            }
+        while ($days->has($cursor->toDateString())) {
+            $streak++;
+            $cursor = $cursor->subDay();
         }
 
         return $streak;
