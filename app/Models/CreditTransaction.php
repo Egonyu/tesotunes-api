@@ -57,12 +57,21 @@ class CreditTransaction extends Model
         'processed_at' => 'datetime',
     ];
 
-    // Type constants (must match database enum values)
-    const TYPE_EARN = 'earn';
-
+    /*
+     * Movement types.
+     *
+     * 'earn' and 'spend' used to sit beside 'earned' and 'spent' as a second
+     * way to say the same thing. Nothing ever wrote them — all 201 rows on
+     * production use the longer forms — but they were quietly poisonous,
+     * because every query had to remember to match both and three places
+     * forgot: getRate looked up columns that did not exist, getUserCreditStats
+     * summed 'earn' and returned zero for every account, and the amount
+     * accessor tested 'spend' so every withdrawal displayed as a credit.
+     *
+     * A synonym nobody writes is not harmless; it is a trap that only springs
+     * on whoever forgets it exists.
+     */
     const TYPE_EARNED = 'earned';
-
-    const TYPE_SPEND = 'spend';
 
     const TYPE_SPENT = 'spent';
 
@@ -102,12 +111,12 @@ class CreditTransaction extends Model
     // Scopes
     public function scopeEarned($query)
     {
-        return $query->whereIn('type', [self::TYPE_EARN, self::TYPE_EARNED]);
+        return $query->where('type', self::TYPE_EARNED);
     }
 
     public function scopeSpent($query)
     {
-        return $query->whereIn('type', [self::TYPE_SPEND, self::TYPE_SPENT]);
+        return $query->where('type', self::TYPE_SPENT);
     }
 
     public function scopeStreaming($query)
@@ -158,16 +167,13 @@ class CreditTransaction extends Model
     /**
      * The amount with the sign a reader expects, e.g. "-1,000 credits".
      *
-     * This tested `type === 'spend'` while every row ever written uses the
-     * longer spelling, 'spent' — so every spend was shown as a credit. Money
-     * leaving the wallet read as money arriving, which is about as wrong as a
-     * ledger line can be. The icon accessor below has always matched both
-     * spellings; only this one picked a side.
+     * This once tested `type === 'spend'`, a spelling nothing writes, so every
+     * spend was shown as a credit — money leaving the wallet reading as money
+     * arriving. That synonym is now retired, so there is one form to match.
      */
     public function getFormattedAmountAttribute(): string
     {
-        $isOutgoing = in_array($this->type, [self::TYPE_SPEND, self::TYPE_SPENT], true)
-            || $this->amount < 0;
+        $isOutgoing = $this->type === self::TYPE_SPENT || $this->amount < 0;
 
         return ($isOutgoing ? '-' : '+').number_format(abs($this->amount), 0).' credits';
     }
@@ -175,8 +181,8 @@ class CreditTransaction extends Model
     public function getTypeIconAttribute(): string
     {
         return match ($this->type) {
-            'earn', 'earned' => '💰',
-            'spend', 'spent' => '💸',
+            'earned' => '💰',
+            'spent' => '💸',
             'refund' => '🔄',
             'bonus' => '🎁',
             'gift' => '🎀',
@@ -204,8 +210,10 @@ class CreditTransaction extends Model
     public function getTypeDescriptionAttribute(): string
     {
         return match ($this->type) {
-            'earn' => 'Earned',
-            'spend' => 'Spent',
+            // Matched only 'earn' and 'spend', so the forms actually in use
+            // fell through to the default and were right by luck.
+            'earned' => 'Earned',
+            'spent' => 'Spent',
             'refund' => 'Refund',
             'bonus' => 'Bonus',
             'gift' => 'Gift',

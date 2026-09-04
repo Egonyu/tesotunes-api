@@ -11,11 +11,10 @@ use Tests\TestCase;
 /**
  * Money leaving the wallet must not read as money arriving.
  *
- * getFormattedAmountAttribute tested `type === 'spend'`, while every row ever
- * written uses the longer spelling 'spent'. Every spend was therefore rendered
- * "+1,000 credits" — a conversion out of the wallet shown as a credit in. The
- * icon accessor beside it had always matched both spellings; only the amount
- * picked a side.
+ * getFormattedAmountAttribute tested `type === 'spend'`, a spelling nothing
+ * has ever written — every row uses 'spent'. So every spend rendered
+ * "+1,000 credits": a conversion out of the wallet shown as a credit in. The
+ * synonym has since been retired, which is what these tests hold in place.
  */
 class CreditTransactionFormattingTest extends TestCase
 {
@@ -34,7 +33,7 @@ class CreditTransactionFormattingTest extends TestCase
         ]);
     }
 
-    public function test_a_spend_is_signed_negative_in_both_spellings(): void
+    public function test_a_spend_is_signed_negative(): void
     {
         $user = User::factory()->create();
 
@@ -42,25 +41,32 @@ class CreditTransactionFormattingTest extends TestCase
             '-1,000 credits',
             $this->transaction($user, CreditTransaction::TYPE_SPENT, 1000)->formatted_amount,
         );
+    }
+
+    /**
+     * The retired synonym must not quietly come back as a credit.
+     *
+     * 'spend' is no longer a constant, but the column is a plain string, so a
+     * stray row could still carry it. If one ever does it must not read as
+     * money arriving — the bug this whole change exists to close.
+     */
+    public function test_a_stray_legacy_spend_row_is_not_shown_as_a_credit(): void
+    {
+        $user = User::factory()->create();
 
         $this->assertSame(
             '-500 credits',
-            $this->transaction($user, CreditTransaction::TYPE_SPEND, 500)->formatted_amount,
+            $this->transaction($user, 'spend', -500)->formatted_amount,
         );
     }
 
-    public function test_an_earning_is_signed_positive_in_both_spellings(): void
+    public function test_an_earning_is_signed_positive(): void
     {
         $user = User::factory()->create();
 
         $this->assertSame(
             '+1,000 credits',
             $this->transaction($user, CreditTransaction::TYPE_EARNED, 1000)->formatted_amount,
-        );
-
-        $this->assertSame(
-            '+250 credits',
-            $this->transaction($user, CreditTransaction::TYPE_EARN, 250)->formatted_amount,
         );
     }
 

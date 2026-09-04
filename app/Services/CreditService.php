@@ -219,15 +219,12 @@ class CreditService
         $wallet = $this->getUserWallet($user);
 
         /*
-         * The model carries both spellings — TYPE_EARN 'earn' and TYPE_EARNED
-         * 'earned' — and every row ever written uses the longer one. These
-         * three sums asked for the short spelling, so all of them returned
-         * zero for every account on the platform. Match on both rather than
-         * pick a side, since either may appear until the duplicate constants
-         * are retired.
+         * These three sums once asked for 'earn' and 'spend', spellings nothing
+         * has ever written, so every total came back zero for every account.
+         * The synonyms are retired; there is one form to ask for.
          */
-        $earnedTypes = [CreditTransaction::TYPE_EARNED, CreditTransaction::TYPE_EARN];
-        $spentTypes = [CreditTransaction::TYPE_SPENT, CreditTransaction::TYPE_SPEND];
+        $earnedTypes = [CreditTransaction::TYPE_EARNED];
+        $spentTypes = [CreditTransaction::TYPE_SPENT];
 
         $totalEarned = CreditTransaction::where('user_id', $user->id)
             ->whereIn('type', $earnedTypes)
@@ -346,7 +343,7 @@ class CreditService
     private function getTodayEarnings(User $user, string $source): float
     {
         return CreditTransaction::where('user_id', $user->id)
-            ->whereIn('type', [CreditTransaction::TYPE_EARN, CreditTransaction::TYPE_EARNED, CreditTransaction::TYPE_BONUS])
+            ->whereIn('type', [CreditTransaction::TYPE_EARNED, CreditTransaction::TYPE_BONUS])
             ->where('source', $source)
             ->whereDate('created_at', today())
             ->sum('amount');

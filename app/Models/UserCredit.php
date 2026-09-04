@@ -40,21 +40,21 @@ class UserCredit extends Model
     public function getEarnedCreditsAttribute(): float
     {
         return (float) $this->transactions()
-            ->whereIn('type', [CreditTransaction::TYPE_EARN, CreditTransaction::TYPE_EARNED, CreditTransaction::TYPE_BONUS])
+            ->whereIn('type', [CreditTransaction::TYPE_EARNED, CreditTransaction::TYPE_BONUS])
             ->sum('amount');
     }
 
     public function getSpentCreditsAttribute(): float
     {
         return (float) $this->transactions()
-            ->whereIn('type', [CreditTransaction::TYPE_SPEND, CreditTransaction::TYPE_SPENT, CreditTransaction::TYPE_PURCHASE])
+            ->whereIn('type', [CreditTransaction::TYPE_SPENT, CreditTransaction::TYPE_PURCHASE])
             ->sum('amount');
     }
 
     public function getCreditsEarnedTodayAttribute(): float
     {
         return (float) $this->transactions()
-            ->whereIn('type', [CreditTransaction::TYPE_EARN, CreditTransaction::TYPE_EARNED, CreditTransaction::TYPE_BONUS])
+            ->whereIn('type', [CreditTransaction::TYPE_EARNED, CreditTransaction::TYPE_BONUS])
             ->whereDate('created_at', today())
             ->sum('amount');
     }
@@ -62,7 +62,7 @@ class UserCredit extends Model
     public function getCreditsSpentTodayAttribute(): float
     {
         return (float) $this->transactions()
-            ->whereIn('type', [CreditTransaction::TYPE_SPEND, CreditTransaction::TYPE_SPENT, CreditTransaction::TYPE_PURCHASE])
+            ->whereIn('type', [CreditTransaction::TYPE_SPENT, CreditTransaction::TYPE_PURCHASE])
             ->whereDate('created_at', today())
             ->sum('amount');
     }
