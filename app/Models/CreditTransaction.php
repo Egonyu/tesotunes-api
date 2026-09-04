@@ -155,11 +155,21 @@ class CreditTransaction extends Model
     }
 
     // Helper methods
+    /**
+     * The amount with the sign a reader expects, e.g. "-1,000 credits".
+     *
+     * This tested `type === 'spend'` while every row ever written uses the
+     * longer spelling, 'spent' — so every spend was shown as a credit. Money
+     * leaving the wallet read as money arriving, which is about as wrong as a
+     * ledger line can be. The icon accessor below has always matched both
+     * spellings; only this one picked a side.
+     */
     public function getFormattedAmountAttribute(): string
     {
-        $prefix = $this->type === 'spend' || $this->amount < 0 ? '-' : '+';
+        $isOutgoing = in_array($this->type, [self::TYPE_SPEND, self::TYPE_SPENT], true)
+            || $this->amount < 0;
 
-        return $prefix.number_format(abs($this->amount), 0).' credits';
+        return ($isOutgoing ? '-' : '+').number_format(abs($this->amount), 0).' credits';
     }
 
     public function getTypeIconAttribute(): string

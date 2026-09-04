@@ -436,11 +436,16 @@ class CreditService
             ->get()
             ->map(function ($transaction) {
                 return [
+                    // Without an id the client has no stable key for these rows,
+                    // and /credits/transactions already returns one — the two
+                    // shapes should not disagree about something so basic.
+                    'id' => $transaction->id,
                     'type' => $transaction->type,
                     'amount' => $transaction->formatted_amount,
                     'description' => $transaction->description,
                     'source' => $transaction->source_description,
                     'date' => optional($transaction->created_at)->diffForHumans(),
+                    'relative_date' => optional($transaction->created_at)->diffForHumans(),
                     'icon' => $transaction->type_icon,
                 ];
             })
