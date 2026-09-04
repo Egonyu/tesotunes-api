@@ -184,9 +184,6 @@ class CreditService
     }
 
     /**
-     * Get user's credit wallet, create if doesn't exist
-     */
-    /**
      * The account's credit wallet, created if it is missing.
      *
      * This read `$user->creditWallet ?: ...->create(...)`. The relation caches
