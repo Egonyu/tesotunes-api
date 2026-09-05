@@ -285,9 +285,20 @@ class AuthController extends Controller
 
             $rewards = app(RewardRuleService::class);
 
+            /**
+             * The reference is what ties this payout to the account that
+             * earned it, so the referral history can show what each person
+             * brought in. `sourceable` looks like it would do that job but is
+             * discarded before the ledger — UserCredit::addCredits() always
+             * writes the wallet as the referenceable — whereas
+             * metadata['reference'] is persisted verbatim.
+             */
             $rewards->award($referrer, CreditRate::REFERRAL_SIGNUP, [
                 'sourceable' => $newUser,
-                'metadata' => ['referred_user_id' => $newUser->id],
+                'metadata' => [
+                    'referred_user_id' => $newUser->id,
+                    'reference' => 'referral:'.$newUser->id,
+                ],
             ]);
 
             $rewards->award($newUser, CreditRate::REFERRAL_WELCOME, [

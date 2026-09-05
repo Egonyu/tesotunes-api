@@ -33,7 +33,6 @@ final class FeatureSettings
             'general_sacco_enabled' => ['SACCO module', false],
             'general_campaigns_enabled' => ['Campaigns', false],
             'general_edula_enabled' => ['Edula module', false],
-            'general_ojokotau_enabled' => ['Ojokotau module', false],
         ];
 
         foreach ($flags as $key => [$label, $default]) {

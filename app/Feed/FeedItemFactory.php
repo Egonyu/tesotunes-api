@@ -135,8 +135,6 @@ class FeedItemFactory
             'sacco_milestone_reached' => ['feed_type' => 'sacco_milestone',   'module' => 'sacco', 'headline' => 'SACCO milestone reached!'],
 
             // Ojokotau
-            'ojokotau_campaign_launched' => ['feed_type' => 'campaign_created',   'module' => 'ojokotau', 'headline' => 'New campaign: :subject'],
-            'ojokotau_goal_reached' => ['feed_type' => 'campaign_milestone', 'module' => 'ojokotau', 'headline' => ':subject reached its goal!'],
 
             // Loyalty
             'loyalty_card_launched' => ['feed_type' => 'fan_club_joined',    'module' => 'loyalty', 'headline' => ':actor launched a loyalty card'],

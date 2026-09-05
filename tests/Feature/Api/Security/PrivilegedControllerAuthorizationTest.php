@@ -3,7 +3,6 @@
 namespace Tests\Feature\Api\Security;
 
 use App\Http\Controllers\Api\Admin\AdminSubscriptionsController;
-use App\Http\Controllers\Api\Admin\CampaignsApiController;
 use App\Http\Controllers\Api\Admin\DistributionPerformanceController;
 use App\Http\Controllers\Api\Admin\StoreApiController;
 use App\Http\Controllers\Api\PaymentController;
@@ -94,18 +93,6 @@ class PrivilegedControllerAuthorizationTest extends TestCase
         ]);
 
         $response = app(SaccoApiController::class)->stats($this->requestForUser($user));
-
-        $this->assertSame(403, $response->getStatusCode());
-    }
-
-    public function test_campaign_admin_stats_rejects_non_admin_inside_controller(): void
-    {
-        $user = User::factory()->create([
-            'role' => 'user',
-            'is_active' => true,
-        ]);
-
-        $response = app(CampaignsApiController::class)->stats($this->requestForUser($user));
 
         $this->assertSame(403, $response->getStatusCode());
     }

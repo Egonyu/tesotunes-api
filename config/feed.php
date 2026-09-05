@@ -292,7 +292,6 @@ return [
             'loyalty' => 'public',
             'store' => 'members',
             'sacco' => 'members',
-            'ojokotau' => 'public',
             'platform' => 'public',
         ],
     ],

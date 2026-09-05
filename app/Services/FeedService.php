@@ -161,7 +161,7 @@ class FeedService
      */
     public function forYou(): self
     {
-        $this->modules = ['music', 'events', 'awards', 'store', 'ojokotau', 'loyalty', 'forum'];
+        $this->modules = ['music', 'events', 'awards', 'store', 'loyalty', 'forum'];
 
         return $this;
     }
@@ -172,7 +172,7 @@ class FeedService
     public function following(): self
     {
         // Will be filtered in query to only show followed actors
-        $this->modules = ['music', 'events', 'awards', 'store', 'ojokotau', 'loyalty'];
+        $this->modules = ['music', 'events', 'awards', 'store', 'loyalty'];
 
         return $this;
     }
@@ -182,7 +182,7 @@ class FeedService
      */
     public function discover(): self
     {
-        $this->modules = ['music', 'events', 'awards', 'ojokotau'];
+        $this->modules = ['music', 'events', 'awards'];
         $this->includePrestigeOnly = false;
 
         return $this;
@@ -442,7 +442,6 @@ class FeedService
             'awards' => ['award_voting_opened', 'nomination_announced', 'award_winner_announced'],
             'store' => ['product_listed', 'store_created', 'commerce_support_milestone'],
             'sacco' => ['sacco_dividend_declared', 'sacco_member_joined', 'sacco_milestone_reached'],
-            'ojokotau' => ['ojokotau_campaign_launched', 'ojokotau_goal_reached', 'ojokotau_community_backed'],
             'loyalty' => ['loyalty_card_launched', 'loyalty_tier_upgrade', 'loyalty_reward_available'],
             'forum' => ['forum_topic_created', 'poll_created', 'forum_trending'],
         ];

@@ -63,9 +63,6 @@ Route::get('/announcements', [\App\Http\Controllers\Api\FeedController::class, '
 // Loyalty API Routes (fan clubs, memberships, rewards, points)
 require __DIR__.'/api/loyalty.php';
 
-// Ojokotau / Crowdfunding Campaign API Routes (public browsing + authenticated actions)
-require __DIR__.'/api/campaigns.php';
-
 // Homepage featured content
 Route::get('/featured', [\App\Http\Controllers\Api\FeaturedContentController::class, 'index'])->name('api.featured');
 Route::get('/homepage', [\App\Http\Controllers\Api\HomepageController::class, 'index'])->name('api.homepage');
@@ -126,6 +123,9 @@ require __DIR__.'/api/feed.php';
 
 // User Credits Routes
 require __DIR__.'/api/credits.php';
+
+// Member referral programme (dashboard, history, milestones, leaderboard)
+require __DIR__.'/api/referrals.php';
 
 // Subscription, payout, and core payment action routes
 require __DIR__.'/api/subscriptions.php';

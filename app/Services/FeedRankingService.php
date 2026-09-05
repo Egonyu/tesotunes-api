@@ -323,7 +323,6 @@ class FeedRankingService
             'events' => 0.15,
             'awards' => 0.10,
             'store' => 0.10,
-            'ojokotau' => 0.10,
             'loyalty' => 0.05,
             'sacco' => 0.05,
             'forum' => 0.10,

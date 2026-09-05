@@ -43,15 +43,6 @@ return new class extends Migration
             $table->index(['status', 'created_at'], 'episodes_status_created_at_index');
         });
 
-        Schema::table('campaigns', function (Blueprint $table) {
-            $table->index(['status', 'created_at'], 'campaigns_status_created_at_index');
-            $table->index(['status', 'is_featured'], 'campaigns_status_featured_index');
-        });
-
-        Schema::table('campaign_pledges', function (Blueprint $table) {
-            $table->index('campaign_id', 'pledges_campaign_id_index');
-        });
-
         Schema::table('events', function (Blueprint $table) {
             $table->index(['starts_at', 'status'], 'events_starts_at_status_index');
         });
@@ -61,15 +52,6 @@ return new class extends Migration
     {
         Schema::table('events', function (Blueprint $table) {
             $table->dropIndex('events_starts_at_status_index');
-        });
-
-        Schema::table('campaign_pledges', function (Blueprint $table) {
-            $table->dropIndex('pledges_campaign_id_index');
-        });
-
-        Schema::table('campaigns', function (Blueprint $table) {
-            $table->dropIndex('campaigns_status_created_at_index');
-            $table->dropIndex('campaigns_status_featured_index');
         });
 
         Schema::table('podcast_episodes', function (Blueprint $table) {

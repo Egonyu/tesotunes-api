@@ -210,22 +210,6 @@ class Artist extends Model implements HasMedia
         return $this->morphMany(Store::class, 'owner');
     }
 
-    /**
-     * Campaigns where this artist is the beneficiary
-     */
-    public function campaigns(): HasMany
-    {
-        return $this->hasMany(\App\Modules\Ojokotau\Models\Campaign::class, 'beneficiary_artist_id');
-    }
-
-    /**
-     * Active support campaigns for this artist
-     */
-    public function activeCampaigns()
-    {
-        return $this->campaigns()->where('status', 'active');
-    }
-
     // Polymorphic relationships
     public function followers()
     {

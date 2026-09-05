@@ -88,62 +88,6 @@ return new class extends Migration
             $table->index(['auditable_type', 'auditable_id']);
         });
 
-        Schema::create('campaigns', function (Blueprint $table) {
-            $table->id();
-            $table->uuid('uuid')->unique();
-            $table->foreignId('artist_id')->constrained()->cascadeOnDelete();
-            $table->string('title');
-            $table->string('slug')->unique();
-            $table->text('description')->nullable();
-            $table->text('short_description')->nullable();
-            $table->string('cover_image')->nullable();
-            $table->string('video_url')->nullable();
-            $table->string('type', 50)->default('crowdfunding');
-            $table->string('category', 100)->nullable();
-            $table->decimal('goal_amount', 12, 2);
-            $table->decimal('raised_amount', 12, 2)->default(0);
-            $table->decimal('minimum_pledge', 10, 2)->default(1);
-            $table->string('currency', 3)->default('UGX');
-            $table->integer('backer_count')->default(0);
-            $table->string('status', 20)->default('draft');
-            $table->timestamp('start_date')->nullable();
-            $table->timestamp('end_date')->nullable();
-            $table->boolean('is_featured')->default(false);
-            $table->boolean('allow_anonymous')->default(true);
-            $table->json('reward_tiers')->nullable();
-            $table->json('social_links')->nullable();
-            $table->timestamps();
-            $table->softDeletes();
-        });
-
-        Schema::create('campaign_pledges', function (Blueprint $table) {
-            $table->id();
-            $table->uuid('uuid')->unique();
-            $table->foreignId('campaign_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->decimal('amount', 12, 2);
-            $table->string('currency', 3)->default('UGX');
-            $table->string('reward_tier_id')->nullable();
-            $table->string('status', 20)->default('pending');
-            $table->text('message')->nullable();
-            $table->boolean('is_anonymous')->default(false);
-            $table->string('payment_method', 50)->nullable();
-            $table->string('transaction_id')->nullable();
-            $table->timestamp('confirmed_at')->nullable();
-            $table->timestamps();
-        });
-
-        Schema::create('campaign_updates', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('campaign_id')->constrained()->cascadeOnDelete();
-            $table->string('title');
-            $table->text('content');
-            $table->string('image')->nullable();
-            $table->boolean('backers_only')->default(false);
-            $table->timestamps();
-            $table->softDeletes();
-        });
-
         Schema::create('device_tokens', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
@@ -635,9 +579,6 @@ return new class extends Migration
             'feed_analytics',
             'feed_ab_tests',
             'device_tokens',
-            'campaign_updates',
-            'campaign_pledges',
-            'campaigns',
             'audit_logs',
             'activities',
             'notifications',

@@ -93,7 +93,6 @@ class FeedItemService
         'loyalty' => 'public',
         'store' => 'members',   // Never expose individual buyers
         'sacco' => 'members',   // Financial privacy
-        'ojokotau' => 'public',
         'platform' => 'public',
     ];
 

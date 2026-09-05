@@ -1,7 +1,6 @@
 <?php
 
 return array_filter([
-    App\Modules\Ojokotau\Providers\OjokotauServiceProvider::class,
     App\Modules\Sacco\Providers\SaccoServiceProvider::class,
     App\Modules\Promotions\Providers\PromotionsServiceProvider::class,
     App\Modules\Store\Providers\StoreServiceProvider::class,

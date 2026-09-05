@@ -143,18 +143,6 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::post('/promotions/{promotion}/reject', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'reject'])->name('promotions.reject');
     Route::post('/promotions/disputes/{disputeId}/resolve', [\App\Http\Controllers\Api\Admin\AdminPromotionsController::class, 'resolveDispute'])->name('promotions.disputes.resolve');
 
-    // Campaigns API
-    Route::get('/campaigns/stats', [\App\Http\Controllers\Api\Admin\CampaignsApiController::class, 'stats'])->name('campaigns.stats');
-    Route::get('/campaigns', [\App\Http\Controllers\Api\Admin\CampaignsApiController::class, 'index'])->name('campaigns.index');
-    Route::get('/campaigns/{id}', [\App\Http\Controllers\Api\Admin\CampaignsApiController::class, 'show'])->name('campaigns.show');
-    Route::post('/campaigns', [\App\Http\Controllers\Api\Admin\CampaignsApiController::class, 'store'])->name('campaigns.store');
-    Route::put('/campaigns/{id}', [\App\Http\Controllers\Api\Admin\CampaignsApiController::class, 'update'])->name('campaigns.update');
-    Route::delete('/campaigns/{id}', [\App\Http\Controllers\Api\Admin\CampaignsApiController::class, 'destroy'])->name('campaigns.destroy');
-    Route::post('/campaigns/{id}/approve', [\App\Http\Controllers\Api\Admin\CampaignsApiController::class, 'approve'])->name('campaigns.approve');
-    Route::post('/campaigns/{id}/reject', [\App\Http\Controllers\Api\Admin\CampaignsApiController::class, 'reject'])->name('campaigns.reject');
-    Route::get('/campaigns/{id}/pledges', [\App\Http\Controllers\Api\Admin\CampaignsApiController::class, 'pledges'])->name('campaigns.pledges');
-    Route::get('/campaigns/{id}/updates', [\App\Http\Controllers\Api\Admin\CampaignsApiController::class, 'updates'])->name('campaigns.updates');
-
     // Forums API
     Route::get('/forums/stats', [\App\Http\Controllers\Api\Admin\ForumsApiController::class, 'stats'])->name('forums.stats');
     Route::get('/forums/categories', [\App\Http\Controllers\Api\Admin\ForumsApiController::class, 'categories'])->name('forums.categories.index');

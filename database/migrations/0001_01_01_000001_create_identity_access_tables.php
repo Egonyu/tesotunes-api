@@ -310,6 +310,51 @@ return new class extends Migration
             $table->timestamps();
         });
 
+        /*
+        |--------------------------------------------------------------------
+        | Referral milestones
+        |--------------------------------------------------------------------
+        |
+        | The growth ladder: reach N referrals, earn a reward and a badge.
+        | Rows are operator-editable so the programme can be tuned without a
+        | deploy — the same principle as credit_rates.
+        |
+        | Progress is derived from users.referrer_id rather than stored, so a
+        | counter can never drift from the accounts actually referred. Only
+        | the claim is recorded, because paying out twice is the thing that
+        | must be impossible.
+        */
+        Schema::create('referral_milestones', function (Blueprint $table) {
+            $table->id();
+            $table->string('key', 60)->unique();
+            $table->string('name');
+            $table->string('description')->nullable();
+            $table->unsignedInteger('referrals_required');
+            $table->string('reward_type', 30)->default('credits');
+            $table->unsignedInteger('reward_value')->default(0);
+            $table->string('badge_name')->nullable();
+            $table->string('badge_icon', 16)->nullable();
+            $table->string('badge_tier', 20)->default('bronze');
+            $table->boolean('is_active')->default(true);
+            $table->unsignedInteger('sort_order')->default(0);
+            $table->timestamps();
+
+            $table->index(['is_active', 'referrals_required']);
+        });
+
+        Schema::create('referral_milestone_claims', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('referral_milestone_id')->constrained()->cascadeOnDelete();
+            $table->unsignedInteger('credits_awarded')->default(0);
+            $table->timestamp('claimed_at');
+            $table->timestamps();
+
+            // A milestone pays once per account. The database enforces it, not
+            // the controller.
+            $table->unique(['user_id', 'referral_milestone_id'], 'referral_claim_unique');
+        });
+
         Schema::create('kyc_documents', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
@@ -336,6 +381,8 @@ return new class extends Migration
         Schema::disableForeignKeyConstraints();
 
         $tables = [
+            'referral_milestone_claims',
+            'referral_milestones',
             'kyc_documents',
             'user_referrals',
             'user_security_profiles',

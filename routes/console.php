@@ -132,7 +132,6 @@ Artisan::command('feed:aggregate', function () {
     $this->info("Processed: {$results['processed']}");
     $this->info("Activities created: {$results['activities_created']}");
     $this->info("Commerce: {$results['commerce']}");
-    $this->info("Ojokotau: {$results['ojokotau']}");
     if (! empty($results['errors'])) {
         $this->warn('Errors: '.count($results['errors']));
     }

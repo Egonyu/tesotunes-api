@@ -9,8 +9,6 @@ use App\Models\ArtistRevenue;
 use App\Models\Award;
 use App\Models\AwardNomination;
 use App\Models\AwardVote;
-use App\Models\Campaign;
-use App\Models\CampaignPledge;
 use App\Models\Comment;
 use App\Models\Event as EventModel;
 use App\Models\Like;
@@ -189,10 +187,6 @@ class AppServiceProvider extends ServiceProvider
         \App\Models\Sacco\SaccoDividend::observe(\App\Modules\Sacco\Observers\SaccoDividendObserver::class);
         \App\Models\Sacco\SaccoMember::observe(\App\Modules\Sacco\Observers\SaccoMemberObserver::class);
         \App\Models\Sacco\SaccoMemberDividend::observe(\App\Modules\Sacco\Observers\SaccoMemberDividendObserver::class);
-
-        // Register observers for Ojokotau/Campaigns module (Edula Phase 2)
-        Campaign::observe(\App\Observers\Ojokotau\CampaignObserver::class);
-        CampaignPledge::observe(\App\Observers\Ojokotau\CampaignPledgeObserver::class);
 
         // Register observers for Loyalty module
         \App\Models\Loyalty\LoyaltyCard::observe(\App\Observers\Loyalty\LoyaltyCardObserver::class);
