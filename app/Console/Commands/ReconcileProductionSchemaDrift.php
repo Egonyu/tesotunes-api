@@ -613,6 +613,31 @@ class ReconcileProductionSchemaDrift extends Command
     }
 
     /**
+     * store_orders.idempotency_key — replay protection for checkout.
+     *
+     * The base migration declares it, but production ran that Schema::create
+     * long ago. Until this lands, every promotion purchase fails: the
+     * purchase endpoint writes the column on create, so a missing column is
+     * an unknown-column error rather than a degraded feature.
+     */
+    private function reconcileOrderIdempotencyKey(): void
+    {
+        if (! Schema::hasTable('store_orders') || Schema::hasColumn('store_orders', 'idempotency_key')) {
+            return;
+        }
+
+        Schema::table('store_orders', function (Blueprint $table) {
+            $table->string('idempotency_key', 64)->nullable()->after('notes');
+        });
+
+        if (! Schema::hasIndex('store_orders', 'store_orders_user_idempotency_unique')) {
+            Schema::table('store_orders', function (Blueprint $table) {
+                $table->unique(['user_id', 'idempotency_key'], 'store_orders_user_idempotency_unique');
+            });
+        }
+    }
+
+    /**
      * Promotion listing attributes: metadata JSON -> real columns.
      *
      * The base migration describes these on store_products, but production
@@ -626,6 +651,8 @@ class ReconcileProductionSchemaDrift extends Command
      */
     private function reconcilePromotionColumns(): void
     {
+        $this->reconcileOrderIdempotencyKey();
+
         if (! Schema::hasTable('store_products')) {
             return;
         }
