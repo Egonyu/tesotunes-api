@@ -7,6 +7,7 @@ use App\Helpers\StorageHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PlaylistResource;
 use App\Http\Resources\SongResource;
+use App\Models\CreditRate;
 use App\Models\Playlist;
 use App\Models\PlaylistCollaborator;
 use App\Models\PlaylistSong;
@@ -22,6 +23,8 @@ use Illuminate\Support\Str;
 
 class PlaylistController extends Controller
 {
+    use \App\Services\Credits\AwardsActivityCredits;
+
     private function normalizeBooleanInput(mixed $value): mixed
     {
         if (is_string($value)) {
@@ -141,6 +144,10 @@ class PlaylistController extends Controller
         }
 
         $playlist = Playlist::create($playlistData);
+
+        $this->awardActivityCredits($request->user(), CreditRate::PLAYLIST_CREATE, $playlist, [
+            'playlist_id' => $playlist->id,
+        ]);
 
         return (new PlaylistResource($playlist->load('owner')))
             ->response()

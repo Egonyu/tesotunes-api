@@ -4,12 +4,16 @@ namespace App\Http\Controllers\Api\Social;
 
 use App\Http\Controllers\Controller;
 use App\Models\Artist;
+use App\Models\CreditRate;
 use App\Models\UserFollow;
+use App\Services\Credits\AwardsActivityCredits;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ArtistFollowController extends Controller
 {
+    use AwardsActivityCredits;
+
     /**
      * POST /api/artists/{artist}/follow
      *
@@ -50,6 +54,12 @@ class ArtistFollowController extends Controller
 
             // Increment cached counter
             $artist->increment('followers_count');
+
+            // Only a new follow earns — the already-following branch above
+            // returns before this, so unfollow/refollow cannot be farmed.
+            $this->awardActivityCredits($user, CreditRate::SOCIAL_FOLLOW, $artist, [
+                'artist_id' => $artist->id,
+            ]);
 
             return response()->json([
                 'success' => true,

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Activity;
 use App\Models\Album;
 use App\Models\Artist;
+use App\Models\CreditRate;
 use App\Models\Event;
 use App\Models\Like;
 use App\Models\Playlist;
@@ -15,6 +16,8 @@ use Illuminate\Http\Request;
 
 class ActivityInteractionController extends Controller
 {
+    use \App\Services\Credits\AwardsActivityCredits;
+
     /**
      * Map route {type} param to Eloquent model class.
      */
@@ -50,6 +53,15 @@ class ActivityInteractionController extends Controller
         }
 
         $liked = Like::toggle($request->user(), $entity);
+
+        // Only a like earns; unliking and re-liking the same thing is capped
+        // by the rate's daily limit rather than being free to repeat.
+        if ($liked) {
+            $this->awardActivityCredits($request->user(), CreditRate::SOCIAL_LIKE, $entity, [
+                'likeable_type' => $type,
+                'likeable_id' => $id,
+            ]);
+        }
 
         return response()->json([
             'data' => [

@@ -33,6 +33,8 @@ use Illuminate\Validation\Rules\Password as PasswordRule;
 
 class AuthController extends Controller
 {
+    use \App\Services\Credits\AwardsActivityCredits;
+
     protected function buildAuthenticatedResponse(User $user, string $token): JsonResponse
     {
         return response()->json([
@@ -431,6 +433,14 @@ class AuthController extends Controller
 
         $user->update(['last_login_at' => now()]);
         $this->clearLoginThrottle($request);
+
+        /**
+         * Daily login credits. The rate carries a 1440-minute cooldown, so a
+         * second login the same day earns nothing — the throttle is the
+         * rate's, configured at /admin/rewards, rather than a rule written
+         * here that would then disagree with the screen.
+         */
+        $this->awardActivityCredits($user, CreditRate::DAILY_LOGIN, $user);
 
         // Security alert for new login — wrapped so a mail/channel failure never blocks auth
         try {

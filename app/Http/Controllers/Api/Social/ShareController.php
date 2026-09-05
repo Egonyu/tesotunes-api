@@ -3,13 +3,17 @@
 namespace App\Http\Controllers\Api\Social;
 
 use App\Http\Controllers\Controller;
+use App\Models\CreditRate;
 use App\Models\Share;
+use App\Services\Credits\AwardsActivityCredits;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class ShareController extends Controller
 {
+    use AwardsActivityCredits;
+
     public function index(Request $request): JsonResponse
     {
         try {
@@ -70,6 +74,12 @@ class ShareController extends Controller
                 $request->message,
                 $request->get('platform', 'internal')
             );
+
+            $this->awardActivityCredits($user, CreditRate::SOCIAL_SHARE, $share, [
+                'shareable_type' => $modelClass,
+                'shareable_id' => $shareable->id,
+                'platform' => $request->get('platform', 'internal'),
+            ]);
 
             $share->load(['shareable', 'user']);
 

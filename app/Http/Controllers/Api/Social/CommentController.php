@@ -4,9 +4,11 @@ namespace App\Http\Controllers\Api\Social;
 
 use App\Http\Controllers\Controller;
 use App\Models\Comment;
+use App\Models\CreditRate;
 use App\Models\Like;
 use App\Models\Notification;
 use App\Notifications\NewCommentNotification;
+use App\Services\Credits\AwardsActivityCredits;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -14,6 +16,8 @@ use Illuminate\Support\Facades\Validator;
 
 class CommentController extends Controller
 {
+    use AwardsActivityCredits;
+
     public function index(Request $request, string $commentableType, int $commentableId): JsonResponse
     {
         try {
@@ -107,6 +111,11 @@ class CommentController extends Controller
                 'parent_id' => $request->parent_id,
                 'content' => $request->content,
                 'status' => 'approved', // Auto-approve for now, add moderation later
+            ]);
+
+            $this->awardActivityCredits($user, CreditRate::SOCIAL_COMMENT, $comment, [
+                'commentable_type' => $modelClass,
+                'commentable_id' => $commentable->id,
             ]);
 
             // If it's a reply, increment parent reply count and notify
