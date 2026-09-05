@@ -32,7 +32,12 @@ Route::prefix('promotions')->name('promotions.')->group(function () {
     });
 });
 
-Route::get('/promoters/{username}', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'promoterProfile'])->name('store.promoters.profile');
+// GET /api/promoters/{slug} is served by the Promotions module, which
+// registers first and therefore always won this URI. The store module's
+// duplicate promoter profile — a second record in stores.metadata — was
+// unreachable from the day it shipped; commit 7b9fcac renamed it out of a
+// route-name clash without noticing the URI still collided. Both the route
+// and its controller method are gone: promoter_profiles is the one record.
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/my/promotions', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'myPromotions'])->name('my.promotions');

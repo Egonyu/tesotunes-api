@@ -68,7 +68,9 @@ class EventPromotionModerationWorkflowTest extends TestCase
             ->assertJsonPath('data.0.event.title', 'Tesotunes Rooftop Show')
             ->assertJsonPath('data.0.status', EventPromotionRequest::STATUS_PENDING);
 
-        $approve = $this->actingAs($admin)->postJson("/api/admin/promotions/{$requestId}/approve");
+        $approve = $this->actingAs($admin)->postJson("/api/admin/promotions/{$requestId}/approve", [
+            'kind' => 'event_request',
+        ]);
         $approve->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('status', EventPromotionRequest::STATUS_ACTIVE);
@@ -91,6 +93,7 @@ class EventPromotionModerationWorkflowTest extends TestCase
         $secondRequestId = $secondSubmit->json('data.id');
 
         $reject = $this->actingAs($admin)->postJson("/api/admin/promotions/{$secondRequestId}/reject", [
+            'kind' => 'event_request',
             'reason' => 'Need clearer event schedule and creative assets before approval.',
         ]);
 

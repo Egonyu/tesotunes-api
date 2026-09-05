@@ -43,52 +43,52 @@ class PromotionController extends Controller
             ->active()
             ->with(['store.user'])
             ->withCount($this->promotionCountRelations())
-            ->when($request->filled('type'), fn ($query) => $query->where('metadata->promotion_type', $request->string('type')->toString()))
-            ->when($request->filled('platform'), fn ($query) => $query->where('metadata->platform', $request->string('platform')->toString()))
+            ->when($request->filled('type'), fn ($query) => $query->where('promotion_type', $request->string('type')->toString()))
+            ->when($request->filled('platform'), fn ($query) => $query->where('promotion_platform', $request->string('platform')->toString()))
             ->when($request->filled('audience_niche'), fn ($query) => $query->whereJsonContains('metadata->audience_niches', $request->string('audience_niche')->toString()))
             ->when($request->filled('audience_region'), function ($query) use ($request) {
                 $region = strtolower($request->string('audience_region')->toString());
-                $query->whereRaw('LOWER(JSON_EXTRACT(metadata, "$.audience_regions")) like ?', ['%'.$region.'%']);
+                $query->whereRaw('LOWER(JSON_EXTRACT(store_products.metadata, "$.audience_regions")) like ?', ['%'.$region.'%']);
             })
             ->when($request->filled('content_format'), fn ($query) => $query->whereJsonContains('metadata->content_formats', $request->string('content_format')->toString()))
             ->when($request->filled('channel'), function ($query) use ($request) {
                 $value = strtolower($request->string('channel')->toString());
-                $query->whereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(metadata, "$.platform_specifics.channel"))) like ?', ['%'.$value.'%']);
+                $query->whereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(store_products.metadata, "$.platform_specifics.channel"))) like ?', ['%'.$value.'%']);
             })
             ->when($request->filled('placement'), function ($query) use ($request) {
                 $value = strtolower($request->string('placement')->toString());
-                $query->whereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(metadata, "$.platform_specifics.placement"))) like ?', ['%'.$value.'%']);
+                $query->whereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(store_products.metadata, "$.platform_specifics.placement"))) like ?', ['%'.$value.'%']);
             })
             ->when($request->filled('proof_type'), function ($query) use ($request) {
                 $value = strtolower($request->string('proof_type')->toString());
-                $query->whereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(metadata, "$.platform_specifics.proof"))) like ?', ['%'.$value.'%']);
+                $query->whereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(store_products.metadata, "$.platform_specifics.proof"))) like ?', ['%'.$value.'%']);
             })
             ->when($request->filled('timing'), function ($query) use ($request) {
                 $value = strtolower($request->string('timing')->toString());
-                $query->whereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(metadata, "$.platform_specifics.timing"))) like ?', ['%'.$value.'%']);
+                $query->whereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(store_products.metadata, "$.platform_specifics.timing"))) like ?', ['%'.$value.'%']);
             })
-            ->when($request->filled('min_reach'), fn ($query) => $query->where('metadata->estimated_reach', '>=', (int) $request->integer('min_reach')))
-            ->when($request->filled('max_reach'), fn ($query) => $query->where('metadata->estimated_reach', '<=', (int) $request->integer('max_reach')))
+            ->when($request->filled('min_reach'), fn ($query) => $query->where('estimated_reach', '>=', (int) $request->integer('min_reach')))
+            ->when($request->filled('max_reach'), fn ($query) => $query->where('estimated_reach', '<=', (int) $request->integer('max_reach')))
             ->when($request->filled('min_price_credits'), fn ($query) => $query->where('price_credits', '>=', (int) $request->integer('min_price_credits')))
             ->when($request->filled('max_price_credits'), fn ($query) => $query->where('price_credits', '<=', (int) $request->integer('max_price_credits')))
             ->when($request->filled('min_price_ugx'), fn ($query) => $query->where('price_ugx', '>=', (float) $request->input('min_price_ugx')))
             ->when($request->filled('max_price_ugx'), fn ($query) => $query->where('price_ugx', '<=', (float) $request->input('max_price_ugx')))
-            ->when($request->filled('delivery_days_max'), fn ($query) => $query->where('metadata->delivery_days_max', '<=', (int) $request->integer('delivery_days_max')))
+            ->when($request->filled('delivery_days_max'), fn ($query) => $query->where('delivery_days_max', '<=', (int) $request->integer('delivery_days_max')))
             ->when($request->filled('rating_min'), fn ($query) => $query->where('average_rating', '>=', (float) $request->input('rating_min')))
             ->when($request->boolean('featured'), fn ($query) => $query->where('is_featured', true))
             ->when($request->boolean('verified'), fn ($query) => $query->whereHas('store.user', fn ($userQuery) => $userQuery->where('is_verified', true)))
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = $request->string('search')->toString();
                 $query->where(function ($inner) use ($search) {
-                    $inner->where('name', 'like', "%{$search}%")
-                        ->orWhere('short_description', 'like', "%{$search}%")
-                        ->orWhere('description', 'like', "%{$search}%")
-                        ->orWhereRaw('LOWER(JSON_EXTRACT(metadata, "$.audience_regions")) like ?', ['%'.strtolower($search).'%'])
-                        ->orWhereRaw('LOWER(JSON_EXTRACT(metadata, "$.audience_niches")) like ?', ['%'.strtolower($search).'%'])
-                        ->orWhereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(metadata, "$.platform_specifics.channel"))) like ?', ['%'.strtolower($search).'%'])
-                        ->orWhereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(metadata, "$.platform_specifics.placement"))) like ?', ['%'.strtolower($search).'%'])
-                        ->orWhereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(metadata, "$.platform_specifics.proof"))) like ?', ['%'.strtolower($search).'%'])
-                        ->orWhereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(metadata, "$.platform_specifics.timing"))) like ?', ['%'.strtolower($search).'%'])
+                    $inner->where('store_products.name', 'like', "%{$search}%")
+                        ->orWhere('store_products.short_description', 'like', "%{$search}%")
+                        ->orWhere('store_products.description', 'like', "%{$search}%")
+                        ->orWhereRaw('LOWER(JSON_EXTRACT(store_products.metadata, "$.audience_regions")) like ?', ['%'.strtolower($search).'%'])
+                        ->orWhereRaw('LOWER(JSON_EXTRACT(store_products.metadata, "$.audience_niches")) like ?', ['%'.strtolower($search).'%'])
+                        ->orWhereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(store_products.metadata, "$.platform_specifics.channel"))) like ?', ['%'.strtolower($search).'%'])
+                        ->orWhereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(store_products.metadata, "$.platform_specifics.placement"))) like ?', ['%'.strtolower($search).'%'])
+                        ->orWhereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(store_products.metadata, "$.platform_specifics.proof"))) like ?', ['%'.strtolower($search).'%'])
+                        ->orWhereRaw('LOWER(JSON_UNQUOTE(JSON_EXTRACT(store_products.metadata, "$.platform_specifics.timing"))) like ?', ['%'.strtolower($search).'%'])
                         ->orWhereHas('store.user', function ($userQuery) use ($search) {
                             $userQuery->where('name', 'like', "%{$search}%")
                                 ->orWhere('username', 'like', "%{$search}%");
@@ -100,22 +100,22 @@ class PromotionController extends Controller
                 $bindings = [];
 
                 if ($request->filled('type')) {
-                    $weights[] = 'CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(metadata, "$.promotion_type")) = ? THEN 25 ELSE 0 END';
+                    $weights[] = 'CASE WHEN store_products.promotion_type = ? THEN 25 ELSE 0 END';
                     $bindings[] = $request->string('type')->toString();
                 }
 
                 if ($request->filled('platform')) {
-                    $weights[] = 'CASE WHEN JSON_UNQUOTE(JSON_EXTRACT(metadata, "$.platform")) = ? THEN 22 ELSE 0 END';
+                    $weights[] = 'CASE WHEN store_products.promotion_platform = ? THEN 22 ELSE 0 END';
                     $bindings[] = $request->string('platform')->toString();
                 }
 
                 if ($request->filled('audience_niche')) {
-                    $weights[] = 'CASE WHEN JSON_CONTAINS(JSON_EXTRACT(metadata, "$.audience_niches"), JSON_QUOTE(?)) THEN 18 ELSE 0 END';
+                    $weights[] = 'CASE WHEN JSON_CONTAINS(JSON_EXTRACT(store_products.metadata, "$.audience_niches"), JSON_QUOTE(?)) THEN 18 ELSE 0 END';
                     $bindings[] = $request->string('audience_niche')->toString();
                 }
 
                 if ($request->filled('content_format')) {
-                    $weights[] = 'CASE WHEN JSON_CONTAINS(JSON_EXTRACT(metadata, "$.content_formats"), JSON_QUOTE(?)) THEN 14 ELSE 0 END';
+                    $weights[] = 'CASE WHEN JSON_CONTAINS(JSON_EXTRACT(store_products.metadata, "$.content_formats"), JSON_QUOTE(?)) THEN 14 ELSE 0 END';
                     $bindings[] = $request->string('content_format')->toString();
                 }
 
@@ -128,7 +128,7 @@ class PromotionController extends Controller
                     if ($request->filled($field)) {
                         $jsonField = $field === 'proof_type' ? 'proof' : $field;
                         $weights[] = sprintf(
-                            'CASE WHEN LOWER(JSON_UNQUOTE(JSON_EXTRACT(metadata, "$.platform_specifics.%s"))) like ? THEN %d ELSE 0 END',
+                            'CASE WHEN LOWER(JSON_UNQUOTE(JSON_EXTRACT(store_products.metadata, "$.platform_specifics.%s"))) like ? THEN %d ELSE 0 END',
                             $jsonField,
                             $weight
                         );
@@ -137,17 +137,17 @@ class PromotionController extends Controller
                 }
 
                 if ($request->filled('audience_region')) {
-                    $weights[] = 'CASE WHEN LOWER(JSON_EXTRACT(metadata, "$.audience_regions")) like ? THEN 10 ELSE 0 END';
+                    $weights[] = 'CASE WHEN LOWER(JSON_EXTRACT(store_products.metadata, "$.audience_regions")) like ? THEN 10 ELSE 0 END';
                     $bindings[] = '%'.strtolower($request->string('audience_region')->toString()).'%';
                 }
 
                 if ($request->filled('delivery_days_max')) {
-                    $weights[] = 'CASE WHEN CAST(JSON_UNQUOTE(JSON_EXTRACT(metadata, "$.delivery_days_max")) AS UNSIGNED) <= ? THEN 8 ELSE 0 END';
+                    $weights[] = 'CASE WHEN store_products.delivery_days_max <= ? THEN 8 ELSE 0 END';
                     $bindings[] = (int) $request->integer('delivery_days_max');
                 }
 
                 if ($request->filled('rating_min')) {
-                    $weights[] = 'CASE WHEN average_rating >= ? THEN 6 ELSE 0 END';
+                    $weights[] = 'CASE WHEN store_products.average_rating >= ? THEN 6 ELSE 0 END';
                     $bindings[] = (float) $request->input('rating_min');
                 }
 
@@ -156,7 +156,7 @@ class PromotionController extends Controller
                 }
 
                 if ($request->boolean('featured')) {
-                    $weights[] = 'CASE WHEN is_featured = 1 THEN 4 ELSE 0 END';
+                    $weights[] = 'CASE WHEN store_products.is_featured = 1 THEN 4 ELSE 0 END';
                 }
 
                 if ($weights === []) {
@@ -165,15 +165,21 @@ class PromotionController extends Controller
                     return;
                 }
 
+                // Every ordering column below is qualified: stores shares
+                // created_at (and name, slug, status, metadata, review_count,
+                // user_id) with store_products, so a bare column here is
+                // ambiguous once the join is on.
                 $query
                     ->leftJoin('stores', 'stores.id', '=', 'store_products.store_id')
                     ->select('store_products.*')
                     ->selectRaw('('.implode(' + ', $weights).') as match_score', $bindings)
                     ->orderByDesc('match_score')
-                    ->orderByDesc('is_featured')
-                    ->orderByDesc('average_rating')
+                    ->orderByDesc('store_products.is_featured')
+                    ->orderByDesc('store_products.average_rating')
+                    // total_orders is a withCount alias, not a column, so it
+                    // must stay unqualified.
                     ->orderByDesc('total_orders')
-                    ->orderByDesc('created_at');
+                    ->orderByDesc('store_products.created_at');
             })
             ->when($sort === 'price_asc', fn ($query) => $query->orderBy('price_ugx')->orderBy('price_credits'))
             ->when($sort === 'price_desc', fn ($query) => $query->orderByDesc('price_ugx')->orderByDesc('price_credits'))
@@ -264,54 +270,6 @@ class PromotionController extends Controller
         ]);
     }
 
-    public function promoterProfile(string $username): JsonResponse
-    {
-        $user = User::query()
-            ->where('username', $username)
-            ->firstOrFail();
-
-        $store = $user->store;
-        $promotions = Product::query()
-            ->promotion()
-            ->active()
-            ->where('store_id', $store?->id)
-            ->with(['store.user'])
-            ->withCount($this->promotionCountRelations())
-            ->orderByDesc('is_featured')
-            ->orderByDesc('created_at')
-            ->get();
-
-        $profile = (array) data_get($store?->metadata ?? [], 'promoter_profile', []);
-
-        return response()->json([
-            'data' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'username' => $user->username,
-                'avatar_url' => $user->avatar_url ?? $user->avatar ?? null,
-                'banner_url' => $store?->banner ?? $user->banner ?? null,
-                'bio' => $store?->description ?? $user->bio ?? null,
-                'location' => $this->formatLocation($store?->city ?? $user->city, $store?->country ?? $user->country, $profile['location'] ?? null),
-                'is_verified' => (bool) ($user->is_verified ?? $store?->is_verified ?? false),
-                'follower_count' => (int) ($user->followers_count ?? 0),
-                'total_promotions' => $promotions->count(),
-                'active_promotions' => $promotions->count(),
-                'featured_promotions' => $promotions->where('is_featured', true)->count(),
-                'average_rating' => round((float) ($promotions->avg('average_rating') ?? 0), 2),
-                'completed_orders' => (int) $promotions->sum('completed_orders'),
-                'platforms' => $promotions->pluck('metadata.platform')->filter()->unique()->values()->all(),
-                'service_types' => $promotions->pluck('metadata.promotion_type')->filter()->unique()->values()->all(),
-                'social_links' => $this->serializePromoterSocialLinks($user, $profile),
-                'audience_summary' => $profile['audience_summary'] ?? null,
-                'response_time_hours' => isset($profile['response_time_hours']) ? (int) $profile['response_time_hours'] : null,
-                'proof_points' => array_values(array_filter((array) ($profile['proof_points'] ?? []))),
-                'campaign_highlights' => array_values(array_filter((array) ($profile['campaign_highlights'] ?? []))),
-                'portfolio_items' => $this->serializePortfolioItems($profile['portfolio_items'] ?? []),
-                'promotions' => $promotions->map(fn (Product $promotion) => $this->serializePromotion($promotion))->values()->all(),
-            ],
-        ]);
-    }
-
     public function purchase(Request $request, string $slug): JsonResponse
     {
         $validated = $request->validate([
@@ -319,9 +277,38 @@ class PromotionController extends Controller
             'song_id' => 'nullable|integer',
             'notes' => 'nullable|string|max:2000',
             'preferred_delivery_date' => 'nullable|date',
+            'idempotency_key' => 'nullable|string|max:64',
         ]);
 
         $user = $request->user();
+
+        /**
+         * A retried checkout — a double-tapped button, a client retry after a
+         * timeout — must not charge twice. When the caller sends a key, an
+         * order already recorded against it is returned as-is rather than a
+         * second order being created and a second debit taken.
+         */
+        $idempotencyKey = $validated['idempotency_key'] ?? $request->header('Idempotency-Key');
+
+        if ($idempotencyKey) {
+            $existing = Order::query()
+                ->where('user_id', $user->id)
+                ->where('idempotency_key', $idempotencyKey)
+                ->first();
+
+            if ($existing) {
+                return response()->json([
+                    'order_id' => $existing->id,
+                    'order_number' => $existing->order_number,
+                    'status' => 'pending_verification',
+                    'payment_status' => $existing->payment_status,
+                    'total_credits' => (int) $existing->total_credits,
+                    'total_ugx' => (float) $existing->total_ugx,
+                    'created_at' => optional($existing->created_at)->toIso8601String(),
+                    'idempotent_replay' => true,
+                ], 200);
+            }
+        }
         $promotion = Product::query()
             ->promotion()
             ->active()
@@ -331,6 +318,14 @@ class PromotionController extends Controller
 
         $paymentService = app(PaymentService::class);
         $settlementService = app(PromotionSettlementService::class);
+
+        /**
+         * These balances are read before the transaction, so the checks below
+         * are an early, friendly refusal only — by the time the debit runs the
+         * balance may have moved. The authority is chargeBuyer(), which locks
+         * the wallet and rolls the whole order back if it cannot cover the
+         * charge. Do not treat the checks below as the guard.
+         */
         $creditsBalance = (float) ($user?->creditWallet?->available_credits ?? $user?->credits ?? 0);
         $walletBalance = (float) ($user?->ugx_balance ?? 0);
         $priceCredits = (int) ($promotion->price_credits ?? 0);
@@ -372,141 +367,134 @@ class PromotionController extends Controller
         $item = null;
         $payment = null;
 
-        DB::transaction(function () use (
+        try {
+            DB::transaction(function () use (
 
-            $user,
-            $promotion,
-            $validated,
-            $paymentMethod,
-            $paymentProvider,
-            $paidCredits,
-            $paidUgx,
-            $priceCredits,
-            $priceUgx,
-            $settlementService,
-            &$order,
-            &$item,
-            &$payment,
-            &$settlementBreakdown
-        ) {
-            $order = Order::create([
-                'order_number' => Order::generateOrderNumber(),
-                'store_id' => $promotion->store_id,
-                'user_id' => $user->id,
-                'status' => Order::STATUS_PROCESSING,
-                'payment_status' => Order::PAYMENT_PAID,
-                'payment_method' => $paymentMethod,
-                'payment_provider' => $paymentProvider,
-                'subtotal' => $priceUgx,
-                'tax_amount' => 0,
-                'shipping_amount' => 0,
-                'discount_amount' => 0,
-                'total_amount' => $priceUgx,
-                'credit_amount' => $priceCredits,
-                'subtotal_ugx' => $priceUgx,
-                'subtotal_credits' => $priceCredits,
-                'tax_ugx' => 0,
-                'tax_credits' => 0,
-                'shipping_cost_ugx' => 0,
-                'shipping_cost_credits' => 0,
-                'discount_ugx' => 0,
-                'discount_credits' => 0,
-                'platform_fee_ugx' => 0,
-                'platform_fee_credits' => 0,
-                'total_ugx' => $priceUgx,
-                'total_credits' => $priceCredits,
-                'paid_ugx' => $paidUgx,
-                'paid_credits' => $paidCredits,
-                'customer_notes' => $validated['notes'] ?? null,
-                'paid_at' => now(),
-            ]);
+                $user,
+                $promotion,
+                $validated,
+                $paymentMethod,
+                $paymentProvider,
+                $paidCredits,
+                $paidUgx,
+                $priceCredits,
+                $priceUgx,
+                $settlementService,
+                $idempotencyKey,
+                &$order,
+                &$item,
+                &$payment,
+                &$settlementBreakdown
+            ) {
+                $order = Order::create([
+                    'order_number' => Order::generateOrderNumber(),
+                    'idempotency_key' => $idempotencyKey,
+                    'store_id' => $promotion->store_id,
+                    'user_id' => $user->id,
+                    'status' => Order::STATUS_PROCESSING,
+                    'payment_status' => Order::PAYMENT_PAID,
+                    'payment_method' => $paymentMethod,
+                    'payment_provider' => $paymentProvider,
+                    'subtotal' => $priceUgx,
+                    'tax_amount' => 0,
+                    'shipping_amount' => 0,
+                    'discount_amount' => 0,
+                    'total_amount' => $priceUgx,
+                    'credit_amount' => $priceCredits,
+                    'subtotal_ugx' => $priceUgx,
+                    'subtotal_credits' => $priceCredits,
+                    'tax_ugx' => 0,
+                    'tax_credits' => 0,
+                    'shipping_cost_ugx' => 0,
+                    'shipping_cost_credits' => 0,
+                    'discount_ugx' => 0,
+                    'discount_credits' => 0,
+                    'platform_fee_ugx' => 0,
+                    'platform_fee_credits' => 0,
+                    'total_ugx' => $priceUgx,
+                    'total_credits' => $priceCredits,
+                    'paid_ugx' => $paidUgx,
+                    'paid_credits' => $paidCredits,
+                    'customer_notes' => $validated['notes'] ?? null,
+                    'paid_at' => now(),
+                ]);
 
-            $item = OrderItem::create([
-                'order_id' => $order->id,
-                'product_id' => $promotion->id,
-                'product_snapshot' => [
-                    'promotion' => $this->serializePromotion($promotion, true),
-                ],
-                'product_name' => $promotion->name,
-                'product_description' => $promotion->description,
-                'product_image' => $promotion->featured_image,
-                'product_type' => $promotion->product_type,
-                'quantity' => 1,
-                'unit_price' => $priceUgx,
-                'price_ugx' => $priceUgx,
-                'price_credits' => $priceCredits,
-                'payment_method' => $paymentMethod,
-                'subtotal' => $priceUgx,
-                'tax_amount' => 0,
-                'total_amount' => $priceUgx,
-                'fulfillment_status' => OrderItem::STATUS_PENDING,
-                'verification_status' => 'pending',
-                'verification_notes' => $validated['notes'] ?? null,
-            ]);
+                $item = OrderItem::create([
+                    'order_id' => $order->id,
+                    'product_id' => $promotion->id,
+                    'product_snapshot' => [
+                        'promotion' => $this->serializePromotion($promotion, true),
+                    ],
+                    'product_name' => $promotion->name,
+                    'product_description' => $promotion->description,
+                    'product_image' => $promotion->featured_image,
+                    'product_type' => $promotion->product_type,
+                    'quantity' => 1,
+                    'unit_price' => $priceUgx,
+                    'price_ugx' => $priceUgx,
+                    'price_credits' => $priceCredits,
+                    'payment_method' => $paymentMethod,
+                    'subtotal' => $priceUgx,
+                    'tax_amount' => 0,
+                    'total_amount' => $priceUgx,
+                    'fulfillment_status' => OrderItem::STATUS_PENDING,
+                    'verification_status' => 'pending',
+                    'verification_notes' => $validated['notes'] ?? null,
+                ]);
 
-            $settlementBreakdown = $settlementService->buildBreakdown($order, $promotion, $promotion->store?->user);
-            $item->forceFill([
-                'product_snapshot' => array_merge($item->product_snapshot ?? [], [
-                    'promotion_settlement' => $settlementBreakdown,
-                ]),
-            ])->save();
+                $settlementBreakdown = $settlementService->buildBreakdown($order, $promotion, $promotion->store?->user);
+                $item->forceFill([
+                    'product_snapshot' => array_merge($item->product_snapshot ?? [], [
+                        'promotion_settlement' => $settlementBreakdown,
+                    ]),
+                ])->save();
 
-            if ($paymentMethod === 'credits') {
-                $user->spendCredits(
+                $settlementService->chargeBuyer(
+                    $user,
                     $paidCredits,
+                    $paidUgx,
                     'promotion_purchase',
                     "Promotion purchase {$order->order_number}",
                     ['order_id' => $order->id, 'promotion_id' => $promotion->id]
                 );
-            } elseif ($paymentMethod === 'ugx') {
-                $user->decrement('ugx_balance', $paidUgx);
-            } else {
-                if ($paidCredits > 0) {
-                    $user->spendCredits(
-                        $paidCredits,
-                        'promotion_purchase',
-                        "Promotion hybrid purchase {$order->order_number}",
-                        ['order_id' => $order->id, 'promotion_id' => $promotion->id]
-                    );
-                }
 
-                if ($paidUgx > 0) {
-                    $user->decrement('ugx_balance', $paidUgx);
-                }
-            }
+                $payment = Payment::create([
+                    'user_id' => $user->id,
+                    'payable_type' => Order::class,
+                    'payable_id' => $order->id,
+                    'payment_type' => 'promotion_purchase',
+                    'payment_method' => $paymentMethod,
+                    'provider' => $paymentProvider,
+                    'payment_provider' => $paymentProvider,
+                    'currency' => 'UGX',
+                    'description' => "Promotion purchase for {$promotion->name}",
+                    'metadata' => [
+                        'order_id' => $order->id,
+                        'promotion_id' => $promotion->id,
+                        'credits_used' => $paidCredits,
+                        'ugx_paid' => $paidUgx,
+                        'promotion_settlement' => $settlementBreakdown,
+                    ],
+                ]);
 
-            $payment = Payment::create([
-                'user_id' => $user->id,
-                'payable_type' => Order::class,
-                'payable_id' => $order->id,
-                'payment_type' => 'promotion_purchase',
-                'payment_method' => $paymentMethod,
-                'provider' => $paymentProvider,
-                'payment_provider' => $paymentProvider,
-                'currency' => 'UGX',
-                'description' => "Promotion purchase for {$promotion->name}",
-                'metadata' => [
-                    'order_id' => $order->id,
-                    'promotion_id' => $promotion->id,
-                    'credits_used' => $paidCredits,
-                    'ugx_paid' => $paidUgx,
-                    'promotion_settlement' => $settlementBreakdown,
-                ],
-            ]);
+                $payment->forceFill([
+                    'amount' => $paidUgx > 0 ? $paidUgx : $priceUgx,
+                    'status' => Payment::STATUS_COMPLETED,
+                    'payment_reference' => 'PAY-'.strtoupper(Str::random(12)),
+                    'transaction_id' => 'TRX-'.strtoupper(Str::random(12)),
+                    'completed_at' => now(),
+                ])->save();
 
-            $payment->forceFill([
-                'amount' => $paidUgx > 0 ? $paidUgx : $priceUgx,
-                'status' => Payment::STATUS_COMPLETED,
-                'payment_reference' => 'PAY-'.strtoupper(Str::random(12)),
-                'transaction_id' => 'TRX-'.strtoupper(Str::random(12)),
-                'completed_at' => now(),
-            ])->save();
-
-            $order->forceFill([
-                'payment_reference' => $payment->payment_reference,
-                'transaction_id' => $payment->transaction_id,
-            ])->save();
-        });
+                $order->forceFill([
+                    'payment_reference' => $payment->payment_reference,
+                    'transaction_id' => $payment->transaction_id,
+                ])->save();
+            });
+        } catch (\RuntimeException $e) {
+            // chargeBuyer() refused: the balance moved between the check above
+            // and the debit. The transaction rolled the order back with it.
+            return response()->json(['message' => $e->getMessage()], 422);
+        }
 
         $this->logPromotionActivity($user, 'promotion_purchase_created', $order, [
             'order_id' => $order->id,
@@ -714,116 +702,6 @@ class PromotionController extends Controller
         ]);
     }
 
-    public function verifyCompletion(Request $request, int $orderId): JsonResponse
-    {
-        $order = Order::query()
-            ->where('id', $orderId)
-            ->whereHas('items.product.store', fn ($query) => $query->where('user_id', $request->user()?->id))
-            ->with(['items.product.store.user', 'buyer'])
-            ->firstOrFail();
-
-        $orderItem = $order->items->first();
-        if (! $orderItem) {
-            return response()->json(['message' => 'Promotion order item not found.'], 404);
-        }
-
-        if (! in_array($orderItem->verification_status, ['submitted'], true)) {
-            return response()->json([
-                'message' => 'Seller payout can only be released after verification proof is submitted.',
-            ], 422);
-        }
-
-        $snapshot = is_array($orderItem->product_snapshot ?? null) ? $orderItem->product_snapshot : [];
-        $disputeMeta = (array) data_get($snapshot, 'promotion_dispute', []);
-        if (($disputeMeta['state'] ?? null) === 'open' || (! empty($orderItem->dispute_reason) && empty($disputeMeta['resolved_at']))) {
-            return response()->json([
-                'message' => 'This order has an open dispute and must be resolved before payout is released.',
-            ], 422);
-        }
-
-        $settlement = app(PromotionSettlementService::class)->settleOrder($order, $orderItem);
-
-        $orderItem->forceFill([
-            'verification_status' => 'verified',
-            'verified_at' => now(),
-            'verified_by' => $request->user()?->id,
-            'rejection_reason' => null,
-        ])->save();
-
-        $order->forceFill([
-            'status' => Order::STATUS_COMPLETED,
-            'completed_at' => now(),
-            'payment_status' => Order::PAYMENT_PAID,
-        ])->save();
-
-        $this->logPromotionActivity($request->user(), 'promotion_payout_released', $orderItem, [
-            'order_id' => $order->id,
-            'promotion_id' => $orderItem->product_id,
-            'buyer_user_id' => $order->user_id,
-            'verified_by' => $request->user()?->id,
-            'settlement' => $settlement,
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'payment_released' => true,
-        ]);
-    }
-
-    public function rejectCompletion(Request $request, int $orderId): JsonResponse
-    {
-        $validated = $request->validate([
-            'reason' => 'required|string|max:2000',
-        ]);
-
-        $order = Order::query()
-            ->where('id', $orderId)
-            ->whereHas('items.product.store', fn ($query) => $query->where('user_id', $request->user()?->id))
-            ->with(['items.product.store.user', 'buyer'])
-            ->firstOrFail();
-
-        $orderItem = $order->items->first();
-        if (! $orderItem) {
-            return response()->json(['message' => 'Promotion order item not found.'], 404);
-        }
-
-        if ($order->payment_status === Order::PAYMENT_REFUNDED || $order->status === Order::STATUS_CANCELLED) {
-            return response()->json([
-                'message' => 'This promotion order has already been refunded.',
-            ], 422);
-        }
-
-        $settlement = app(PromotionSettlementService::class)->reverseOrder($order, $orderItem, $validated['reason']);
-
-        $orderItem->forceFill([
-            'verification_status' => 'rejected',
-            'rejection_reason' => $validated['reason'],
-            'verified_at' => null,
-            'verified_by' => $request->user()?->id,
-        ])->save();
-
-        $order->forceFill([
-            'status' => Order::STATUS_CANCELLED,
-            'payment_status' => Order::PAYMENT_REFUNDED,
-            'refunded_at' => now(),
-            'refund_reason' => $validated['reason'],
-        ])->save();
-
-        $this->logPromotionActivity($request->user(), 'promotion_payout_reversed', $orderItem, [
-            'order_id' => $order->id,
-            'promotion_id' => $orderItem->product_id,
-            'buyer_user_id' => $order->user_id,
-            'rejected_by' => $request->user()?->id,
-            'reason' => $validated['reason'],
-            'settlement' => $settlement,
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'refund_issued' => true,
-        ]);
-    }
-
     public function statistics(Request $request): JsonResponse
     {
         $storeId = $request->user()?->store?->id;
@@ -936,19 +814,19 @@ class PromotionController extends Controller
             'title' => $promotion->name,
             'short_description' => $promotion->short_description ?: Str::limit((string) $promotion->description, 120),
             'description' => $promotion->description,
-            'type' => (string) data_get($metadata, 'promotion_type', 'social_media_mention'),
-            'platform' => (string) data_get($metadata, 'platform', 'other'),
+            'type' => (string) ($promotion->promotion_type ?? 'social_media_mention'),
+            'platform' => (string) ($promotion->promotion_platform ?? 'other'),
             'price_credits' => (int) ($promotion->price_credits ?? 0),
             'price_ugx' => (float) ($promotion->price_ugx ?? 0),
             'accepts_credits' => (bool) ($promotion->allow_credit_payment || $promotion->accepts_credits),
             'accepts_ugx' => (float) ($promotion->price_ugx ?? 0) > 0,
             'accepts_hybrid' => (bool) ($promotion->allow_hybrid_payment),
-            'estimated_reach' => (int) data_get($metadata, 'estimated_reach', 0),
+            'estimated_reach' => (int) ($promotion->estimated_reach ?? 0),
             'audience_niches' => array_values(array_filter((array) data_get($metadata, 'audience_niches', []))),
             'audience_regions' => array_values(array_filter((array) data_get($metadata, 'audience_regions', []))),
             'content_formats' => array_values(array_filter((array) data_get($metadata, 'content_formats', []))),
-            'delivery_days_min' => (int) data_get($metadata, 'delivery_days_min', 1),
-            'delivery_days_max' => (int) data_get($metadata, 'delivery_days_max', 7),
+            'delivery_days_min' => (int) ($promotion->delivery_days_min ?? 1),
+            'delivery_days_max' => (int) ($promotion->delivery_days_max ?? 7),
             'requirements' => data_get($metadata, 'requirements'),
             'platform_specifics' => data_get($metadata, 'platform_specifics', []),
             'deliverables' => array_values(array_filter((array) data_get($metadata, 'deliverables', []), fn ($value) => filled($value))),
@@ -1086,54 +964,6 @@ class PromotionController extends Controller
             'is_verified' => (bool) ($user->is_verified ?? false),
             'follower_count' => (int) ($user->followers_count ?? 0),
         ];
-    }
-
-    private function serializePromoterSocialLinks(User $user, array $profile = []): array
-    {
-        return [
-            'instagram_url' => $user->instagram_url ?? null,
-            'twitter_url' => $user->twitter_url ?? null,
-            'facebook_url' => $user->facebook_url ?? null,
-            'youtube_url' => $user->youtube_url ?? null,
-            'tiktok_url' => $user->tiktok_url ?? null,
-            'website_url' => $profile['website_url'] ?? null,
-        ];
-    }
-
-    private function formatLocation(?string $city, ?string $country, ?string $fallback = null): ?string
-    {
-        $parts = array_values(array_filter([$city, $country]));
-
-        if ($parts !== []) {
-            return implode(', ', $parts);
-        }
-
-        return $fallback;
-    }
-
-    private function serializePortfolioItems(array $items): array
-    {
-        return collect($items)
-            ->map(function ($item) {
-                $item = is_array($item) ? $item : [];
-                $title = trim((string) ($item['title'] ?? ''));
-
-                if ($title === '') {
-                    return null;
-                }
-
-                return [
-                    'title' => $title,
-                    'summary' => filled($item['summary'] ?? null) ? trim((string) $item['summary']) : null,
-                    'outcome' => filled($item['outcome'] ?? null) ? trim((string) $item['outcome']) : null,
-                    'platform' => filled($item['platform'] ?? null) ? (string) $item['platform'] : null,
-                    'asset_url' => filled($item['asset_url'] ?? null) ? trim((string) $item['asset_url']) : null,
-                    'external_url' => filled($item['external_url'] ?? null) ? trim((string) $item['external_url']) : null,
-                ];
-            })
-            ->filter()
-            ->values()
-            ->all();
     }
 
     private function logPromotionActivity(?User $actor, string $action, $auditable, array $data = []): void

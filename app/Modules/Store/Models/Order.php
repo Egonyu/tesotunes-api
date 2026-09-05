@@ -30,6 +30,7 @@ class Order extends Model
     protected $fillable = [
         'uuid',
         'order_number',
+        'idempotency_key',
         'store_id',
         'user_id',
         'status',
@@ -231,12 +232,6 @@ class Order extends Model
 
         return $this->hasOne($class);
     }
-
-    // Placeholder for future promotion redemptions feature
-    // public function promotionRedemptions(): HasMany
-    // {
-    //     return $this->hasMany(\App\Modules\Store\Models\PromotionRedemption::class);
-    // }
 
     /*
     |--------------------------------------------------------------------------

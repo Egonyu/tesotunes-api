@@ -221,7 +221,7 @@ class OpportunityController extends Controller
     public function award(Request $request, string $uuid, int $applicationId): JsonResponse
     {
         $opportunity = PromotionOpportunity::where('uuid', $uuid)->firstOrFail();
-        $application = PromotionApplication::findOrFail($applicationId);
+        $application = $opportunity->applications()->findOrFail($applicationId);
 
         $this->authorize('manageApplications', $opportunity);
 
@@ -250,7 +250,14 @@ class OpportunityController extends Controller
     public function shortlist(Request $request, string $uuid, int $applicationId): JsonResponse
     {
         $opportunity = PromotionOpportunity::where('uuid', $uuid)->firstOrFail();
-        $application = PromotionApplication::findOrFail($applicationId);
+
+        /**
+         * Scoped to the opportunity in the URL. Looked up by bare id, any
+         * user who owns any opportunity could shortlist an application on
+         * someone else's — the authorize() call below only ever tested the
+         * opportunity, never the application's link to it.
+         */
+        $application = $opportunity->applications()->findOrFail($applicationId);
 
         $this->authorize('manageApplications', $opportunity);
         $this->opportunityService->shortlist($application);
@@ -264,7 +271,7 @@ class OpportunityController extends Controller
     public function withdrawApplication(Request $request, string $uuid, int $applicationId): JsonResponse
     {
         $opportunity = PromotionOpportunity::where('uuid', $uuid)->firstOrFail();
-        $application = PromotionApplication::findOrFail($applicationId);
+        $application = $opportunity->applications()->findOrFail($applicationId);
 
         try {
             $this->opportunityService->withdrawApplication($application, $request->user());

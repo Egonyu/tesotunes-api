@@ -58,6 +58,12 @@ class CartController extends Controller
 
         $product = Product::findOrFail($validated['product_id']);
 
+        if (! $product->isCartCheckoutable()) {
+            return response()->json([
+                'message' => 'Promotion services are booked from the promotion page, not the cart.',
+            ], 422);
+        }
+
         if ($product->track_inventory && $product->inventory_quantity < $validated['quantity']) {
             return response()->json([
                 'message' => 'Insufficient inventory.',

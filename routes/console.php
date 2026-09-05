@@ -376,3 +376,26 @@ Artisan::command('events:send-reminders {--hours=24 : Hours before start time}',
     Bus::dispatchSync(new SendEventReminderNotificationsJob($hours));
     $this->info("Event reminders queued for the {$hours}-hour window.");
 })->purpose('Queue attendee reminder notifications for upcoming events');
+
+/*
+|--------------------------------------------------------------------------
+| Promotion Escrow Auto-Release
+|--------------------------------------------------------------------------
+|
+| A promotion buyer is debited at purchase; the promoter is paid only when
+| the seller accepts the submitted proof. Without this sweep an order whose
+| seller never returns leaves the money debited from one side and uncredited
+| to the other for good. Hourly, so release lands within ~60 minutes of the
+| configured window (config/promotions.php: auto_release_hours).
+|
+| Orders with an open dispute or without submitted proof are skipped — the
+| command shares its release check with the seller endpoint.
+|
+*/
+
+Schedule::command('promotions:release-due-escrow')
+    ->hourly()
+    ->name('promotions-release-due-escrow')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();

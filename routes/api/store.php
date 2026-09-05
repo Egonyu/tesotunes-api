@@ -18,26 +18,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth:sanctum'])->prefix('store')->name('store.')->group(function () {
 
-    // Promotion endpoints (Buyer)
-    Route::prefix('promotions')->name('promotions.')->group(function () {
-        Route::get('/', [App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'index'])->name('index');
-        Route::get('/my-promotions', [App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'myPromotions'])->name('my');
-        Route::get('/{slug}', [App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'show'])->name('show');
-        Route::post('/order-items/{orderItem}/submit-verification', [App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'submitVerification'])->name('submit-verification');
-        Route::post('/order-items/{orderItem}/dispute', [App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'dispute'])->name('dispute');
-    });
-
-    // Seller Promotion endpoints — sellers (any shop owner, not just artists)
-    // plus artists, who had access before the capability gate. Admins always pass.
-    Route::middleware('capability:seller,artist')->prefix('seller/promotions')->name('seller.promotions.')->group(function () {
-        Route::get('/', [App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'index'])->name('index');
-        Route::post('/', [App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'store'])->name('store');
-        Route::put('/{product}', [App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'update'])->name('update');
-        Route::delete('/{product}', [App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'destroy'])->name('destroy');
-        Route::get('/pending-verifications', [App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'pendingVerifications'])->name('pending-verifications');
-        Route::post('/order-items/{orderItem}/verify', [App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'verifyCompletion'])->name('verify');
-        Route::get('/statistics', [App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'statistics'])->name('statistics');
-    });
+    // Promotion endpoints (buyer + seller) come from the one shared
+    // definition the Store module also uses, so a test run and production
+    // exercise the same middleware stack.
+    require base_path('routes/api/store-promotions.php');
 
     // Cart API endpoints
     Route::prefix('cart')->name('cart.')->group(function () {

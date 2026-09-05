@@ -115,11 +115,26 @@ class OpportunityService
             throw new \InvalidArgumentException('Application does not belong to this opportunity.');
         }
 
-        if (! $opportunity->hasOpenSlots()) {
-            throw new \LogicException('All award slots for this opportunity are filled.');
-        }
-
         return DB::transaction(function () use ($opportunity, $application, $payment): bool {
+            /**
+             * Re-read the opportunity under a row lock before deciding.
+             *
+             * The slot check used to run before the transaction against the
+             * instance the controller hydrated, and award() then wrote a
+             * computed absolute count rather than an atomic increment. Two
+             * concurrent awards on a one-slot brief both read awarded_count
+             * as 0, both passed, and both wrote 1 — two winners, two funded
+             * escrow orders, one slot. Nothing in the schema stops that, so
+             * the lock is what makes the check mean anything.
+             */
+            $opportunity = PromotionOpportunity::query()
+                ->lockForUpdate()
+                ->findOrFail($opportunity->id);
+
+            if (! $opportunity->hasOpenSlots()) {
+                throw new \LogicException('All award slots for this opportunity are filled.');
+            }
+
             $awarded = $opportunity->award($application);
 
             if (! $awarded) {
@@ -236,16 +251,14 @@ class OpportunityService
             ],
         ])->save();
 
-        if ($method === 'credits') {
-            $buyer->spendCredits(
-                $paidCredits,
-                'promotion_award',
-                "Opportunity award {$order->order_number}",
-                ['order_id' => $order->id, 'opportunity_id' => $opportunity->id]
-            );
-        } else {
-            $buyer->decrement('ugx_balance', $paidUgx);
-        }
+        app(PromotionSettlementService::class)->chargeBuyer(
+            $buyer,
+            $method === 'credits' ? $paidCredits : 0,
+            $method === 'credits' ? 0.0 : $paidUgx,
+            'promotion_award',
+            "Opportunity award {$order->order_number}",
+            ['order_id' => $order->id, 'opportunity_id' => $opportunity->id]
+        );
 
         return $order;
     }

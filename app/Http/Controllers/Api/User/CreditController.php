@@ -30,14 +30,19 @@ class CreditController extends Controller
         try {
             $user = $request->user();
             $summary = $this->creditService->getUserCreditSummary($user);
-            $opportunities = $this->creditService->getPromotionOpportunities($user);
 
+            /**
+             * `promotion_opportunities` was removed with the hardcoded
+             * shoutout / playlist / boost list behind it. Those advertised a
+             * credit price for things nothing in the platform could sell, and
+             * no surface rendered them. Real promotion spend belongs in the
+             * promoter market, not in an invented list on this dashboard.
+             */
             return response()->json([
                 'success' => true,
                 'data' => [
                     'wallet' => $summary,
                     'earning_opportunities' => $this->getEarningOpportunities($user),
-                    'promotion_opportunities' => $opportunities,
                     'daily_challenges' => $this->getDailyChallenges($user),
                 ],
             ]);
@@ -197,141 +202,6 @@ class CreditController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Transfer failed',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Get community promotions
-     */
-    public function promotions(Request $request): JsonResponse
-    {
-        try {
-            $user = $request->user();
-            $wallet = $this->creditService->getUserWallet($user);
-
-            $promotions = Promotion::with(['platform', 'user'])
-                ->active()
-                ->available()
-                ->orderByDesc('rating_average')
-                ->limit(10)
-                ->get()
-                ->map(function ($promotion) use ($wallet) {
-                    return [
-                        'id' => $promotion->id,
-                        'title' => $promotion->title,
-                        'description' => $promotion->description,
-                        'type' => $promotion->type,
-                        'platform' => $promotion->platform?->name,
-                        'cost' => $promotion->price_display,
-                        'cost_credits' => $promotion->price_credits,
-                        'cost_ugx' => $promotion->price_ugx,
-                        'reach' => $promotion->formatted_reach,
-                        'rating' => $promotion->rating_average,
-                        'reviews' => $promotion->rating_count,
-                        'delivery' => $promotion->delivery_display,
-                        'can_afford' => $wallet->available_credits >= $promotion->price_credits,
-                        'promoter' => [
-                            'name' => $promotion->promoter_name ?? $promotion->user->name,
-                            'avatar_url' => $promotion->promoter_avatar_url,
-                            'verified' => $promotion->promoter_is_verified,
-                        ],
-                        'requirements' => $promotion->requirements,
-                        'deliverables' => $promotion->deliverables,
-                    ];
-                });
-
-            return response()->json([
-                'success' => true,
-                'promotions' => $promotions,
-                'user_balance' => number_format($wallet->balance, 0).' credits',
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to load promotions',
-                'error' => $e->getMessage(),
-            ], 500);
-        }
-    }
-
-    /**
-     * Participate in a community promotion
-     */
-    public function participateInPromotion(Request $request, Promotion $promotion): JsonResponse
-    {
-        $validator = Validator::make($request->all(), [
-            'completion_data' => 'nullable|array',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
-
-        try {
-            $user = $request->user();
-
-            // Check if promotion is active and available
-            if ($promotion->status !== 'active' ||
-                $promotion->starts_at > now() ||
-                $promotion->ends_at < now() ||
-                $promotion->current_participants >= $promotion->max_participants) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Promotion is not available',
-                ], 422);
-            }
-
-            // Check if user already participated
-            if ($promotion->participants()->where('user_id', $user->id)->exists()) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'You have already participated in this promotion',
-                ], 422);
-            }
-
-            // Process payment
-            $transaction = $this->creditService->spendCreditsForPromotion(
-                $user,
-                (float) ($promotion->credit_cost ?? $promotion->price_credits ?? 0),
-                $promotion->type,
-                ['promotion_id' => $promotion->id]
-            );
-
-            if (! $transaction) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Insufficient credits',
-                ], 422);
-            }
-
-            // Create participation record
-            $participation = $promotion->participants()->create([
-                'user_id' => $user->id,
-                'credits_spent' => $promotion->credit_cost,
-                'completion_data' => $request->completion_data,
-                'status' => 'completed',
-                'completed_at' => now(),
-            ]);
-
-            // Update promotion participant count
-            $promotion->increment('current_participants');
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Successfully joined promotion!',
-                'participation' => $participation,
-                'new_balance' => number_format($transaction->balance_after, 0).' credits',
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to join promotion',
                 'error' => $e->getMessage(),
             ], 500);
         }

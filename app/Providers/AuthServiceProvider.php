@@ -26,7 +26,6 @@ class AuthServiceProvider extends ServiceProvider
         \App\Modules\Store\Models\Store::class => \App\Policies\Store\StorePolicy::class,
         \App\Modules\Store\Models\Product::class => \App\Policies\Store\ProductPolicy::class,
         \App\Modules\Store\Models\Order::class => \App\Policies\Store\OrderPolicy::class,
-        \App\Modules\Store\Models\Promotion::class => \App\Policies\Store\PromotionPolicy::class,
 
         // Forum Module Policies
         \App\Models\Modules\Forum\ForumTopic::class => \App\Policies\Modules\Forum\ForumTopicPolicy::class,

@@ -7,9 +7,7 @@ use App\Modules\Store\Http\Controllers\Api\OrderController;
 use App\Modules\Store\Http\Controllers\Api\PaymentController;
 use App\Modules\Store\Http\Controllers\Api\ProductCategoryController;
 use App\Modules\Store\Http\Controllers\Api\ProductController;
-use App\Modules\Store\Http\Controllers\Api\PromotionController;
 use App\Modules\Store\Http\Controllers\Api\ReportController;
-use App\Modules\Store\Http\Controllers\Api\SellerPromotionController;
 use App\Modules\Store\Http\Controllers\Api\StoreController;
 use Illuminate\Support\Facades\Route;
 
@@ -154,16 +152,8 @@ Route::middleware(['auth:sanctum'])->prefix('seller')->name('seller.')->group(fu
         Route::get('/{store}/download/{filename}', [ReportController::class, 'download'])->name('download');
     });
 
-    // Promotions (Seller)
-    Route::prefix('promotions')->name('promotions.')->group(function () {
-        Route::get('/', [SellerPromotionController::class, 'index'])->name('index');
-        Route::post('/', [SellerPromotionController::class, 'store'])->name('store');
-        Route::put('/{product:id}', [SellerPromotionController::class, 'update'])->name('update');
-        Route::delete('/{product:id}', [SellerPromotionController::class, 'destroy'])->name('destroy');
-        Route::get('/pending-verifications', [SellerPromotionController::class, 'pendingVerifications'])->name('pending-verifications');
-        Route::post('/order-items/{orderItem}/verify', [SellerPromotionController::class, 'verifyCompletion'])->name('verify');
-        Route::get('/statistics', [SellerPromotionController::class, 'statistics'])->name('statistics');
-    });
+    // Promotions (Seller) are declared in routes/api/store-promotions.php,
+    // which this file requires below — see the note there.
 
 });
 
@@ -173,18 +163,9 @@ Route::middleware(['auth:sanctum'])->prefix('seller')->name('seller.')->group(fu
 |--------------------------------------------------------------------------
 | Require authentication for buyers
 */
-Route::middleware(['auth:sanctum'])->group(function () {
-
-    // Promotions (Buyer)
-    Route::prefix('promotions')->name('promotions.')->group(function () {
-        Route::get('/', [PromotionController::class, 'index'])->name('index');
-        Route::get('/my-promotions', [PromotionController::class, 'myPromotions'])->name('my');
-        Route::get('/{slug}', [PromotionController::class, 'show'])->name('show');
-        Route::post('/order-items/{orderItem}/submit-verification', [PromotionController::class, 'submitVerification'])->name('submit-verification');
-        Route::post('/order-items/{orderItem}/dispute', [PromotionController::class, 'dispute'])->name('dispute');
-    });
-
-});
+// Promotion routes (buyer + seller) — one definition, shared with the
+// test-time loader in routes/api.php so both exercise the same middleware.
+require base_path('routes/api/store-promotions.php');
 
 /*
 |--------------------------------------------------------------------------

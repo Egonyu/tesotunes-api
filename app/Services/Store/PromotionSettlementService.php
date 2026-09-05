@@ -8,6 +8,7 @@ use App\Modules\Store\Models\Order;
 use App\Modules\Store\Models\OrderItem;
 use App\Modules\Store\Models\Product;
 use App\Services\Commerce\SettlementService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class PromotionSettlementService
@@ -36,6 +37,120 @@ class PromotionSettlementService
             'status' => 'pending',
             'calculated_at' => now()->toIso8601String(),
         ];
+    }
+
+    /**
+     * Take payment from the buyer, or fail the surrounding transaction.
+     *
+     * Both promotion purchase paths used to call spendCredits() and discard
+     * the result. UserCredit::spendCredits() locks the wallet, re-checks, and
+     * returns null rather than throwing when the balance moved underneath —
+     * so a concurrent purchase created an order marked PAID with no debit
+     * behind it. The buyer got the promotion free and the promoter was owed
+     * money nobody had taken. The UGX leg had the matching problem from the
+     * other side: a bare decrement with no floor, which simply went negative.
+     *
+     * Must be called inside a transaction; a failure here has to roll the
+     * order back with it.
+     *
+     * @throws \RuntimeException when the buyer cannot cover the charge
+     */
+    public function chargeBuyer(
+        User $buyer,
+        int $credits,
+        float $ugx,
+        string $source,
+        string $description,
+        array $metadata = []
+    ): void {
+        if ($credits > 0 && ! $buyer->spendCredits($credits, $source, $description, $metadata)) {
+            throw new \RuntimeException('Your credit balance changed before this purchase completed. Nothing was charged.');
+        }
+
+        if ($ugx > 0) {
+            $debited = User::query()
+                ->whereKey($buyer->id)
+                ->where('ugx_balance', '>=', $ugx)
+                ->decrement('ugx_balance', $ugx);
+
+            if ($debited === 0) {
+                throw new \RuntimeException('Your wallet balance changed before this purchase completed. Nothing was charged.');
+            }
+
+            $buyer->refresh();
+        }
+    }
+
+    /**
+     * Why this order item cannot be released yet, or null when it can.
+     *
+     * The seller endpoint and the scheduled auto-release both ask this, so
+     * the two can never disagree about what a releasable order looks like.
+     */
+    public function releaseBlockedReason(Order $order, OrderItem $orderItem): ?string
+    {
+        if ($orderItem->verification_status !== 'submitted') {
+            return 'Payout can only be released after the buyer has submitted proof.';
+        }
+
+        if ($this->hasOpenDispute($orderItem)) {
+            return 'This order has an open dispute and must be resolved before payout is released.';
+        }
+
+        if (in_array($order->status, [Order::STATUS_CANCELLED, Order::STATUS_COMPLETED], true)) {
+            return 'This promotion order is already closed.';
+        }
+
+        if ($order->payment_status === Order::PAYMENT_REFUNDED) {
+            return 'This promotion order has already been refunded.';
+        }
+
+        return null;
+    }
+
+    /**
+     * A dispute is open when the snapshot says so, or when a reason was filed
+     * and no resolution has been recorded against it.
+     */
+    public function hasOpenDispute(OrderItem $orderItem): bool
+    {
+        $snapshot = is_array($orderItem->product_snapshot ?? null) ? $orderItem->product_snapshot : [];
+        $dispute = (array) data_get($snapshot, 'promotion_dispute', []);
+
+        if (($dispute['state'] ?? null) === 'open') {
+            return true;
+        }
+
+        return filled($orderItem->dispute_reason) && blank($dispute['resolved_at'] ?? null);
+    }
+
+    /**
+     * Settle to the promoter and close the order, atomically.
+     *
+     * Callers must clear releaseBlockedReason() first. $verifiedByUserId is
+     * null for the scheduled auto-release, which is what distinguishes an
+     * automatic release from a seller's own acceptance in the audit trail.
+     */
+    public function releaseToSeller(Order $order, OrderItem $orderItem, ?int $verifiedByUserId): array
+    {
+        return DB::transaction(function () use ($order, $orderItem, $verifiedByUserId) {
+            $settlement = $this->settleOrder($order, $orderItem);
+
+            $orderItem->forceFill([
+                'verification_status' => 'verified',
+                'verified_at' => now(),
+                'verified_by' => $verifiedByUserId,
+                'rejection_reason' => null,
+            ])->save();
+
+            $order->forceFill([
+                'status' => Order::STATUS_COMPLETED,
+                'completed_at' => now(),
+                'payment_status' => Order::PAYMENT_PAID,
+            ])->save();
+
+            return $settlement;
+        });
     }
 
     public function settleOrder(Order $order, OrderItem $orderItem): array

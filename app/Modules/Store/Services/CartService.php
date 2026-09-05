@@ -19,6 +19,12 @@ class CartService
      */
     public function addItem(Product $product, int $quantity = 1, array $options = []): array
     {
+        if (! $product->isCartCheckoutable()) {
+            throw new \InvalidArgumentException(
+                'Promotion services are booked from the promotion page, not the cart.'
+            );
+        }
+
         $cart = $this->getCart();
         $itemId = $this->generateItemId($product, $options);
 

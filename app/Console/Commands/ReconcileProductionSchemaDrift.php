@@ -458,6 +458,8 @@ class ReconcileProductionSchemaDrift extends Command
             });
         }
 
+        $this->reconcilePromotionColumns();
+
         if (! Schema::hasColumn('permissions', 'is_active')) {
             Schema::table('permissions', function (Blueprint $table) {
                 $table->boolean('is_active')->default(true);
@@ -608,5 +610,77 @@ class ReconcileProductionSchemaDrift extends Command
         Schema::table('events', function (Blueprint $table) use ($present) {
             $table->dropColumn($present);
         });
+    }
+
+    /**
+     * Promotion listing attributes: metadata JSON -> real columns.
+     *
+     * The base migration describes these on store_products, but production
+     * ran that Schema::create long ago, so the columns only reach a live
+     * database through here. Browse filters on all five; as JSON they were
+     * unindexable and matched with MySQL-only JSON_EXTRACT.
+     *
+     * Existing rows keep working either way — the serializers fall back to a
+     * default when a column is null — but the values are lifted out of the
+     * blob so the filters see them.
+     */
+    private function reconcilePromotionColumns(): void
+    {
+        if (! Schema::hasTable('store_products')) {
+            return;
+        }
+
+        $columns = [
+            'promotion_type' => fn (Blueprint $t) => $t->string('promotion_type', 60)->nullable(),
+            'promotion_platform' => fn (Blueprint $t) => $t->string('promotion_platform', 60)->nullable(),
+            'estimated_reach' => fn (Blueprint $t) => $t->unsignedInteger('estimated_reach')->nullable(),
+            'delivery_days_min' => fn (Blueprint $t) => $t->unsignedSmallInteger('delivery_days_min')->nullable(),
+            'delivery_days_max' => fn (Blueprint $t) => $t->unsignedSmallInteger('delivery_days_max')->nullable(),
+        ];
+
+        $added = false;
+
+        foreach ($columns as $column => $definition) {
+            if (! Schema::hasColumn('store_products', $column)) {
+                Schema::table('store_products', fn (Blueprint $table) => $definition($table));
+                $added = true;
+            }
+        }
+
+        if (! Schema::hasIndex('store_products', 'sp_promotion_browse_idx')) {
+            Schema::table('store_products', function (Blueprint $table) {
+                $table->index(
+                    ['product_type', 'status', 'promotion_platform', 'promotion_type'],
+                    'sp_promotion_browse_idx'
+                );
+            });
+        }
+
+        if (! Schema::hasIndex('store_products', 'sp_promotion_reach_idx')) {
+            Schema::table('store_products', function (Blueprint $table) {
+                $table->index(['product_type', 'estimated_reach'], 'sp_promotion_reach_idx');
+            });
+        }
+
+        if (! $added) {
+            return;
+        }
+
+        // Lift the values out of metadata for listings that predate the columns.
+        DB::table('store_products')
+            ->where('product_type', 'promotion')
+            ->whereNull('promotion_type')
+            ->orderBy('id')
+            ->each(function ($row) {
+                $metadata = json_decode($row->metadata ?? '{}', true) ?: [];
+
+                DB::table('store_products')->where('id', $row->id)->update([
+                    'promotion_type' => $metadata['promotion_type'] ?? null,
+                    'promotion_platform' => $metadata['platform'] ?? null,
+                    'estimated_reach' => isset($metadata['estimated_reach']) ? (int) $metadata['estimated_reach'] : null,
+                    'delivery_days_min' => isset($metadata['delivery_days_min']) ? (int) $metadata['delivery_days_min'] : null,
+                    'delivery_days_max' => isset($metadata['delivery_days_max']) ? (int) $metadata['delivery_days_max'] : null,
+                ]);
+            });
     }
 }

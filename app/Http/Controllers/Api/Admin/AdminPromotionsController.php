@@ -20,6 +20,27 @@ use Throwable;
 
 class AdminPromotionsController extends Controller
 {
+    /**
+     * The moderation queue mixes two unrelated tables. Both have their own
+     * auto-increment ids, so an id alone does not identify a row: approving
+     * event request 1 used to fall through and publish store listing 1
+     * instead. Callers name the kind; nothing is inferred from the id.
+     */
+    public const KIND_LISTING = 'listing';
+
+    public const KIND_EVENT_REQUEST = 'event_request';
+
+    /**
+     * Defaults to a store listing, which is what every existing admin client
+     * sends today. Event requests must ask for themselves by name.
+     */
+    private function moderationKind(Request $request): string
+    {
+        $kind = (string) $request->input('kind', self::KIND_LISTING);
+
+        return $kind === self::KIND_EVENT_REQUEST ? self::KIND_EVENT_REQUEST : self::KIND_LISTING;
+    }
+
     public function index(Request $request): JsonResponse
     {
         $perPage = max(1, min((int) $request->integer('per_page', 20), 100));
@@ -30,15 +51,7 @@ class AdminPromotionsController extends Controller
             ->promotion()
             ->with(['store.user'])
             ->withCount($this->promotionCountRelations())
-            ->when($status !== '', function ($builder) use ($status) {
-                $builder->where(function ($inner) use ($status) {
-                    if ($status === 'pending') {
-                        $inner->where('status', Product::STATUS_DRAFT);
-                    } else {
-                        $inner->where('status', $status);
-                    }
-                });
-            })
+            ->when($status !== '', fn ($builder) => $builder->where('status', Product::promotionStatusFromWire($status)))
             ->when($search !== '', function ($builder) use ($search) {
                 $builder->where(function ($inner) use ($search) {
                     $inner->where('name', 'like', "%{$search}%")
@@ -78,12 +91,7 @@ class AdminPromotionsController extends Controller
 
     public function approve(Request $request, int $promotion): JsonResponse
     {
-        $listing = Product::query()
-            ->promotion()
-            ->with('store.user')
-            ->find($promotion);
-
-        if (! $listing) {
+        if ($this->moderationKind($request) === self::KIND_EVENT_REQUEST) {
             $eventPromotion = EventPromotionRequest::query()
                 ->with(['event', 'requestedBy', 'moderatedBy'])
                 ->findOrFail($promotion);
@@ -102,6 +110,11 @@ class AdminPromotionsController extends Controller
                 'data' => $this->serializeEventPromotionRequestListItem($eventPromotion->fresh(['event', 'requestedBy', 'moderatedBy'])),
             ]);
         }
+
+        $listing = Product::query()
+            ->promotion()
+            ->with('store.user')
+            ->findOrFail($promotion);
 
         $metadata = is_array($listing->metadata ?? null) ? $listing->metadata : [];
         $metadata['moderation'] = array_merge((array) data_get($metadata, 'moderation', []), [
@@ -138,12 +151,7 @@ class AdminPromotionsController extends Controller
             'reason' => 'required|string|max:2000',
         ]);
 
-        $listing = Product::query()
-            ->promotion()
-            ->with('store.user')
-            ->find($promotion);
-
-        if (! $listing) {
+        if ($this->moderationKind($request) === self::KIND_EVENT_REQUEST) {
             $eventPromotion = EventPromotionRequest::query()
                 ->with(['event', 'requestedBy', 'moderatedBy'])
                 ->findOrFail($promotion);
@@ -164,6 +172,11 @@ class AdminPromotionsController extends Controller
             ]);
         }
 
+        $listing = Product::query()
+            ->promotion()
+            ->with('store.user')
+            ->findOrFail($promotion);
+
         $metadata = is_array($listing->metadata ?? null) ? $listing->metadata : [];
         $metadata['moderation'] = array_merge((array) data_get($metadata, 'moderation', []), [
             'status' => 'rejected',
@@ -175,7 +188,7 @@ class AdminPromotionsController extends Controller
         ]);
 
         $listing->forceFill([
-            'status' => 'rejected',
+            'status' => Product::STATUS_REJECTED,
             'metadata' => $metadata,
         ])->save();
 
@@ -497,22 +510,23 @@ class AdminPromotionsController extends Controller
 
         return [
             'id' => $promotion->id,
+            'kind' => self::KIND_LISTING,
             'slug' => $promotion->slug,
             'title' => $promotion->name,
             'short_description' => $promotion->short_description ?: Str::limit((string) $promotion->description, 120),
-            'type' => (string) data_get($metadata, 'promotion_type', 'social_media_mention'),
-            'platform' => (string) data_get($metadata, 'platform', 'other'),
+            'type' => (string) ($promotion->promotion_type ?? 'social_media_mention'),
+            'platform' => (string) ($promotion->promotion_platform ?? 'other'),
             'price_credits' => (float) ($promotion->price_credits ?? 0),
             'price_ugx' => (float) ($promotion->price_ugx ?? 0),
             'accepts_credits' => (bool) ($promotion->allow_credit_payment || $promotion->accepts_credits),
             'accepts_ugx' => (float) ($promotion->price_ugx ?? 0) > 0,
             'accepts_hybrid' => (bool) $promotion->allow_hybrid_payment,
-            'estimated_reach' => (int) data_get($metadata, 'estimated_reach', 0),
+            'estimated_reach' => (int) ($promotion->estimated_reach ?? 0),
             'audience_niches' => array_values(array_filter((array) data_get($metadata, 'audience_niches', []))),
             'audience_regions' => array_values(array_filter((array) data_get($metadata, 'audience_regions', []))),
             'content_formats' => array_values(array_filter((array) data_get($metadata, 'content_formats', []))),
-            'delivery_days_min' => (int) data_get($metadata, 'delivery_days_min', 1),
-            'delivery_days_max' => (int) data_get($metadata, 'delivery_days_max', 7),
+            'delivery_days_min' => (int) ($promotion->delivery_days_min ?? 1),
+            'delivery_days_max' => (int) ($promotion->delivery_days_max ?? 7),
             'requirements' => data_get($metadata, 'requirements'),
             'platform_specifics' => data_get($metadata, 'platform_specifics', []),
             'deliverables' => array_values(array_filter((array) data_get($metadata, 'deliverables', []), fn ($value) => filled($value))),
@@ -543,6 +557,7 @@ class AdminPromotionsController extends Controller
 
         return [
             'id' => $promotionRequest->id,
+            'kind' => self::KIND_EVENT_REQUEST,
             'slug' => $promotionRequest->promotion_slug,
             'title' => $promotionRequest->promotion_title,
             'short_description' => $promotionRequest->request_notes,
@@ -653,7 +668,7 @@ class AdminPromotionsController extends Controller
 
     private function normalizePromotionStatus(string $status): string
     {
-        return $status === Product::STATUS_DRAFT ? 'pending' : $status;
+        return Product::promotionStatusForWire($status);
     }
 
     private function promotionCountRelations(): array

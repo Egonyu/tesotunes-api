@@ -67,11 +67,20 @@ class Product extends Model
         // Rating/review stats
         'average_rating',
         'review_count',
+        // Promotion listing attributes (null on every other product type)
+        'promotion_type',
+        'promotion_platform',
+        'estimated_reach',
+        'delivery_days_min',
+        'delivery_days_max',
     ];
 
     protected $casts = [
         'images' => 'array',
         'metadata' => 'array',
+        'estimated_reach' => 'integer',
+        'delivery_days_min' => 'integer',
+        'delivery_days_max' => 'integer',
         'is_featured' => 'boolean',
         'is_taxable' => 'boolean',
         'has_variants' => 'boolean',
@@ -110,6 +119,40 @@ class Product extends Model
     const STATUS_ARCHIVED = 'archived';
 
     const STATUS_OUT_OF_STOCK = 'out_of_stock';
+
+    /**
+     * Written by the seller's pause action. It had no constant, so it matched
+     * no status filter and scopeActive() could never select it back — a paused
+     * promotion could not be listed, filtered or reactivated by status.
+     */
+    const STATUS_PAUSED = 'paused';
+
+    /**
+     * Written by admin moderation rejection. Also previously a bare string.
+     */
+    const STATUS_REJECTED = 'rejected';
+
+    /**
+     * How a promotion's stored status is named on the wire.
+     *
+     * A promotion awaiting moderation is stored as `draft` — the product
+     * lifecycle word — but every promotion surface calls it "pending". That
+     * rename was duplicated in four places and missing from a fifth, so
+     * /api/promotions returned "draft" for the same row the seller endpoints
+     * called "pending". One translation, one place.
+     */
+    public static function promotionStatusForWire(?string $status): string
+    {
+        return $status === self::STATUS_DRAFT ? 'pending' : (string) $status;
+    }
+
+    /**
+     * The inverse, for filtering by a wire status.
+     */
+    public static function promotionStatusFromWire(?string $status): string
+    {
+        return $status === 'pending' ? self::STATUS_DRAFT : (string) $status;
+    }
 
     /*
     |--------------------------------------------------------------------------
@@ -225,9 +268,17 @@ class Product extends Model
     |--------------------------------------------------------------------------
     */
 
+    /**
+     * Qualified because the promotions browse left-joins `stores`, which has
+     * its own `status`, `name`, `slug`, `description`, `metadata`,
+     * `review_count`, `user_id` and timestamps. An unqualified `status` made
+     * every structured browse filter — platform, type, niche, reach — fail
+     * with "Column 'status' in where clause is ambiguous", so those filters
+     * returned a 500 rather than results.
+     */
     public function scopeActive($query)
     {
-        return $query->where('status', self::STATUS_ACTIVE);
+        return $query->where($query->qualifyColumn('status'), self::STATUS_ACTIVE);
     }
 
     public function scopeInStock($query)
@@ -262,7 +313,27 @@ class Product extends Model
 
     public function scopePromotion($query)
     {
-        return $query->where('product_type', self::TYPE_PROMOTION);
+        return $query->where($query->qualifyColumn('product_type'), self::TYPE_PROMOTION);
+    }
+
+    /**
+     * Whether the generic cart and checkout can complete this product.
+     *
+     * Promotions are deliberately excluded. Buying one has to write the
+     * settlement snapshot and open the proof -> verify -> settle lifecycle,
+     * which only PromotionController::purchase() does. Checked out through
+     * the ordinary cart a promotion produces an order with no settlement
+     * record and no verification state: the promoter is never paid and the
+     * buyer has nothing to dispute. The cart also prices from price_ugx
+     * alone, so a credits-priced promotion would enter it at zero.
+     *
+     * Listing promotions on a promoter's storefront is intended — the shop
+     * page badges them and links to /promotions/{slug}, which is the flow
+     * that can actually complete the purchase.
+     */
+    public function isCartCheckoutable(): bool
+    {
+        return $this->product_type !== self::TYPE_PROMOTION;
     }
 
     public function scopeSearch($query, string $term)

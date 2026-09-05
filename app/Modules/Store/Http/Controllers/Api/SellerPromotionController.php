@@ -5,6 +5,8 @@ namespace App\Modules\Store\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\User;
+use App\Modules\Promotions\Models\PromoterProfile;
+use App\Modules\Promotions\Services\PromoterOnboardingService;
 use App\Modules\Store\Models\Order;
 use App\Modules\Store\Models\OrderItem;
 use App\Modules\Store\Models\Product;
@@ -13,6 +15,7 @@ use App\Modules\Store\Services\StoreService;
 use App\Services\Store\PromotionSettlementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Throwable;
@@ -45,7 +48,7 @@ class SellerPromotionController extends Controller
                 'orderItems as completed_orders' => fn ($builder) => $builder->whereHas('order', fn ($orderQuery) => $orderQuery->where('status', Order::STATUS_COMPLETED)),
                 'approvedGenericReviews as rating_count',
             ])
-            ->when($status !== '', fn ($query) => $query->where('status', $status === 'pending' ? Product::STATUS_DRAFT : $status))
+            ->when($status !== '', fn ($query) => $query->where('status', Product::promotionStatusFromWire($status)))
             ->latest()
             ->paginate($this->getPerPage($request));
 
@@ -87,6 +90,7 @@ class SellerPromotionController extends Controller
             'allow_credit_payment' => $validated['accepts_credits'],
             'allow_hybrid_payment' => $validated['accepts_hybrid'],
             'accepts_credits' => $validated['accepts_credits'],
+            ...$this->promotionColumns($validated),
             'metadata' => $this->buildMetadata($validated, [
                 'moderation' => [
                     'status' => 'pending',
@@ -127,11 +131,21 @@ class SellerPromotionController extends Controller
         ]);
     }
 
+    /**
+     * The promoter's own storefront profile.
+     *
+     * Editable fields come from promoter_profiles — the one table — rather
+     * than the stores.metadata.promoter_profile blob this used to read. The
+     * two records had drifted into separate systems: onboarding at
+     * /become-promoter wrote the table, this editor wrote the blob, and a
+     * promoter who used both was editing two different profiles. The counts
+     * and ratings below stay derived from the promoter's live listings.
+     */
     public function profile(Request $request): JsonResponse
     {
         $user = $request->user();
         $store = $user?->store;
-        $profile = (array) data_get($store?->metadata ?? [], 'promoter_profile', []);
+        $profile = $this->promoterProfileFor($user);
         $promotions = Product::query()
             ->promotion()
             ->where('store_id', $store?->id)
@@ -148,9 +162,13 @@ class SellerPromotionController extends Controller
                 'username' => $user?->username,
                 'avatar_url' => $user?->avatar_url ?? $user?->avatar ?? null,
                 'banner_url' => $store?->banner ?? $user?->banner ?? null,
-                'bio' => $store?->description ?? $user?->bio ?? null,
-                'location' => $this->formatLocation($store?->city ?? $user?->city, $store?->country ?? $user?->country, $profile['location'] ?? null),
-                'is_verified' => (bool) ($user?->is_verified ?? $store?->is_verified ?? false),
+                'bio' => $profile?->bio ?? $store?->description ?? $user?->bio ?? null,
+                'location' => $this->formatLocation(
+                    $store?->city ?? $user?->city,
+                    $store?->country ?? $user?->country,
+                    data_get($profile?->metadata ?? [], 'location')
+                ),
+                'is_verified' => (bool) ($profile?->is_verified ?? $user?->is_verified ?? $store?->is_verified ?? false),
                 'follower_count' => (int) ($user?->followers_count ?? 0),
                 'total_promotions' => $promotions->count(),
                 'active_promotions' => $promotions->where('status', Product::STATUS_ACTIVE)->count(),
@@ -159,12 +177,12 @@ class SellerPromotionController extends Controller
                 'completed_orders' => (int) $promotions->sum('completed_orders'),
                 'platforms' => $promotions->pluck('metadata.platform')->filter()->unique()->values()->all(),
                 'service_types' => $promotions->pluck('metadata.promotion_type')->filter()->unique()->values()->all(),
-                'social_links' => $this->serializePromoterSocialLinks($user, $profile),
-                'audience_summary' => $profile['audience_summary'] ?? null,
-                'response_time_hours' => isset($profile['response_time_hours']) ? (int) $profile['response_time_hours'] : null,
-                'proof_points' => array_values(array_filter((array) ($profile['proof_points'] ?? []))),
-                'campaign_highlights' => array_values(array_filter((array) ($profile['campaign_highlights'] ?? []))),
-                'portfolio_items' => $this->serializePortfolioItems($profile['portfolio_items'] ?? []),
+                'social_links' => $this->serializePromoterSocialLinks($user, (array) ($profile?->social_links ?? [])),
+                'audience_summary' => $profile?->audience_summary,
+                'response_time_hours' => $profile?->response_time_hours !== null ? (int) $profile->response_time_hours : null,
+                'proof_points' => array_values(array_filter((array) ($profile?->proof_points ?? []))),
+                'campaign_highlights' => array_values(array_filter((array) ($profile?->campaign_highlights ?? []))),
+                'portfolio_items' => $this->serializePortfolioItems((array) ($profile?->portfolio_items ?? [])),
                 'promotions' => $promotions->map(fn (Product $promotion) => $this->serializePromotion($promotion))->values()->all(),
             ],
         ]);
@@ -205,34 +223,34 @@ class SellerPromotionController extends Controller
             return $store;
         }
 
-        $profile = array_merge(
-            (array) data_get($store->metadata ?? [], 'promoter_profile', []),
-            [
+        /**
+         * Writes to promoter_profiles, not stores.metadata. Location and the
+         * promoter's website live in the profile's metadata blob because the
+         * table has no column for either; everything else is a real column.
+         */
+        $profile = $this->promoterProfileFor($user, createIfMissing: true);
+
+        $profile->forceFill([
+            'bio' => $validated['bio'] ?? $profile->bio,
+            'audience_summary' => $validated['audience_summary'] ?? null,
+            'response_time_hours' => $validated['response_time_hours'] ?? null,
+            'proof_points' => array_values(array_filter((array) ($validated['proof_points'] ?? []), fn ($value) => filled($value))),
+            'campaign_highlights' => array_values(array_filter((array) ($validated['campaign_highlights'] ?? []), fn ($value) => filled($value))),
+            'portfolio_items' => $this->sanitizePortfolioItems($validated['portfolio_items'] ?? []),
+            'social_links' => array_filter((array) ($validated['social_links'] ?? [])),
+            'metadata' => array_merge((array) ($profile->metadata ?? []), [
                 'location' => $validated['location'] ?? null,
-                'audience_summary' => $validated['audience_summary'] ?? null,
-                'response_time_hours' => $validated['response_time_hours'] ?? null,
-                'proof_points' => array_values(array_filter((array) ($validated['proof_points'] ?? []), fn ($value) => filled($value))),
-                'campaign_highlights' => array_values(array_filter((array) ($validated['campaign_highlights'] ?? []), fn ($value) => filled($value))),
-                'portfolio_items' => $this->sanitizePortfolioItems($validated['portfolio_items'] ?? []),
-                'website_url' => data_get($validated, 'social_links.website_url'),
-            ]
-        );
+            ]),
+        ])->save();
 
         $store->forceFill([
             'banner' => $validated['banner_url'] ?? $store->banner,
             'description' => $validated['bio'] ?? $store->description,
-            'metadata' => array_merge((array) ($store->metadata ?? []), [
-                'promoter_profile' => $profile,
-            ]),
         ])->save();
 
-        $user->forceFill([
-            'instagram_url' => data_get($validated, 'social_links.instagram_url'),
-            'twitter_url' => data_get($validated, 'social_links.twitter_url'),
-            'facebook_url' => data_get($validated, 'social_links.facebook_url'),
-            'youtube_url' => data_get($validated, 'social_links.youtube_url'),
-            'tiktok_url' => data_get($validated, 'social_links.tiktok_url'),
-        ])->save();
+        // The user's own *_url columns are not written here. They belong to
+        // the person's profile and are edited there; this endpoint edits the
+        // promoter storefront, whose links live on the promoter profile.
 
         $this->logSellerActivity($request, 'promoter_profile_updated', $store, [
             'store_id' => $store->id,
@@ -266,6 +284,7 @@ class SellerPromotionController extends Controller
             'accepts_credits' => $validated['accepts_credits'],
             'status' => Product::STATUS_DRAFT,
             'is_active' => false,
+            ...$this->promotionColumns($validated),
             'metadata' => $this->buildMetadata($validated, array_merge($metadata, ['moderation' => $moderation])),
         ])->save();
 
@@ -285,7 +304,7 @@ class SellerPromotionController extends Controller
         $this->assertOwnership($request, $product);
 
         $product->forceFill([
-            'status' => 'paused',
+            'status' => Product::STATUS_PAUSED,
             'is_active' => false,
         ])->save();
 
@@ -295,7 +314,7 @@ class SellerPromotionController extends Controller
 
         return response()->json([
             'success' => true,
-            'status' => 'paused',
+            'status' => Product::STATUS_PAUSED,
         ]);
     }
 
@@ -381,19 +400,33 @@ class SellerPromotionController extends Controller
         $orderItem = $order->items->first(fn (OrderItem $item) => $item->product?->product_type === 'promotion');
         abort_unless($orderItem, 404);
 
-        $orderItem->forceFill([
-            'verification_status' => 'rejected',
-            'rejection_reason' => $validated['reason'],
-        ])->save();
+        if ($order->payment_status === Order::PAYMENT_REFUNDED || $order->status === Order::STATUS_CANCELLED) {
+            return response()->json([
+                'message' => 'This promotion order has already been refunded.',
+            ], 422);
+        }
 
-        $order->forceFill([
-            'status' => Order::STATUS_CANCELLED,
-            'payment_status' => Order::PAYMENT_REFUNDED,
-            'refunded_at' => now(),
-            'refund_reason' => $validated['reason'],
-        ])->save();
+        DB::transaction(function () use ($order, $orderItem, $validated) {
+            /**
+             * The reversal must run before the order is stamped refunded.
+             * reverseOrder() returns the buyer's money only while
+             * payment_status is not yet PAYMENT_REFUNDED, so stamping first
+             * marks the order refunded and silently skips the refund.
+             */
+            app(PromotionSettlementService::class)->reverseOrder($order, $orderItem, $validated['reason']);
 
-        app(PromotionSettlementService::class)->reverseOrder($order, $orderItem, $validated['reason']);
+            $orderItem->forceFill([
+                'verification_status' => 'rejected',
+                'rejection_reason' => $validated['reason'],
+            ])->save();
+
+            $order->forceFill([
+                'status' => Order::STATUS_CANCELLED,
+                'payment_status' => Order::PAYMENT_REFUNDED,
+                'refunded_at' => now(),
+                'refund_reason' => $validated['reason'],
+            ])->save();
+        });
 
         $this->logSellerActivity($request, 'promotion_order_rejected', $orderItem, [
             'order_id' => $order->id,
@@ -457,20 +490,13 @@ class SellerPromotionController extends Controller
         $this->assertOwnership($request, $product);
 
         $order = $orderItem->order()->with(['buyer', 'items.product.store.user'])->firstOrFail();
-        $settlement = app(PromotionSettlementService::class)->settleOrder($order, $orderItem);
+        $settlements = app(PromotionSettlementService::class);
 
-        $orderItem->forceFill([
-            'verification_status' => 'verified',
-            'verified_at' => now(),
-            'verified_by' => $request->user()?->id,
-            'rejection_reason' => null,
-        ])->save();
+        if ($blocked = $settlements->releaseBlockedReason($order, $orderItem)) {
+            return response()->json(['message' => $blocked], 422);
+        }
 
-        $order->forceFill([
-            'status' => Order::STATUS_COMPLETED,
-            'completed_at' => now(),
-            'payment_status' => Order::PAYMENT_PAID,
-        ])->save();
+        $settlement = $settlements->releaseToSeller($order, $orderItem, $request->user()?->id);
 
         $this->logSellerActivity($request, 'promotion_order_verified', $orderItem, [
             'order_id' => $order->id,
@@ -607,23 +633,83 @@ class SellerPromotionController extends Controller
         ]);
     }
 
+    /**
+     * The list-valued and free-text parts of a promotion listing.
+     *
+     * The scalars browse filters on — type, platform, reach, delivery window
+     * — are columns now, so they are not duplicated here. `accepts_ugx` is
+     * gone too: it is price_ugx > 0, which is how every serializer already
+     * derived it.
+     *
+     * @return array<string, mixed>
+     */
     private function buildMetadata(array $validated, array $existing = []): array
     {
         return array_merge($existing, [
-            'promotion_type' => $validated['type'],
-            'platform' => $validated['platform'],
-            'estimated_reach' => $validated['estimated_reach'],
             'audience_niches' => array_values(array_filter((array) ($validated['audience_niches'] ?? []), fn ($value) => filled($value))),
             'audience_regions' => array_values(array_filter((array) ($validated['audience_regions'] ?? []), fn ($value) => filled($value))),
             'content_formats' => array_values(array_filter((array) ($validated['content_formats'] ?? []), fn ($value) => filled($value))),
-            'delivery_days_min' => $validated['delivery_days_min'],
-            'delivery_days_max' => $validated['delivery_days_max'],
             'requirements' => $validated['requirements'] ?? null,
             'platform_specifics' => array_filter((array) ($validated['platform_specifics'] ?? []), fn ($value) => filled($value)),
             'deliverables' => array_values(array_filter($validated['deliverables'] ?? [], fn ($value) => filled($value))),
             'terms' => $validated['terms'] ?? null,
-            'accepts_ugx' => $validated['accepts_ugx'],
         ]);
+    }
+
+    /**
+     * The promotion columns a create or update writes.
+     *
+     * @return array<string, mixed>
+     */
+    private function promotionColumns(array $validated): array
+    {
+        return [
+            'promotion_type' => $validated['type'],
+            'promotion_platform' => $validated['platform'],
+            'estimated_reach' => $validated['estimated_reach'],
+            'delivery_days_min' => $validated['delivery_days_min'],
+            'delivery_days_max' => $validated['delivery_days_max'],
+        ];
+    }
+
+    /**
+     * The one promoter profile for this user.
+     *
+     * Reuses the onboarding service so a seller who reaches this editor
+     * without having gone through /become-promoter gets the same record,
+     * slug and promoter capability grant as anyone else — rather than a
+     * second, differently-shaped profile in another table.
+     */
+    private function promoterProfileFor(?User $user, bool $createIfMissing = false): ?PromoterProfile
+    {
+        if (! $user) {
+            return null;
+        }
+
+        $profile = PromoterProfile::where('user_id', $user->id)->first();
+
+        if ($profile || ! $createIfMissing) {
+            return $profile;
+        }
+
+        return app(PromoterOnboardingService::class)->onboard($user, []);
+    }
+
+    /**
+     * Platforms a portfolio item may be attributed to.
+     *
+     * This was called by the profile validation and never defined, so every
+     * profile update carrying portfolio items died with "Call to undefined
+     * method". The list mirrors the platform values promotion listings use.
+     *
+     * @return list<string>
+     */
+    private function promotionPlatforms(): array
+    {
+        return [
+            'instagram', 'tiktok', 'twitter', 'facebook', 'youtube',
+            'whatsapp', 'telegram', 'radio', 'tv', 'blog', 'podcast', 'other',
+        ];
     }
 
     private function assertOwnership(Request $request, ?Product $product): void
@@ -667,19 +753,21 @@ class SellerPromotionController extends Controller
             'title' => $promotion->name,
             'short_description' => $promotion->short_description ?: Str::limit((string) $promotion->description, 120),
             'description' => $promotion->description,
-            'type' => (string) data_get($metadata, 'promotion_type', 'social_media_mention'),
-            'platform' => (string) data_get($metadata, 'platform', 'other'),
+            'type' => (string) ($promotion->promotion_type ?? 'social_media_mention'),
+            'platform' => (string) ($promotion->promotion_platform ?? 'other'),
             'price_credits' => (int) ($promotion->price_credits ?? 0),
             'price_ugx' => (float) ($promotion->price_ugx ?? 0),
             'accepts_credits' => (bool) ($promotion->allow_credit_payment || $promotion->accepts_credits),
-            'accepts_ugx' => (bool) data_get($metadata, 'accepts_ugx', true),
+            // Derived, like every other serializer already did — it was only
+            // ever stored because this one read it from metadata instead.
+            'accepts_ugx' => (float) ($promotion->price_ugx ?? 0) > 0,
             'accepts_hybrid' => (bool) ($promotion->allow_hybrid_payment),
-            'estimated_reach' => (int) data_get($metadata, 'estimated_reach', 0),
+            'estimated_reach' => (int) ($promotion->estimated_reach ?? 0),
             'audience_niches' => array_values(array_filter((array) data_get($metadata, 'audience_niches', []))),
             'audience_regions' => array_values(array_filter((array) data_get($metadata, 'audience_regions', []))),
             'content_formats' => array_values(array_filter((array) data_get($metadata, 'content_formats', []))),
-            'delivery_days_min' => (int) data_get($metadata, 'delivery_days_min', 1),
-            'delivery_days_max' => (int) data_get($metadata, 'delivery_days_max', 7),
+            'delivery_days_min' => (int) ($promotion->delivery_days_min ?? 1),
+            'delivery_days_max' => (int) ($promotion->delivery_days_max ?? 7),
             'requirements' => data_get($metadata, 'requirements'),
             'platform_specifics' => data_get($metadata, 'platform_specifics', []),
             'deliverables' => array_values(array_filter((array) data_get($metadata, 'deliverables', []), fn ($value) => filled($value))),
@@ -692,7 +780,7 @@ class SellerPromotionController extends Controller
             'is_top_rated' => (float) ($promotion->average_rating ?? 0) >= 4.5,
             'promoter' => $promotion->store?->user ? $this->serializeUserSummary($promotion->store->user) : null,
             'featured_image_url' => $promotion->featured_image_url,
-            'status' => $promotion->status === Product::STATUS_DRAFT ? 'pending' : $promotion->status,
+            'status' => Product::promotionStatusForWire($promotion->status),
             'created_at' => optional($promotion->created_at)->toIso8601String(),
         ];
     }
@@ -757,15 +845,27 @@ class SellerPromotionController extends Controller
         ];
     }
 
-    private function serializePromoterSocialLinks(?User $user, array $profile = []): array
+    /**
+     * The promoter's channels.
+     *
+     * The profile's own links win; the user's personal columns are the
+     * fallback for a promoter who has not set storefront links yet. A
+     * promoter often promotes on a channel that is not their personal
+     * profile, which is why the two are allowed to differ at all — but the
+     * editor now writes only the profile, so there is one place to change.
+     *
+     * @param  array<string, mixed>  $profileLinks
+     * @return array<string, string|null>
+     */
+    private function serializePromoterSocialLinks(?User $user, array $profileLinks = []): array
     {
         return [
-            'instagram_url' => $user?->instagram_url ?? null,
-            'twitter_url' => $user?->twitter_url ?? null,
-            'facebook_url' => $user?->facebook_url ?? null,
-            'youtube_url' => $user?->youtube_url ?? null,
-            'tiktok_url' => $user?->tiktok_url ?? null,
-            'website_url' => $profile['website_url'] ?? null,
+            'instagram_url' => $profileLinks['instagram_url'] ?? $user?->instagram_url ?? null,
+            'twitter_url' => $profileLinks['twitter_url'] ?? $user?->twitter_url ?? null,
+            'facebook_url' => $profileLinks['facebook_url'] ?? $user?->facebook_url ?? null,
+            'youtube_url' => $profileLinks['youtube_url'] ?? $user?->youtube_url ?? null,
+            'tiktok_url' => $profileLinks['tiktok_url'] ?? $user?->tiktok_url ?? null,
+            'website_url' => $profileLinks['website_url'] ?? null,
         ];
     }
 

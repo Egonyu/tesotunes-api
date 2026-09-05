@@ -274,55 +274,6 @@ class CreditService
         ];
     }
 
-    /**
-     * Get community promotion opportunities
-     */
-    public function getPromotionOpportunities(User $user): array
-    {
-        $wallet = $this->getUserWallet($user);
-        $availableCredits = $wallet->available_credits;
-
-        $opportunities = [];
-
-        // Artist shoutout opportunities
-        if ($availableCredits >= 25) {
-            $opportunities[] = [
-                'type' => 'artist_shoutout',
-                'title' => 'Get Artist Shoutout',
-                'description' => 'Get mentioned by popular artists',
-                'cost' => 25,
-                'benefit' => 'Social media mention + increased followers',
-                'available' => true,
-            ];
-        }
-
-        // Playlist feature opportunities
-        if ($availableCredits >= 15) {
-            $opportunities[] = [
-                'type' => 'playlist_feature',
-                'title' => 'Feature in Playlist',
-                'description' => 'Get your music featured in popular playlists',
-                'cost' => 15,
-                'benefit' => 'Increased plays + discovery',
-                'available' => true,
-            ];
-        }
-
-        // Profile boost
-        if ($availableCredits >= 20) {
-            $opportunities[] = [
-                'type' => 'profile_boost',
-                'title' => 'Profile Boost',
-                'description' => 'Boost your profile visibility for 24 hours',
-                'cost' => 20,
-                'benefit' => 'Increased profile views + followers',
-                'available' => true,
-            ];
-        }
-
-        return $opportunities;
-    }
-
     // Private helper methods
     private function awardCredits(User $user, float $amount, string $source, string $description, array $metadata = []): CreditTransaction
     {

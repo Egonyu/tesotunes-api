@@ -1,37 +1,70 @@
 <?php
 
+/*
+|--------------------------------------------------------------------------
+| Promoter Market
+|--------------------------------------------------------------------------
+|
+| Every key below is read by code. Keys that described behaviour nothing
+| implemented were removed rather than left to imply the behaviour exists:
+|
+|   enabled              The feature toggle is the `general_promotions_enabled`
+|                        setting (App\Settings\Definitions\FeatureSettings),
+|                        which is what the app and the admin surface actually
+|                        read. Nothing consulted this key.
+|   platform_fee_ugx_rate
+|                        The UGX fee is tiered per store subscription and comes
+|                        from config('store.fees.promotion_*_tier') via
+|                        Store::calculatePromotionFee(). This key was a second,
+|                        unread copy that happened to share the free-tier value.
+|   dual_write_enabled   Described writing new opportunities back to
+|                        stores.metadata for the V1 browse endpoint. No such
+|                        write was ever implemented.
+|
+*/
+
 return [
     /*
     |--------------------------------------------------------------------------
-    | Promotions Module — Master Toggle
+    | Platform Fee Rate — credits
     |--------------------------------------------------------------------------
-    */
-    'enabled' => env('PROMOTIONS_ENABLED', true),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Platform Fee Rates
-    |--------------------------------------------------------------------------
-    | Applied to the gross transaction value for each currency leg.
-    | UGX fee is tiered by promoter store subscription (see Store model).
-    | Credits fee is flat-rate (no store-tier benefit on credits).
+    | Applied to the gross credits leg of a promotion settlement. Flat-rate:
+    | store subscription tiers discount the UGX leg only.
+    | Read by App\Services\Store\PromotionSettlementService.
     */
     'platform_fee_credits_rate' => env('PROMOTIONS_CREDITS_FEE_RATE', 0.15),
-    'platform_fee_ugx_rate' => env('PROMOTIONS_UGX_FEE_RATE', 0.10),
 
     /*
     |--------------------------------------------------------------------------
-    | Workflow Timing
+    | Escrow Auto-Release
     |--------------------------------------------------------------------------
+    | How long submitted proof waits for the seller before the platform
+    | releases payment on their behalf. Read by the hourly
+    | promotions:release-due-escrow command; orders with an open dispute or
+    | without submitted proof are never released.
+    |
+    | This supersedes the unread store.php 'auto_release_days' => 7, which
+    | should be removed when the store module's own escrow is reviewed.
+    */
+    'auto_release_hours' => env('PROMOTIONS_AUTO_RELEASE_HOURS', 168),  // 7 days
+
+    /*
+    |--------------------------------------------------------------------------
+    | Workflow Timing — NOT YET ENFORCED
+    |--------------------------------------------------------------------------
+    | These record intended policy that nothing reads yet: a dispute can still
+    | be filed at any time, including after settlement, and applications never
+    | expire.
     */
     'dispute_window_hours' => env('PROMOTIONS_DISPUTE_WINDOW_HOURS', 72),
-    'auto_release_hours' => env('PROMOTIONS_AUTO_RELEASE_HOURS', 168),  // 7 days
     'application_ttl_days' => env('PROMOTIONS_APPLICATION_TTL_DAYS', 30),
 
     /*
     |--------------------------------------------------------------------------
-    | Opportunity Limits
+    | Opportunity Limits — NOT YET ENFORCED
     |--------------------------------------------------------------------------
+    | Intended anti-spam ceilings. No check consults them today, so a user may
+    | post unlimited briefs and a brief may take unlimited applications.
     */
     'max_open_opportunities_per_user' => 10,
     'max_applications_per_opportunity' => 50,
@@ -41,6 +74,7 @@ return [
     | Onboarding
     |--------------------------------------------------------------------------
     | Auto-provision a store for non-artist promoters during onboarding.
+    | Read by App\Modules\Promotions\Services\PromoterOnboardingService.
     */
     'auto_provision_store' => true,
     'default_store_type' => 'promoter',
@@ -48,18 +82,9 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Feature Flag — V2 Dual-Write Window
-    |--------------------------------------------------------------------------
-    | While true, new opportunities also write back to stores.metadata for
-    | backward compat with the old PromotionController browse endpoint.
-    | Set to false after frontend cutover is complete.
-    */
-    'dual_write_enabled' => env('PROMOTIONS_DUAL_WRITE', true),
-
-    /*
-    |--------------------------------------------------------------------------
     | Promoter Tier Thresholds
     |--------------------------------------------------------------------------
+    | Read by App\Modules\Promotions\Models\PromoterProfile::recalculateTier().
     */
     'tiers' => [
         'starter' => ['min_completed' => 0,   'min_rating' => 0.0],

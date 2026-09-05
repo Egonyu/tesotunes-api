@@ -132,6 +132,35 @@ return new class extends Migration
             $table->unsignedBigInteger('default_promotable_id')->nullable();
             $table->unsignedBigInteger('promoter_profile_id')->nullable();
             $table->index(['default_promotable_type', 'default_promotable_id'], 'sp_default_promotable_idx');
+
+            /*
+             * Promotion listing attributes.
+             *
+             * Null for every other product_type. These five were filtered out
+             * of the metadata JSON with raw JSON_EXTRACT and JSON_UNQUOTE —
+             * unindexable, and MySQL-only syntax in an otherwise portable
+             * schema. Browse filters on all of them, so they are columns.
+             *
+             * Naming follows event_promotion_requests, which already had
+             * promotion_type and promotion_platform.
+             *
+             * List-valued attributes (audience niches and regions, content
+             * formats, deliverables, platform specifics) stay in metadata:
+             * they are displayed and matched, not ranged or sorted.
+             */
+            $table->string('promotion_type', 60)->nullable();
+            $table->string('promotion_platform', 60)->nullable();
+            $table->unsignedInteger('estimated_reach')->nullable();
+            $table->unsignedSmallInteger('delivery_days_min')->nullable();
+            $table->unsignedSmallInteger('delivery_days_max')->nullable();
+
+            // The shape the promotions browse actually queries.
+            $table->index(
+                ['product_type', 'status', 'promotion_platform', 'promotion_type'],
+                'sp_promotion_browse_idx'
+            );
+            $table->index(['product_type', 'estimated_reach'], 'sp_promotion_reach_idx');
+
             $table->timestamps();
             $table->softDeletes();
         });
@@ -216,8 +245,16 @@ return new class extends Migration
             $table->timestamp('refunded_at')->nullable();
             $table->text('payment_failure_reason')->nullable();
             $table->text('notes')->nullable();
+
+            // Client-supplied key that makes a retried checkout return the
+            // original order instead of charging again. Unique per buyer, so
+            // two people may reuse a key without colliding.
+            $table->string('idempotency_key', 64)->nullable();
+
             $table->timestamps();
             $table->softDeletes();
+
+            $table->unique(['user_id', 'idempotency_key'], 'store_orders_user_idempotency_unique');
         });
 
         Schema::create('store_order_items', function (Blueprint $table) {
