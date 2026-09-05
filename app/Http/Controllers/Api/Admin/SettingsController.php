@@ -324,14 +324,18 @@ class SettingsController extends Controller
             'credits_per_song_upload' => $this->getStoredSetting('credits', 'credits_per_song_upload', 5, 'integer'),
             'credits_per_event_ticket' => $this->getStoredSetting('credits', 'credits_per_event_ticket', 10, 'integer'),
             'credit_purchase_enabled' => $this->getStoredSetting('credits', 'credit_purchase_enabled', true, 'boolean'),
-            'credit_to_ugx_rate' => $this->getStoredSetting('credits', 'credit_to_ugx_rate', 100, 'integer'),
-            'package_1_credits' => $this->getStoredSetting('credits', 'package_1_credits', 100, 'integer'),
+            // credits_per_ugx is the rate the platform honours; the old
+            // credit_to_ugx_rate key is deprecated in favour of it and is no
+            // longer surfaced here, because showing an operator a rate
+            // nothing reads is worse than showing none.
+            'credits_per_ugx' => $this->getStoredSetting('credits', 'per_ugx', 1, 'integer'),
+            'package_1_credits' => $this->getStoredSetting('credits', 'package_1_credits', 10000, 'integer'),
             'package_1_price' => $this->getStoredSetting('credits', 'package_1_price', 10000, 'integer'),
             'package_1_active' => $this->getStoredSetting('credits', 'package_1_active', true, 'boolean'),
-            'package_2_credits' => $this->getStoredSetting('credits', 'package_2_credits', 500, 'integer'),
+            'package_2_credits' => $this->getStoredSetting('credits', 'package_2_credits', 50000, 'integer'),
             'package_2_price' => $this->getStoredSetting('credits', 'package_2_price', 50000, 'integer'),
             'package_2_active' => $this->getStoredSetting('credits', 'package_2_active', true, 'boolean'),
-            'package_3_credits' => $this->getStoredSetting('credits', 'package_3_credits', 1000, 'integer'),
+            'package_3_credits' => $this->getStoredSetting('credits', 'package_3_credits', 100000, 'integer'),
             'package_3_price' => $this->getStoredSetting('credits', 'package_3_price', 100000, 'integer'),
             'package_3_active' => $this->getStoredSetting('credits', 'package_3_active', true, 'boolean'),
         ];
