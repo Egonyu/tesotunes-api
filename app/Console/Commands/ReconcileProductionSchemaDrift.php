@@ -613,6 +613,84 @@ class ReconcileProductionSchemaDrift extends Command
     }
 
     /**
+     * The referral milestone ladder.
+     *
+     * Declared in the identity/access base migration, which production ran
+     * long ago. Without these the rewards and claim endpoints 500, so the
+     * programme's whole motivation mechanic is unreachable.
+     *
+     * Must match 0001_01_01_000001_create_identity_access_tables.php exactly.
+     */
+    private function reconcileReferralProgramTables(): void
+    {
+        if (! Schema::hasTable('referral_milestones')) {
+            Schema::create('referral_milestones', function (Blueprint $table) {
+                $table->id();
+                $table->string('key', 60)->unique();
+                $table->string('name');
+                $table->string('description')->nullable();
+                $table->unsignedInteger('referrals_required');
+                $table->string('reward_type', 30)->default('credits');
+                $table->unsignedInteger('reward_value')->default(0);
+                $table->string('badge_name')->nullable();
+                $table->string('badge_icon', 16)->nullable();
+                $table->string('badge_tier', 20)->default('bronze');
+                $table->boolean('is_active')->default(true);
+                $table->unsignedInteger('sort_order')->default(0);
+                $table->timestamps();
+
+                $table->index(['is_active', 'referrals_required']);
+            });
+        }
+
+        if (! Schema::hasTable('referral_milestone_claims')) {
+            Schema::create('referral_milestone_claims', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('referral_milestone_id')->constrained()->cascadeOnDelete();
+                $table->unsignedInteger('credits_awarded')->default(0);
+                $table->timestamp('claimed_at');
+                $table->timestamps();
+
+                $table->unique(['user_id', 'referral_milestone_id'], 'referral_claim_unique');
+            });
+        }
+    }
+
+    /**
+     * Drop the Ojokotau crowdfunding tables.
+     *
+     * The module was removed: the frontend called endpoints that never
+     * existed, the model named 35 columns the table did not have so a
+     * campaign could not be inserted at all, and no money path was ever
+     * built. The tables came out of the base migration with it.
+     *
+     * Guarded on emptiness. If a row has appeared since, this refuses rather
+     * than destroying it — dropping a table is the one thing here that cannot
+     * be undone by running the command again.
+     */
+    private function dropRetiredCrowdfundingTables(): void
+    {
+        // Child tables first: both carry a foreign key to campaigns.
+        foreach (['campaign_pledges', 'campaign_updates', 'campaigns'] as $table) {
+            if (! Schema::hasTable($table)) {
+                continue;
+            }
+
+            $rows = DB::table($table)->count();
+
+            if ($rows > 0) {
+                $this->warn("    keeping `{$table}` — it holds {$rows} row(s); reconcile manually");
+
+                continue;
+            }
+
+            Schema::drop($table);
+            $this->line("    dropped retired table `{$table}`");
+        }
+    }
+
+    /**
      * store_orders.idempotency_key — replay protection for checkout.
      *
      * The base migration declares it, but production ran that Schema::create
@@ -652,6 +730,8 @@ class ReconcileProductionSchemaDrift extends Command
     private function reconcilePromotionColumns(): void
     {
         $this->reconcileOrderIdempotencyKey();
+        $this->reconcileReferralProgramTables();
+        $this->dropRetiredCrowdfundingTables();
 
         if (! Schema::hasTable('store_products')) {
             return;
