@@ -650,6 +650,63 @@ class ReconcileProductionSchemaDrift extends Command
     }
 
     /**
+     * Forget migration rows whose files this restructure removed.
+     *
+     * A row naming a file that no longer exists is inert — migrate only runs
+     * what is on disk — but it is a record of something that did not happen
+     * the way the row claims, and it makes the ledger misleading to read.
+     *
+     * Named explicitly rather than swept by "file is missing". Production
+     * carries thirteen older rows from the migration squash, when patch
+     * migrations were folded into the base files and deleted; those are
+     * someone else's history and are left alone. Only the three this rename
+     * created are removed here.
+     *
+     * The two renamed migrations already have rows under their new names, and
+     * the event table has been dropped, so nothing here can cause a re-run.
+     */
+    private function forgetRetiredMigrationRows(): void
+    {
+        $retired = [
+            // Renaming a migration file gives it a new identity, so these ran
+            // again under their new names and left the old rows behind.
+            '2026_05_17_100100_create_promotion_opportunities_table' => '2026_05_17_100100_create_promotion_requests_table',
+            '2026_06_11_300000_add_award_slots_to_promotion_opportunities' => '2026_06_11_300000_add_award_slots_to_promotion_requests',
+
+            // Retired outright: events are promoted by posting a request.
+            '2026_03_26_160000_create_event_promotion_requests_table' => null,
+        ];
+
+        foreach ($retired as $old => $replacement) {
+            if (! DB::table('migrations')->where('migration', $old)->exists()) {
+                continue;
+            }
+
+            /*
+             * Refuse while the file is still on disk — that would mean the
+             * migration is live and the row belongs to it, and dropping the
+             * row would make the next migrate run it a second time.
+             */
+            if (file_exists(database_path("migrations/{$old}.php"))) {
+                $this->warn("    keeping migration row `{$old}` — its file still exists");
+
+                continue;
+            }
+
+            // A rename must have landed under the new name first, or removing
+            // the old row loses the record that it ever ran.
+            if ($replacement !== null && ! DB::table('migrations')->where('migration', $replacement)->exists()) {
+                $this->warn("    keeping migration row `{$old}` — `{$replacement}` has not run yet");
+
+                continue;
+            }
+
+            DB::table('migrations')->where('migration', $old)->delete();
+            $this->line("    forgot stale migration row `{$old}`");
+        }
+    }
+
+    /**
      * Clean up after a migration file rename.
      *
      * Renaming create_promotion_opportunities_table to
@@ -849,6 +906,7 @@ class ReconcileProductionSchemaDrift extends Command
         $this->dropRetiredCrowdfundingTables();
         $this->renameOpportunitiesToRequests();
         $this->dropRetiredEventPromotionRequests();
+        $this->forgetRetiredMigrationRows();
 
         if (! Schema::hasTable('store_products')) {
             return;
