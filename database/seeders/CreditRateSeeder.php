@@ -29,15 +29,18 @@ class CreditRateSeeder extends Seeder
                 'activity_type' => CreditRate::REFERRAL_SIGNUP,
                 'display_name' => 'Referred a friend',
                 'description' => 'Paid to the referrer when someone signs up with their code.',
-                'credits_per_action' => 500,
-                'daily_limit' => 5000,      // 10 referrals a day before it looks like farming
+                // Credits redeem 1:1 to UGX, so this is 50 UGX per signup.
+                // The programme leans on the milestone ladder for its pull
+                // rather than a large per-signup payout.
+                'credits_per_action' => 50,
+                'daily_limit' => 500,       // 10 referrals a day before it looks like farming
                 'sort_order' => 1,
             ],
             [
                 'activity_type' => CreditRate::REFERRAL_WELCOME,
                 'display_name' => 'Joined with a friend’s code',
                 'description' => 'Paid once to a new account that signed up with a referral code.',
-                'credits_per_action' => 200,
+                'credits_per_action' => 25,
                 'max_per_user_lifetime' => 1,
                 'sort_order' => 2,
             ],
