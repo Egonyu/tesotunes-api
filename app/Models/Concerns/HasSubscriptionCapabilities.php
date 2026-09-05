@@ -154,14 +154,14 @@ trait HasSubscriptionCapabilities
 
     public function getListeningStatsAttribute(): array
     {
-        $totalPlays = $this->playHistory()->where('was_completed', true)->count();
+        $totalPlays = $this->playHistory()->where('completed', true)->count();
         $totalMinutes = $this->playHistory()
-            ->where('was_completed', true)
+            ->where('completed', true)
             ->sum('duration_played_seconds') / 60;
 
         $topGenres = $this->playHistory()
             ->with('song.genres')
-            ->where('was_completed', true)
+            ->where('completed', true)
             ->get()
             ->flatMap(fn ($history) => $history->song->genres)
             ->countBy('name')

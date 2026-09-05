@@ -669,7 +669,7 @@ class SongService
 
         $completedPlays = PlayHistory::where('song_id', $song->id)
             ->where('played_at', '>=', now()->subDays($days))
-            ->where('was_completed', true)
+            ->where('completed', true)
             ->count();
 
         return round(($completedPlays / $totalPlays) * 100, 2);

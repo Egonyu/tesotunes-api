@@ -544,7 +544,7 @@ class Song extends Model
         return $query->with([
             'playHistory' => function ($q) use ($days) {
                 $q->where('played_at', '>=', now()->subDays($days))
-                    ->select('song_id', 'user_id', 'duration_played_seconds', 'was_completed', 'played_at');
+                    ->select('song_id', 'user_id', 'duration_played_seconds', 'completed', 'played_at');
             },
         ]);
     }

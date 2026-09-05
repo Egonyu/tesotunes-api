@@ -20,7 +20,7 @@ class ActivityHubController extends Controller
         $user = $request->user();
         $profile = $user->promoterProfile;
 
-        $pendingBuyerOrders = Order::where('buyer_id', $user->id)
+        $pendingBuyerOrders = Order::where('user_id', $user->id)
             ->whereIn('payment_status', ['paid', 'partially_refunded'])
             ->where(function ($q) {
                 $q->whereHas('items', fn ($i) => $i->where('verification_status', 'pending_verification'));
@@ -92,7 +92,7 @@ class ActivityHubController extends Controller
     public function orders(Request $request): JsonResponse
     {
         $orders = Order::with(['items.product', 'store'])
-            ->where('buyer_id', $request->user()->id)
+            ->where('user_id', $request->user()->id)
             ->orderByDesc('created_at')
             ->paginate($request->integer('per_page', 20));
 
