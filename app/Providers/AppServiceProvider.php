@@ -175,8 +175,8 @@ class AppServiceProvider extends ServiceProvider
         AwardNomination::observe(AwardNominationObserver::class);
         // AwardWinner model does not exist yet
 
-        // Promotion opportunities announce on the Edula feed
-        \App\Modules\Promotions\Models\PromotionOpportunity::observe(\App\Observers\PromotionOpportunityObserver::class);
+        // Promotion promotion requests announce on the Edula feed
+        \App\Modules\Promotions\Models\PromotionRequest::observe(\App\Observers\PromotionRequestObserver::class);
 
         // Register observers for Store module (Edula Phase 2)
         \App\Modules\Store\Models\Product::observe(\App\Observers\Store\ProductObserver::class);

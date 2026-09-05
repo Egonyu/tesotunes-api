@@ -23,8 +23,8 @@ class ApplicationRejectedNotification extends Notification implements ShouldQueu
         return [
             'type' => 'application_rejected',
             'application_id' => $this->application->id,
-            'opportunity_id' => $this->application->opportunity_id,
-            'opportunity_title' => $this->application->opportunity?->title,
+            'promotion_request_id' => $this->application->promotion_request_id,
+            'promotion_request_title' => $this->application->promotionRequest?->title,
             'reason' => $this->application->artist_response,
         ];
     }

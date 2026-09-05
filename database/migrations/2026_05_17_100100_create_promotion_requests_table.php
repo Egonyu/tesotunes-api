@@ -8,12 +8,12 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('promotion_opportunities', function (Blueprint $table) {
+        Schema::create('promotion_requests', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
             $table->string('slug', 280)->unique();
 
-            // Who posted the opportunity
+            // Who posted the promotion request
             $table->foreignId('created_by_user_id')->constrained('users')->cascadeOnDelete();
 
             // Polymorphic promotable: Song, Album, or Event
@@ -59,16 +59,16 @@ return new class extends Migration
             // Polymorphic lookup
             $table->index(['promotable_type', 'promotable_id'], 'po_promotable_idx');
 
-            // Feed queries: open opportunities by deadline
+            // Feed queries: open promotion requests by deadline
             $table->index(['status', 'deadline_at'], 'po_status_deadline_idx');
 
-            // Artist's own opportunities
+            // Artist's own promotion requests
             $table->index('created_by_user_id', 'po_creator_idx');
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('promotion_opportunities');
+        Schema::dropIfExists('promotion_requests');
     }
 };

@@ -3,11 +3,11 @@
 namespace App\Modules\Promotions\Providers;
 
 use App\Modules\Promotions\Models\PromoterProfile;
-use App\Modules\Promotions\Models\PromotionOpportunity;
+use App\Modules\Promotions\Models\PromotionRequest;
 use App\Modules\Promotions\Policies\PromoterProfilePolicy;
-use App\Modules\Promotions\Policies\PromotionOpportunityPolicy;
-use App\Modules\Promotions\Services\OpportunityService;
+use App\Modules\Promotions\Policies\PromotionRequestPolicy;
 use App\Modules\Promotions\Services\PromoterOnboardingService;
+use App\Modules\Promotions\Services\PromotionRequestService;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
@@ -30,7 +30,7 @@ class PromotionsServiceProvider extends ServiceProvider
         );
 
         $this->app->singleton(PromoterOnboardingService::class);
-        $this->app->singleton(OpportunityService::class);
+        $this->app->singleton(PromotionRequestService::class);
     }
 
     public function boot(): void
@@ -50,7 +50,7 @@ class PromotionsServiceProvider extends ServiceProvider
     protected function registerPolicies(): void
     {
         Gate::policy(PromoterProfile::class, PromoterProfilePolicy::class);
-        Gate::policy(PromotionOpportunity::class, PromotionOpportunityPolicy::class);
+        Gate::policy(PromotionRequest::class, PromotionRequestPolicy::class);
     }
 
     protected function registerGates(): void
@@ -59,7 +59,7 @@ class PromotionsServiceProvider extends ServiceProvider
             return $user->promoterProfile()->exists();
         });
 
-        Gate::define('promotions.post-opportunity', function ($user) {
+        Gate::define('promotions.post-request', function ($user) {
             return true;
         });
     }

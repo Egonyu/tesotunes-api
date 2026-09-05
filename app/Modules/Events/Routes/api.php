@@ -45,7 +45,6 @@ Route::middleware(['auth:sanctum', 'artist.events.access'])->prefix('artist/even
     Route::delete('/{id}', [\App\Modules\Events\Http\Controllers\ArtistEventsController::class, 'destroy'])->name('destroy');
     Route::get('/{id}/analytics', [\App\Modules\Events\Http\Controllers\ArtistEventsController::class, 'analytics'])->name('analytics');
     Route::get('/{id}/analytics/export', [\App\Modules\Events\Http\Controllers\ArtistEventsController::class, 'exportAnalytics'])->name('analytics.export');
-    Route::post('/{id}/promotion-requests', [\App\Modules\Events\Http\Controllers\ArtistEventsController::class, 'storePromotionRequest'])->name('promotion-requests.store');
     Route::post('/{id}/discount-codes', [\App\Modules\Events\Http\Controllers\ArtistEventsController::class, 'storeDiscountCode'])->name('discount-codes.store');
     Route::delete('/{id}/discount-codes/{discountId}', [\App\Modules\Events\Http\Controllers\ArtistEventsController::class, 'deleteDiscountCode'])->name('discount-codes.destroy');
     Route::post('/{id}/staff', [\App\Modules\Events\Http\Controllers\ArtistEventsController::class, 'addStaff'])->name('staff.store');

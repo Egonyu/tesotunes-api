@@ -15,7 +15,7 @@ class PromotionApplication extends Model
     protected $table = 'promotion_applications';
 
     protected $fillable = [
-        'opportunity_id',
+        'promotion_request_id',
         'promoter_profile_id',
         'applicant_user_id',
         'proposed_price_ugx',
@@ -66,21 +66,21 @@ class PromotionApplication extends Model
         });
 
         static::created(function (self $app): void {
-            $app->opportunity?->increment('application_count');
+            $app->promotionRequest?->increment('application_count');
         });
 
         static::deleted(function (self $app): void {
             if (in_array($app->status, [self::STATUS_SUBMITTED, self::STATUS_SHORTLISTED])) {
-                $app->opportunity?->decrement('application_count');
+                $app->promotionRequest?->decrement('application_count');
             }
         });
     }
 
     // --- Relationships ---
 
-    public function opportunity(): BelongsTo
+    public function promotionRequest(): BelongsTo
     {
-        return $this->belongsTo(PromotionOpportunity::class, 'opportunity_id');
+        return $this->belongsTo(PromotionRequest::class, 'promotion_request_id');
     }
 
     public function promoterProfile(): BelongsTo

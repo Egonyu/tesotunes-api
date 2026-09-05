@@ -9,15 +9,15 @@ use App\Models\FeedItem;
 use App\Models\Modules\Forum\Poll;
 use App\Models\Song;
 use App\Models\User;
-use App\Modules\Promotions\Models\PromotionOpportunity;
-use App\Modules\Promotions\Services\OpportunityService;
+use App\Modules\Promotions\Models\PromotionRequest;
+use App\Modules\Promotions\Services\PromotionRequestService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 /**
  * The Edula activity spine: platform events must produce feed items so the
- * timeline fills itself (songs, events, promotion opportunities, community).
+ * timeline fills itself (songs, events, promotion promotion requests, community).
  */
 class ActivitySpineTest extends TestCase
 {
@@ -68,24 +68,24 @@ class ActivitySpineTest extends TestCase
         $artist = Artist::factory()->create(['user_id' => $artistUser->id]);
         $song = Song::factory()->create(['artist_id' => $artist->id, 'user_id' => $artistUser->id]);
 
-        $opportunity = app(OpportunityService::class)->createForContent($artistUser, $song, [
+        $promotionRequest = app(PromotionRequestService::class)->createForContent($artistUser, $song, [
             'title' => 'Promote my new single',
             'budget_max_ugx' => 50000,
         ]);
 
         $feedItem = FeedItem::query()
-            ->where('subject_type', PromotionOpportunity::class)
-            ->where('subject_id', $opportunity->id)
+            ->where('subject_type', PromotionRequest::class)
+            ->where('subject_id', $promotionRequest->id)
             ->first();
 
-        $this->assertNotNull($feedItem, 'posted opportunity must announce on the feed');
+        $this->assertNotNull($feedItem, 'posted promotion request must announce on the feed');
         $this->assertSame('opportunity_posted', $feedItem->type);
         $this->assertStringContainsString('looking for promoters', $feedItem->title);
 
         $this->assertDatabaseHas('activities', [
             'type' => 'posted_opportunity',
-            'subject_type' => PromotionOpportunity::class,
-            'subject_id' => $opportunity->id,
+            'subject_type' => PromotionRequest::class,
+            'subject_id' => $promotionRequest->id,
             'user_id' => $artistUser->id,
         ]);
     }

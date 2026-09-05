@@ -152,7 +152,7 @@ class RewardRuleService
 
     /**
      * What a given user can still earn today, per activity — the honest version
-     * of an "earning opportunities" list, which previously advertised rates
+     * of an "earning promotion requests" list, which previously advertised rates
      * that no longer existed and limits nothing enforced.
      *
      * @return array<int, array<string, mixed>>

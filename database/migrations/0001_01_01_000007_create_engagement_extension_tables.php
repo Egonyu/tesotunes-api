@@ -141,7 +141,7 @@ return new class extends Migration
              * unindexable, and MySQL-only syntax in an otherwise portable
              * schema. Browse filters on all of them, so they are columns.
              *
-             * Naming follows event_promotion_requests, which already had
+             * Naming mirrors the promotion listing vocabulary:
              * promotion_type and promotion_platform.
              *
              * List-valued attributes (audience niches and regions, content
@@ -293,13 +293,13 @@ return new class extends Migration
             $table->text('dispute_reason')->nullable();
             $table->string('promotable_type', 100)->nullable();
             $table->unsignedBigInteger('promotable_id')->nullable();
-            $table->unsignedBigInteger('opportunity_id')->nullable();
+            $table->unsignedBigInteger('promotion_request_id')->nullable();
             $table->unsignedBigInteger('application_id')->nullable();
             $table->decimal('price', 12, 2)->default(0);
             $table->decimal('total', 12, 2)->default(0);
             $table->timestamps();
             $table->index(['promotable_type', 'promotable_id'], 'soi_promotable_idx');
-            $table->index('opportunity_id', 'soi_opportunity_idx');
+            $table->index('promotion_request_id', 'soi_promotion_request_idx');
         });
 
         Schema::create('store_visits', function (Blueprint $table) {

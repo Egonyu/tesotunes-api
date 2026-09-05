@@ -2,8 +2,8 @@
 
 use App\Modules\Promotions\Http\Controllers\Api\ActivityHubController;
 use App\Modules\Promotions\Http\Controllers\Api\AdminPromoterController;
-use App\Modules\Promotions\Http\Controllers\Api\OpportunityController;
 use App\Modules\Promotions\Http\Controllers\Api\PromoterOnboardingController;
+use App\Modules\Promotions\Http\Controllers\Api\PromotionRequestController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -28,27 +28,27 @@ Route::prefix('promoters')->name('promoters.')->group(function () {
 });
 
 // --- Opportunity feed (artist posts briefs, influencers apply) ---
-Route::prefix('opportunities')->name('opportunities.')->group(function () {
-    Route::get('/', [OpportunityController::class, 'index'])->name('index');
-    Route::get('/{uuid}', [OpportunityController::class, 'show'])->name('show');
+Route::prefix('promotion-requests')->name('promotion-requests.')->group(function () {
+    Route::get('/', [PromotionRequestController::class, 'index'])->name('index');
+    Route::get('/{uuid}', [PromotionRequestController::class, 'show'])->name('show');
 
     Route::middleware('auth:sanctum')->group(function () {
-        Route::post('/', [OpportunityController::class, 'store'])->name('store');
-        Route::put('/{uuid}', [OpportunityController::class, 'update'])->name('update');
-        Route::delete('/{uuid}', [OpportunityController::class, 'destroy'])->name('destroy');
-        Route::post('/{uuid}/close', [OpportunityController::class, 'close'])->name('close');
+        Route::post('/', [PromotionRequestController::class, 'store'])->name('store');
+        Route::put('/{uuid}', [PromotionRequestController::class, 'update'])->name('update');
+        Route::delete('/{uuid}', [PromotionRequestController::class, 'destroy'])->name('destroy');
+        Route::post('/{uuid}/close', [PromotionRequestController::class, 'close'])->name('close');
 
         // Applications
-        Route::post('/{uuid}/apply', [OpportunityController::class, 'apply'])->name('apply');
-        Route::get('/{uuid}/applications', [OpportunityController::class, 'applications'])->name('applications');
-        Route::post('/{uuid}/applications/{applicationId}/award', [OpportunityController::class, 'award'])->name('applications.award');
-        Route::post('/{uuid}/applications/{applicationId}/shortlist', [OpportunityController::class, 'shortlist'])->name('applications.shortlist');
-        Route::delete('/{uuid}/applications/{applicationId}', [OpportunityController::class, 'withdrawApplication'])->name('applications.withdraw');
+        Route::post('/{uuid}/apply', [PromotionRequestController::class, 'apply'])->name('apply');
+        Route::get('/{uuid}/applications', [PromotionRequestController::class, 'applications'])->name('applications');
+        Route::post('/{uuid}/applications/{applicationId}/award', [PromotionRequestController::class, 'award'])->name('applications.award');
+        Route::post('/{uuid}/applications/{applicationId}/shortlist', [PromotionRequestController::class, 'shortlist'])->name('applications.shortlist');
+        Route::delete('/{uuid}/applications/{applicationId}', [PromotionRequestController::class, 'withdrawApplication'])->name('applications.withdraw');
 
-        // My posted opportunities
-        Route::get('/my/posted', [OpportunityController::class, 'myPosted'])->name('my.posted');
+        // Requests I have posted
+        Route::get('/my/posted', [PromotionRequestController::class, 'myPosted'])->name('my.posted');
         // My applications as a promoter
-        Route::get('/my/applications', [OpportunityController::class, 'myApplications'])->name('my.applications');
+        Route::get('/my/applications', [PromotionRequestController::class, 'myApplications'])->name('my.applications');
     });
 });
 
@@ -61,9 +61,9 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->group(function ()
     Route::put('/admin/promoters/{id}/tier', [AdminPromoterController::class, 'setTier'])->name('admin.promoters.tier');
 
     // Opportunities
-    Route::get('/admin/opportunities', [AdminPromoterController::class, 'indexOpportunities'])->name('admin.opportunities.index');
-    Route::post('/admin/opportunities/{uuid}/close', [AdminPromoterController::class, 'forceClose'])->name('admin.opportunities.close');
-    Route::get('/admin/opportunities/{uuid}/applications', [AdminPromoterController::class, 'opportunityApplications'])->name('admin.opportunities.applications');
+    Route::get('/admin/promotion-requests', [AdminPromoterController::class, 'indexPromotionRequests'])->name('admin.promotion-requests.index');
+    Route::post('/admin/promotion-requests/{uuid}/close', [AdminPromoterController::class, 'forceClose'])->name('admin.promotion-requests.close');
+    Route::get('/admin/promotion-requests/{uuid}/applications', [AdminPromoterController::class, 'promotionRequestApplications'])->name('admin.promotion-requests.applications');
 });
 
 // --- Universal Activity Hub (replaces /promotions/purchases + /artist/promotions) ---
@@ -71,7 +71,7 @@ Route::middleware('auth:sanctum')->prefix('activity-hub')->name('activity-hub.')
     Route::get('/summary', [ActivityHubController::class, 'summary'])->name('summary');
     Route::get('/wallet', [ActivityHubController::class, 'wallet'])->name('wallet');
     Route::get('/orders', [ActivityHubController::class, 'orders'])->name('orders');
-    Route::get('/opportunities', [ActivityHubController::class, 'opportunities'])->name('opportunities');
+    Route::get('/promotion-requests', [ActivityHubController::class, 'promotionRequests'])->name('promotion-requests');
     Route::get('/applications', [ActivityHubController::class, 'applications'])->name('applications');
     Route::get('/earnings', [ActivityHubController::class, 'earnings'])->name('earnings');
 });

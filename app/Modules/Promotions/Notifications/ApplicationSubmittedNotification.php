@@ -23,8 +23,8 @@ class ApplicationSubmittedNotification extends Notification implements ShouldQue
         return [
             'type' => 'application_submitted',
             'application_id' => $this->application->id,
-            'opportunity_id' => $this->application->opportunity_id,
-            'opportunity_uuid' => $this->application->opportunity?->uuid,
+            'promotion_request_id' => $this->application->promotion_request_id,
+            'promotion_request_uuid' => $this->application->promotionRequest?->uuid,
             'promoter_name' => $this->application->promoterProfile?->display_name,
         ];
     }

@@ -57,10 +57,10 @@ class OrderItem extends Model
         'verified_by',
         'rejection_reason',
         'dispute_reason',
-        // Promotion deal linkage (opportunity award escrow)
+        // Promotion deal linkage (promotion request award escrow)
         'promotable_type',
         'promotable_id',
-        'opportunity_id',
+        'promotion_request_id',
         'application_id',
     ];
 

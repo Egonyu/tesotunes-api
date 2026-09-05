@@ -6,16 +6,16 @@ use App\Models\Commerce\Settlement;
 use App\Models\Song;
 use App\Models\User;
 use App\Modules\Promotions\Models\PromotionApplication;
-use App\Modules\Promotions\Models\PromotionOpportunity;
-use App\Modules\Promotions\Services\OpportunityService;
+use App\Modules\Promotions\Models\PromotionRequest;
 use App\Modules\Promotions\Services\PromoterOnboardingService;
+use App\Modules\Promotions\Services\PromotionRequestService;
 use App\Modules\Store\Models\OrderItem;
 use App\Services\Store\PromotionSettlementService;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
-class OpportunityAwardEscrowTest extends TestCase
+class PromotionRequestAwardEscrowTest extends TestCase
 {
     use DatabaseTransactions;
 
@@ -26,7 +26,7 @@ class OpportunityAwardEscrowTest extends TestCase
     }
 
     /**
-     * @return array{0: User, 1: PromotionOpportunity, 2: PromotionApplication, 3: User}
+     * @return array{0: User, 1: PromotionRequest, 2: PromotionApplication, 3: User}
      */
     private function buildAwardScenario(int $maxAwards = 1, float $proposedUgx = 30000): array
     {
@@ -34,7 +34,7 @@ class OpportunityAwardEscrowTest extends TestCase
         $artistProfile = \App\Models\Artist::factory()->create(['user_id' => $artist->id]);
         $song = Song::factory()->create(['artist_id' => $artistProfile->id, 'user_id' => $artist->id]);
 
-        $opportunity = app(OpportunityService::class)->createForContent($artist, $song, [
+        $promotionRequest = app(PromotionRequestService::class)->createForContent($artist, $song, [
             'title' => 'Push my new single on TikTok',
             'budget_max_ugx' => 50000,
             'max_awards' => $maxAwards,
@@ -46,19 +46,19 @@ class OpportunityAwardEscrowTest extends TestCase
             'platforms' => ['tiktok'],
         ]);
 
-        $application = app(OpportunityService::class)->apply($opportunity, $promoter, [
+        $application = app(PromotionRequestService::class)->apply($promotionRequest, $promoter, [
             'proposed_price_ugx' => $proposedUgx,
             'pitch_message' => 'I have 80k followers in the Teso diaspora.',
         ]);
 
-        return [$artist, $opportunity, $application, $promoter];
+        return [$artist, $promotionRequest, $application, $promoter];
     }
 
     public function test_award_creates_paid_escrow_order_and_charges_the_artist(): void
     {
-        [$artist, $opportunity, $application] = $this->buildAwardScenario();
+        [$artist, $promotionRequest, $application] = $this->buildAwardScenario();
 
-        $result = app(OpportunityService::class)->award($opportunity, $application, ['payment_method' => 'ugx']);
+        $result = app(PromotionRequestService::class)->award($promotionRequest, $application, ['payment_method' => 'ugx']);
 
         $this->assertTrue($result);
         $this->assertSame(470000.0, (float) $artist->fresh()->ugx_balance, 'artist wallet funds the escrow');
@@ -68,9 +68,9 @@ class OpportunityAwardEscrowTest extends TestCase
         $this->assertNotNull($application->order_id, 'award must link the escrow order');
 
         $item = OrderItem::where('order_id', $application->order_id)->firstOrFail();
-        $this->assertSame($opportunity->id, (int) $item->opportunity_id);
+        $this->assertSame($promotionRequest->id, (int) $item->promotion_request_id);
         $this->assertSame('pending', $item->verification_status);
-        $this->assertSame($opportunity->promotable_type, $item->promotable_type);
+        $this->assertSame($promotionRequest->promotable_type, $item->promotable_type);
 
         // No settlement yet — escrow releases on proof verification, not on award.
         $this->assertSame(0, Settlement::query()->where('kind', 'promo_service')->count());
@@ -78,25 +78,25 @@ class OpportunityAwardEscrowTest extends TestCase
 
     public function test_award_with_insufficient_wallet_is_rejected_and_nothing_changes(): void
     {
-        [$artist, $opportunity, $application] = $this->buildAwardScenario(proposedUgx: 30000);
+        [$artist, $promotionRequest, $application] = $this->buildAwardScenario(proposedUgx: 30000);
         $artist->forceFill(['ugx_balance' => 1000])->save();
 
         try {
-            app(OpportunityService::class)->award($opportunity, $application, ['payment_method' => 'ugx']);
+            app(PromotionRequestService::class)->award($promotionRequest, $application, ['payment_method' => 'ugx']);
             $this->fail('Expected a DomainException for insufficient funds');
         } catch (\DomainException $e) {
             $this->assertStringContainsString('Insufficient wallet balance', $e->getMessage());
         }
 
         $this->assertSame(PromotionApplication::STATUS_SUBMITTED, $application->fresh()->status, 'award must roll back');
-        $this->assertSame(0, (int) $opportunity->fresh()->awarded_count);
+        $this->assertSame(0, (int) $promotionRequest->fresh()->awarded_count);
     }
 
     public function test_verified_proof_on_awarded_deal_settles_to_the_promoter(): void
     {
-        [, $opportunity, $application, $promoter] = $this->buildAwardScenario();
+        [, $promotionRequest, $application, $promoter] = $this->buildAwardScenario();
 
-        app(OpportunityService::class)->award($opportunity, $application, ['payment_method' => 'ugx']);
+        app(PromotionRequestService::class)->award($promotionRequest, $application, ['payment_method' => 'ugx']);
 
         $item = OrderItem::where('order_id', $application->fresh()->order_id)->firstOrFail();
         app(PromotionSettlementService::class)->settleOrder($item->order, $item);
@@ -113,30 +113,30 @@ class OpportunityAwardEscrowTest extends TestCase
 
     public function test_multi_award_keeps_accepting_until_slots_fill_then_rejects_rest(): void
     {
-        [, $opportunity, $firstApplication] = $this->buildAwardScenario(maxAwards: 2);
+        [, $promotionRequest, $firstApplication] = $this->buildAwardScenario(maxAwards: 2);
 
         $secondPromoter = User::factory()->create();
         app(PromoterOnboardingService::class)->onboard($secondPromoter, ['display_name' => 'Kampala Vibes']);
-        $secondApplication = app(OpportunityService::class)->apply($opportunity->fresh(), $secondPromoter, [
+        $secondApplication = app(PromotionRequestService::class)->apply($promotionRequest->fresh(), $secondPromoter, [
             'proposed_price_ugx' => 20000,
         ]);
 
         $thirdPromoter = User::factory()->create();
         app(PromoterOnboardingService::class)->onboard($thirdPromoter, ['display_name' => 'Soroti Sounds']);
-        $thirdApplication = app(OpportunityService::class)->apply($opportunity->fresh(), $thirdPromoter, [
+        $thirdApplication = app(PromotionRequestService::class)->apply($promotionRequest->fresh(), $thirdPromoter, [
             'proposed_price_ugx' => 25000,
         ]);
 
-        app(OpportunityService::class)->award($opportunity->fresh(), $firstApplication, ['payment_method' => 'ugx']);
+        app(PromotionRequestService::class)->award($promotionRequest->fresh(), $firstApplication, ['payment_method' => 'ugx']);
 
-        $this->assertSame(PromotionOpportunity::STATUS_OPEN, $opportunity->fresh()->status, 'stays open with a free slot');
+        $this->assertSame(PromotionRequest::STATUS_OPEN, $promotionRequest->fresh()->status, 'stays open with a free slot');
         $this->assertSame(PromotionApplication::STATUS_SUBMITTED, $secondApplication->fresh()->status, 'others not auto-rejected yet');
 
-        app(OpportunityService::class)->award($opportunity->fresh(), $secondApplication->fresh(), ['payment_method' => 'ugx']);
+        app(PromotionRequestService::class)->award($promotionRequest->fresh(), $secondApplication->fresh(), ['payment_method' => 'ugx']);
 
-        $opportunity->refresh();
-        $this->assertSame(PromotionOpportunity::STATUS_AWARDED, $opportunity->status);
-        $this->assertSame(2, (int) $opportunity->awarded_count);
+        $promotionRequest->refresh();
+        $this->assertSame(PromotionRequest::STATUS_AWARDED, $promotionRequest->status);
+        $this->assertSame(2, (int) $promotionRequest->awarded_count);
         $this->assertSame(PromotionApplication::STATUS_REJECTED, $thirdApplication->fresh()->status, 'rest rejected once full');
         $this->assertSame(PromotionApplication::STATUS_AWARDED, $secondApplication->fresh()->status);
     }

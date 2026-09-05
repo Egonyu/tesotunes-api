@@ -4,11 +4,11 @@ namespace App\Modules\Promotions\Services;
 
 use App\Models\User;
 use App\Modules\Promotions\Models\PromotionApplication;
-use App\Modules\Promotions\Models\PromotionOpportunity;
+use App\Modules\Promotions\Models\PromotionRequest;
 use App\Modules\Promotions\Notifications\ApplicationAwardedNotification;
 use App\Modules\Promotions\Notifications\ApplicationRejectedNotification;
 use App\Modules\Promotions\Notifications\ApplicationSubmittedNotification;
-use App\Modules\Promotions\Notifications\OpportunityPostedNotification;
+use App\Modules\Promotions\Notifications\PromotionRequestPostedNotification;
 use App\Modules\Store\Models\Order;
 use App\Modules\Store\Models\OrderItem;
 use App\Modules\Store\Models\Product;
@@ -17,18 +17,18 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-class OpportunityService
+class PromotionRequestService
 {
     /**
-     * Post a new promotion opportunity for a piece of content.
+     * Post a new promotion promotion request for a piece of content.
      *
      * @param  Model  $promotable  Song, Album, or Event
      * @param  array<string, mixed>  $data
      */
-    public function createForContent(User $creator, Model $promotable, array $data): PromotionOpportunity
+    public function createForContent(User $creator, Model $promotable, array $data): PromotionRequest
     {
-        return DB::transaction(function () use ($creator, $promotable, $data): PromotionOpportunity {
-            $opportunity = PromotionOpportunity::create([
+        return DB::transaction(function () use ($creator, $promotable, $data): PromotionRequest {
+            $promotionRequest = PromotionRequest::create([
                 'created_by_user_id' => $creator->id,
                 'promotable_type' => $promotable->getMorphClass(),
                 'promotable_id' => $promotable->getKey(),
@@ -47,18 +47,18 @@ class OpportunityService
             ]);
 
             // Notify matching promoters asynchronously
-            $creator->notify(new OpportunityPostedNotification($opportunity));
+            $creator->notify(new PromotionRequestPostedNotification($promotionRequest));
 
-            return $opportunity;
+            return $promotionRequest;
         });
     }
 
     /**
-     * Submit a promoter's application to an opportunity.
+     * Submit a promoter's application to a promotion request.
      *
      * @param  array<string, mixed>  $data
      */
-    public function apply(PromotionOpportunity $opportunity, User $applicant, array $data): PromotionApplication
+    public function apply(PromotionRequest $promotionRequest, User $applicant, array $data): PromotionApplication
     {
         $profile = $applicant->promoterProfile;
 
@@ -66,21 +66,21 @@ class OpportunityService
             throw new \RuntimeException('User must complete promoter onboarding before applying.');
         }
 
-        if (! in_array($opportunity->status, [PromotionOpportunity::STATUS_OPEN, PromotionOpportunity::STATUS_REVIEWING])) {
-            throw new \RuntimeException('This opportunity is no longer accepting applications.');
+        if (! in_array($promotionRequest->status, [PromotionRequest::STATUS_OPEN, PromotionRequest::STATUS_REVIEWING])) {
+            throw new \RuntimeException('This promotion request is no longer accepting applications.');
         }
 
-        $existing = PromotionApplication::where('opportunity_id', $opportunity->id)
+        $existing = PromotionApplication::where('promotion_request_id', $promotionRequest->id)
             ->where('promoter_profile_id', $profile->id)
             ->exists();
 
         if ($existing) {
-            throw new \RuntimeException('You have already applied to this opportunity.');
+            throw new \RuntimeException('You have already applied to this promotion request.');
         }
 
-        return DB::transaction(function () use ($opportunity, $applicant, $profile, $data): PromotionApplication {
+        return DB::transaction(function () use ($promotionRequest, $applicant, $profile, $data): PromotionApplication {
             $application = PromotionApplication::create([
-                'opportunity_id' => $opportunity->id,
+                'promotion_request_id' => $promotionRequest->id,
                 'promoter_profile_id' => $profile->id,
                 'applicant_user_id' => $applicant->id,
                 'proposed_price_ugx' => $data['proposed_price_ugx'] ?? 0,
@@ -90,15 +90,15 @@ class OpportunityService
                 'proposed_timeline_days' => $data['proposed_timeline_days'] ?? null,
             ]);
 
-            // Notify opportunity creator
-            $opportunity->creator?->notify(new ApplicationSubmittedNotification($application));
+            // Notify promotion request creator
+            $promotionRequest->creator?->notify(new ApplicationSubmittedNotification($application));
 
             return $application;
         });
     }
 
     /**
-     * Award an opportunity slot to an application.
+     * Award a promotion request slot to an application.
      *
      * Awarding is a transaction in both senses: the artist pays the agreed
      * price into escrow (a paid store order in the promoter's store) inside
@@ -109,15 +109,15 @@ class OpportunityService
      *
      * @param  array{payment_method: string}  $payment  'ugx' or 'credits'
      */
-    public function award(PromotionOpportunity $opportunity, PromotionApplication $application, array $payment = ['payment_method' => 'ugx']): bool
+    public function award(PromotionRequest $promotionRequest, PromotionApplication $application, array $payment = ['payment_method' => 'ugx']): bool
     {
-        if ($application->opportunity_id !== $opportunity->id) {
-            throw new \InvalidArgumentException('Application does not belong to this opportunity.');
+        if ($application->promotion_request_id !== $promotionRequest->id) {
+            throw new \InvalidArgumentException('Application does not belong to this promotion request.');
         }
 
-        return DB::transaction(function () use ($opportunity, $application, $payment): bool {
+        return DB::transaction(function () use ($promotionRequest, $application, $payment): bool {
             /**
-             * Re-read the opportunity under a row lock before deciding.
+             * Re-read the promotion request under a row lock before deciding.
              *
              * The slot check used to run before the transaction against the
              * instance the controller hydrated, and award() then wrote a
@@ -127,15 +127,15 @@ class OpportunityService
              * escrow orders, one slot. Nothing in the schema stops that, so
              * the lock is what makes the check mean anything.
              */
-            $opportunity = PromotionOpportunity::query()
+            $promotionRequest = PromotionRequest::query()
                 ->lockForUpdate()
-                ->findOrFail($opportunity->id);
+                ->findOrFail($promotionRequest->id);
 
-            if (! $opportunity->hasOpenSlots()) {
-                throw new \LogicException('All award slots for this opportunity are filled.');
+            if (! $promotionRequest->hasOpenSlots()) {
+                throw new \LogicException('All award slots for this promotion request are filled.');
             }
 
-            $awarded = $opportunity->award($application);
+            $awarded = $promotionRequest->award($application);
 
             if (! $awarded) {
                 return false;
@@ -143,12 +143,12 @@ class OpportunityService
 
             $application->transitionTo(PromotionApplication::STATUS_AWARDED);
 
-            $order = $this->createEscrowOrder($opportunity, $application, $payment);
+            $order = $this->createEscrowOrder($promotionRequest, $application, $payment);
             $application->forceFill(['order_id' => $order->id])->save();
 
             // Auto-reject the rest only once every slot is filled.
-            if (! $opportunity->fresh()->hasOpenSlots()) {
-                PromotionApplication::where('opportunity_id', $opportunity->id)
+            if (! $promotionRequest->fresh()->hasOpenSlots()) {
+                PromotionApplication::where('promotion_request_id', $promotionRequest->id)
                     ->whereIn('status', [PromotionApplication::STATUS_SUBMITTED, PromotionApplication::STATUS_SHORTLISTED])
                     ->each(function (PromotionApplication $other): void {
                         $other->reject('Another application was selected.');
@@ -167,10 +167,10 @@ class OpportunityService
      * promoter's store. The existing proof -> verify -> settle pipeline
      * releases the funds to the promoter.
      */
-    private function createEscrowOrder(PromotionOpportunity $opportunity, PromotionApplication $application, array $payment): Order
+    private function createEscrowOrder(PromotionRequest $promotionRequest, PromotionApplication $application, array $payment): Order
     {
         // Read the buyer fresh — a cached relation could carry a stale balance.
-        $buyer = User::query()->find($opportunity->created_by_user_id);
+        $buyer = User::query()->find($promotionRequest->created_by_user_id);
         $profile = $application->promoterProfile;
         $store = $profile?->store;
 
@@ -178,8 +178,8 @@ class OpportunityService
             throw new \RuntimeException('The promoter has no store to receive this deal — onboarding is incomplete.');
         }
 
-        $priceUgx = round((float) ($application->proposed_price_ugx ?: $opportunity->budget_max_ugx), 2);
-        $priceCredits = (int) ($application->proposed_price_credits ?: $opportunity->budget_credits);
+        $priceUgx = round((float) ($application->proposed_price_ugx ?: $promotionRequest->budget_max_ugx), 2);
+        $priceCredits = (int) ($application->proposed_price_credits ?: $promotionRequest->budget_credits);
         $method = $payment['payment_method'] ?? 'ugx';
 
         if ($method === 'credits') {
@@ -220,13 +220,13 @@ class OpportunityService
             'paid_ugx' => $paidUgx,
             'paid_credits' => $paidCredits,
             'paid_at' => now(),
-            'customer_notes' => "Opportunity award: {$opportunity->title}",
+            'customer_notes' => "Promotion request award: {$promotionRequest->title}",
         ]);
 
         $item = OrderItem::create([
             'order_id' => $order->id,
             'product_id' => $dealProduct->id,
-            'product_name' => "Promotion deal — {$opportunity->title}",
+            'product_name' => "Promotion deal — {$promotionRequest->title}",
             'product_type' => 'promotion',
             'quantity' => 1,
             'unit_price' => $paidUgx,
@@ -237,16 +237,16 @@ class OpportunityService
             'total_amount' => $paidUgx,
             'fulfillment_status' => OrderItem::STATUS_PENDING,
             'verification_status' => 'pending',
-            'promotable_type' => $opportunity->promotable_type,
-            'promotable_id' => $opportunity->promotable_id,
-            'opportunity_id' => $opportunity->id,
+            'promotable_type' => $promotionRequest->promotable_type,
+            'promotable_id' => $promotionRequest->promotable_id,
+            'promotion_request_id' => $promotionRequest->id,
             'application_id' => $application->id,
         ]);
 
         $breakdown = app(PromotionSettlementService::class)->buildBreakdown($order, $dealProduct, $store->user);
         $item->forceFill([
             'product_snapshot' => [
-                'opportunity' => ['id' => $opportunity->id, 'uuid' => $opportunity->uuid, 'title' => $opportunity->title],
+                'promotion request' => ['id' => $promotionRequest->id, 'uuid' => $promotionRequest->uuid, 'title' => $promotionRequest->title],
                 'promotion_settlement' => $breakdown,
             ],
         ])->save();
@@ -256,8 +256,8 @@ class OpportunityService
             $method === 'credits' ? $paidCredits : 0,
             $method === 'credits' ? 0.0 : $paidUgx,
             'promotion_award',
-            "Opportunity award {$order->order_number}",
-            ['order_id' => $order->id, 'opportunity_id' => $opportunity->id]
+            "Promotion request award {$order->order_number}",
+            ['order_id' => $order->id, 'promotion_request_id' => $promotionRequest->id]
         );
 
         return $order;

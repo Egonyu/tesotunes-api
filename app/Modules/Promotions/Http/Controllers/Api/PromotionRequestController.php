@@ -7,22 +7,22 @@ use App\Models\Album;
 use App\Models\Event;
 use App\Models\Song;
 use App\Modules\Promotions\Models\PromotionApplication;
-use App\Modules\Promotions\Models\PromotionOpportunity;
-use App\Modules\Promotions\Services\OpportunityService;
+use App\Modules\Promotions\Models\PromotionRequest;
+use App\Modules\Promotions\Services\PromotionRequestService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
-class OpportunityController extends Controller
+class PromotionRequestController extends Controller
 {
-    public function __construct(private readonly OpportunityService $opportunityService) {}
+    public function __construct(private readonly PromotionRequestService $promotionRequests) {}
 
     /**
-     * Browse open opportunities — public feed for influencers to discover work.
+     * Browse open promotion requests — public feed for influencers to discover work.
      */
     public function index(Request $request): JsonResponse
     {
-        $query = PromotionOpportunity::with(['creator:id,username,avatar', 'promotable'])
+        $query = PromotionRequest::with(['creator:id,username,avatar', 'promotable'])
             ->open()
             ->orderByDesc('created_at');
 
@@ -52,32 +52,32 @@ class OpportunityController extends Controller
             $query->forPromoter($request->user()->promoterProfile);
         }
 
-        $opportunities = $query->paginate($request->integer('per_page', 20));
+        $promotionRequests = $query->paginate($request->integer('per_page', 20));
 
-        return response()->json($opportunities);
+        return response()->json($promotionRequests);
     }
 
     /**
-     * View a single opportunity (increments view count).
+     * View a single promotion request (increments view count).
      */
     public function show(string $uuid): JsonResponse
     {
-        $opportunity = PromotionOpportunity::with(['creator:id,username,avatar', 'promotable', 'applications'])
+        $promotionRequest = PromotionRequest::with(['creator:id,username,avatar', 'promotable', 'applications'])
             ->where('uuid', $uuid)
             ->firstOrFail();
 
-        $this->authorize('view', $opportunity);
-        $opportunity->incrementViewCount();
+        $this->authorize('view', $promotionRequest);
+        $promotionRequest->incrementViewCount();
 
-        return response()->json(['data' => $opportunity]);
+        return response()->json(['data' => $promotionRequest]);
     }
 
     /**
-     * Create a new opportunity for a song or album.
+     * Create a new promotion request for a song or album.
      */
     public function store(Request $request): JsonResponse
     {
-        $this->authorize('create', PromotionOpportunity::class);
+        $this->authorize('create', PromotionRequest::class);
 
         $data = $request->validate([
             'promotable_type' => ['required', Rule::in(['song', 'album', 'event'])],
@@ -102,7 +102,7 @@ class OpportunityController extends Controller
         $modelClass = $morphMap[$data['promotable_type']];
         $promotable = $modelClass::findOrFail($data['promotable_id']);
 
-        // Ownership check — only the content owner can post an opportunity for it
+        // Ownership check — only the content owner can post a promotion request for it
         $ownerId = $data['promotable_type'] === 'event'
             ? ($promotable->organizer_id ?? $promotable->user_id ?? $promotable->artist?->user_id)
             : ($promotable->user_id ?? $promotable->artist?->user_id);
@@ -111,22 +111,22 @@ class OpportunityController extends Controller
         }
 
         try {
-            $opportunity = $this->opportunityService->createForContent($request->user(), $promotable, $data);
+            $promotionRequest = $this->promotionRequests->createForContent($request->user(), $promotable, $data);
 
-            return response()->json(['data' => $opportunity], 201);
+            return response()->json(['data' => $promotionRequest], 201);
         } catch (\Throwable $e) {
-            return response()->json(['message' => 'Failed to post opportunity.'], 500);
+            return response()->json(['message' => 'Failed to post promotion request.'], 500);
         }
     }
 
     /**
-     * Update an open opportunity (owner only, before applications are awarded).
+     * Update an open promotion request (owner only, before applications are awarded).
      */
     public function update(Request $request, string $uuid): JsonResponse
     {
-        $opportunity = PromotionOpportunity::where('uuid', $uuid)->firstOrFail();
+        $promotionRequest = PromotionRequest::where('uuid', $uuid)->firstOrFail();
 
-        $this->authorize('update', $opportunity);
+        $this->authorize('update', $promotionRequest);
 
         $data = $request->validate([
             'title' => 'sometimes|string|max:255',
@@ -141,45 +141,45 @@ class OpportunityController extends Controller
             'deliverables' => 'nullable|array',
         ]);
 
-        $opportunity->update($data);
+        $promotionRequest->update($data);
 
-        return response()->json(['data' => $opportunity->fresh()]);
+        return response()->json(['data' => $promotionRequest->fresh()]);
     }
 
     /**
-     * Close/cancel an opportunity (owner only).
+     * Close/cancel a promotion request (owner only).
      */
     public function destroy(Request $request, string $uuid): JsonResponse
     {
-        $opportunity = PromotionOpportunity::where('uuid', $uuid)->firstOrFail();
+        $promotionRequest = PromotionRequest::where('uuid', $uuid)->firstOrFail();
 
-        $this->authorize('delete', $opportunity);
-        $opportunity->transitionTo(PromotionOpportunity::STATUS_CANCELLED);
+        $this->authorize('delete', $promotionRequest);
+        $promotionRequest->transitionTo(PromotionRequest::STATUS_CANCELLED);
 
-        return response()->json(['message' => 'Opportunity cancelled.']);
+        return response()->json(['message' => 'Promotion request cancelled.']);
     }
 
     /**
-     * Manually close an opportunity (marks it closed, not cancelled).
+     * Manually close a promotion request (marks it closed, not cancelled).
      */
     public function close(Request $request, string $uuid): JsonResponse
     {
-        $opportunity = PromotionOpportunity::where('uuid', $uuid)->firstOrFail();
+        $promotionRequest = PromotionRequest::where('uuid', $uuid)->firstOrFail();
 
-        $this->authorize('manageApplications', $opportunity);
-        $opportunity->transitionTo(PromotionOpportunity::STATUS_CLOSED);
+        $this->authorize('manageApplications', $promotionRequest);
+        $promotionRequest->transitionTo(PromotionRequest::STATUS_CLOSED);
 
-        return response()->json(['message' => 'Opportunity closed.']);
+        return response()->json(['message' => 'Promotion request closed.']);
     }
 
     /**
-     * Apply to an opportunity as a promoter.
+     * Apply to a promotion request as a promoter.
      */
     public function apply(Request $request, string $uuid): JsonResponse
     {
-        $opportunity = PromotionOpportunity::where('uuid', $uuid)->firstOrFail();
+        $promotionRequest = PromotionRequest::where('uuid', $uuid)->firstOrFail();
 
-        $this->authorize('apply', $opportunity);
+        $this->authorize('apply', $promotionRequest);
 
         $data = $request->validate([
             'proposed_price_ugx' => 'nullable|numeric|min:0',
@@ -190,7 +190,7 @@ class OpportunityController extends Controller
         ]);
 
         try {
-            $application = $this->opportunityService->apply($opportunity, $request->user(), $data);
+            $application = $this->promotionRequests->apply($promotionRequest, $request->user(), $data);
 
             return response()->json(['data' => $application], 201);
         } catch (\RuntimeException $e) {
@@ -199,15 +199,15 @@ class OpportunityController extends Controller
     }
 
     /**
-     * List applications for an opportunity (opportunity owner only).
+     * List applications for a promotion request (promotion request owner only).
      */
     public function applications(Request $request, string $uuid): JsonResponse
     {
-        $opportunity = PromotionOpportunity::where('uuid', $uuid)->firstOrFail();
+        $promotionRequest = PromotionRequest::where('uuid', $uuid)->firstOrFail();
 
-        $this->authorize('manageApplications', $opportunity);
+        $this->authorize('manageApplications', $promotionRequest);
 
-        $applications = $opportunity->applications()
+        $applications = $promotionRequest->applications()
             ->with('promoterProfile:id,slug,display_name,tier,is_verified,average_rating,total_completed_orders', 'applicant:id,username,avatar')
             ->orderByDesc('created_at')
             ->paginate($request->integer('per_page', 20));
@@ -216,27 +216,27 @@ class OpportunityController extends Controller
     }
 
     /**
-     * Award an opportunity to a specific applicant.
+     * Award a promotion request to a specific applicant.
      */
     public function award(Request $request, string $uuid, int $applicationId): JsonResponse
     {
-        $opportunity = PromotionOpportunity::where('uuid', $uuid)->firstOrFail();
-        $application = $opportunity->applications()->findOrFail($applicationId);
+        $promotionRequest = PromotionRequest::where('uuid', $uuid)->firstOrFail();
+        $application = $promotionRequest->applications()->findOrFail($applicationId);
 
-        $this->authorize('manageApplications', $opportunity);
+        $this->authorize('manageApplications', $promotionRequest);
 
         $payment = $request->validate([
             'payment_method' => ['required', Rule::in(['ugx', 'credits'])],
         ]);
 
         try {
-            $this->opportunityService->award($opportunity, $application, $payment);
+            $this->promotionRequests->award($promotionRequest, $application, $payment);
 
             return response()->json([
                 'message' => 'Application awarded and funded. The promoter can start work.',
                 'data' => [
                     'order_id' => $application->fresh()->order_id,
-                    'slots_remaining' => max(0, (int) $opportunity->fresh()->max_awards - (int) $opportunity->fresh()->awarded_count),
+                    'slots_remaining' => max(0, (int) $promotionRequest->fresh()->max_awards - (int) $promotionRequest->fresh()->awarded_count),
                 ],
             ]);
         } catch (\Throwable $e) {
@@ -249,18 +249,18 @@ class OpportunityController extends Controller
      */
     public function shortlist(Request $request, string $uuid, int $applicationId): JsonResponse
     {
-        $opportunity = PromotionOpportunity::where('uuid', $uuid)->firstOrFail();
+        $promotionRequest = PromotionRequest::where('uuid', $uuid)->firstOrFail();
 
         /**
-         * Scoped to the opportunity in the URL. Looked up by bare id, any
-         * user who owns any opportunity could shortlist an application on
+         * Scoped to the promotion request in the URL. Looked up by bare id, any
+         * user who owns any promotion request could shortlist an application on
          * someone else's — the authorize() call below only ever tested the
-         * opportunity, never the application's link to it.
+         * promotion request, never the application's link to it.
          */
-        $application = $opportunity->applications()->findOrFail($applicationId);
+        $application = $promotionRequest->applications()->findOrFail($applicationId);
 
-        $this->authorize('manageApplications', $opportunity);
-        $this->opportunityService->shortlist($application);
+        $this->authorize('manageApplications', $promotionRequest);
+        $this->promotionRequests->shortlist($application);
 
         return response()->json(['message' => 'Application shortlisted.']);
     }
@@ -270,11 +270,11 @@ class OpportunityController extends Controller
      */
     public function withdrawApplication(Request $request, string $uuid, int $applicationId): JsonResponse
     {
-        $opportunity = PromotionOpportunity::where('uuid', $uuid)->firstOrFail();
-        $application = $opportunity->applications()->findOrFail($applicationId);
+        $promotionRequest = PromotionRequest::where('uuid', $uuid)->firstOrFail();
+        $application = $promotionRequest->applications()->findOrFail($applicationId);
 
         try {
-            $this->opportunityService->withdrawApplication($application, $request->user());
+            $this->promotionRequests->withdrawApplication($application, $request->user());
 
             return response()->json(['message' => 'Application withdrawn.']);
         } catch (\InvalidArgumentException $e) {
@@ -283,16 +283,16 @@ class OpportunityController extends Controller
     }
 
     /**
-     * Opportunities posted by the authenticated user.
+     * Promotion requests posted by the authenticated user.
      */
     public function myPosted(Request $request): JsonResponse
     {
-        $opportunities = PromotionOpportunity::with('promotable')
+        $promotionRequests = PromotionRequest::with('promotable')
             ->where('created_by_user_id', $request->user()->id)
             ->orderByDesc('created_at')
             ->paginate($request->integer('per_page', 20));
 
-        return response()->json($opportunities);
+        return response()->json($promotionRequests);
     }
 
     /**
@@ -306,7 +306,7 @@ class OpportunityController extends Controller
             return response()->json(['data' => [], 'message' => 'No promoter profile found.']);
         }
 
-        $applications = PromotionApplication::with('opportunity.promotable')
+        $applications = PromotionApplication::with('promotion request.promotable')
             ->where('promoter_profile_id', $profile->id)
             ->orderByDesc('created_at')
             ->paginate($request->integer('per_page', 20));

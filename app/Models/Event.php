@@ -194,11 +194,6 @@ class Event extends Model
         return $this->hasMany(EventTicketCase::class);
     }
 
-    public function promotionRequests(): HasMany
-    {
-        return $this->hasMany(EventPromotionRequest::class)->latest('requested_at');
-    }
-
     public function waitlistEntries(): HasMany
     {
         return $this->hasMany(EventWaitlistEntry::class);

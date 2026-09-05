@@ -291,7 +291,7 @@ class Song extends Model
 
     public function promotionOpportunities(): \Illuminate\Database\Eloquent\Relations\MorphMany
     {
-        return $this->morphMany(\App\Modules\Promotions\Models\PromotionOpportunity::class, 'promotable');
+        return $this->morphMany(\App\Modules\Promotions\Models\PromotionRequest::class, 'promotable');
     }
 
     // Polymorphic relationships

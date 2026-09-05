@@ -2,16 +2,16 @@
 
 namespace App\Modules\Promotions\Notifications;
 
-use App\Modules\Promotions\Models\PromotionOpportunity;
+use App\Modules\Promotions\Models\PromotionRequest;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Notification;
 
-class OpportunityPostedNotification extends Notification implements ShouldQueue
+class PromotionRequestPostedNotification extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    public function __construct(public readonly PromotionOpportunity $opportunity) {}
+    public function __construct(public readonly PromotionRequest $promotionRequest) {}
 
     public function via(object $notifiable): array
     {
@@ -22,9 +22,9 @@ class OpportunityPostedNotification extends Notification implements ShouldQueue
     {
         return [
             'type' => 'opportunity_posted',
-            'opportunity_id' => $this->opportunity->id,
-            'opportunity_uuid' => $this->opportunity->uuid,
-            'title' => $this->opportunity->title,
+            'promotion_request_id' => $this->promotionRequest->id,
+            'promotion_request_uuid' => $this->promotionRequest->uuid,
+            'title' => $this->promotionRequest->title,
         ];
     }
 }

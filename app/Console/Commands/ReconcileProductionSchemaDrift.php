@@ -392,13 +392,13 @@ class ReconcileProductionSchemaDrift extends Command
                 $table->text('dispute_reason')->nullable();
                 $table->string('promotable_type', 100)->nullable();
                 $table->unsignedBigInteger('promotable_id')->nullable();
-                $table->unsignedBigInteger('opportunity_id')->nullable();
+                $table->unsignedBigInteger('promotion_request_id')->nullable();
                 $table->unsignedBigInteger('application_id')->nullable();
                 $table->decimal('price', 12, 2)->default(0);
                 $table->decimal('total', 12, 2)->default(0);
                 $table->timestamps();
                 $table->index(['promotable_type', 'promotable_id'], 'soi_promotable_idx');
-                $table->index('opportunity_id', 'soi_opportunity_idx');
+                $table->index('promotion_request_id', 'soi_promotion_request_idx');
             });
         }
     }
@@ -613,6 +613,67 @@ class ReconcileProductionSchemaDrift extends Command
     }
 
     /**
+     * "Opportunity" becomes "request", to match what every screen calls it.
+     *
+     * Renames rather than drop-and-create, so the operation is safe whatever
+     * the tables hold. Each step is guarded on the old name still being
+     * present, so a second run is a no-op.
+     */
+    private function renameOpportunitiesToRequests(): void
+    {
+        if (Schema::hasTable('promotion_opportunities') && ! Schema::hasTable('promotion_requests')) {
+            Schema::rename('promotion_opportunities', 'promotion_requests');
+            $this->line('    renamed promotion_opportunities -> promotion_requests');
+        }
+
+        $columnRenames = [
+            'promotion_applications' => ['opportunity_id' => 'promotion_request_id'],
+            'store_order_items' => ['opportunity_id' => 'promotion_request_id'],
+            'songs' => ['active_opportunity_count' => 'active_request_count'],
+            'albums' => ['active_opportunity_count' => 'active_request_count'],
+        ];
+
+        foreach ($columnRenames as $table => $columns) {
+            if (! Schema::hasTable($table)) {
+                continue;
+            }
+
+            foreach ($columns as $from => $to) {
+                if (Schema::hasColumn($table, $from) && ! Schema::hasColumn($table, $to)) {
+                    Schema::table($table, fn (Blueprint $blueprint) => $blueprint->renameColumn($from, $to));
+                    $this->line("    renamed {$table}.{$from} -> {$to}");
+                }
+            }
+        }
+    }
+
+    /**
+     * Drop the retired event promotion request table.
+     *
+     * Events are promoted by posting a request in the promoter market like any
+     * other promotable, so the parallel moderation table is gone. Guarded on
+     * emptiness: a row appearing means someone still depends on it, and a drop
+     * cannot be undone by running this again.
+     */
+    private function dropRetiredEventPromotionRequests(): void
+    {
+        if (! Schema::hasTable('event_promotion_requests')) {
+            return;
+        }
+
+        $rows = DB::table('event_promotion_requests')->count();
+
+        if ($rows > 0) {
+            $this->warn("    keeping `event_promotion_requests` — it holds {$rows} row(s); reconcile manually");
+
+            return;
+        }
+
+        Schema::drop('event_promotion_requests');
+        $this->line('    dropped retired table `event_promotion_requests`');
+    }
+
+    /**
      * The referral milestone ladder.
      *
      * Declared in the identity/access base migration, which production ran
@@ -732,6 +793,8 @@ class ReconcileProductionSchemaDrift extends Command
         $this->reconcileOrderIdempotencyKey();
         $this->reconcileReferralProgramTables();
         $this->dropRetiredCrowdfundingTables();
+        $this->renameOpportunitiesToRequests();
+        $this->dropRetiredEventPromotionRequests();
 
         if (! Schema::hasTable('store_products')) {
             return;

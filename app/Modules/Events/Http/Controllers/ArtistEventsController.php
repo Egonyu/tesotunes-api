@@ -9,7 +9,6 @@ use App\Http\Resources\TicketResource;
 use App\Models\Event;
 use App\Models\EventAttendee;
 use App\Models\EventDiscountCode;
-use App\Models\EventPromotionRequest;
 use App\Models\EventStaffMember;
 use App\Models\EventTicket;
 use App\Models\EventTicketCase;
@@ -42,7 +41,7 @@ class ArtistEventsController extends Controller
         $perPage = min((int) $request->get('per_page', 10), 100);
         $user = auth()->user();
 
-        $events = Event::with(['organizer.artist', 'user.artist', 'artist.user', 'location', 'tickets.channelAllocations', 'staffMembers.user', 'discountCodes', 'promotionRequests.requestedBy', 'promotionRequests.moderatedBy'])
+        $events = Event::with(['organizer.artist', 'user.artist', 'artist.user', 'location', 'tickets.channelAllocations', 'staffMembers.user', 'discountCodes'])
             ->ownedByUser($user)
             ->when($request->filled('status'), function ($q) use ($request) {
                 $q->where('status', $request->status);
@@ -195,7 +194,7 @@ class ArtistEventsController extends Controller
 
         return response()->json([
             'message' => 'Event created successfully',
-            'data' => new EventResource($event->load(['organizer', 'location', 'tickets', 'staffMembers.user', 'discountCodes', 'promotionRequests.requestedBy', 'promotionRequests.moderatedBy'])),
+            'data' => new EventResource($event->load(['organizer', 'location', 'tickets', 'staffMembers.user', 'discountCodes'])),
         ], 201);
     }
 
@@ -205,7 +204,7 @@ class ArtistEventsController extends Controller
     public function show(int $id)
     {
         $user = auth()->user();
-        $event = Event::with(['organizer.artist', 'user.artist', 'artist.user', 'location', 'tickets.channelAllocations', 'attendees.ticket', 'staffMembers.user', 'discountCodes', 'promotionRequests.requestedBy', 'promotionRequests.moderatedBy'])
+        $event = Event::with(['organizer.artist', 'user.artist', 'artist.user', 'location', 'tickets.channelAllocations', 'attendees.ticket', 'staffMembers.user', 'discountCodes'])
             ->ownedByUser($user)
             ->findOrFail($id);
 
@@ -214,64 +213,6 @@ class ArtistEventsController extends Controller
         $resource['payout_center'] = $this->safeBuildPayoutCenter($user, $event);
 
         return response()->json(['data' => $resource]);
-    }
-
-    public function storePromotionRequest(Request $request, int $id)
-    {
-        $user = $request->user();
-
-        $event = Event::with(['promotionRequests'])
-            ->ownedByUser($user)
-            ->findOrFail($id);
-
-        $validated = $request->validate([
-            'promotion_slug' => 'nullable|string|max:255',
-            'promotion_title' => 'required|string|max:255',
-            'promotion_type' => 'nullable|string|max:120',
-            'promotion_platform' => 'nullable|string|max:120',
-            'price_credits' => 'nullable|numeric|min:0',
-            'price_ugx' => 'nullable|numeric|min:0',
-            'request_notes' => 'nullable|string|max:2000',
-            'featured_image_url' => 'nullable|url|max:2048',
-            'payload' => 'nullable|array',
-        ]);
-
-        $existingPending = $event->promotionRequests
-            ->first(function (EventPromotionRequest $promotionRequest) use ($validated) {
-                return $promotionRequest->status === EventPromotionRequest::STATUS_PENDING
-                    && $promotionRequest->promotion_slug === ($validated['promotion_slug'] ?? null)
-                    && $promotionRequest->promotion_title === $validated['promotion_title'];
-            });
-
-        if ($existingPending) {
-            return response()->json([
-                'success' => true,
-                'message' => 'A pending moderation request already exists for this promotion package.',
-                'data' => $this->serializePromotionRequest($existingPending->loadMissing('requestedBy', 'moderatedBy')),
-            ]);
-        }
-
-        $promotionRequest = EventPromotionRequest::create([
-            'event_id' => $event->id,
-            'requested_by_user_id' => $user->id,
-            'promotion_slug' => $validated['promotion_slug'] ?? null,
-            'promotion_title' => $validated['promotion_title'],
-            'promotion_type' => $validated['promotion_type'] ?? null,
-            'promotion_platform' => $validated['promotion_platform'] ?? null,
-            'price_credits' => (float) ($validated['price_credits'] ?? 0),
-            'price_ugx' => (float) ($validated['price_ugx'] ?? 0),
-            'request_notes' => $validated['request_notes'] ?? null,
-            'featured_image_url' => $validated['featured_image_url'] ?? null,
-            'payload' => $validated['payload'] ?? [],
-            'status' => EventPromotionRequest::STATUS_PENDING,
-            'requested_at' => now(),
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Promotion request submitted for Tesotunes review.',
-            'data' => $this->serializePromotionRequest($promotionRequest->loadMissing('requestedBy', 'moderatedBy')),
-        ], 201);
     }
 
     /**
@@ -1334,37 +1275,6 @@ class ArtistEventsController extends Controller
         return [
             'campaign_spend' => $normalizedSpend,
             'campaign_presets' => $normalizedPresets,
-        ];
-    }
-
-    private function serializePromotionRequest(EventPromotionRequest $promotionRequest): array
-    {
-        return [
-            'id' => $promotionRequest->id,
-            'uuid' => $promotionRequest->uuid,
-            'event_id' => $promotionRequest->event_id,
-            'promotion_slug' => $promotionRequest->promotion_slug,
-            'promotion_title' => $promotionRequest->promotion_title,
-            'promotion_type' => $promotionRequest->promotion_type,
-            'promotion_platform' => $promotionRequest->promotion_platform,
-            'price_credits' => (float) $promotionRequest->price_credits,
-            'price_ugx' => (float) $promotionRequest->price_ugx,
-            'status' => $promotionRequest->status,
-            'request_notes' => $promotionRequest->request_notes,
-            'moderation_notes' => $promotionRequest->moderation_notes,
-            'featured_image_url' => $promotionRequest->featured_image_url,
-            'requested_at' => $promotionRequest->requested_at?->toIso8601String(),
-            'moderated_at' => $promotionRequest->moderated_at?->toIso8601String(),
-            'requested_by' => $promotionRequest->relationLoaded('requestedBy') && $promotionRequest->requestedBy ? [
-                'id' => $promotionRequest->requestedBy->id,
-                'name' => $promotionRequest->requestedBy->name,
-                'email' => $promotionRequest->requestedBy->email,
-            ] : null,
-            'moderated_by' => $promotionRequest->relationLoaded('moderatedBy') && $promotionRequest->moderatedBy ? [
-                'id' => $promotionRequest->moderatedBy->id,
-                'name' => $promotionRequest->moderatedBy->name,
-                'email' => $promotionRequest->moderatedBy->email,
-            ] : null,
         ];
     }
 

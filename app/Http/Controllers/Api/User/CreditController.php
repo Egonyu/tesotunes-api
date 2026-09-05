@@ -32,7 +32,7 @@ class CreditController extends Controller
             $summary = $this->creditService->getUserCreditSummary($user);
 
             /**
-             * `promotion_opportunities` was removed with the hardcoded
+             * `promotion_requests` was removed with the hardcoded
              * shoutout / playlist / boost list behind it. Those advertised a
              * credit price for things nothing in the platform could sell, and
              * no surface rendered them. Real promotion spend belongs in the

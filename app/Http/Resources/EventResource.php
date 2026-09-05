@@ -174,36 +174,6 @@ class EventResource extends JsonResource
             'website' => $this->website,
             'social_links' => $this->social_links ?? [],
             'marketing_settings' => $this->marketing_settings ?? [],
-            'promotion_requests' => $this->when($this->relationLoaded('promotionRequests'), function () {
-                return $this->promotionRequests->map(function ($request) {
-                    return [
-                        'id' => $request->id,
-                        'uuid' => $request->uuid,
-                        'promotion_slug' => $request->promotion_slug,
-                        'promotion_title' => $request->promotion_title,
-                        'promotion_type' => $request->promotion_type,
-                        'promotion_platform' => $request->promotion_platform,
-                        'price_credits' => (float) $request->price_credits,
-                        'price_ugx' => (float) $request->price_ugx,
-                        'status' => $request->status,
-                        'request_notes' => $request->request_notes,
-                        'moderation_notes' => $request->moderation_notes,
-                        'featured_image_url' => $request->featured_image_url,
-                        'requested_at' => $request->requested_at?->toIso8601String(),
-                        'moderated_at' => $request->moderated_at?->toIso8601String(),
-                        'requested_by' => $request->relationLoaded('requestedBy') && $request->requestedBy ? [
-                            'id' => $request->requestedBy->id,
-                            'name' => $request->requestedBy->name,
-                            'email' => $request->requestedBy->email,
-                        ] : null,
-                        'moderated_by' => $request->relationLoaded('moderatedBy') && $request->moderatedBy ? [
-                            'id' => $request->moderatedBy->id,
-                            'name' => $request->moderatedBy->name,
-                            'email' => $request->moderatedBy->email,
-                        ] : null,
-                    ];
-                })->values();
-            }),
             'operations' => [
                 'registration_deadline' => $this->registration_deadline?->toIso8601String(),
                 'refund_policy' => $this->refund_policy,

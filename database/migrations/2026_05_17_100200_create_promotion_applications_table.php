@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->uuid('uuid')->unique();
 
-            $table->foreignId('opportunity_id')->constrained('promotion_opportunities')->cascadeOnDelete();
+            $table->foreignId('promotion_request_id')->constrained('promotion_requests')->cascadeOnDelete();
             $table->foreignId('promoter_profile_id')->constrained('promoter_profiles')->cascadeOnDelete();
             $table->foreignId('applicant_user_id')->constrained('users')->cascadeOnDelete();
 
@@ -37,11 +37,11 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            // One application per promoter per opportunity
-            $table->unique(['opportunity_id', 'promoter_profile_id'], 'pa_opp_promoter_unique');
+            // One application per promoter per promotion request
+            $table->unique(['promotion_request_id', 'promoter_profile_id'], 'pa_opp_promoter_unique');
 
             // Artist reviewing their applications
-            $table->index(['opportunity_id', 'status'], 'pa_opp_status_idx');
+            $table->index(['promotion_request_id', 'status'], 'pa_opp_status_idx');
 
             // Promoter viewing their own applications
             $table->index(['applicant_user_id', 'status'], 'pa_applicant_status_idx');

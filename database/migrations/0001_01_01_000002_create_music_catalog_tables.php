@@ -166,7 +166,7 @@ return new class extends Migration
             $table->timestamp('published_at')->nullable();
             $table->unsignedInteger('comments_count')->default(0);
             $table->boolean('promotions_enabled')->default(true);
-            $table->unsignedInteger('active_opportunity_count')->default(0);
+            $table->unsignedInteger('active_request_count')->default(0);
             $table->unsignedInteger('total_promotions_count')->default(0);
             $table->timestamps();
             $table->softDeletes();
@@ -276,7 +276,7 @@ return new class extends Migration
             $table->unsignedInteger('comments_count')->default(0);
 
             $table->boolean('promotions_enabled')->default(true);
-            $table->unsignedInteger('active_opportunity_count')->default(0);
+            $table->unsignedInteger('active_request_count')->default(0);
             $table->unsignedInteger('total_promotions_count')->default(0);
 
             $table->string('source_type', 50)->nullable();

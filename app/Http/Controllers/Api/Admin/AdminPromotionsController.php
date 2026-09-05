@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
-use App\Models\EventPromotionRequest;
 use App\Models\User;
 use App\Modules\Store\Models\Order;
 use App\Modules\Store\Models\OrderItem;
@@ -20,26 +19,15 @@ use Throwable;
 
 class AdminPromotionsController extends Controller
 {
-    /**
-     * The moderation queue mixes two unrelated tables. Both have their own
-     * auto-increment ids, so an id alone does not identify a row: approving
-     * event request 1 used to fall through and publish store listing 1
-     * instead. Callers name the kind; nothing is inferred from the id.
+    /*
+     * This queue used to list two unrelated tables — promotion listings and
+     * event promotion requests — with independent id sequences, so approving
+     * event request 1 published listing 1 instead. That was patched with a
+     * `kind` discriminator; the event side has since been retired outright
+     * (events are promoted by posting a request in the promoter market, like
+     * any other promotable), so the queue is one table again and the
+     * discriminator is gone with it.
      */
-    public const KIND_LISTING = 'listing';
-
-    public const KIND_EVENT_REQUEST = 'event_request';
-
-    /**
-     * Defaults to a store listing, which is what every existing admin client
-     * sends today. Event requests must ask for themselves by name.
-     */
-    private function moderationKind(Request $request): string
-    {
-        $kind = (string) $request->input('kind', self::KIND_LISTING);
-
-        return $kind === self::KIND_EVENT_REQUEST ? self::KIND_EVENT_REQUEST : self::KIND_LISTING;
-    }
 
     public function index(Request $request): JsonResponse
     {
@@ -67,50 +55,23 @@ class AdminPromotionsController extends Controller
             ->latest()
             ->paginate($perPage);
 
-        $eventPromotions = $this->eventPromotionRequestsQuery($status, $search)
-            ->limit($perPage)
-            ->get();
-
-        $data = collect($query->items())
-            ->map(fn (Product $promotion) => $this->serializePromotionListItem($promotion))
-            ->concat($eventPromotions->map(fn (EventPromotionRequest $promotionRequest) => $this->serializeEventPromotionRequestListItem($promotionRequest)))
-            ->values();
-
         return response()->json([
-            'data' => $data,
+            'data' => collect($query->items())
+                ->map(fn (Product $promotion) => $this->serializePromotionListItem($promotion))
+                ->values(),
             'meta' => [
                 'current_page' => $query->currentPage(),
-                'total' => $query->total() + $eventPromotions->count(),
+                'total' => $query->total(),
                 'per_page' => $query->perPage(),
                 'last_page' => $query->lastPage(),
-                'from' => $data->isEmpty() ? null : 1,
-                'to' => $data->count(),
+                'from' => $query->firstItem(),
+                'to' => $query->lastItem(),
             ],
         ]);
     }
 
     public function approve(Request $request, int $promotion): JsonResponse
     {
-        if ($this->moderationKind($request) === self::KIND_EVENT_REQUEST) {
-            $eventPromotion = EventPromotionRequest::query()
-                ->with(['event', 'requestedBy', 'moderatedBy'])
-                ->findOrFail($promotion);
-
-            $eventPromotion->approve($request->user());
-
-            $this->logPromotionModeration($request, 'promotion_moderation_approved', $eventPromotion, [
-                'status' => $eventPromotion->status,
-                'promotion_slug' => $eventPromotion->promotion_slug,
-                'requested_by_user_id' => $eventPromotion->requested_by_user_id,
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'status' => $eventPromotion->status,
-                'data' => $this->serializeEventPromotionRequestListItem($eventPromotion->fresh(['event', 'requestedBy', 'moderatedBy'])),
-            ]);
-        }
-
         $listing = Product::query()
             ->promotion()
             ->with('store.user')
@@ -150,27 +111,6 @@ class AdminPromotionsController extends Controller
         $validated = $request->validate([
             'reason' => 'required|string|max:2000',
         ]);
-
-        if ($this->moderationKind($request) === self::KIND_EVENT_REQUEST) {
-            $eventPromotion = EventPromotionRequest::query()
-                ->with(['event', 'requestedBy', 'moderatedBy'])
-                ->findOrFail($promotion);
-
-            $eventPromotion->reject($request->user(), $validated['reason']);
-
-            $this->logPromotionModeration($request, 'promotion_moderation_rejected', $eventPromotion, [
-                'status' => $eventPromotion->status,
-                'promotion_slug' => $eventPromotion->promotion_slug,
-                'requested_by_user_id' => $eventPromotion->requested_by_user_id,
-                'reason' => $validated['reason'],
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'status' => $eventPromotion->status,
-                'data' => $this->serializeEventPromotionRequestListItem($eventPromotion->fresh(['event', 'requestedBy', 'moderatedBy'])),
-            ]);
-        }
 
         $listing = Product::query()
             ->promotion()
@@ -215,10 +155,6 @@ class AdminPromotionsController extends Controller
                 'orderItems as total_orders',
                 'orderItems as completed_orders' => fn ($builder) => $builder->whereHas('order', fn ($orderQuery) => $orderQuery->where('status', Order::STATUS_COMPLETED)),
             ])
-            ->get();
-
-        $eventPromotions = EventPromotionRequest::query()
-            ->with(['event', 'requestedBy'])
             ->get();
 
         $orders = Order::query()
@@ -341,11 +277,11 @@ class AdminPromotionsController extends Controller
 
         return response()->json([
             'data' => [
-                'total_promotions' => $promotions->count() + $eventPromotions->count(),
-                'active_promotions' => $promotions->where('status', Product::STATUS_ACTIVE)->count() + $eventPromotions->where('status', EventPromotionRequest::STATUS_ACTIVE)->count(),
+                'total_promotions' => $promotions->count(),
+                'active_promotions' => $promotions->where('status', Product::STATUS_ACTIVE)->count(),
                 'total_orders' => $orders->count(),
-                'total_gmv_credits' => (float) $orders->sum(fn (Order $order) => (float) ($order->total_credits ?? 0)) + (float) $eventPromotions->sum('price_credits'),
-                'total_gmv_ugx' => (float) $orders->sum(fn (Order $order) => (float) ($order->total_ugx ?? 0)) + (float) $eventPromotions->sum('price_ugx'),
+                'total_gmv_credits' => (float) $orders->sum(fn (Order $order) => (float) ($order->total_credits ?? 0)),
+                'total_gmv_ugx' => (float) $orders->sum(fn (Order $order) => (float) ($order->total_ugx ?? 0)),
                 'platform_revenue_ugx' => (float) $orders->sum(fn (Order $order) => (float) ($order->platform_fee_ugx ?? 0)),
                 'top_promoters' => $topPromoters,
                 'top_promotion_types' => $topTypes,
@@ -359,30 +295,9 @@ class AdminPromotionsController extends Controller
                 'avg_dispute_resolution_hours' => $disputeResolutionHours->isNotEmpty() ? round((float) $disputeResolutionHours->avg(), 2) : null,
                 'average_order_value' => $orders->count() > 0 ? round((float) $orders->avg('total_ugx'), 2) : 0,
                 'dispute_rate' => $orders->count() > 0 ? round($disputedOrders->count() / $orders->count(), 4) : 0,
-                'pending_promotions' => $promotions->where('status', Product::STATUS_DRAFT)->count() + $eventPromotions->where('status', EventPromotionRequest::STATUS_PENDING)->count(),
+                'pending_promotions' => $promotions->where('status', Product::STATUS_DRAFT)->count(),
             ],
         ]);
-    }
-
-    private function eventPromotionRequestsQuery(string $status, string $search)
-    {
-        return EventPromotionRequest::query()
-            ->with(['event', 'requestedBy', 'moderatedBy'])
-            ->when($status !== '', function ($builder) use ($status) {
-                $builder->where('status', $status === 'draft' ? EventPromotionRequest::STATUS_PENDING : $status);
-            })
-            ->when($search !== '', function ($builder) use ($search) {
-                $builder->where(function ($inner) use ($search) {
-                    $inner->where('promotion_title', 'like', "%{$search}%")
-                        ->orWhere('promotion_slug', 'like', "%{$search}%")
-                        ->orWhereHas('event', fn ($eventQuery) => $eventQuery->where('title', 'like', "%{$search}%"))
-                        ->orWhereHas('requestedBy', fn ($userQuery) => $userQuery
-                            ->where('name', 'like', "%{$search}%")
-                            ->orWhere('username', 'like', "%{$search}%")
-                            ->orWhere('email', 'like', "%{$search}%"));
-                });
-            })
-            ->latest('requested_at');
     }
 
     public function disputes(Request $request): JsonResponse
@@ -510,7 +425,6 @@ class AdminPromotionsController extends Controller
 
         return [
             'id' => $promotion->id,
-            'kind' => self::KIND_LISTING,
             'slug' => $promotion->slug,
             'title' => $promotion->name,
             'short_description' => $promotion->short_description ?: Str::limit((string) $promotion->description, 120),
@@ -548,59 +462,6 @@ class AdminPromotionsController extends Controller
                 'is_verified' => false,
                 'follower_count' => 0,
             ],
-        ];
-    }
-
-    private function serializeEventPromotionRequestListItem(EventPromotionRequest $promotionRequest): array
-    {
-        $promotionRequest->loadMissing(['event', 'requestedBy', 'moderatedBy']);
-
-        return [
-            'id' => $promotionRequest->id,
-            'kind' => self::KIND_EVENT_REQUEST,
-            'slug' => $promotionRequest->promotion_slug,
-            'title' => $promotionRequest->promotion_title,
-            'short_description' => $promotionRequest->request_notes,
-            'type' => (string) ($promotionRequest->promotion_type ?: 'event_promotion'),
-            'platform' => (string) ($promotionRequest->promotion_platform ?: 'other'),
-            'price_credits' => (float) ($promotionRequest->price_credits ?? 0),
-            'price_ugx' => (float) ($promotionRequest->price_ugx ?? 0),
-            'accepts_credits' => (float) ($promotionRequest->price_credits ?? 0) > 0,
-            'accepts_ugx' => (float) ($promotionRequest->price_ugx ?? 0) > 0,
-            'accepts_hybrid' => (float) ($promotionRequest->price_credits ?? 0) > 0 && (float) ($promotionRequest->price_ugx ?? 0) > 0,
-            'estimated_reach' => 0,
-            'audience_niches' => [],
-            'audience_regions' => [],
-            'content_formats' => [],
-            'delivery_days_min' => 0,
-            'delivery_days_max' => 0,
-            'requirements' => null,
-            'platform_specifics' => [],
-            'deliverables' => [],
-            'terms' => null,
-            'rating_average' => 0,
-            'rating_count' => 0,
-            'total_orders' => 0,
-            'completed_orders' => 0,
-            'is_featured' => false,
-            'is_top_rated' => false,
-            'featured_image_url' => $promotionRequest->featured_image_url,
-            'status' => $promotionRequest->status,
-            'created_at' => optional($promotionRequest->requested_at ?? $promotionRequest->created_at)->toIso8601String(),
-            'promoter' => $promotionRequest->requestedBy ? $this->serializeUserSummary($promotionRequest->requestedBy) : null,
-            'event' => $promotionRequest->event ? [
-                'id' => $promotionRequest->event->id,
-                'title' => $promotionRequest->event->title,
-                'slug' => $promotionRequest->event->slug,
-            ] : null,
-            'promotion_title' => $promotionRequest->promotion_title,
-            'promotion_slug' => $promotionRequest->promotion_slug,
-            'promotion_type' => $promotionRequest->promotion_type,
-            'promotion_platform' => $promotionRequest->promotion_platform,
-            'request_notes' => $promotionRequest->request_notes,
-            'moderation_notes' => $promotionRequest->moderation_notes,
-            'requested_at' => optional($promotionRequest->requested_at)->toIso8601String(),
-            'moderated_at' => optional($promotionRequest->moderated_at)->toIso8601String(),
         ];
     }
 

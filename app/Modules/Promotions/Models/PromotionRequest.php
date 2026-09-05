@@ -10,11 +10,11 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
-class PromotionOpportunity extends Model
+class PromotionRequest extends Model
 {
     use SoftDeletes;
 
-    protected $table = 'promotion_opportunities';
+    protected $table = 'promotion_requests';
 
     protected $fillable = [
         'created_by_user_id',
@@ -83,7 +83,7 @@ class PromotionOpportunity extends Model
             }
 
             if (! $opp->slug) {
-                $base = Str::slug($opp->title ?? 'opportunity');
+                $base = Str::slug($opp->title ?? 'promotion request');
                 $slug = $base;
                 $suffix = 1;
 
@@ -100,9 +100,9 @@ class PromotionOpportunity extends Model
         });
 
         static::created(function (self $opp): void {
-            // Denormalize opportunity count on the promotable (song/album)
+            // Denormalize promotion request count on the promotable (song/album)
             if ($opp->promotable_type && $opp->promotable_id) {
-                $opp->promotable?->increment('active_opportunity_count');
+                $opp->promotable?->increment('active_request_count');
             }
         });
 
@@ -110,7 +110,7 @@ class PromotionOpportunity extends Model
             if (in_array($opp->status, [self::STATUS_OPEN, self::STATUS_REVIEWING])
                 && $opp->promotable_type
                 && $opp->promotable_id) {
-                $opp->promotable?->decrement('active_opportunity_count');
+                $opp->promotable?->decrement('active_request_count');
             }
         });
     }
@@ -129,7 +129,7 @@ class PromotionOpportunity extends Model
 
     public function applications(): HasMany
     {
-        return $this->hasMany(PromotionApplication::class, 'opportunity_id');
+        return $this->hasMany(PromotionApplication::class, 'promotion_request_id');
     }
 
     public function awardedApplication(): BelongsTo
@@ -148,7 +148,7 @@ class PromotionOpportunity extends Model
     }
 
     /**
-     * The denormalized opportunity counters only exist on music content.
+     * The denormalized promotion request counters only exist on music content.
      */
     private function promotableTracksCounters(): bool
     {
@@ -210,7 +210,7 @@ class PromotionOpportunity extends Model
             if (in_array($this->status, [self::STATUS_OPEN, self::STATUS_REVIEWING])
                 && $this->promotable_type
                 && $this->promotable_id) {
-                $this->promotable?->decrement('active_opportunity_count');
+                $this->promotable?->decrement('active_request_count');
             }
         }
 
@@ -220,7 +220,7 @@ class PromotionOpportunity extends Model
     }
 
     /**
-     * Award one slot to an application. The opportunity keeps accepting
+     * Award one slot to an application. The promotion request keeps accepting
      * applications until all slots are filled, then transitions to AWARDED.
      */
     public function award(PromotionApplication $application): bool
@@ -246,7 +246,7 @@ class PromotionOpportunity extends Model
 
         if ($this->promotable_type && $this->promotable_id && $this->promotableTracksCounters()) {
             if ($isFilled) {
-                $this->promotable?->decrement('active_opportunity_count');
+                $this->promotable?->decrement('active_request_count');
             }
             $this->promotable?->increment('total_promotions_count');
         }

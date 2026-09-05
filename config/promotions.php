@@ -17,7 +17,7 @@
 |                        from config('store.fees.promotion_*_tier') via
 |                        Store::calculatePromotionFee(). This key was a second,
 |                        unread copy that happened to share the free-tier value.
-|   dual_write_enabled   Described writing new opportunities back to
+|   dual_write_enabled   Described writing new promotion requests back to
 |                        stores.metadata for the V1 browse endpoint. No such
 |                        write was ever implemented.
 |
@@ -61,13 +61,13 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Opportunity Limits — NOT YET ENFORCED
+    | Promotion Request Limits — NOT YET ENFORCED
     |--------------------------------------------------------------------------
     | Intended anti-spam ceilings. No check consults them today, so a user may
     | post unlimited briefs and a brief may take unlimited applications.
     */
-    'max_open_opportunities_per_user' => 10,
-    'max_applications_per_opportunity' => 50,
+    'max_open_requests_per_user' => 10,
+    'max_applications_per_request' => 50,
 
     /*
     |--------------------------------------------------------------------------

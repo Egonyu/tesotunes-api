@@ -480,7 +480,7 @@ class CreditService
     }
 
     /**
-     * Get earning opportunities for the earn page
+     * Get earning promotion requests for the earn page
      */
     public function getEarningOpportunities(): array
     {

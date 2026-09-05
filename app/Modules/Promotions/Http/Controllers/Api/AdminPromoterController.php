@@ -4,7 +4,7 @@ namespace App\Modules\Promotions\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Promotions\Models\PromoterProfile;
-use App\Modules\Promotions\Models\PromotionOpportunity;
+use App\Modules\Promotions\Models\PromotionRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -99,16 +99,16 @@ class AdminPromoterController extends Controller
     }
 
     // -------------------------------------------------------------------------
-    // Opportunity oversight
+    // Promotion request oversight
     // -------------------------------------------------------------------------
 
-    public function indexOpportunities(Request $request): JsonResponse
+    public function indexPromotionRequests(Request $request): JsonResponse
     {
         $perPage = max(1, min((int) $request->integer('per_page', 20), 100));
         $status = trim((string) $request->input('status', ''));
         $search = trim((string) $request->input('search', ''));
 
-        $query = PromotionOpportunity::query()
+        $query = PromotionRequest::query()
             ->with(['creator', 'promotable'])
             ->when($status !== '', fn ($q) => $q->where('status', $status))
             ->when($search !== '', function ($q) use ($search) {
@@ -123,7 +123,7 @@ class AdminPromoterController extends Controller
             ->paginate($perPage);
 
         return response()->json([
-            'data' => collect($query->items())->map(fn (PromotionOpportunity $opp) => $this->serializeOpportunity($opp))->values(),
+            'data' => collect($query->items())->map(fn (PromotionRequest $opp) => $this->serializePromotionRequest($opp))->values(),
             'current_page' => $query->currentPage(),
             'last_page' => $query->lastPage(),
             'per_page' => $query->perPage(),
@@ -135,38 +135,38 @@ class AdminPromoterController extends Controller
 
     public function forceClose(Request $request, string $uuid): JsonResponse
     {
-        $opportunity = PromotionOpportunity::with(['creator', 'promotable'])
+        $promotionRequest = PromotionRequest::with(['creator', 'promotable'])
             ->where('uuid', $uuid)
             ->firstOrFail();
 
-        if (! $opportunity->canTransitionTo('closed')) {
+        if (! $promotionRequest->canTransitionTo('closed')) {
             return response()->json([
-                'message' => 'This opportunity cannot be closed in its current state ('.$opportunity->status.').',
+                'message' => 'This promotion request cannot be closed in its current state ('.$promotionRequest->status.').',
             ], 422);
         }
 
-        $opportunity->transitionTo('closed');
+        $promotionRequest->transitionTo('closed');
 
         return response()->json([
             'success' => true,
-            'data' => $this->serializeOpportunity($opportunity->fresh(['creator', 'promotable'])),
+            'data' => $this->serializePromotionRequest($promotionRequest->fresh(['creator', 'promotable'])),
         ]);
     }
 
-    public function opportunityApplications(Request $request, string $uuid): JsonResponse
+    public function promotionRequestApplications(Request $request, string $uuid): JsonResponse
     {
         $perPage = max(1, min((int) $request->integer('per_page', 20), 100));
-        $opportunity = PromotionOpportunity::with(['creator', 'promotable'])
+        $promotionRequest = PromotionRequest::with(['creator', 'promotable'])
             ->where('uuid', $uuid)
             ->firstOrFail();
 
-        $query = $opportunity->applications()
+        $query = $promotionRequest->applications()
             ->with(['promoterProfile.user'])
             ->latest()
             ->paginate($perPage);
 
         return response()->json([
-            'opportunity' => $this->serializeOpportunity($opportunity),
+            'promotion_request' => $this->serializePromotionRequest($promotionRequest),
             'data' => collect($query->items())->map(fn ($app) => [
                 'id' => $app->id,
                 'uuid' => $app->uuid,
@@ -223,7 +223,7 @@ class AdminPromoterController extends Controller
         ];
     }
 
-    private function serializeOpportunity(PromotionOpportunity $opp): array
+    private function serializePromotionRequest(PromotionRequest $opp): array
     {
         $creator = $opp->creator;
         $promotable = $opp->promotable;

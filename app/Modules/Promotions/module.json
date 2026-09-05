@@ -1,7 +1,7 @@
 {
   "name": "Promotions",
   "alias": "promotions",
-  "description": "Promoter marketplace: influencer onboarding, opportunity briefs, applications, and universal activity hub",
+  "description": "Promoter marketplace: influencer onboarding, promotion request briefs, applications, and universal activity hub",
   "version": "2.0.0",
   "active": true,
   "order": 210,

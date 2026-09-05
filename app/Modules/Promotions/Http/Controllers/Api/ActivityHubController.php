@@ -4,7 +4,7 @@ namespace App\Modules\Promotions\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Modules\Promotions\Models\PromotionApplication;
-use App\Modules\Promotions\Models\PromotionOpportunity;
+use App\Modules\Promotions\Models\PromotionRequest;
 use App\Modules\Store\Models\Order;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -35,8 +35,8 @@ class ActivityHubController extends Controller
                 ->count();
         }
 
-        $openOpportunities = PromotionOpportunity::where('created_by_user_id', $user->id)
-            ->where('status', PromotionOpportunity::STATUS_OPEN)
+        $openRequests = PromotionRequest::where('created_by_user_id', $user->id)
+            ->where('status', PromotionRequest::STATUS_OPEN)
             ->count();
 
         $pendingApplications = 0;
@@ -64,7 +64,7 @@ class ActivityHubController extends Controller
                 'pending_actions' => [
                     'buyer_orders_awaiting_review' => $pendingBuyerOrders,
                     'seller_orders_to_verify' => $pendingSellerOrders,
-                    'open_opportunities' => $openOpportunities,
+                    'open_requests' => $openRequests,
                     'pending_applications' => $pendingApplications,
                 ],
             ],
@@ -100,16 +100,16 @@ class ActivityHubController extends Controller
     }
 
     /**
-     * Opportunities the authenticated user has posted.
+     * Promotion requests the authenticated user has posted.
      */
-    public function opportunities(Request $request): JsonResponse
+    public function promotionRequests(Request $request): JsonResponse
     {
-        $opportunities = PromotionOpportunity::with('promotable')
+        $promotionRequests = PromotionRequest::with('promotable')
             ->where('created_by_user_id', $request->user()->id)
             ->orderByDesc('created_at')
             ->paginate($request->integer('per_page', 15));
 
-        return response()->json($opportunities);
+        return response()->json($promotionRequests);
     }
 
     /**
@@ -123,7 +123,7 @@ class ActivityHubController extends Controller
             return response()->json(['data' => []]);
         }
 
-        $applications = PromotionApplication::with('opportunity.promotable')
+        $applications = PromotionApplication::with('promotionRequest.promotable')
             ->where('promoter_profile_id', $profile->id)
             ->orderByDesc('created_at')
             ->paginate($request->integer('per_page', 15));
