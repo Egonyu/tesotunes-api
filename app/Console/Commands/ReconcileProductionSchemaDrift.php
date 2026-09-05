@@ -626,6 +626,8 @@ class ReconcileProductionSchemaDrift extends Command
             $this->line('    renamed promotion_opportunities -> promotion_requests');
         }
 
+        $this->retireOrphanedOpportunitiesTable();
+
         $columnRenames = [
             'promotion_applications' => ['opportunity_id' => 'promotion_request_id'],
             'store_order_items' => ['opportunity_id' => 'promotion_request_id'],
@@ -645,6 +647,58 @@ class ReconcileProductionSchemaDrift extends Command
                 }
             }
         }
+    }
+
+    /**
+     * Clean up after a migration file rename.
+     *
+     * Renaming create_promotion_opportunities_table to
+     * create_promotion_requests_table gave the file a name the migrations
+     * table had not seen, so `migrate` ran it again on deploy and built a
+     * fresh promotion_requests alongside the original. The old table is left
+     * orphaned, and — the part that actually matters — the foreign key on
+     * promotion_applications still points at it, because renaming a column
+     * does not move its constraint.
+     *
+     * A migration file's name is its identity. Renaming one is a re-run.
+     *
+     * Guarded on the orphan being empty, and on the new table being the one
+     * the application should be using.
+     */
+    private function retireOrphanedOpportunitiesTable(): void
+    {
+        if (! Schema::hasTable('promotion_opportunities') || ! Schema::hasTable('promotion_requests')) {
+            return;
+        }
+
+        $orphanRows = DB::table('promotion_opportunities')->count();
+
+        if ($orphanRows > 0) {
+            $this->warn("    keeping `promotion_opportunities` — it holds {$orphanRows} row(s); reconcile manually");
+
+            return;
+        }
+
+        // Re-point any constraint still referencing the orphan.
+        $stale = DB::select(
+            'SELECT TABLE_NAME, COLUMN_NAME, CONSTRAINT_NAME
+             FROM information_schema.KEY_COLUMN_USAGE
+             WHERE TABLE_SCHEMA = DATABASE() AND REFERENCED_TABLE_NAME = ?',
+            ['promotion_opportunities']
+        );
+
+        foreach ($stale as $fk) {
+            DB::statement("ALTER TABLE `{$fk->TABLE_NAME}` DROP FOREIGN KEY `{$fk->CONSTRAINT_NAME}`");
+            DB::statement(
+                "ALTER TABLE `{$fk->TABLE_NAME}`
+                 ADD CONSTRAINT `{$fk->CONSTRAINT_NAME}`
+                 FOREIGN KEY (`{$fk->COLUMN_NAME}`) REFERENCES `promotion_requests` (`id`) ON DELETE CASCADE"
+            );
+            $this->line("    repointed {$fk->TABLE_NAME}.{$fk->COLUMN_NAME} -> promotion_requests");
+        }
+
+        Schema::drop('promotion_opportunities');
+        $this->line('    dropped orphaned table `promotion_opportunities`');
     }
 
     /**
