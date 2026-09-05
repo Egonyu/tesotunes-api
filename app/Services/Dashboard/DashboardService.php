@@ -45,7 +45,7 @@ class DashboardService
             ],
             'listening' => [
                 'plays_total' => $user->playHistory()->count(),
-                'plays_30d' => $user->playHistory()->where('created_at', '>=', now()->subDays(30))->count(),
+                'plays_30d' => $user->playHistory()->where('played_at', '>=', now()->subDays(30))->count(),
             ],
             'capabilities' => $capabilities,
             'contributions' => $this->contributions($user),

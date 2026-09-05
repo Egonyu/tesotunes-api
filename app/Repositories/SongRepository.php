@@ -496,7 +496,7 @@ class SongRepository implements SongRepositoryInterface
         }
 
         $completedPlays = PlayHistory::where('song_id', $songId)
-            ->where('was_completed', true)
+            ->where('completed', true)
             ->count();
 
         return round(($completedPlays / $totalPlays) * 100, 2);
