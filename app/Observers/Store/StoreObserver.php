@@ -15,7 +15,7 @@ class StoreObserver
             if ($store->user_id) {
                 ActivityService::log(
                     actor: $store->user,
-                    action: 'created_store',
+                    action: 'store_created',
                     subject: $store,
                     metadata: [
                         'store_name' => $store->name,

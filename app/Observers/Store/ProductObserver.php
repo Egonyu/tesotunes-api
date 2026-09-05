@@ -18,7 +18,7 @@ class ProductObserver
             if ($user && $product->status === 'active') {
                 ActivityService::log(
                     actor: $user,
-                    action: 'listed_product',
+                    action: 'product_listed',
                     subject: $product,
                     metadata: [
                         'product_name' => $product->name,

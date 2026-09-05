@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Support\Str;
 
 class Like extends Model
 {
@@ -54,7 +55,7 @@ class Like extends Model
             $likeable->decrement('like_count');
 
             // Create activity for unlike
-            Activity::createForUser($user, 'unliked_'.class_basename($likeable), $likeable);
+            Activity::createForUser($user, 'unliked_'.Str::snake(class_basename($likeable)), $likeable);
 
             return false; // Unliked
         } else {
@@ -67,7 +68,7 @@ class Like extends Model
             $likeable->increment('like_count');
 
             // Create activity for like
-            Activity::createForUser($user, 'liked_'.class_basename($likeable), $likeable);
+            Activity::createForUser($user, 'liked_'.Str::snake(class_basename($likeable)), $likeable);
 
             // Notify content owner (if not self-like)
             if (method_exists($likeable, 'user') && $likeable->user && $likeable->user->id !== $user->id) {
