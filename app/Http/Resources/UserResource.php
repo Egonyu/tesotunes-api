@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\Capability;
+use App\Enums\CapabilityStatus;
 use App\Helpers\StorageHelper;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -37,6 +39,23 @@ class UserResource extends JsonResource
                 ? $this->resource->getAllPermissions()
                 : [],
             'is_artist' => (bool) $this->is_artist,
+            /**
+             * Granted capabilities, as plain strings. A promoter or seller who
+             * is not an artist still owns a section of the studio, and clients
+             * had no way to know it — is_artist was the only signal they were
+             * given, so they either hid those sections or offered links that
+             * bounced.
+             */
+            'capabilities' => $this->resource->exists
+                ? $this->resource->capabilities()
+                    ->where('status', CapabilityStatus::Granted->value)
+                    ->pluck('capability')
+                    ->map(fn ($capability) => $capability instanceof Capability
+                        ? $capability->value
+                        : (string) $capability)
+                    ->values()
+                    ->all()
+                : [],
             'event_organizer' => method_exists($this->resource, 'getEventOrganizerProfile')
                 ? $this->resource->getEventOrganizerProfile()
                 : ['enabled' => false],
