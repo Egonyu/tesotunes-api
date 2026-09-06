@@ -65,7 +65,22 @@ class TicketController extends Controller
 
         $validated['tickets'] = $this->normalizeTicketSelections($validated);
         $validated['attendee_assignments'] = $this->normalizeAttendeeAssignments($validated['attendee_assignments'] ?? null);
-        $result = $this->eventTicketingService->purchase(auth()->user(), $validated);
+
+        /*
+         * This route carries no auth:sanctum middleware, because guests are
+         * allowed to buy. That also means nothing has told the auth manager to
+         * use the sanctum guard, so auth()->user() falls through to the default
+         * `web` session guard and returns null for a token-bearing API request
+         * — every signed-in buyer looked like a guest. They were then asked for
+         * a name and email they should never have been asked for, could not pay
+         * from their wallet or credits, and on success would have had the
+         * ticket issued to a throwaway guest account instead of their own.
+         *
+         * Naming the guard reads the bearer token when one is present and
+         * returns null when it is not, which is exactly what optional auth
+         * needs here.
+         */
+        $result = $this->eventTicketingService->purchase(auth('sanctum')->user(), $validated);
 
         return response()->json($result, 201);
     }
