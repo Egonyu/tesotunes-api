@@ -215,6 +215,186 @@ class EventFeeCalculatorService
         ];
     }
 
+    /**
+     * Price a set of proposed tiers before the event exists.
+     *
+     * The event planner needs the same numbers a real purchase produces, but
+     * has nothing saved yet — only draft tiers and the organiser they will
+     * belong to. Fees therefore come from resolveFeeConfiguration(), the same
+     * source calculateForEvent() uses, rather than a second copy of the rates.
+     *
+     * @param  array<int, array{name?: string, price?: float|int, price_credits?: float|int, quantity?: float|int}>  $tiers
+     * @return array<string, mixed>
+     */
+    public function simulate(
+        ?User $organizer,
+        string $ticketingMode,
+        string $currency,
+        array $tiers,
+    ): array {
+        $feeConfig = $this->resolveFeeConfiguration($organizer);
+        $commissionPercent = $feeConfig['platform_commission_percent'];
+        $processingPercent = $feeConfig['processing_fee_percent'];
+
+        $checkoutEnabled = ! in_array($ticketingMode, ['external_only', 'free_rsvp'], true);
+
+        $items = [];
+        foreach ($tiers as $index => $tier) {
+            $quantity = max(0, (int) ($tier['quantity'] ?? 0));
+            if ($quantity === 0) {
+                continue;
+            }
+
+            $unitPrice = (float) ($tier['price'] ?? $tier['price_ugx'] ?? 0);
+            $gross = round($unitPrice * $quantity, 2);
+
+            // Nothing is collected through Tesotunes on these modes, so the
+            // organiser keeps the gate takings and we report no fee.
+            $commission = $checkoutEnabled ? round($gross * ($commissionPercent / 100), 2) : 0.0;
+            $processing = $checkoutEnabled ? round($gross * ($processingPercent / 100), 2) : 0.0;
+
+            $items[] = [
+                'name' => trim((string) ($tier['name'] ?? '')) ?: 'Tier '.($index + 1),
+                'quantity' => $quantity,
+                'gross_revenue' => $gross,
+                'tesotunes_fee_revenue' => round($commission + $processing, 2),
+                'organizer_net_amount' => round($gross - $commission - $processing, 2),
+                'platform_commission_amount' => $commission,
+                'processing_fee_amount' => $processing,
+            ];
+        }
+
+        $sum = static fn (string $key): float => round(array_sum(array_column($items, $key)), 2);
+
+        $grossRevenue = $sum('gross_revenue');
+        $commissionAmount = $sum('platform_commission_amount');
+        $processingAmount = $sum('processing_fee_amount');
+        $feeRevenue = round($commissionAmount + $processingAmount, 2);
+        $ticketCount = (int) array_sum(array_column($items, 'quantity'));
+
+        $totals = [
+            'ticket_count' => $ticketCount,
+            'gross_revenue' => $grossRevenue,
+            // Fees are added on top of the ticket price, matching
+            // calculateForEvent()'s total_amount.
+            'customer_paid_total' => round($grossRevenue + $feeRevenue, 2),
+            'tesotunes_fee_revenue' => $feeRevenue,
+            'platform_commission_amount' => $commissionAmount,
+            'processing_fee_amount' => $processingAmount,
+            'organizer_net_amount' => round($grossRevenue - $feeRevenue, 2),
+        ];
+
+        $scenarios = [];
+        foreach ([25, 50, 75, 100] as $percent) {
+            $multiplier = $percent / 100;
+            $scenarios[] = [
+                'key' => "sell-through-{$percent}",
+                'label' => "{$percent}% sell-through",
+                'sell_through_percent' => $percent,
+                'ticket_count' => (int) round($ticketCount * $multiplier),
+                'gross_revenue' => round($grossRevenue * $multiplier, 2),
+                'customer_paid_total' => round($totals['customer_paid_total'] * $multiplier, 2),
+                'tesotunes_fee_revenue' => round($feeRevenue * $multiplier, 2),
+                'organizer_net_amount' => round($totals['organizer_net_amount'] * $multiplier, 2),
+            ];
+        }
+
+        $notes = [];
+        if (! $checkoutEnabled) {
+            $notes[] = $ticketingMode === 'free_rsvp'
+                ? 'Free RSVP events show attendance potential only, with no paid checkout revenue.'
+                : 'Tickets are sold outside Tesotunes on this mode, so no platform fee applies.';
+        }
+        if ($organizer === null) {
+            $notes[] = 'No organiser selected yet, so platform default rates are shown.';
+        }
+
+        return [
+            'ticketing_mode' => $ticketingMode,
+            'mode_label' => $this->ticketingModeLabel($ticketingMode),
+            'tesotunes_checkout_enabled' => $checkoutEnabled,
+            'currency' => $currency,
+            'fee_source' => $feeConfig['fee_source'],
+            'organizer_plan' => $feeConfig['organizer_plan'],
+            'platform_commission_percent' => $checkoutEnabled ? $commissionPercent : 0.0,
+            'processing_fee_percent' => $checkoutEnabled ? $processingPercent : 0.0,
+            'totals' => $totals,
+            'items' => $items,
+            'scenarios' => $scenarios,
+            'upgrade_nudges' => $checkoutEnabled
+                ? $this->upgradeNudges($organizer, $grossRevenue, $feeRevenue, $currency)
+                : [],
+            'notes' => $notes,
+        ];
+    }
+
+    private function ticketingModeLabel(string $mode): string
+    {
+        return match ($mode) {
+            'tesotunes_managed' => 'Tesotunes managed',
+            'hybrid' => 'Hybrid ticketing',
+            'external_only' => 'External only',
+            'free_rsvp' => 'Free RSVP',
+            default => 'Ticketing',
+        };
+    }
+
+    /**
+     * Plans that would charge this organiser less on the same revenue.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function upgradeNudges(?User $organizer, float $grossRevenue, float $currentFee, string $currency): array
+    {
+        if ($grossRevenue <= 0) {
+            return [];
+        }
+
+        $currentPlanId = $organizer?->getActivePlan()?->id;
+
+        return SubscriptionPlan::query()
+            ->where('is_active', true)
+            ->when($currentPlanId, fn ($query) => $query->whereKeyNot($currentPlanId))
+            ->get()
+            ->map(function (SubscriptionPlan $plan) use ($grossRevenue, $currentFee, $currency) {
+                $commission = $this->resolvePlanDecimal(
+                    $plan,
+                    ['event_platform_commission_percent', 'events.platform_commission_percent', 'platform_commission_percent'],
+                    $this->eventSettingsService->getPlatformCommission(),
+                );
+                $processing = $this->resolvePlanDecimal(
+                    $plan,
+                    ['event_processing_fee_percent', 'events.processing_fee_percent', 'processing_fee_percent'],
+                    $this->eventSettingsService->getProcessingFee(),
+                );
+
+                $planFee = round($grossRevenue * (($commission + $processing) / 100), 2);
+                $savings = round($currentFee - $planFee, 2);
+                $planPrice = (float) ($plan->price_local ?? $plan->price ?? 0);
+
+                return [
+                    'plan_id' => $plan->id,
+                    'name' => $plan->name,
+                    'slug' => $plan->slug,
+                    'tier' => $plan->tier,
+                    'price_local' => $planPrice,
+                    'currency' => $currency,
+                    'platform_commission_percent' => $commission,
+                    'processing_fee_percent' => $processing,
+                    'estimated_fee_savings' => $savings,
+                    'estimated_organizer_net' => round($grossRevenue - $planFee, 2),
+                    // How much has to sell before the plan pays for itself.
+                    'break_even_revenue' => $savings > 0 && $grossRevenue > 0
+                        ? round($planPrice * $grossRevenue / $savings, 2)
+                        : null,
+                ];
+            })
+            ->filter(fn (array $nudge) => $nudge['estimated_fee_savings'] > 0)
+            ->sortByDesc('estimated_fee_savings')
+            ->values()
+            ->all();
+    }
+
     private function resolveFeeConfiguration(?User $organizer): array
     {
         $plan = $organizer?->getActivePlan();

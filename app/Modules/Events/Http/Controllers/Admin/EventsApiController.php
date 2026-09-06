@@ -9,6 +9,8 @@ use App\Models\Artist;
 use App\Models\Event;
 use App\Models\EventLocation;
 use App\Models\EventTicket;
+use App\Models\User;
+use App\Services\Events\EventFeeCalculatorService;
 use App\Services\Events\EventPayoutLedgerService;
 use App\Services\Events\EventRevenueAnalyticsService;
 use App\Traits\HandlesApiErrors;
@@ -23,6 +25,7 @@ class EventsApiController extends Controller
     public function __construct(
         private readonly EventRevenueAnalyticsService $eventRevenueAnalyticsService,
         private readonly EventPayoutLedgerService $eventPayoutLedgerService,
+        private readonly EventFeeCalculatorService $eventFeeCalculatorService,
     ) {}
 
     /**
@@ -598,6 +601,45 @@ class EventsApiController extends Controller
     public function registrations(int $id, Request $request)
     {
         return $this->attendees($id, $request);
+    }
+
+    /**
+     * POST /api/admin/events/commission-simulation
+     *
+     * Prices draft tiers before the event is saved, so an admin can see the
+     * platform's cut and the organiser's net while still filling the form.
+     * Rates come from EventFeeCalculatorService, the same source a real
+     * purchase uses, so the estimate cannot drift from what buyers are charged.
+     */
+    public function commissionSimulation(Request $request)
+    {
+        return $this->handleApiAction(function () use ($request) {
+            $validated = $request->validate([
+                'organizer_user_id' => 'nullable|integer|exists:users,id',
+                'ticketing_mode' => 'nullable|in:tesotunes_managed,hybrid,external_only,free_rsvp',
+                'currency' => 'nullable|string|max:10',
+                'ticket_tiers' => 'required|array|min:1',
+                'ticket_tiers.*.name' => 'nullable|string|max:150',
+                'ticket_tiers.*.price' => 'nullable|numeric|min:0',
+                'ticket_tiers.*.price_ugx' => 'nullable|numeric|min:0',
+                'ticket_tiers.*.price_credits' => 'nullable|numeric|min:0',
+                'ticket_tiers.*.quantity' => 'nullable|integer|min:0',
+            ]);
+
+            $organizer = isset($validated['organizer_user_id'])
+                ? User::find($validated['organizer_user_id'])
+                : null;
+
+            return response()->json([
+                'success' => true,
+                'data' => $this->eventFeeCalculatorService->simulate(
+                    organizer: $organizer,
+                    ticketingMode: $validated['ticketing_mode'] ?? 'tesotunes_managed',
+                    currency: $validated['currency'] ?? 'UGX',
+                    tiers: $validated['ticket_tiers'],
+                ),
+            ]);
+        }, 'Failed to simulate event commission.');
     }
 
     /**

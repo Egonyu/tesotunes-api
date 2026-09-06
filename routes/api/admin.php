@@ -103,7 +103,10 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::delete('/users/{id}', [\App\Http\Controllers\Api\Admin\AdminUsersController::class, 'destroy'])->name('users.destroy');
 
     // Events API
+    // Literal segments must be declared before /events/{id}, or the wildcard
+    // claims them and the request fails as a method mismatch on that route.
     Route::get('/events/stats', [\App\Modules\Events\Http\Controllers\Admin\EventsApiController::class, 'stats'])->name('events.stats');
+    Route::post('/events/commission-simulation', [\App\Modules\Events\Http\Controllers\Admin\EventsApiController::class, 'commissionSimulation'])->name('events.commission-simulation');
     Route::get('/events', [\App\Modules\Events\Http\Controllers\Admin\EventsApiController::class, 'index'])->name('events.index');
     Route::get('/events/{id}', [\App\Modules\Events\Http\Controllers\Admin\EventsApiController::class, 'show'])->name('events.show');
     Route::post('/events', [\App\Modules\Events\Http\Controllers\Admin\EventsApiController::class, 'store'])->name('events.store');
