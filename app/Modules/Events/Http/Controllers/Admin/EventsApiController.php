@@ -326,10 +326,29 @@ class EventsApiController extends Controller
                      * for this event". Tiers that have sold are still never
                      * removed, so buyers keep their records.
                      */
+                    /*
+                     * An id only counts if it names a tier this event really
+                     * has. The admin form labels unsaved rows `new-<timestamp>`,
+                     * and simply testing isset($tier['id']) sent those down the
+                     * UPDATE path, where MySQL cast the string to 0, matched
+                     * nothing, and created nothing — tiers an admin added never
+                     * appeared and no error was raised.
+                     */
+                    $existingIds = $event->tickets()->pluck('id')->all();
+                    $resolveId = static function (array $tier) use ($existingIds): ?int {
+                        $id = $tier['id'] ?? null;
+
+                        if (! is_numeric($id)) {
+                            return null;
+                        }
+
+                        return in_array((int) $id, $existingIds, true) ? (int) $id : null;
+                    };
+
                     $keepIds = collect($ticketTiers)
-                        ->pluck('id')
+                        ->map($resolveId)
                         ->filter()
-                        ->map(fn ($id) => (int) $id)
+                        ->values()
                         ->all();
 
                     $event->tickets()
@@ -338,9 +357,9 @@ class EventsApiController extends Controller
                         ->delete();
 
                     foreach ($ticketTiers as $i => $tier) {
-                        if (isset($tier['id'])) {
+                        if ($resolveId($tier) !== null) {
                             // Update existing tier
-                            EventTicket::where('id', $tier['id'])->where('event_id', $event->id)->update([
+                            EventTicket::where('id', $resolveId($tier))->where('event_id', $event->id)->update([
                                 'name' => $tier['name'] ?? 'General',
                                 'description' => $tier['description'] ?? '',
                                 'price_ugx' => $tier['price'] ?? $tier['price_ugx'] ?? 0,

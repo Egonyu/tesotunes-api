@@ -137,6 +137,62 @@ class AdminEventTicketTierEditTest extends TestCase
         $this->assertDatabaseHas('event_tickets', ['id' => $sold->id, 'quantity_sold' => 3]);
     }
 
+    public function test_a_tier_added_in_the_form_is_created_despite_its_placeholder_id(): void
+    {
+        // The admin form labels unsaved rows `new-<timestamp>`. Treating any
+        // present id as an existing row sent these down the UPDATE path, where
+        // they matched nothing, so tiers an admin added were silently dropped.
+        $admin = $this->admin();
+        $event = Event::factory()->published()->create(['starts_at' => now()->addWeek()]);
+
+        $this->actingAs($admin)->putJson("/api/admin/events/{$event->id}", [
+            'ticket_tiers' => [
+                ['id' => 'new-1757166000000', 'name' => 'Ordinary', 'price' => 5000, 'quantity' => 350],
+                ['id' => 'new-1757166000001', 'name' => 'VIP', 'price' => 10000, 'quantity' => 100],
+                ['id' => 'new-1757166000002', 'name' => 'Table', 'price' => 100000, 'quantity' => 50],
+            ],
+        ])->assertSuccessful();
+
+        $this->assertSame(3, EventTicket::where('event_id', $event->id)->count());
+        $this->assertDatabaseHas('event_tickets', [
+            'event_id' => $event->id,
+            'name' => 'Ordinary',
+            'price_ugx' => 5000,
+        ]);
+        $this->assertDatabaseHas('event_tickets', [
+            'event_id' => $event->id,
+            'name' => 'Table',
+            'price_ugx' => 100000,
+        ]);
+    }
+
+    public function test_an_id_belonging_to_another_event_never_updates_it(): void
+    {
+        $admin = $this->admin();
+        $mine = Event::factory()->published()->create(['starts_at' => now()->addWeek()]);
+        $theirs = Event::factory()->published()->create(['starts_at' => now()->addWeek()]);
+        $theirTier = $this->tier($theirs, 'Their tier', 9000);
+
+        $this->actingAs($admin)->putJson("/api/admin/events/{$mine->id}", [
+            'ticket_tiers' => [
+                ['id' => $theirTier->id, 'name' => 'Hijacked', 'price' => 1, 'quantity' => 1],
+            ],
+        ])->assertSuccessful();
+
+        $this->assertDatabaseHas('event_tickets', [
+            'id' => $theirTier->id,
+            'event_id' => $theirs->id,
+            'name' => 'Their tier',
+            'price_ugx' => 9000,
+        ]);
+
+        // It is not this event's row, so it is treated as a new tier here.
+        $this->assertDatabaseHas('event_tickets', [
+            'event_id' => $mine->id,
+            'name' => 'Hijacked',
+        ]);
+    }
+
     public function test_an_edit_that_sends_no_tiers_leaves_them_alone(): void
     {
         $admin = $this->admin();
