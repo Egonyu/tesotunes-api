@@ -248,14 +248,8 @@ return [
             'episode_published' => 90,
             'podcast_milestone' => 70,
 
-            // Ojokotau (Campaigns)
-            'campaign_created' => 80,
-            'campaign_funded' => 70,
-            'campaign_milestone' => 90,
-
             // Promotions
-            'promotion_started' => 55,
-            'promotion_featured' => 65,
+            'promotion_request_posted' => 60,
 
             // Social (low — aggregated by default)
             'user_post' => 40,
