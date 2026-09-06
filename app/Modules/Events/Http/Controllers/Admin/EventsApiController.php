@@ -314,8 +314,28 @@ class EventsApiController extends Controller
                     $ticketTiers = json_decode($ticketTiers, true);
                 }
                 if (is_array($ticketTiers)) {
-                    // Remove existing tiers that haven't sold any tickets
-                    $event->tickets()->where('quantity_sold', 0)->delete();
+                    /*
+                     * Drop only the tiers this payload leaves out.
+                     *
+                     * This used to delete every unsold tier first and then run
+                     * the per-tier UPDATE below — against rows it had just
+                     * deleted, so those updates matched nothing and the tiers
+                     * were gone. Saving an event left it with no tiers to sell,
+                     * and any checkout already holding the old tier ids failed
+                     * with "One or more selected ticket tiers are not available
+                     * for this event". Tiers that have sold are still never
+                     * removed, so buyers keep their records.
+                     */
+                    $keepIds = collect($ticketTiers)
+                        ->pluck('id')
+                        ->filter()
+                        ->map(fn ($id) => (int) $id)
+                        ->all();
+
+                    $event->tickets()
+                        ->where('quantity_sold', 0)
+                        ->when($keepIds !== [], fn ($query) => $query->whereNotIn('id', $keepIds))
+                        ->delete();
 
                     foreach ($ticketTiers as $i => $tier) {
                         if (isset($tier['id'])) {
