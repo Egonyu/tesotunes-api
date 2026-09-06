@@ -96,7 +96,9 @@ class ActivitySpineTest extends TestCase
         $user = User::factory()->create();
         $song = Song::factory()->create(['created_at' => now()->subDays(9)]);
 
-        DB::table('activities')->insert([
+        // SongObserver writes its own activity for the same song, so pin the
+        // assertions to the row this test inserted.
+        $id = DB::table('activities')->insertGetId([
             'user_id' => $user->id,
             'type' => 'uploaded_song',
             'subject_type' => Song::class,
@@ -106,7 +108,7 @@ class ActivitySpineTest extends TestCase
 
         $this->artisan('activities:repair-spine')->assertSuccessful();
 
-        $repaired = DB::table('activities')->where('type', 'uploaded_song')->first();
+        $repaired = DB::table('activities')->where('id', $id)->first();
 
         $this->assertNotNull($repaired->created_at);
         $this->assertSame(
@@ -120,7 +122,7 @@ class ActivitySpineTest extends TestCase
         $user = User::factory()->create();
         $song = Song::factory()->create();
 
-        DB::table('activities')->insert([
+        $id = DB::table('activities')->insertGetId([
             'user_id' => $user->id,
             'type' => 'created_store',
             'subject_type' => Song::class,
@@ -131,6 +133,6 @@ class ActivitySpineTest extends TestCase
         $this->artisan('activities:repair-spine', ['--dry-run' => true])->assertSuccessful();
 
         $this->assertDatabaseHas('activities', ['type' => 'created_store']);
-        $this->assertNull(DB::table('activities')->value('created_at'));
+        $this->assertNull(DB::table('activities')->where('id', $id)->value('created_at'));
     }
 }
