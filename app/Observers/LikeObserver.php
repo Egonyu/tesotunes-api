@@ -67,6 +67,19 @@ class LikeObserver
      */
     public function deleted(Like $like): void
     {
+        // Log the unlike here, so one writer owns both sides of the event.
+        if ($like->user && $like->likeable) {
+            ActivityService::log(
+                actor: $like->user,
+                action: 'unliked_'.strtolower(class_basename($like->likeable_type)),
+                subject: $like->likeable,
+                metadata: [
+                    'likeable_type' => class_basename($like->likeable_type),
+                    'likeable_title' => $like->likeable->title ?? $like->likeable->name ?? null,
+                ]
+            );
+        }
+
         // Decrement like count on the activity if it exists
         $activity = \App\Models\Activity::where('subject_type', get_class($like->likeable))
             ->where('subject_id', $like->likeable->id)

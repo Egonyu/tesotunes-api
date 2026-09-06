@@ -117,6 +117,88 @@ class ActivitySpineTest extends TestCase
         );
     }
 
+    public function test_a_like_is_logged_exactly_once(): void
+    {
+        $user = User::factory()->create();
+        $song = Song::factory()->create();
+
+        Like::toggle($user, $song);
+
+        $this->assertSame(
+            1,
+            Activity::query()
+                ->where('user_id', $user->id)
+                ->where('type', 'liked_song')
+                ->count(),
+            'Like and LikeObserver both logged the same event.'
+        );
+    }
+
+    public function test_an_unlike_is_logged_exactly_once(): void
+    {
+        $user = User::factory()->create();
+        $song = Song::factory()->create();
+
+        Like::toggle($user, $song);
+        Like::toggle($user, $song);
+
+        $this->assertSame(
+            1,
+            Activity::query()
+                ->where('user_id', $user->id)
+                ->where('type', 'unliked_song')
+                ->count()
+        );
+    }
+
+    public function test_repair_command_removes_exact_duplicates(): void
+    {
+        $user = User::factory()->create();
+        $song = Song::factory()->create();
+        $at = now()->subDay()->startOfSecond();
+
+        $rows = collect(range(1, 2))->map(fn () => DB::table('activities')->insertGetId([
+            'user_id' => $user->id,
+            'type' => 'liked_song',
+            'subject_type' => Song::class,
+            'subject_id' => $song->id,
+            'created_at' => $at,
+        ]));
+
+        $this->artisan('activities:repair-spine')->assertSuccessful();
+
+        $this->assertDatabaseHas('activities', ['id' => $rows->first()]);
+        $this->assertDatabaseMissing('activities', ['id' => $rows->last()]);
+    }
+
+    public function test_repair_command_keeps_a_duplicate_that_carries_engagement(): void
+    {
+        $user = User::factory()->create();
+        $song = Song::factory()->create();
+        $at = now()->subDay()->startOfSecond();
+
+        $keep = DB::table('activities')->insertGetId([
+            'user_id' => $user->id,
+            'type' => 'shared_song',
+            'subject_type' => Song::class,
+            'subject_id' => $song->id,
+            'created_at' => $at,
+        ]);
+        $engaged = DB::table('activities')->insertGetId([
+            'user_id' => $user->id,
+            'type' => 'shared_song',
+            'subject_type' => Song::class,
+            'subject_id' => $song->id,
+            'created_at' => $at,
+            'like_count' => 3,
+        ]);
+
+        $this->artisan('activities:repair-spine')->assertSuccessful();
+
+        $this->assertDatabaseHas('activities', ['id' => $keep]);
+        $this->assertDatabaseHas('activities', ['id' => $engaged]);
+    }
+
     public function test_repair_command_dry_run_writes_nothing(): void
     {
         $user = User::factory()->create();

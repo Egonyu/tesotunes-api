@@ -24,7 +24,7 @@ class RepairActivitySpine extends Command
     protected $signature = 'activities:repair-spine
                             {--dry-run : Report what would change without writing}';
 
-    protected $description = 'Backfill missing activity timestamps and normalise legacy activity type names';
+    protected $description = 'Backfill missing activity timestamps, normalise legacy type names, and remove duplicate activities';
 
     /**
      * Legacy type => the spelling FeedItemFactory actually maps.
@@ -61,8 +61,64 @@ class RepairActivitySpine extends Command
 
         $this->renameLegacyTypes($dryRun);
         $this->backfillTimestamps($dryRun);
+        $this->removeDuplicates($dryRun);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Like and Comment were each logged twice — once by the model or controller
+     * and again by the observer watching it. One writer owns each event now;
+     * this clears the rows the other one already wrote.
+     *
+     * Two activities for the same actor, verb, subject and instant are the same
+     * event, so the oldest row wins. A duplicate carrying its own likes or
+     * comments is left alone and reported: deleting it would take real
+     * engagement with it.
+     */
+    private function removeDuplicates(bool $dryRun): void
+    {
+        $groups = DB::table('activities')
+            ->selectRaw('user_id, type, subject_type, subject_id, created_at, COUNT(*) as total, MIN(id) as keep_id')
+            ->groupBy('user_id', 'type', 'subject_type', 'subject_id', 'created_at')
+            ->havingRaw('COUNT(*) > 1')
+            ->get();
+
+        $this->info("Removing duplicate activities across {$groups->count()} groups…");
+
+        $deleted = 0;
+        $kept = 0;
+
+        foreach ($groups as $group) {
+            $redundant = DB::table('activities')
+                ->where('user_id', $group->user_id)
+                ->where('type', $group->type)
+                ->where('subject_type', $group->subject_type)
+                ->where('subject_id', $group->subject_id)
+                ->where('created_at', $group->created_at)
+                ->where('id', '!=', $group->keep_id)
+                ->get(['id', 'like_count', 'comments_count']);
+
+            foreach ($redundant as $row) {
+                $hasEngagement = (int) ($row->like_count ?? 0) > 0
+                    || (int) ($row->comments_count ?? 0) > 0;
+
+                if ($hasEngagement) {
+                    $kept++;
+
+                    continue;
+                }
+
+                if (! $dryRun) {
+                    DB::table('activities')->where('id', $row->id)->delete();
+                }
+
+                $deleted++;
+            }
+        }
+
+        $this->line("  redundant rows removed:                    {$deleted}");
+        $this->line("  kept because they carry engagement:        {$kept}");
     }
 
     private function renameLegacyTypes(bool $dryRun): void
