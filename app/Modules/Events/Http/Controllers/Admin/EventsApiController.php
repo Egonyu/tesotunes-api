@@ -5,6 +5,7 @@ namespace App\Modules\Events\Http\Controllers\Admin;
 use App\Helpers\StorageHelper;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\EventResource;
+use App\Models\Artist;
 use App\Models\Event;
 use App\Models\EventLocation;
 use App\Models\EventTicket;
@@ -150,6 +151,8 @@ class EventsApiController extends Controller
                 'is_featured' => 'nullable|boolean',
                 'status' => 'nullable|in:draft,published,cancelled,completed,postponed',
                 'cover_image' => 'nullable|file|image|max:5120',
+                'banner_image' => 'nullable|file|image|max:5120',
+                'artist_id' => 'nullable|integer|exists:artists,id',
                 'ticket_tiers' => 'nullable',
                 'category' => 'nullable|string',
             ]);
@@ -162,26 +165,15 @@ class EventsApiController extends Controller
                 $validated['ends_at'] = $validated['end_date'].' '.($validated['end_time'] ?? '23:59:59');
             }
 
-            // Handle image upload — store in 'artwork' column via StorageHelper (supports local + DO Spaces)
-            if ($request->hasFile('cover_image')) {
-                $validated['artwork'] = StorageHelper::store($request->file('cover_image'), 'events/covers');
-                unset($validated['cover_image']);
-            } else {
-                unset($validated['cover_image']);
-            }
+            $this->storeEventImages($request, $validated);
 
             // Clean up non-model fields
             unset($validated['start_date'], $validated['start_time'], $validated['end_date'], $validated['end_time'], $validated['ticket_tiers'], $validated['short_description']);
 
             $validated['uuid'] = Str::uuid();
             $validated['slug'] = $validated['slug'] ?? Str::slug($validated['title']).'-'.Str::random(6);
-            $validated['organizer_id'] = auth()->id();
             $validated['organizer_type'] = 'user';
-            // Only set user_id if authenticated (legacy field)
-            if (auth()->check()) {
-                $validated['user_id'] = auth()->id();
-                $validated['artist_id'] = auth()->user()?->artist?->id;
-            }
+            $this->applyEventOwnership($validated);
             $validated['status'] = $validated['status'] ?? 'draft';
             $validated['timezone'] = $validated['timezone'] ?? 'Africa/Nairobi';
             $validated['ticketing_mode'] = $validated['ticketing_mode']
@@ -270,6 +262,8 @@ class EventsApiController extends Controller
                 'attendee_limit' => 'nullable|integer|min:1',
                 'status' => 'nullable|in:draft,published,cancelled,completed,postponed',
                 'cover_image' => 'nullable|file|image|max:5120',
+                'banner_image' => 'nullable|file|image|max:5120',
+                'artist_id' => 'nullable|integer|exists:artists,id',
                 'ticket_tiers' => 'nullable',
                 'category' => 'nullable|string',
                 'venue_name' => 'nullable|string',
@@ -293,16 +287,10 @@ class EventsApiController extends Controller
                 $validated['ends_at'] = $validated['end_date'].' '.($validated['end_time'] ?? '23:59:59');
             }
 
-            // Handle image upload — store in 'artwork' column via StorageHelper (supports local + DO Spaces)
-            if ($request->hasFile('cover_image')) {
-                // Delete old artwork if it exists
-                if ($event->artwork) {
-                    StorageHelper::delete($event->artwork);
-                }
-                $validated['artwork'] = StorageHelper::store($request->file('cover_image'), 'events/covers');
-                unset($validated['cover_image']);
-            } else {
-                unset($validated['cover_image']);
+            $this->storeEventImages($request, $validated, $event);
+
+            if (array_key_exists('artist_id', $validated)) {
+                $this->applyEventOwnership($validated);
             }
 
             unset($validated['start_date'], $validated['start_time'], $validated['end_date'], $validated['end_time'], $validated['ticket_tiers']);
@@ -571,5 +559,72 @@ class EventsApiController extends Controller
     public function registrations(int $id, Request $request)
     {
         return $this->attendees($id, $request);
+    }
+
+    /**
+     * Decide who owns the event, and therefore who its ticket money settles to.
+     *
+     * An admin setting up an event on an artist's behalf passes `artist_id`.
+     * Ownership then follows that artist's own user, because
+     * EventTicketingService settles proceeds to `organizer ?? user ?? artist->user`
+     * — leaving organizer_id on the admin would pay the admin for every ticket
+     * the artist sells. Without an artist_id the event belongs to the caller,
+     * which is the previous behaviour.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function applyEventOwnership(array &$validated): void
+    {
+        $artistId = $validated['artist_id'] ?? null;
+
+        if ($artistId) {
+            $artist = Artist::query()->with('user')->find($artistId);
+
+            if ($artist?->user_id) {
+                $validated['artist_id'] = $artist->id;
+                $validated['organizer_id'] = $artist->user_id;
+                $validated['user_id'] = $artist->user_id;
+
+                return;
+            }
+        }
+
+        if (! auth()->check()) {
+            return;
+        }
+
+        $validated['organizer_id'] = auth()->id();
+        $validated['user_id'] = auth()->id();
+        $validated['artist_id'] = auth()->user()?->artist?->id;
+    }
+
+    /**
+     * Store the event's two distinct images.
+     *
+     * `cover_image` is the poster or flyer — usually portrait, and what listing
+     * cards show. `banner_image` is the wide image the event page's hero band
+     * needs. They are kept apart because a portrait poster stretched across a
+     * landscape hero gets centre-cropped through its own title and date.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function storeEventImages(Request $request, array &$validated, ?Event $event = null): void
+    {
+        $uploads = [
+            'cover_image' => 'artwork',
+            'banner_image' => 'banner',
+        ];
+
+        foreach ($uploads as $field => $column) {
+            if ($request->hasFile($field)) {
+                if ($event?->{$column}) {
+                    StorageHelper::delete($event->{$column});
+                }
+
+                $validated[$column] = StorageHelper::store($request->file($field), 'events/covers');
+            }
+
+            unset($validated[$field]);
+        }
     }
 }
