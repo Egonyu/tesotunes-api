@@ -9,8 +9,12 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Activity extends Model
 {
-    public $timestamps = false;
-
+    /**
+     * Timestamps stay on. The table has them, the feed orders by created_at,
+     * and with them disabled only the writers that passed created_at by hand
+     * produced a dated row — everything else landed NULL and fell out of the
+     * feed silently.
+     */
     protected $fillable = [
         'user_id',
         'type',

@@ -13,6 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class CommentController extends Controller
 {
@@ -183,7 +184,7 @@ class CommentController extends Controller
             // Create activity
             try {
                 $user->activities()->create([
-                    'type' => 'commented_on_'.strtolower(class_basename($commentable)),
+                    'type' => 'commented_'.Str::snake(class_basename($commentable)),
                     'subject_type' => $modelClass,
                     'subject_id' => $commentable->id,
                     'properties' => [
