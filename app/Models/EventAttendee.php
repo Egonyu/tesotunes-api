@@ -131,8 +131,32 @@ class EventAttendee extends Model
     }
 
     // Status Methods
+    /**
+     * Mark the ticket paid for and issued.
+     *
+     * Two independent paths reach here when a payment completes —
+     * Payment::markCompleted() through its polymorphic payable, and
+     * EventTicketingService::settlePendingOrderPayment(). Without a guard both
+     * ran, so TicketPurchased fired twice and the buyer got two identical
+     * confirmations in the bell and two confirmation emails for one ticket.
+     * Doubling the outgoing mail also fed the provider's sending limits.
+     *
+     * Confirming is therefore idempotent: whichever path arrives first issues
+     * the ticket, and the second is a no-op. A payment reference arriving later
+     * is still recorded, since only one of the two callers supplies one.
+     */
     public function confirm(?string $paymentReference = null): void
     {
+        $alreadyConfirmed = $this->status === self::STATUS_CONFIRMED && $this->confirmed_at !== null;
+
+        if ($alreadyConfirmed) {
+            if ($paymentReference && $this->payment_reference !== $paymentReference) {
+                $this->update(['payment_reference' => $paymentReference]);
+            }
+
+            return;
+        }
+
         $payload = [
             'status' => self::STATUS_CONFIRMED,
             'confirmed_at' => now(),
