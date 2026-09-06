@@ -170,6 +170,70 @@ class DashboardPayloadTest extends TestCase
         $this->assertSame(10, $wallet['credits_earned_today']);
     }
 
+    public function test_daily_bonus_is_null_when_no_rate_is_configured(): void
+    {
+        \App\Models\CreditRate::query()->where('activity_type', 'daily_login')->delete();
+
+        $user = User::factory()->create();
+
+        $this->assertNull(app(DashboardService::class)->overview($user)['daily_bonus']);
+    }
+
+    public function test_daily_bonus_offers_the_claim_from_the_rate_row(): void
+    {
+        \App\Models\CreditRate::query()->updateOrCreate(
+            ['activity_type' => 'daily_login'],
+            [
+                'display_name' => 'Daily login',
+                'credits_per_action' => 10,
+                'daily_limit' => 10,
+                'cooldown_minutes' => 1440,
+                'is_active' => true,
+            ]
+        );
+
+        $user = User::factory()->create();
+
+        $bonus = app(DashboardService::class)->overview($user)['daily_bonus'];
+
+        $this->assertTrue($bonus['available']);
+        $this->assertSame(10.0, $bonus['credits']);
+        $this->assertSame(0, $bonus['available_in_minutes']);
+    }
+
+    public function test_daily_bonus_is_withheld_while_the_cooldown_runs(): void
+    {
+        \App\Models\CreditRate::query()->updateOrCreate(
+            ['activity_type' => 'daily_login'],
+            [
+                'display_name' => 'Daily login',
+                'credits_per_action' => 10,
+                'daily_limit' => 10,
+                'cooldown_minutes' => 1440,
+                'is_active' => true,
+            ]
+        );
+
+        $user = User::factory()->create();
+        $user->ensureCreditWallet();
+
+        $user->creditTransactions()->create([
+            'uuid' => (string) \Illuminate\Support\Str::uuid(),
+            'type' => \App\Models\CreditTransaction::TYPE_EARNED,
+            'amount' => 10,
+            'balance_after' => 10,
+            'source' => 'daily_login',
+            'referenceable_type' => User::class,
+            'referenceable_id' => $user->id,
+        ]);
+
+        $bonus = app(DashboardService::class)->overview($user)['daily_bonus'];
+
+        $this->assertFalse($bonus['available']);
+        $this->assertGreaterThan(0, $bonus['available_in_minutes']);
+        $this->assertSame(1, $bonus['streak_days']);
+    }
+
     public function test_contributions_and_artist_are_null_when_they_do_not_apply(): void
     {
         $user = User::factory()->create();
