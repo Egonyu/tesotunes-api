@@ -62,7 +62,7 @@ class ActivitySpineTest extends TestCase
         ]);
     }
 
-    public function test_posted_opportunity_lands_on_the_feed_with_apply_action(): void
+    public function test_posted_promotion_request_lands_on_the_feed_with_apply_action(): void
     {
         $artistUser = User::factory()->create();
         $artist = Artist::factory()->create(['user_id' => $artistUser->id]);
@@ -79,11 +79,11 @@ class ActivitySpineTest extends TestCase
             ->first();
 
         $this->assertNotNull($feedItem, 'posted promotion request must announce on the feed');
-        $this->assertSame('opportunity_posted', $feedItem->type);
+        $this->assertSame('promotion_request_posted', $feedItem->type);
         $this->assertStringContainsString('looking for promoters', $feedItem->title);
 
         $this->assertDatabaseHas('activities', [
-            'type' => 'posted_opportunity',
+            'type' => 'posted_promotion_request',
             'subject_type' => PromotionRequest::class,
             'subject_id' => $promotionRequest->id,
             'user_id' => $artistUser->id,

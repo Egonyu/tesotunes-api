@@ -29,7 +29,7 @@ class PromotionRequestObserver
 
             ActivityService::log(
                 actor: $creator,
-                action: 'posted_opportunity',
+                action: 'posted_promotion_request',
                 subject: $promotionRequest,
                 metadata: [
                     'title' => $promotionRequest->title,
@@ -43,7 +43,7 @@ class PromotionRequestObserver
             $kind = $promotionRequest->promotable_type === Event::class ? 'event' : 'music';
 
             FeedItemService::create([
-                'type' => 'opportunity_posted',
+                'type' => 'promotion_request_posted',
                 'module' => 'promotions',
                 'title' => ($creator->display_name ?? $creator->name ?? 'An artist')
                     .' is looking for promoters'
@@ -72,7 +72,7 @@ class PromotionRequestObserver
                 ],
             ]);
         } catch (\Exception $e) {
-            Log::error('Failed to create feed entry for promotion promotion request', [
+            Log::error('Failed to create feed entry for promotion request', [
                 'promotion_request_id' => $promotionRequest->id,
                 'error' => $e->getMessage(),
             ]);
