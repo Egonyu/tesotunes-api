@@ -44,7 +44,17 @@ class EventTicketingService
                 ->keyBy('id');
 
             if ($lockedTickets->count() !== $selections->count()) {
-                $this->failPurchase('One or more selected ticket tiers are not available for this event');
+                /*
+                 * The ids reached us but no longer resolve, which in practice
+                 * means the organiser changed the tiers while this checkout was
+                 * open. Say so: the old message read as "sold out" and sent
+                 * buyers to support instead of to a page refresh.
+                 */
+                $this->failPurchase(
+                    $event->tickets()->exists()
+                        ? 'The tickets for this event changed while you were checking out. Please refresh and pick your tickets again.'
+                        : 'This event has no tickets on sale right now.'
+                );
             }
 
             foreach ($selections as $selection) {
