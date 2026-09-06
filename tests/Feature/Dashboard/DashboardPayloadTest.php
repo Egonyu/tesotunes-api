@@ -118,6 +118,58 @@ class DashboardPayloadTest extends TestCase
         $this->assertContains('contributions.gold_attempts', $keys);
     }
 
+    public function test_capability_actions_are_ranked_among_the_profile_steps(): void
+    {
+        $user = User::factory()->create();
+
+        ContributorProfile::query()->create([
+            'user_id' => $user->id,
+            'consented_at' => now(),
+            'consent_terms_version' => '2026-06-14',
+            'tier' => ContributorProfile::TIER_NOVICE,
+            'gold_attempts' => 0,
+        ]);
+
+        $actions = app(DashboardService::class)->overview($user)['next_actions'];
+        $order = ['high' => 0, 'medium' => 1, 'low' => 2];
+
+        $positions = array_map(fn ($a) => $order[$a['importance']], $actions);
+        $sorted = $positions;
+        sort($sorted);
+
+        $this->assertSame(
+            $sorted,
+            $positions,
+            'A capability action must be ranked in, not appended below low-importance steps.'
+        );
+    }
+
+    public function test_credits_bought_or_gifted_do_not_count_as_earned_today(): void
+    {
+        $user = User::factory()->create();
+        $user->ensureCreditWallet();
+
+        foreach ([
+            ['daily_login', 10],
+            ['wallet_purchase', 1000],
+            ['transfer_in', 50],
+        ] as [$source, $amount]) {
+            $user->creditTransactions()->create([
+                'uuid' => (string) \Illuminate\Support\Str::uuid(),
+                'type' => \App\Models\CreditTransaction::TYPE_EARNED,
+                'amount' => $amount,
+                'balance_after' => $amount,
+                'source' => $source,
+                'referenceable_type' => User::class,
+                'referenceable_id' => $user->id,
+            ]);
+        }
+
+        $wallet = app(DashboardService::class)->overview($user)['wallet'];
+
+        $this->assertSame(10, $wallet['credits_earned_today']);
+    }
+
     public function test_contributions_and_artist_are_null_when_they_do_not_apply(): void
     {
         $user = User::factory()->create();

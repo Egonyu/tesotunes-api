@@ -26,6 +26,24 @@ use Illuminate\Support\Str;
  */
 class DashboardService
 {
+    /**
+     * Credit sources recorded as "earned" that the platform did not award for
+     * activity — money the user converted themselves, or credits another
+     * member sent them. Telling someone they earned credits they bought is
+     * worse than telling them nothing.
+     *
+     * @var list<string>
+     */
+    private const NOT_EARNED_SOURCES = ['wallet_purchase', 'transfer_in'];
+
+    /**
+     * Ranking used for the obligations queue, so every source of an action
+     * lands in the same order rather than in the order it was appended.
+     *
+     * @var array<string, int>
+     */
+    private const IMPORTANCE_ORDER = ['high' => 0, 'medium' => 1, 'low' => 2];
+
     public function __construct(
         private readonly SettlementService $settlements,
         private readonly ProfileCompletionService $profileCompletion,
@@ -70,6 +88,7 @@ class DashboardService
     {
         $earnedToday = (int) $user->creditTransactions()
             ->whereIn('type', [CreditTransaction::TYPE_EARNED, CreditTransaction::TYPE_BONUS])
+            ->whereNotIn('source', self::NOT_EARNED_SOURCES)
             ->whereDate('created_at', today())
             ->sum('amount');
 
@@ -125,8 +144,11 @@ class DashboardService
     /**
      * The obligations queue — what the account needs from its owner, ranked.
      *
-     * Profile steps arrive already sorted by importance then weight, so they
-     * set the order; capability-specific asks follow.
+     * Profile steps arrive already sorted by importance then weight, and the
+     * capability-specific asks are merged in by importance rather than simply
+     * appended — otherwise a medium ask lands below a low profile step purely
+     * because of the order the sources were read. PHP's sort is stable, so
+     * equal-importance profile steps keep their weight ordering.
      *
      * @param  array<string, mixed>|null  $contributions
      * @return list<array<string, mixed>>
@@ -162,6 +184,9 @@ class DashboardService
                 'route' => null,
             ];
         }
+
+        usort($actions, fn (array $a, array $b) => (self::IMPORTANCE_ORDER[$a['importance']] ?? 3)
+            <=> (self::IMPORTANCE_ORDER[$b['importance']] ?? 3));
 
         return $actions;
     }
