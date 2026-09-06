@@ -9,6 +9,8 @@ use App\Models\Song;
 use App\Models\User;
 use App\Modules\Contributions\Models\ContributorProfile;
 use App\Services\Commerce\SettlementService;
+use App\Services\Credits\RewardRuleService;
+use App\Services\CreditService;
 use App\Services\ProfileCompletionService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -47,6 +49,8 @@ class DashboardService
     public function __construct(
         private readonly SettlementService $settlements,
         private readonly ProfileCompletionService $profileCompletion,
+        private readonly RewardRuleService $rewardRules,
+        private readonly CreditService $credits,
     ) {}
 
     /**
@@ -71,6 +75,7 @@ class DashboardService
                 'available' => $balances['cleared'],
                 'paid_out' => $balances['paid_out'],
             ],
+            'daily_bonus' => $this->dailyBonus($user),
             'listening' => $this->listening($user),
             'profile' => $this->profile($user),
             'next_actions' => $this->nextActions($user, $contributions),
@@ -96,6 +101,36 @@ class DashboardService
             'ugx_balance' => (float) ($user->ugx_balance ?? 0),
             'credits_balance' => (int) $user->credit_balance,
             'credits_earned_today' => $earnedToday,
+        ];
+    }
+
+    /**
+     * The daily login bonus, as the rules engine sees it — so the client can
+     * offer the claim only when it would actually succeed, rather than inviting
+     * a tap that comes back 422.
+     *
+     * The rate row owns the reward and the cooldown, so an operator editing it
+     * changes the dashboard too.
+     *
+     * @return array{available: bool, credits: float, available_in_minutes: int, streak_days: int}|null
+     */
+    private function dailyBonus(User $user): ?array
+    {
+        $rate = $this->rewardRules->rateFor('daily_login');
+
+        if (! $rate) {
+            return null;
+        }
+
+        $waitMinutes = $rate->cooldown_minutes
+            ? $this->rewardRules->cooldownRemaining($user, 'daily_login', $rate->cooldown_minutes)
+            : 0;
+
+        return [
+            'available' => $waitMinutes === 0,
+            'credits' => (float) $rate->credits_per_action,
+            'available_in_minutes' => $waitMinutes,
+            'streak_days' => $this->credits->getLoginStreak($user),
         ];
     }
 

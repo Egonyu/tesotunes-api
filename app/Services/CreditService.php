@@ -332,7 +332,7 @@ class CreditService
      * record claiming a bonus that never arrived — the same shape of gap that
      * hid the missing tips.
      */
-    private function getLoginStreak(User $user): int
+    public function getLoginStreak(User $user): int
     {
         $days = CreditTransaction::query()
             ->where('user_id', $user->id)
