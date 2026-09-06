@@ -21,7 +21,7 @@ class PromotionRequestPostedNotification extends Notification implements ShouldQ
     public function toArray(object $notifiable): array
     {
         return [
-            'type' => 'opportunity_posted',
+            'type' => 'promotion_request_posted',
             'promotion_request_id' => $this->promotionRequest->id,
             'promotion_request_uuid' => $this->promotionRequest->uuid,
             'title' => $this->promotionRequest->title,

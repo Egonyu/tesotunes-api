@@ -134,8 +134,6 @@ class FeedItemFactory
             'sacco_member_joined' => ['feed_type' => 'sacco_joined',      'module' => 'sacco', 'headline' => ':actor joined the SACCO'],
             'sacco_milestone_reached' => ['feed_type' => 'sacco_milestone',   'module' => 'sacco', 'headline' => 'SACCO milestone reached!'],
 
-            // Ojokotau
-
             // Loyalty
             'loyalty_card_launched' => ['feed_type' => 'fan_club_joined',    'module' => 'loyalty', 'headline' => ':actor launched a loyalty card'],
             'loyalty_tier_upgrade' => ['feed_type' => 'points_milestone',   'module' => 'loyalty', 'headline' => ':actor leveled up!'],

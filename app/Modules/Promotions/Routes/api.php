@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| Promotions V2 — Opportunity feed, promoter onboarding, activity hub
+| Promotions V2 — Promotion request feed, promoter onboarding, activity hub
 |--------------------------------------------------------------------------
 | Public browse is unauthenticated.
 | All write actions require auth:sanctum.
@@ -27,7 +27,7 @@ Route::prefix('promoters')->name('promoters.')->group(function () {
     });
 });
 
-// --- Opportunity feed (artist posts briefs, influencers apply) ---
+// --- Promotion request feed (artist posts briefs, influencers apply) ---
 Route::prefix('promotion-requests')->name('promotion-requests.')->group(function () {
     Route::get('/', [PromotionRequestController::class, 'index'])->name('index');
     Route::get('/{uuid}', [PromotionRequestController::class, 'show'])->name('show');
@@ -52,7 +52,7 @@ Route::prefix('promotion-requests')->name('promotion-requests.')->group(function
     });
 });
 
-// --- Admin V2: Promoter management + Opportunity oversight ---
+// --- Admin V2: Promoter management + promotion request oversight ---
 Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->group(function () {
     // Promoter profiles
     Route::get('/admin/promoters', [AdminPromoterController::class, 'index'])->name('admin.promoters.index');
@@ -60,7 +60,7 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->group(function ()
     Route::post('/admin/promoters/{id}/unverify', [AdminPromoterController::class, 'unverify'])->name('admin.promoters.unverify');
     Route::put('/admin/promoters/{id}/tier', [AdminPromoterController::class, 'setTier'])->name('admin.promoters.tier');
 
-    // Opportunities
+    // Promotion requests
     Route::get('/admin/promotion-requests', [AdminPromoterController::class, 'indexPromotionRequests'])->name('admin.promotion-requests.index');
     Route::post('/admin/promotion-requests/{uuid}/close', [AdminPromoterController::class, 'forceClose'])->name('admin.promotion-requests.close');
     Route::get('/admin/promotion-requests/{uuid}/applications', [AdminPromoterController::class, 'promotionRequestApplications'])->name('admin.promotion-requests.applications');

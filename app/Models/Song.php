@@ -289,7 +289,7 @@ class Song extends Model
         return $this->hasOne(MusicUpload::class);
     }
 
-    public function promotionOpportunities(): \Illuminate\Database\Eloquent\Relations\MorphMany
+    public function promotionRequests(): \Illuminate\Database\Eloquent\Relations\MorphMany
     {
         return $this->morphMany(\App\Modules\Promotions\Models\PromotionRequest::class, 'promotable');
     }
