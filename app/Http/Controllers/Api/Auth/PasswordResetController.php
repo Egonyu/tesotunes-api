@@ -9,6 +9,7 @@ use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password as PasswordRule;
@@ -45,15 +46,30 @@ class PasswordResetController extends Controller
             $request->only('email')
         );
 
-        if ($status === Password::RESET_LINK_SENT) {
+        /*
+         * Answer the same way whether or not the address is registered.
+         *
+         * Returning "We can't find a user with that email address" turned this
+         * endpoint into an account checker: anyone could confirm which addresses
+         * have accounts here by reading the status code. Throttling still applies
+         * and is reported, since being told to wait is useful and the throttle
+         * itself is what makes probing impractical.
+         */
+        if ($status === Password::RESET_THROTTLED) {
             return response()->json([
                 'message' => __($status),
+            ], 429);
+        }
+
+        if ($status !== Password::RESET_LINK_SENT) {
+            Log::info('Password reset requested for an address that cannot receive one', [
+                'status' => $status,
             ]);
         }
 
         return response()->json([
-            'message' => __($status),
-        ], 422);
+            'message' => 'If that email address has an account, a password reset link is on its way.',
+        ]);
     }
 
     /**

@@ -139,6 +139,28 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        /*
+         * Point the password reset link at the page that actually handles it.
+         *
+         * Laravel's ResetPassword notification defaults to route('password.reset'),
+         * a web route this API-only application has never defined, so building the
+         * mail threw RouteNotFoundException. The throw happened while handling the
+         * request, before the mailer was reached — which is why forgot-password
+         * returned a 500 and left no trace in failed_jobs, and why no amount of
+         * fixing the mail provider would have made it work.
+         *
+         * FrontendUrl resolves the browser-facing host; url() would resolve against
+         * app.url and send people to api.tesotunes.com, where no page exists.
+         */
+        \Illuminate\Auth\Notifications\ResetPassword::createUrlUsing(
+            fn (object $notifiable, string $token): string => \App\Helpers\FrontendUrl::to(
+                '/reset-password?'.http_build_query([
+                    'token' => $token,
+                    'email' => $notifiable->getEmailForPasswordReset(),
+                ])
+            )
+        );
+
         // Set global Eloquent pagination defaults
         \Illuminate\Database\Eloquent\Model::$snakeAttributes = true;
 
@@ -175,7 +197,7 @@ class AppServiceProvider extends ServiceProvider
         AwardNomination::observe(AwardNominationObserver::class);
         // AwardWinner model does not exist yet
 
-        // Promotion promotion requests announce on the Edula feed
+        // Promotion requests announce on the Edula feed
         \App\Modules\Promotions\Models\PromotionRequest::observe(\App\Observers\PromotionRequestObserver::class);
 
         // Register observers for Store module (Edula Phase 2)
