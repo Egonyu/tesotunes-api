@@ -8,6 +8,7 @@ use App\Models\EventAttendee;
 use App\Models\EventDiscountCode;
 use App\Models\EventTicket;
 use App\Models\Payment;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\Commerce\SettlementService;
 use App\Services\Payment\ZengaPayService;
@@ -620,6 +621,20 @@ class EventTicketingService
     {
         if ($user instanceof User) {
             return $user;
+        }
+
+        /*
+         * A guest buys against a throwaway account they can never sign into, so
+         * the confirmation email is their only copy of the ticket. While mail is
+         * undeliverable that is a dead end — they pay and can never reach the QR
+         * code they are scanned by. Refusing the sale is kinder than taking the
+         * money for a ticket they cannot use.
+         *
+         * The flag lives in admin settings, so guest checkout can be restored
+         * without a deploy once mail delivers or order-ID retrieval exists.
+         */
+        if (! Setting::get('events_guest_checkout_enabled', false)) {
+            $this->failPurchase('Please sign in to buy a ticket. Your ticket and its entry code are kept in your account.');
         }
 
         $holderName = trim((string) ($validated['holder_name'] ?? ''));

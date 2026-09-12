@@ -33,6 +33,20 @@ final class FeatureSettings
             'general_sacco_enabled' => ['SACCO module', false],
             'general_campaigns_enabled' => ['Campaigns', false],
             'general_edula_enabled' => ['Edula module', false],
+
+            /*
+             * Guest ticket checkout, off by default.
+             *
+             * A guest buys against a throwaway account they can never sign into,
+             * so the only copy of their ticket is the confirmation email. While
+             * transactional mail is undeliverable that is a dead end: they pay
+             * and have no route to the QR code they are scanned by at the gate.
+             * Signed-in buyers are unaffected — their ticket lives in the app.
+             *
+             * Turn this back on once mail is delivering, or once guests can
+             * retrieve a ticket by order ID without needing email at all.
+             */
+            'events_guest_checkout_enabled' => ['Guest ticket checkout', false],
         ];
 
         foreach ($flags as $key => [$label, $default]) {

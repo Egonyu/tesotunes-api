@@ -363,6 +363,10 @@ class EventTicketingWorkflowTest extends TestCase
 
     public function test_guest_checkout_can_quote_and_purchase_with_mobile_money(): void
     {
+        // Guest checkout ships disabled while transactional mail is
+        // undeliverable, so this exercises the mechanism with it switched on.
+        \App\Models\Setting::set('events_guest_checkout_enabled', true);
+
         $event = Event::factory()->published()->create();
         $ticket = EventTicket::create([
             'uuid' => (string) \Str::uuid(),

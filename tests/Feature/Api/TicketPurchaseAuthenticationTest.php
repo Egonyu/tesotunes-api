@@ -110,19 +110,31 @@ class TicketPurchaseAuthenticationTest extends TestCase
 
     public function test_a_genuine_guest_is_still_asked_for_a_name_and_email(): void
     {
+        // With guest checkout disabled every guest is refused, which would make
+        // this pass for the wrong reason. Switch it on so the assertion is
+        // genuinely about the missing contact details.
+        \App\Models\Setting::set('events_guest_checkout_enabled', true);
+
         $event = $this->event();
         $tier = $this->tier($event);
 
-        $this->postJson('/api/tickets/purchase', [
+        $response = $this->postJson('/api/tickets/purchase', [
             'event_id' => $event->id,
             'tickets' => [['ticket_tier_id' => $tier->id, 'quantity' => 1]],
             'payment_method' => 'mtn_momo',
             'phone' => '0700123456',
-        ])->assertStatus(422);
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertStringContainsString('name and email', strtolower($response->json('message') ?? ''));
     }
 
     public function test_a_genuine_guest_can_still_buy_with_contact_details(): void
     {
+        // Guest checkout ships disabled while transactional mail is
+        // undeliverable; this covers the mechanism itself, with it switched on.
+        \App\Models\Setting::set('events_guest_checkout_enabled', true);
+
         $event = $this->event();
         $tier = $this->tier($event);
 
