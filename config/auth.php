@@ -101,6 +101,25 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Email Verification
+    |--------------------------------------------------------------------------
+    |
+    | How long a verification link stays valid, in minutes. Laravel's default is
+    | 60, which is tight on a connection that may not carry email through for
+    | several hours: the link is dead before it is read, and the only recourse
+    | is to guess that requesting another one will help.
+    |
+    | Read by App\Notifications\VerifyEmailNotification, which also states the
+    | figure in the email body so the two cannot drift apart.
+    |
+    */
+
+    'verification' => [
+        'expire' => (int) env('AUTH_VERIFICATION_EXPIRE', 720), // 12 hours
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Password Confirmation Timeout
     |--------------------------------------------------------------------------
     |
