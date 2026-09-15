@@ -28,6 +28,10 @@ class DatabaseSeeder extends Seeder
             $this->call([ReferralMilestoneSeeder::class]);
         }
 
+        if (Schema::hasTable('credit_milestones')) {
+            $this->call([CreditMilestoneSeeder::class]);
+        }
+
         if (Schema::hasTable('settings')) {
             $this->call([SettingsSeeder::class]);
         }

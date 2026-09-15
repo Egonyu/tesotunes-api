@@ -7,6 +7,7 @@ use App\Models\CreditTransaction;
 use App\Models\User;
 use App\Models\UserCredit;
 use App\Notifications\CreditsEarnedNotification;
+use App\Services\Credits\CreditMilestoneService;
 use App\Services\Credits\RewardRuleService;
 use Carbon\Carbon;
 
@@ -270,7 +271,9 @@ class CreditService
             'earning_potential_remaining' => $this->getRemainingEarningPotential($user),
             'recent_transactions' => $this->getRecentTransactions($user, 5),
             'login_streak' => $this->getLoginStreak($user),
-            'next_milestone' => $this->getNextMilestone($totalEarned),
+            // Real, claimable goals — see CreditMilestoneService. This replaced
+            // `next_milestone`, a list of rewards nothing ever paid.
+            'goals' => app(CreditMilestoneService::class)->summaryFor($user),
         ];
     }
 
@@ -398,42 +401,6 @@ class CreditService
                 ];
             })
             ->toArray();
-    }
-
-    private function getNextMilestone(float $totalCredits): array
-    {
-        $milestones = [100, 500, 1000, 2500, 5000, 10000];
-
-        foreach ($milestones as $milestone) {
-            if ($totalCredits < $milestone) {
-                return [
-                    'target' => $milestone,
-                    'remaining' => $milestone - $totalCredits,
-                    'progress_percentage' => ($totalCredits / $milestone) * 100,
-                    'reward' => $this->getMilestoneReward($milestone),
-                ];
-            }
-        }
-
-        return [
-            'target' => 'Max level reached',
-            'remaining' => 0,
-            'progress_percentage' => 100,
-            'reward' => 'VIP status unlocked!',
-        ];
-    }
-
-    private function getMilestoneReward(int $milestone): string
-    {
-        return match ($milestone) {
-            100 => 'Profile badge + 10 bonus credits',
-            500 => 'Custom theme + 25 bonus credits',
-            1000 => 'Priority support + 50 bonus credits',
-            2500 => 'Artist verification + 100 bonus credits',
-            5000 => 'VIP features + 200 bonus credits',
-            10000 => 'Platform ambassador + 500 bonus credits',
-            default => 'Special recognition'
-        };
     }
 
     private function getSocialActionDescription(string $action): string

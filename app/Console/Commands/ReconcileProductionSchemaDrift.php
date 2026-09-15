@@ -830,6 +830,52 @@ class ReconcileProductionSchemaDrift extends Command
     }
 
     /**
+     * The credit goal ladder.
+     *
+     * Declared in the commerce/billing base migration, which production ran
+     * long ago. Without these the /credits dashboard and goal endpoints 500.
+     *
+     * Must match 0001_01_01_000003_create_commerce_billing_tables.php exactly.
+     */
+    private function reconcileCreditGoalTables(): void
+    {
+        if (! Schema::hasTable('credit_milestones')) {
+            Schema::create('credit_milestones', function (Blueprint $table) {
+                $table->id();
+                $table->string('key', 60)->unique();
+                $table->string('name');
+                $table->string('description')->nullable();
+                $table->unsignedInteger('credits_required');
+                $table->string('reward_type', 30)->default('credits');
+                $table->unsignedInteger('reward_value')->default(0);
+                $table->string('badge_name')->nullable();
+                $table->string('badge_icon', 16)->nullable();
+                $table->string('badge_tier', 20)->default('bronze');
+                $table->boolean('is_active')->default(true);
+                $table->unsignedInteger('sort_order')->default(0);
+                $table->timestamps();
+
+                $table->index(['is_active', 'credits_required']);
+            });
+            $this->line('    created `credit_milestones`');
+        }
+
+        if (! Schema::hasTable('credit_milestone_claims')) {
+            Schema::create('credit_milestone_claims', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('credit_milestone_id')->constrained()->cascadeOnDelete();
+                $table->unsignedInteger('credits_awarded')->default(0);
+                $table->timestamp('claimed_at');
+                $table->timestamps();
+
+                $table->unique(['user_id', 'credit_milestone_id'], 'credit_milestone_claim_unique');
+            });
+            $this->line('    created `credit_milestone_claims`');
+        }
+    }
+
+    /**
      * Drop the Ojokotau crowdfunding tables.
      *
      * The module was removed: the frontend called endpoints that never
@@ -903,6 +949,7 @@ class ReconcileProductionSchemaDrift extends Command
     {
         $this->reconcileOrderIdempotencyKey();
         $this->reconcileReferralProgramTables();
+        $this->reconcileCreditGoalTables();
         $this->dropRetiredCrowdfundingTables();
         $this->renameOpportunitiesToRequests();
         $this->dropRetiredEventPromotionRequests();

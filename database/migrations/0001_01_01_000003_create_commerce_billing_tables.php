@@ -192,6 +192,47 @@ return new class extends Migration
             $table->index(['user_id', 'status']);
         });
 
+        /*
+         * Credit goals: the ladder a member climbs by earning credits through
+         * activity, and what each rung pays.
+         *
+         * Replaces a list of rewards written as strings in CreditService that
+         * nothing ever paid — including "Artist verification" at 2,500 credits.
+         * Rungs are rows so an operator can tune them, the same shape as
+         * referral_milestones. Progress is read off credit_transactions at
+         * request time; only the claim is stored, because paying twice is the
+         * failure that must be impossible.
+         */
+        Schema::create('credit_milestones', function (Blueprint $table) {
+            $table->id();
+            $table->string('key', 60)->unique();
+            $table->string('name');
+            $table->string('description')->nullable();
+            $table->unsignedInteger('credits_required');
+            $table->string('reward_type', 30)->default('credits');
+            $table->unsignedInteger('reward_value')->default(0);
+            $table->string('badge_name')->nullable();
+            $table->string('badge_icon', 16)->nullable();
+            $table->string('badge_tier', 20)->default('bronze');
+            $table->boolean('is_active')->default(true);
+            $table->unsignedInteger('sort_order')->default(0);
+            $table->timestamps();
+
+            $table->index(['is_active', 'credits_required']);
+        });
+
+        Schema::create('credit_milestone_claims', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('credit_milestone_id')->constrained()->cascadeOnDelete();
+            $table->unsignedInteger('credits_awarded')->default(0);
+            $table->timestamp('claimed_at');
+            $table->timestamps();
+
+            // A goal pays once per account. The database enforces it.
+            $table->unique(['user_id', 'credit_milestone_id'], 'credit_milestone_claim_unique');
+        });
+
         Schema::create('artist_revenues', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
@@ -363,6 +404,8 @@ return new class extends Migration
             'subscription_plans',
             'royalty_splits',
             'artist_revenues',
+            'credit_milestone_claims',
+            'credit_milestones',
             'credit_issues',
             'credit_transactions',
             'user_credits',
