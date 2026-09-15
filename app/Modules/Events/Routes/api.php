@@ -39,6 +39,8 @@ Route::middleware('auth:sanctum')->prefix('tickets')->name('api.tickets.account.
 Route::middleware(['auth:sanctum', 'artist.events.access'])->prefix('artist/events')->name('api.artist.events.')->group(function () {
     Route::get('/', [\App\Modules\Events\Http\Controllers\ArtistEventsController::class, 'index'])->name('index');
     Route::post('/', [\App\Modules\Events\Http\Controllers\ArtistEventsController::class, 'store'])->name('store');
+    // Before /{id}: POST /{id} is the update route.
+    Route::post('/commission-simulation', [\App\Modules\Events\Http\Controllers\ArtistEventsController::class, 'commissionSimulation'])->name('commission-simulation');
     Route::get('/{id}', [\App\Modules\Events\Http\Controllers\ArtistEventsController::class, 'show'])->name('show');
     Route::put('/{id}', [\App\Modules\Events\Http\Controllers\ArtistEventsController::class, 'update'])->name('update');
     Route::post('/{id}', [\App\Modules\Events\Http\Controllers\ArtistEventsController::class, 'update'])->name('update.post');

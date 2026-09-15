@@ -280,8 +280,9 @@ class EventTicket extends Model
         return match ($this->availability_status) {
             'inactive' => 'This ticket type is currently inactive',
             'sold_out' => 'Sold Out',
-            'not_yet_available' => 'Sales start '.$this->sale_starts_at->format('M j, Y \a\t g:i A'),
-            'sales_ended' => 'Sales ended '.$this->sale_ends_at->format('M j, Y \a\t g:i A'),
+            // Kampala time: stored times are UTC, buyers read local time.
+            'not_yet_available' => 'Sales start '.$this->sale_starts_at->copy()->timezone('Africa/Kampala')->format('M j, Y \a\t g:i A'),
+            'sales_ended' => 'Sales ended '.$this->sale_ends_at->copy()->timezone('Africa/Kampala')->format('M j, Y \a\t g:i A'),
             'available' => $this->quantity_available ?
                 ($this->quantity_available.' remaining') :
                 'Available',

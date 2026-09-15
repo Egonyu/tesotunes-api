@@ -8,14 +8,16 @@ use App\Http\Resources\EventResource;
 use App\Models\Artist;
 use App\Models\Event;
 use App\Models\EventLocation;
-use App\Models\EventTicket;
 use App\Models\User;
 use App\Services\Events\EventFeeCalculatorService;
 use App\Services\Events\EventPayoutLedgerService;
 use App\Services\Events\EventRevenueAnalyticsService;
+use App\Services\Events\EventScheduleInput;
+use App\Services\Events\EventTicketTierSync;
 use App\Traits\HandlesApiErrors;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class EventsApiController extends Controller
@@ -34,13 +36,29 @@ class EventsApiController extends Controller
     public function stats()
     {
         return $this->handleApiAction(function () {
-            $data = Cache::remember('admin:events:stats', now()->addMinutes(5), function () {
+            /*
+             * Read from what was actually sold. This summed events.tickets_sold
+             * and averaged events.attendee_count — counters nothing maintains,
+             * so both read 0 with tickets sold — filtered "30 days" on when the
+             * event was created, and showed a head-count average as a percent.
+             */
+            $data = Cache::remember('admin:events:stats:v2', now()->addMinute(), function () {
+                $confirmed = fn () => DB::table('event_attendees')
+                    ->whereIn('status', ['confirmed', 'checked_in', 'attended'])
+                    ->whereIn('payment_status', ['completed', 'free', 'paid']);
+
+                $capacity = (int) DB::table('event_tickets')->sum('quantity_total');
+                $sold = (int) DB::table('event_tickets')->sum('quantity_sold');
+
                 return [
-                    'upcoming_count' => Event::upcoming()->count(),
+                    'upcoming_count' => Event::upcoming()->where('status', 'published')->count(),
                     'total_events' => Event::count(),
-                    'tickets_sold_30d' => Event::where('created_at', '>=', now()->subDays(30))
-                        ->sum('tickets_sold'),
-                    'avg_attendance' => (int) Event::avg('attendee_count'),
+                    'tickets_sold_30d' => (int) $confirmed()
+                        ->where('created_at', '>=', now()->subDays(30))
+                        ->sum(DB::raw('COALESCE(quantity, 1)')),
+                    // Tickets sold as a share of tickets offered, across all events.
+                    'avg_sell_through' => $capacity > 0 ? (int) round($sold / $capacity * 100) : 0,
+                    'avg_attendance' => $capacity > 0 ? (int) round($sold / $capacity * 100) : 0,
                 ];
             });
 
@@ -149,6 +167,7 @@ class EventsApiController extends Controller
                 'virtual_link' => 'nullable|url',
                 'is_free' => 'nullable|boolean',
                 'ticketing_mode' => 'nullable|in:tesotunes_managed,hybrid,external_only,free_rsvp',
+                'fee_handling' => 'nullable|in:pass_to_buyer,absorb',
                 'currency' => 'nullable|string|max:10',
                 'attendee_limit' => 'nullable|integer|min:1',
                 'is_featured' => 'nullable|boolean',
@@ -160,13 +179,8 @@ class EventsApiController extends Controller
                 'category' => 'nullable|string',
             ]);
 
-            // Combine date+time if provided separately
-            if (! isset($validated['starts_at']) && isset($validated['start_date'])) {
-                $validated['starts_at'] = $validated['start_date'].' '.($validated['start_time'] ?? '00:00:00');
-            }
-            if (! isset($validated['ends_at']) && isset($validated['end_date'])) {
-                $validated['ends_at'] = $validated['end_date'].' '.($validated['end_time'] ?? '23:59:59');
-            }
+            // Local date/time → UTC, in the event's timezone.
+            EventScheduleInput::apply($validated);
 
             $this->storeEventImages($request, $validated);
 
@@ -178,59 +192,41 @@ class EventsApiController extends Controller
             $validated['organizer_type'] = 'user';
             $this->applyEventOwnership($validated);
             $validated['status'] = $validated['status'] ?? 'draft';
-            $validated['timezone'] = $validated['timezone'] ?? 'Africa/Nairobi';
+            $validated['timezone'] = $validated['timezone'] ?? EventScheduleInput::DEFAULT_TIMEZONE;
+            $validated['fee_handling'] = $validated['fee_handling'] ?? Event::FEE_HANDLING_PASS_TO_BUYER;
             $validated['ticketing_mode'] = $validated['ticketing_mode']
                 ?? (($validated['is_free'] ?? false) ? Event::TICKETING_MODE_FREE_RSVP : Event::TICKETING_MODE_TESOTUNES_MANAGED);
 
-            $event = Event::create($validated);
+            // One transaction: a tier that fails validation must not leave a
+            // half-created event behind.
+            $event = DB::transaction(function () use ($request, $validated) {
+                $event = Event::create($validated);
 
-            // Create event location if venue info provided (skip if table doesn't exist)
-            if ($request->filled('venue_name') || $request->filled('city')) {
-                try {
-                    if (\Schema::hasTable('event_locations')) {
-                        $location = EventLocation::create([
-                            'uuid' => Str::uuid(),
-                            'name' => $request->input('venue_name', $validated['title'].' Venue'),
-                            'address' => $request->input('venue_address', ''),
-                            'city' => $request->input('city', ''),
-                            'country' => $request->input('country', 'Uganda'),
-                            'capacity' => $validated['attendee_limit'] ?? null,
-                        ]);
-                        $event->update(['event_location_id' => $location->id]);
-                    }
-                } catch (\Exception $e) {
-                    // Skip if event_locations table doesn't exist
-                }
-            }
-
-            // Create ticket tiers if provided (skip if table doesn't exist)
-            $ticketTiers = $request->input('ticket_tiers');
-            if ($ticketTiers && \Schema::hasTable('event_tickets')) {
-                if (is_string($ticketTiers)) {
-                    $ticketTiers = json_decode($ticketTiers, true);
-                }
-                if (is_array($ticketTiers)) {
-                    foreach ($ticketTiers as $i => $tier) {
-                        EventTicket::create([
-                            'uuid' => Str::uuid(),
-                            'event_id' => $event->id,
-                            'name' => $tier['name'] ?? 'General',
-                            'description' => $tier['description'] ?? '',
-                            'price_ugx' => $tier['price'] ?? $tier['price_ugx'] ?? 0,
-                            'price_credits' => $tier['price_credits'] ?? 0,
-                            'is_free' => ($tier['price'] ?? $tier['price_ugx'] ?? 0) == 0,
-                            'quantity_total' => $tier['quantity'] ?? $tier['quantity_total'] ?? 100,
-                            'quantity_sold' => 0,
-                            'min_per_order' => $tier['min_per_order'] ?? 1,
-                            'max_per_order' => $tier['max_per_order'] ?? 10,
-                            'sale_starts_at' => $tier['sales_start_date'] ?? $tier['sale_starts_at'] ?? now(),
-                            'sale_ends_at' => $tier['sales_end_date'] ?? $tier['sale_ends_at'] ?? $event->starts_at,
-                            'is_active' => true,
-                            'sort_order' => $i,
-                        ]);
+                // Create event location if venue info provided (skip if table doesn't exist)
+                if ($request->filled('venue_name') || $request->filled('city')) {
+                    try {
+                        if (\Schema::hasTable('event_locations')) {
+                            $location = EventLocation::create([
+                                'uuid' => Str::uuid(),
+                                'name' => $request->input('venue_name', $validated['title'].' Venue'),
+                                'address' => $request->input('venue_address', ''),
+                                'city' => $request->input('city', ''),
+                                'country' => $request->input('country', 'Uganda'),
+                                'capacity' => $validated['attendee_limit'] ?? null,
+                            ]);
+                            $event->update(['event_location_id' => $location->id]);
+                        }
+                    } catch (\Exception $e) {
+                        // Skip if event_locations table doesn't exist
                     }
                 }
-            }
+
+                if ($request->filled('ticket_tiers')) {
+                    app(EventTicketTierSync::class)->sync($event, $request->input('ticket_tiers'), pruneMissing: false);
+                }
+
+                return $event;
+            });
 
             return response()->json([
                 'success' => true,
@@ -277,18 +273,13 @@ class EventsApiController extends Controller
                 'longitude' => 'nullable|numeric',
                 'is_free' => 'nullable|boolean',
                 'ticketing_mode' => 'nullable|in:tesotunes_managed,hybrid,external_only,free_rsvp',
+                'fee_handling' => 'nullable|in:pass_to_buyer,absorb',
                 'is_featured' => 'nullable|boolean',
                 'event_type' => 'nullable|string',
                 'currency' => 'nullable|string|max:10',
             ]);
 
-            // Combine date+time
-            if (! isset($validated['starts_at']) && isset($validated['start_date'])) {
-                $validated['starts_at'] = $validated['start_date'].' '.($validated['start_time'] ?? '00:00:00');
-            }
-            if (! isset($validated['ends_at']) && isset($validated['end_date'])) {
-                $validated['ends_at'] = $validated['end_date'].' '.($validated['end_time'] ?? '23:59:59');
-            }
+            EventScheduleInput::apply($validated, $event->timezone);
 
             $this->storeEventImages($request, $validated, $event);
 
@@ -310,89 +301,9 @@ class EventsApiController extends Controller
 
             $event->update($validated);
 
-            // Update ticket tiers if provided
-            $ticketTiers = $request->input('ticket_tiers');
-            if ($ticketTiers) {
-                if (is_string($ticketTiers)) {
-                    $ticketTiers = json_decode($ticketTiers, true);
-                }
-                if (is_array($ticketTiers)) {
-                    /*
-                     * Drop only the tiers this payload leaves out.
-                     *
-                     * This used to delete every unsold tier first and then run
-                     * the per-tier UPDATE below — against rows it had just
-                     * deleted, so those updates matched nothing and the tiers
-                     * were gone. Saving an event left it with no tiers to sell,
-                     * and any checkout already holding the old tier ids failed
-                     * with "One or more selected ticket tiers are not available
-                     * for this event". Tiers that have sold are still never
-                     * removed, so buyers keep their records.
-                     */
-                    /*
-                     * An id only counts if it names a tier this event really
-                     * has. The admin form labels unsaved rows `new-<timestamp>`,
-                     * and simply testing isset($tier['id']) sent those down the
-                     * UPDATE path, where MySQL cast the string to 0, matched
-                     * nothing, and created nothing — tiers an admin added never
-                     * appeared and no error was raised.
-                     */
-                    $existingIds = $event->tickets()->pluck('id')->all();
-                    $resolveId = static function (array $tier) use ($existingIds): ?int {
-                        $id = $tier['id'] ?? null;
-
-                        if (! is_numeric($id)) {
-                            return null;
-                        }
-
-                        return in_array((int) $id, $existingIds, true) ? (int) $id : null;
-                    };
-
-                    $keepIds = collect($ticketTiers)
-                        ->map($resolveId)
-                        ->filter()
-                        ->values()
-                        ->all();
-
-                    $event->tickets()
-                        ->where('quantity_sold', 0)
-                        ->when($keepIds !== [], fn ($query) => $query->whereNotIn('id', $keepIds))
-                        ->delete();
-
-                    foreach ($ticketTiers as $i => $tier) {
-                        if ($resolveId($tier) !== null) {
-                            // Update existing tier
-                            EventTicket::where('id', $resolveId($tier))->where('event_id', $event->id)->update([
-                                'name' => $tier['name'] ?? 'General',
-                                'description' => $tier['description'] ?? '',
-                                'price_ugx' => $tier['price'] ?? $tier['price_ugx'] ?? 0,
-                                'price_credits' => $tier['price_credits'] ?? 0,
-                                'quantity_total' => $tier['quantity'] ?? $tier['quantity_total'] ?? 100,
-                                'max_per_order' => $tier['max_per_order'] ?? 10,
-                                'sort_order' => $i,
-                            ]);
-                        } else {
-                            // Create new tier
-                            EventTicket::create([
-                                'uuid' => Str::uuid(),
-                                'event_id' => $event->id,
-                                'name' => $tier['name'] ?? 'General',
-                                'description' => $tier['description'] ?? '',
-                                'price_ugx' => $tier['price'] ?? $tier['price_ugx'] ?? 0,
-                                'price_credits' => $tier['price_credits'] ?? 0,
-                                'is_free' => ($tier['price'] ?? $tier['price_ugx'] ?? 0) == 0,
-                                'quantity_total' => $tier['quantity'] ?? $tier['quantity_total'] ?? 100,
-                                'quantity_sold' => 0,
-                                'min_per_order' => $tier['min_per_order'] ?? 1,
-                                'max_per_order' => $tier['max_per_order'] ?? 10,
-                                'sale_starts_at' => $tier['sales_start_date'] ?? $tier['sale_starts_at'] ?? now(),
-                                'sale_ends_at' => $tier['sales_end_date'] ?? $tier['sale_ends_at'] ?? $event->starts_at,
-                                'is_active' => true,
-                                'sort_order' => $i,
-                            ]);
-                        }
-                    }
-                }
+            // Tiers: one shared writer — see EventTicketTierSync.
+            if ($request->filled('ticket_tiers')) {
+                app(EventTicketTierSync::class)->sync($event->fresh(), $request->input('ticket_tiers'));
             }
 
             return response()->json([
@@ -617,6 +528,7 @@ class EventsApiController extends Controller
             $validated = $request->validate([
                 'organizer_user_id' => 'nullable|integer|exists:users,id',
                 'ticketing_mode' => 'nullable|in:tesotunes_managed,hybrid,external_only,free_rsvp',
+                'fee_handling' => 'nullable|in:pass_to_buyer,absorb',
                 'currency' => 'nullable|string|max:10',
                 'ticket_tiers' => 'required|array|min:1',
                 'ticket_tiers.*.name' => 'nullable|string|max:150',
@@ -637,6 +549,7 @@ class EventsApiController extends Controller
                     ticketingMode: $validated['ticketing_mode'] ?? 'tesotunes_managed',
                     currency: $validated['currency'] ?? 'UGX',
                     tiers: $validated['ticket_tiers'],
+                    feeHandling: $validated['fee_handling'] ?? Event::FEE_HANDLING_PASS_TO_BUYER,
                 ),
             ]);
         }, 'Failed to simulate event commission.');

@@ -18,6 +18,15 @@ class EventTicketTierResource extends JsonResource
             'description' => $this->description,
             'price' => (float) ($this->price_ugx ?? 0),
             'price_ugx' => (float) ($this->price_ugx ?? 0),
+            /*
+             * What one ticket costs the buyer at checkout, fees included, from
+             * the same calculator checkout uses — so the event page can show
+             * the real price up front instead of revealing fees at payment.
+             */
+            'buyer_price_ugx' => $this->buyerPriceUgx(),
+            'fees_included_in_price' => $this->relationLoaded('event') && $this->event
+                ? $this->event->feeHandling() === \App\Models\Event::FEE_HANDLING_ABSORB
+                : null,
             'price_credits' => (float) ($this->price_credits ?? 0),
             'is_free' => (bool) $this->is_free,
             'quantity' => $this->quantity_total,
@@ -40,5 +49,22 @@ class EventTicketTierResource extends JsonResource
             'availability_status' => $this->availability_status,
             'availability_message' => $this->availability_message,
         ];
+    }
+
+    private function buyerPriceUgx(): ?float
+    {
+        if (! $this->relationLoaded('event') || ! $this->event || (float) ($this->price_ugx ?? 0) <= 0) {
+            return (float) ($this->price_ugx ?? 0);
+        }
+
+        try {
+            // Rates depend on the organiser; loaded once on the shared event.
+            $this->event->loadMissing(['organizer.artist', 'user.artist']);
+            $quote = app(\App\Services\Events\EventFeeCalculatorService::class)->calculateForTicket($this->resource, 1);
+
+            return (float) $quote['total_amount'];
+        } catch (\Throwable) {
+            return null;
+        }
     }
 }

@@ -51,11 +51,11 @@ class EventFeeCalculatorService
         $discountedBaseAmount = round(max(0, $baseAmount - $discountAmount), 2);
 
         $feeConfig = $this->resolveFeeConfiguration($event?->organizer ?? $event?->user);
+        $feeHandling = $event?->feeHandling() ?? Event::FEE_HANDLING_PASS_TO_BUYER;
         $platformCommissionAmount = round($discountedBaseAmount * ($feeConfig['platform_commission_percent'] / 100), 2);
         $processingFeeAmount = round($discountedBaseAmount * ($feeConfig['processing_fee_percent'] / 100), 2);
         $totalFeeAmount = round($platformCommissionAmount + $processingFeeAmount, 2);
-        $totalAmount = round($discountedBaseAmount + $totalFeeAmount, 2);
-        $organizerNetAmount = round(max(0, $discountedBaseAmount - $platformCommissionAmount - $processingFeeAmount), 2);
+        [$totalAmount, $organizerNetAmount] = $this->splitFees($discountedBaseAmount, $totalFeeAmount, $feeHandling);
 
         return [
             'quantity' => $quantity,
@@ -73,6 +73,7 @@ class EventFeeCalculatorService
             'total_fee_amount' => $totalFeeAmount,
             'total_amount' => $totalAmount,
             'organizer_net_amount' => $organizerNetAmount,
+            'fee_handling' => $feeHandling,
             'fee_source' => $feeConfig['fee_source'],
             'organizer_plan' => $feeConfig['organizer_plan'],
             'discount_code' => $discountCode ? [
@@ -83,6 +84,24 @@ class EventFeeCalculatorService
                 'discount_value' => (float) $discountCode->discount_value,
             ] : null,
         ];
+    }
+
+    /**
+     * Charge the fee to exactly one side.
+     *
+     * Checkout used to add fees to the buyer's total while the settlement also
+     * deducted them from the organiser, so Tesotunes took them twice — 25.8% of
+     * a ticket at default rates, 45.8% on a 20%-commission organiser.
+     *
+     * @return array{0: float, 1: float} [buyer total, organiser net]
+     */
+    private function splitFees(float $ticketAmount, float $feeAmount, string $feeHandling): array
+    {
+        if ($feeHandling === Event::FEE_HANDLING_ABSORB) {
+            return [round($ticketAmount, 2), round(max(0, $ticketAmount - $feeAmount), 2)];
+        }
+
+        return [round($ticketAmount + $feeAmount, 2), round($ticketAmount, 2)];
     }
 
     public function calculateForSelections(Collection $tickets, array $selections, ?EventDiscountCode $discountCode = null): array
@@ -154,8 +173,11 @@ class EventFeeCalculatorService
             $linePlatformCommissionAmount = round($lineDiscountedBaseAmount * (((float) $lineQuote['platform_commission_percent']) / 100), 2);
             $lineProcessingFeeAmount = round($lineDiscountedBaseAmount * (((float) $lineQuote['processing_fee_percent']) / 100), 2);
             $lineTotalFeeAmount = round($linePlatformCommissionAmount + $lineProcessingFeeAmount, 2);
-            $lineTotalAmount = round($lineDiscountedBaseAmount + $lineTotalFeeAmount, 2);
-            $lineOrganizerNetAmount = round(max(0, $lineDiscountedBaseAmount - $linePlatformCommissionAmount - $lineProcessingFeeAmount), 2);
+            [$lineTotalAmount, $lineOrganizerNetAmount] = $this->splitFees(
+                $lineDiscountedBaseAmount,
+                $lineTotalFeeAmount,
+                (string) $lineQuote['fee_handling'],
+            );
 
             $lineItems[] = [
                 ...$lineQuote,
@@ -203,6 +225,7 @@ class EventFeeCalculatorService
             'total_fee_amount' => round($totalFeeAmount, 2),
             'total_amount' => round($totalAmount, 2),
             'organizer_net_amount' => round($organizerNetAmount, 2),
+            'fee_handling' => $preliminaryLines[0]['fee_handling'] ?? Event::FEE_HANDLING_PASS_TO_BUYER,
             'fee_source' => $feeSource ?? 'event_settings',
             'organizer_plan' => $organizerPlan,
             'discount_code' => $discountCode ? [
@@ -231,7 +254,9 @@ class EventFeeCalculatorService
         string $ticketingMode,
         string $currency,
         array $tiers,
+        string $feeHandling = Event::FEE_HANDLING_PASS_TO_BUYER,
     ): array {
+        $feeHandling = in_array($feeHandling, Event::FEE_HANDLING_OPTIONS, true) ? $feeHandling : Event::FEE_HANDLING_PASS_TO_BUYER;
         $feeConfig = $this->resolveFeeConfiguration($organizer);
         $commissionPercent = $feeConfig['platform_commission_percent'];
         $processingPercent = $feeConfig['processing_fee_percent'];
@@ -252,13 +277,15 @@ class EventFeeCalculatorService
             // organiser keeps the gate takings and we report no fee.
             $commission = $checkoutEnabled ? round($gross * ($commissionPercent / 100), 2) : 0.0;
             $processing = $checkoutEnabled ? round($gross * ($processingPercent / 100), 2) : 0.0;
+            [$buyerTotal, $organizerNet] = $this->splitFees($gross, $commission + $processing, $feeHandling);
 
             $items[] = [
                 'name' => trim((string) ($tier['name'] ?? '')) ?: 'Tier '.($index + 1),
                 'quantity' => $quantity,
                 'gross_revenue' => $gross,
                 'tesotunes_fee_revenue' => round($commission + $processing, 2),
-                'organizer_net_amount' => round($gross - $commission - $processing, 2),
+                'customer_paid_total' => $buyerTotal,
+                'organizer_net_amount' => $organizerNet,
                 'platform_commission_amount' => $commission,
                 'processing_fee_amount' => $processing,
             ];
@@ -275,13 +302,12 @@ class EventFeeCalculatorService
         $totals = [
             'ticket_count' => $ticketCount,
             'gross_revenue' => $grossRevenue,
-            // Fees are added on top of the ticket price, matching
-            // calculateForEvent()'s total_amount.
-            'customer_paid_total' => round($grossRevenue + $feeRevenue, 2),
+            // One side pays the fees, per fee_handling — see splitFees().
+            'customer_paid_total' => $sum('customer_paid_total'),
             'tesotunes_fee_revenue' => $feeRevenue,
             'platform_commission_amount' => $commissionAmount,
             'processing_fee_amount' => $processingAmount,
-            'organizer_net_amount' => round($grossRevenue - $feeRevenue, 2),
+            'organizer_net_amount' => $sum('organizer_net_amount'),
         ];
 
         $scenarios = [];
@@ -321,7 +347,10 @@ class EventFeeCalculatorService
             'totals' => $totals,
             'items' => $items,
             'scenarios' => $scenarios,
-            'upgrade_nudges' => $checkoutEnabled
+            'fee_handling' => $feeHandling,
+            // Package savings only reach the organiser when they absorb fees;
+            // when buyers pay them, a cheaper plan saves the buyer, not them.
+            'upgrade_nudges' => $checkoutEnabled && $feeHandling === Event::FEE_HANDLING_ABSORB
                 ? $this->upgradeNudges($organizer, $grossRevenue, $feeRevenue, $currency)
                 : [],
             'notes' => $notes,

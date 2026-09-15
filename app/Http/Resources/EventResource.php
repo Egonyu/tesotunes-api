@@ -71,8 +71,21 @@ class EventResource extends JsonResource
             'ticket_price' => $this->ticket_price,
             'currency' => $this->currency ?? 'UGX',
             'attendee_limit' => $this->attendee_limit,
-            'tickets_sold' => (int) ($this->tickets_sold ?? 0),
+            // Summed from the tiers when loaded: events.tickets_sold is a
+            // counter no purchase path updates, so it read 0 with tickets sold.
+            'tickets_sold' => $this->relationLoaded('tickets')
+                ? (int) $this->tickets->sum('quantity_sold')
+                : (int) ($this->tickets_sold ?? 0),
+            'tickets_capacity' => $this->when(
+                $this->relationLoaded('tickets'),
+                fn () => (int) $this->tickets->sum('quantity_total'),
+            ),
+            'fee_handling' => $this->resource->feeHandling(),
             'ticket_tiers' => $this->when($this->relationLoaded('tickets'), function () {
+                // Tiers price themselves against this event; share the loaded
+                // model rather than re-querying it per tier.
+                $this->tickets->each(fn ($ticket) => $ticket->setRelation('event', $this->resource));
+
                 return EventTicketTierResource::collection($this->tickets);
             }),
             'discount_codes' => $this->when($this->relationLoaded('discountCodes'), function () {

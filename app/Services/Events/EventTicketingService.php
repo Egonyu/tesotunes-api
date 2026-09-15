@@ -64,7 +64,9 @@ class EventTicketingService
                 $quantity = $selection['quantity'];
 
                 if (! $ticket->isOnSale()) {
-                    $this->failPurchase("{$ticket->name} is not currently available");
+                    // Say why ("Sales ended 14 Sep, 7:00 PM"), not just "not available" —
+                    // an organiser who moved the date could not tell what was wrong.
+                    $this->failPurchase("{$ticket->name}: {$ticket->availability_message}");
                 }
 
                 if (! $ticket->isValidOrderQuantity($quantity)) {
@@ -284,9 +286,12 @@ class EventTicketingService
 
     /**
      * Record the event owner's proceeds in the unified settlement ledger.
-     * Gross = discounted ticket base, fee = platform commission + processing
-     * (so net equals the fee calculator's organizer_net_amount). Funds are
-     * held until the event ends. Idempotent via the ledger's source key.
+     *
+     * Gross = discounted ticket price; net = the fee calculator's
+     * organizer_net_amount, so the fee is only deducted when the organiser
+     * chose to absorb it. This always deducted total_fee_amount — including
+     * the fees the buyer had just paid on top — charging them twice.
+     * Funds are held until the event ends. Idempotent via the ledger's source key.
      */
     private function recordOrganizerSettlement(Payment $payment, Event $event, array $feeBreakdown, string $paymentMethod): void
     {
@@ -308,7 +313,11 @@ class EventTicketingService
             ]
             : [
                 'gross_ugx' => (float) ($feeBreakdown['discounted_base_amount'] ?? 0),
-                'fee_ugx' => (float) ($feeBreakdown['total_fee_amount'] ?? 0),
+                'fee_ugx' => max(0, round(
+                    (float) ($feeBreakdown['discounted_base_amount'] ?? 0)
+                    - (float) ($feeBreakdown['organizer_net_amount'] ?? 0),
+                    2,
+                )),
             ];
 
         app(SettlementService::class)->record(

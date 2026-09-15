@@ -469,6 +469,10 @@ return new class extends Migration
             $table->boolean('is_free')->default(true);
             $table->decimal('ticket_price', 12, 2)->nullable();
             $table->string('currency', 10)->default('UGX');
+            // Who pays Tesotunes' ticket fees: pass_to_buyer (added on top of
+            // the ticket price) or absorb (included in it, deducted from the
+            // organiser's payout). Fees are charged to exactly one side.
+            $table->string('fee_handling', 20)->default('pass_to_buyer');
             $table->boolean('is_featured')->default(false);
             $table->string('required_loyalty_tier')->nullable();
             $table->unsignedBigInteger('loyalty_card_id')->nullable();

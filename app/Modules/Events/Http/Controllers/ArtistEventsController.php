@@ -16,7 +16,9 @@ use App\Models\EventTicketChannelAllocation;
 use App\Models\User;
 use App\Services\Events\EventPayoutLedgerService;
 use App\Services\Events\EventRevenueAnalyticsService;
+use App\Services\Events\EventScheduleInput;
 use App\Services\Events\EventTicketCaseService;
+use App\Services\Events\EventTicketTierSync;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Hash;
@@ -83,6 +85,7 @@ class ArtistEventsController extends Controller
             'online_url' => 'nullable|string',
             'is_free' => 'nullable|boolean',
             'ticketing_mode' => 'nullable|in:tesotunes_managed,hybrid,external_only,free_rsvp',
+            'fee_handling' => 'nullable|in:pass_to_buyer,absorb',
             'attendee_limit' => 'nullable|integer|min:1',
             'max_capacity' => 'nullable|integer|min:1',
             'min_age' => 'nullable|integer',
@@ -104,13 +107,8 @@ class ArtistEventsController extends Controller
         $validated['social_links'] = $this->normalizeJsonObject($request->input('social_links', $validated['social_links'] ?? null));
         $validated['marketing_settings'] = $this->normalizeMarketingSettings($request->input('marketing_settings', $validated['marketing_settings'] ?? null));
 
-        // Combine date+time if provided separately
-        if (! isset($validated['starts_at']) && isset($validated['start_date'])) {
-            $validated['starts_at'] = $validated['start_date'].' '.($validated['start_time'] ?? '00:00:00');
-        }
-        if (! isset($validated['ends_at']) && isset($validated['end_date'])) {
-            $validated['ends_at'] = $validated['end_date'].' '.($validated['end_time'] ?? '23:59:59');
-        }
+        // Local date/time the organiser typed → UTC, in the event's timezone.
+        EventScheduleInput::apply($validated);
 
         // Map frontend field names to DB fields
         if (isset($validated['is_online'])) {
@@ -162,40 +160,63 @@ class ArtistEventsController extends Controller
         $validated['artist_id'] = $user->artist?->id;
         $validated['organizer_type'] = 'user';
         $validated['status'] = $validated['status'] ?? 'draft';
-        $validated['timezone'] = $validated['timezone'] ?? 'Africa/Kampala';
+        $validated['timezone'] = $validated['timezone'] ?? EventScheduleInput::DEFAULT_TIMEZONE;
+        $validated['fee_handling'] = $validated['fee_handling'] ?? Event::FEE_HANDLING_PASS_TO_BUYER;
         $validated['ticketing_mode'] = $validated['ticketing_mode']
             ?? (($validated['is_free'] ?? false) ? Event::TICKETING_MODE_FREE_RSVP : Event::TICKETING_MODE_TESOTUNES_MANAGED);
         if ($locationId) {
             $validated['event_location_id'] = $locationId;
         }
 
-        $event = Event::create($validated);
+        // One transaction: a tier that fails validation must not leave a
+        // half-created event behind.
+        $event = \DB::transaction(function () use ($validated, $ticketTiers) {
+            $event = Event::create($validated);
 
-        // Create ticket tiers if provided
-        if ($ticketTiers && is_array($ticketTiers)) {
-            foreach ($ticketTiers as $i => $tier) {
-                EventTicket::create([
-                    'uuid' => (string) Str::uuid(),
-                    'event_id' => $event->id,
-                    'name' => $tier['name'] ?? 'General',
-                    'description' => $tier['description'] ?? null,
-                    'price_ugx' => $tier['price'] ?? 0,
-                    'price_credits' => $tier['price_credits'] ?? 0,
-                    'is_free' => ($tier['price'] ?? 0) == 0,
-                    'quantity_total' => $tier['quantity'] ?? null,
-                    'max_per_order' => $tier['max_per_order'] ?? 10,
-                    'sale_starts_at' => isset($tier['sale_starts_at']) ? $tier['sale_starts_at'] : null,
-                    'sale_ends_at' => isset($tier['sale_ends_at']) ? $tier['sale_ends_at'] : null,
-                    'is_active' => true,
-                    'sort_order' => $i,
-                ]);
+            if ($ticketTiers !== null) {
+                app(EventTicketTierSync::class)->sync($event, $ticketTiers, pruneMissing: false);
             }
-        }
+
+            return $event;
+        });
 
         return response()->json([
             'message' => 'Event created successfully',
             'data' => new EventResource($event->load(['organizer', 'location', 'tickets', 'staffMembers.user', 'discountCodes'])),
         ], 201);
+    }
+
+    /**
+     * POST /api/artist/events/commission-simulation
+     *
+     * The organiser's own rates, before the event exists. The artist form had
+     * no endpoint to call, so its estimate showed fees as 0 and payout as the
+     * full gross — not what organisers who absorb fees would receive.
+     */
+    public function commissionSimulation(Request $request)
+    {
+        $validated = $request->validate([
+            'ticketing_mode' => 'nullable|in:tesotunes_managed,hybrid,external_only,free_rsvp',
+            'fee_handling' => 'nullable|in:pass_to_buyer,absorb',
+            'currency' => 'nullable|string|max:10',
+            'ticket_tiers' => 'required|array|min:1|max:50',
+            'ticket_tiers.*.name' => 'nullable|string|max:150',
+            'ticket_tiers.*.price' => 'nullable|numeric|min:0',
+            'ticket_tiers.*.price_ugx' => 'nullable|numeric|min:0',
+            'ticket_tiers.*.price_credits' => 'nullable|numeric|min:0',
+            'ticket_tiers.*.quantity' => 'nullable|integer|min:0',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => app(\App\Services\Events\EventFeeCalculatorService::class)->simulate(
+                organizer: $request->user(),
+                ticketingMode: $validated['ticketing_mode'] ?? Event::TICKETING_MODE_TESOTUNES_MANAGED,
+                currency: $validated['currency'] ?? 'UGX',
+                tiers: $validated['ticket_tiers'],
+                feeHandling: $validated['fee_handling'] ?? Event::FEE_HANDLING_PASS_TO_BUYER,
+            ),
+        ]);
     }
 
     /**
@@ -243,6 +264,8 @@ class ArtistEventsController extends Controller
             'is_free' => 'nullable|boolean',
             'attendee_limit' => 'nullable|integer|min:1',
             'ticketing_mode' => 'nullable|in:tesotunes_managed,hybrid,external_only,free_rsvp',
+            'fee_handling' => 'nullable|in:pass_to_buyer,absorb',
+            'ticket_tiers' => 'nullable',
             'registration_deadline' => 'nullable|date',
             'refund_policy' => 'nullable|string|max:2000',
             'cancellation_policy' => 'nullable|string|max:2000',
@@ -268,12 +291,7 @@ class ArtistEventsController extends Controller
             $validated['marketing_settings'] = $this->normalizeMarketingSettings($request->input('marketing_settings'));
         }
 
-        if (! isset($validated['starts_at']) && isset($validated['start_date'])) {
-            $validated['starts_at'] = $validated['start_date'].' '.($validated['start_time'] ?? '00:00:00');
-        }
-        if (! isset($validated['ends_at']) && isset($validated['end_date'])) {
-            $validated['ends_at'] = $validated['end_date'].' '.($validated['end_time'] ?? '23:59:59');
-        }
+        EventScheduleInput::apply($validated, $event->timezone);
 
         if ($request->hasFile('cover_image')) {
             if ($event->artwork) {
@@ -282,7 +300,8 @@ class ArtistEventsController extends Controller
             $validated['artwork'] = StorageHelper::store($request->file('cover_image'), 'events/covers');
         }
 
-        unset($validated['start_date'], $validated['start_time'], $validated['end_date'], $validated['end_time'], $validated['cover_image']);
+        $ticketTiers = $validated['ticket_tiers'] ?? null;
+        unset($validated['cover_image'], $validated['ticket_tiers']);
 
         if (! array_key_exists('ticketing_mode', $validated) && array_key_exists('is_free', $validated)) {
             $validated['ticketing_mode'] = $validated['is_free']
@@ -292,9 +311,14 @@ class ArtistEventsController extends Controller
 
         $event->update($validated);
 
+        // Tier edits on the artist edit page used to be discarded here.
+        if ($ticketTiers !== null) {
+            app(EventTicketTierSync::class)->sync($event->fresh(), $ticketTiers);
+        }
+
         return response()->json([
             'message' => 'Event updated successfully',
-            'data' => new EventResource($event->fresh()->load(['organizer', 'location', 'staffMembers.user', 'discountCodes'])),
+            'data' => new EventResource($event->fresh()->load(['organizer', 'location', 'tickets', 'staffMembers.user', 'discountCodes'])),
         ]);
     }
 

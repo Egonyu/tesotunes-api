@@ -24,6 +24,21 @@ class Event extends Model
 
     public const TICKETING_MODE_FREE_RSVP = 'free_rsvp';
 
+    /** Fees are added on top of the ticket price; the organiser keeps the full price. */
+    public const FEE_HANDLING_PASS_TO_BUYER = 'pass_to_buyer';
+
+    /** Fees are included in the ticket price and deducted from the organiser's payout. */
+    public const FEE_HANDLING_ABSORB = 'absorb';
+
+    public const FEE_HANDLING_OPTIONS = [self::FEE_HANDLING_PASS_TO_BUYER, self::FEE_HANDLING_ABSORB];
+
+    public function feeHandling(): string
+    {
+        return in_array($this->fee_handling, self::FEE_HANDLING_OPTIONS, true)
+            ? $this->fee_handling
+            : self::FEE_HANDLING_PASS_TO_BUYER;
+    }
+
     protected $fillable = [
         'uuid',
         'organizer_id',
@@ -68,6 +83,7 @@ class Event extends Model
         'attendee_count',
         'is_free',
         'ticketing_mode',
+        'fee_handling',
         'ticket_price',
         'currency',
         'cover_image',
@@ -134,6 +150,32 @@ class Event extends Model
 
         static::saving(function ($model) {
             $model->normalizeOrganizerIdentity();
+        });
+
+        /*
+         * Moving an event carries its tiers' automatic sale windows with it.
+         *
+         * A tier's sale end defaults to the event start. Rescheduling the event
+         * left that end at the old date, so every tier went "off sale" and
+         * checkout refused tickets for an event that hadn't happened yet.
+         * Only windows that were still pinned to the old start move; a sale end
+         * the organiser set deliberately is left alone.
+         */
+        static::updated(function (Event $model) {
+            if (! $model->wasChanged('starts_at') || ! $model->starts_at) {
+                return;
+            }
+
+            $previousStart = $model->getOriginal('starts_at');
+            if (! $previousStart) {
+                return;
+            }
+
+            $previousStart = \Illuminate\Support\Carbon::parse($previousStart);
+
+            $model->tickets()
+                ->whereBetween('sale_ends_at', [$previousStart->copy()->subMinute(), $previousStart->copy()->addMinute()])
+                ->update(['sale_ends_at' => $model->starts_at]);
         });
     }
 

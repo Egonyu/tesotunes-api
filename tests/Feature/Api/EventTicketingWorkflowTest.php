@@ -59,7 +59,9 @@ class EventTicketingWorkflowTest extends TestCase
             ->assertJsonPath('data.processing_fee_amount', 580)
             ->assertJsonPath('data.total_fee_amount', 2580)
             ->assertJsonPath('data.total_amount', 22580)
-            ->assertJsonPath('data.organizer_net_amount', 17420)
+            // Fees are on top for the buyer, so the organiser keeps the full price.
+            ->assertJsonPath('data.organizer_net_amount', 20000)
+            ->assertJsonPath('data.fee_handling', 'pass_to_buyer')
             ->assertJsonPath('data.fee_source', 'event_settings');
     }
 
@@ -111,7 +113,7 @@ class EventTicketingWorkflowTest extends TestCase
             ->assertJsonPath('data.processing_fee_percent', 1.5)
             ->assertJsonPath('data.total_fee_amount', 2250)
             ->assertJsonPath('data.total_amount', 52250)
-            ->assertJsonPath('data.organizer_net_amount', 47750)
+            ->assertJsonPath('data.organizer_net_amount', 50000)
             ->assertJsonPath('data.fee_source', 'subscription_plan_metadata')
             ->assertJsonPath('data.organizer_plan.id', $plan->id);
     }

@@ -86,7 +86,12 @@ class AdminEventCommissionSimulationTest extends TestCase
         $response->assertJsonPath('data.totals.ticket_count', 450);
     }
 
-    public function test_the_organizer_net_is_gross_minus_the_platform_take(): void
+    /**
+     * Fees are charged to one side only. This test used to assert the buyer
+     * paid gross + fee while the organiser netted gross - fee — the double
+     * charge that took 25.8% of real tickets.
+     */
+    public function test_fees_passed_to_the_buyer_leave_the_organiser_the_full_price(): void
     {
         $data = $this->actingAs($this->admin())
             ->postJson('/api/admin/events/commission-simulation', [
@@ -98,14 +103,35 @@ class AdminEventCommissionSimulationTest extends TestCase
         $gross = $data['totals']['gross_revenue'];
         $fee = $data['totals']['tesotunes_fee_revenue'];
 
+        $this->assertSame('pass_to_buyer', $data['fee_handling']);
         $this->assertSame(1000000.0, (float) $gross);
-        $this->assertEqualsWithDelta($gross - $fee, $data['totals']['organizer_net_amount'], 0.01);
+        $this->assertGreaterThan(0, $fee);
+        $this->assertEqualsWithDelta($gross, $data['totals']['organizer_net_amount'], 0.01);
         $this->assertEqualsWithDelta($gross + $fee, $data['totals']['customer_paid_total'], 0.01);
+        $this->assertSame([], $data['upgrade_nudges'], 'Plan savings would go to buyers, not the organiser.');
         $this->assertEqualsWithDelta(
             $data['totals']['platform_commission_amount'] + $data['totals']['processing_fee_amount'],
             $fee,
             0.01
         );
+    }
+
+    public function test_fees_absorbed_by_the_organiser_leave_the_buyer_the_listed_price(): void
+    {
+        $data = $this->actingAs($this->admin())
+            ->postJson('/api/admin/events/commission-simulation', [
+                'fee_handling' => 'absorb',
+                'ticket_tiers' => [['name' => 'Ordinary', 'price' => 10000, 'quantity' => 100]],
+            ])
+            ->assertSuccessful()
+            ->json('data');
+
+        $gross = $data['totals']['gross_revenue'];
+        $fee = $data['totals']['tesotunes_fee_revenue'];
+
+        $this->assertSame('absorb', $data['fee_handling']);
+        $this->assertEqualsWithDelta($gross, $data['totals']['customer_paid_total'], 0.01);
+        $this->assertEqualsWithDelta($gross - $fee, $data['totals']['organizer_net_amount'], 0.01);
     }
 
     public function test_an_externally_ticketed_event_is_charged_nothing(): void

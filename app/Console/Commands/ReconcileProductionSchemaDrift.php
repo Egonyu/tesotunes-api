@@ -876,6 +876,26 @@ class ReconcileProductionSchemaDrift extends Command
     }
 
     /**
+     * events.fee_handling — who pays ticket fees.
+     *
+     * Declared in the music catalog base migration. Existing events default to
+     * pass_to_buyer, which is what their buyers were actually charged.
+     *
+     * Must match 0001_01_01_000002_create_music_catalog_tables.php exactly.
+     */
+    private function reconcileEventFeeHandling(): void
+    {
+        if (! Schema::hasTable('events') || Schema::hasColumn('events', 'fee_handling')) {
+            return;
+        }
+
+        Schema::table('events', function (Blueprint $table) {
+            $table->string('fee_handling', 20)->default('pass_to_buyer')->after('currency');
+        });
+        $this->line('    added `events.fee_handling`');
+    }
+
+    /**
      * Drop the Ojokotau crowdfunding tables.
      *
      * The module was removed: the frontend called endpoints that never
@@ -950,6 +970,7 @@ class ReconcileProductionSchemaDrift extends Command
         $this->reconcileOrderIdempotencyKey();
         $this->reconcileReferralProgramTables();
         $this->reconcileCreditGoalTables();
+        $this->reconcileEventFeeHandling();
         $this->dropRetiredCrowdfundingTables();
         $this->renameOpportunitiesToRequests();
         $this->dropRetiredEventPromotionRequests();
