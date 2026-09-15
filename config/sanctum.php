@@ -46,7 +46,19 @@ return [
     |
     */
 
-    'expiration' => env('SANCTUM_TOKEN_EXPIRATION', 1440), // 24 hours — SEC-CRIT-4 fix
+    /*
+     * 14 days per token, sliding in practice: the web client rotates its token
+     * through POST /auth/refresh every 12 hours of use, so a session only dies
+     * after ~14 days away. It was 24 hours (SEC-CRIT-4), which signed out
+     * anyone who skipped a day. Must never be null.
+     */
+    'expiration' => env('SANCTUM_TOKEN_EXPIRATION', 20160),
+
+    /*
+     * How long a token replaced by /auth/refresh keeps working, so requests
+     * already in flight with it don't fail mid-rotation.
+     */
+    'refresh_grace_seconds' => env('SANCTUM_REFRESH_GRACE_SECONDS', 60),
 
     /*
     |--------------------------------------------------------------------------

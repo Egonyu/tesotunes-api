@@ -668,11 +668,21 @@ class AuthController extends Controller
 
     /**
      * POST /api/auth/refresh
+     *
+     * Rotates the token. The old one expires after a short grace period rather
+     * than at once, so requests already sent with it don't 401 mid-rotation.
      */
     public function refresh(Request $request): JsonResponse
     {
         $user = $request->user();
-        $request->user()->currentAccessToken()->delete();
+        $currentToken = $user->currentAccessToken();
+
+        if ($currentToken instanceof \Laravel\Sanctum\PersonalAccessToken) {
+            $currentToken->forceFill([
+                'expires_at' => now()->addSeconds((int) config('sanctum.refresh_grace_seconds', 60)),
+            ])->save();
+        }
+
         $token = $user->createToken('auth_token')->plainTextToken;
 
         SecurityEventRecorder::emit(
