@@ -256,4 +256,47 @@ class ReferralProgramTest extends TestCase
             $this->getJson("/api/referrals/{$endpoint}")->assertUnauthorized();
         }
     }
+
+    /**
+     * The This Week / This Month tabs sent a period the API ignored, so every
+     * tab showed all-time counts under a weekly label.
+     */
+    public function test_the_leaderboard_counts_only_referrals_inside_the_period(): void
+    {
+        $veteran = User::factory()->create(['referral_code' => 'OLD'.uniqid()]);
+        User::factory()->count(3)->create(['referrer_id' => $veteran->id, 'created_at' => now()->subMonths(3)]);
+
+        $recent = User::factory()->create(['referral_code' => 'NEW'.uniqid()]);
+        User::factory()->count(1)->create(['referrer_id' => $recent->id, 'created_at' => now()]);
+
+        $allTime = collect($this->actingAs($recent)->getJson('/api/referrals/leaderboard')->json('data.leaderboard'));
+        $this->assertSame($veteran->id, $allTime->first()['user_id']);
+
+        $weekly = $this->actingAs($recent)->getJson('/api/referrals/leaderboard?period=weekly')->assertOk();
+        $board = collect($weekly->json('data.leaderboard'));
+
+        $this->assertSame('weekly', $weekly->json('data.period'));
+        $this->assertSame([$recent->id], $board->pluck('user_id')->all());
+        $this->assertSame(1, $weekly->json('data.user_position.rank'));
+    }
+
+    public function test_an_unknown_leaderboard_period_is_rejected(): void
+    {
+        $this->actingAs($this->referrerWith(0))
+            ->getJson('/api/referrals/leaderboard?period=forever')
+            ->assertUnprocessable();
+    }
+
+    /** The join page promised a fixed "50 credits"; it now reads the live rate. */
+    public function test_code_check_reports_the_live_welcome_rate_only_for_a_real_code(): void
+    {
+        User::factory()->create(['referral_code' => 'LIVE123']);
+        CreditRate::updateOrCreate(
+            ['activity_type' => CreditRate::REFERRAL_WELCOME],
+            ['credits_per_action' => 75, 'is_active' => true, 'starts_at' => null, 'ends_at' => null],
+        );
+
+        $this->getJson('/api/referrals/validate/LIVE123')->assertJsonPath('data.joiner_credits', 75);
+        $this->getJson('/api/referrals/validate/NOPE000')->assertJsonPath('data.joiner_credits', 0);
+    }
 }

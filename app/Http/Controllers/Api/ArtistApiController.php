@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Helpers\FrontendUrl;
 use App\Helpers\StorageHelper;
 use App\Http\Controllers\Controller;
 use App\Models\Album;
@@ -1992,129 +1991,6 @@ class ArtistApiController extends Controller
                 ],
             ],
         ]);
-    }
-
-    // ========================================================================
-    // Referrals
-    // ========================================================================
-
-    /**
-     * GET /api/artist/referrals/dashboard
-     */
-    public function referralsDashboard(Request $request): JsonResponse
-    {
-        $result = $this->requireArtist($request);
-        if ($result instanceof JsonResponse) {
-            return $result;
-        }
-        $artist = $result;
-
-        return response()->json([
-            'data' => [
-                'stats' => [
-                    'total_referrals' => 0,
-                    'active_fans' => 0,
-                    'total_commission' => 0,
-                    'pending_commission' => 0,
-                    'conversion_rate' => 0,
-                    'this_month_referrals' => 0,
-                    'monthly_change' => 0,
-                ],
-                'link' => [
-                    'referral_code' => $artist->slug,
-                    'referral_link' => FrontendUrl::to("/join/{$artist->slug}"),
-                    'branded_link' => FrontendUrl::to("/join/{$artist->slug}"),
-                    'qr_code_url' => null,
-                ],
-                'recent_signups' => [],
-                'top_fans' => [],
-                'earnings_chart' => [],
-            ],
-        ]);
-    }
-
-    /**
-     * GET /api/artist/referrals/link
-     */
-    public function referralLink(Request $request): JsonResponse
-    {
-        $result = $this->requireArtist($request);
-        if ($result instanceof JsonResponse) {
-            return $result;
-        }
-        $artist = $result;
-
-        return response()->json([
-            'data' => [
-                'referral_code' => $artist->slug,
-                'referral_link' => FrontendUrl::to("/join/{$artist->slug}"),
-                'branded_link' => FrontendUrl::to("/join/{$artist->slug}"),
-                'qr_code_url' => null,
-            ],
-        ]);
-    }
-
-    /**
-     * GET /api/artist/referrals/fans
-     */
-    public function referralFans(Request $request): JsonResponse
-    {
-        return response()->json([
-            'data' => [],
-            'pagination' => ['current_page' => 1, 'last_page' => 1, 'per_page' => 20, 'total' => 0],
-            'stats' => ['total' => 0, 'active' => 0, 'pending' => 0, 'inactive' => 0],
-        ]);
-    }
-
-    /**
-     * GET /api/artist/referrals/earnings
-     */
-    public function referralEarnings(Request $request): JsonResponse
-    {
-        return response()->json([
-            'data' => [
-                'total_commission' => 0,
-                'pending_payout' => 0,
-                'paid_out' => 0,
-                'commission_rate' => 0,
-                'transactions' => [],
-            ],
-        ]);
-    }
-
-    /**
-     * GET /api/artist/referrals/promo-materials
-     */
-    public function promoMaterials(Request $request): JsonResponse
-    {
-        return response()->json(['data' => []]);
-    }
-
-    /**
-     * POST /api/artist/referrals/promo-materials/generate
-     */
-    public function generatePromoMaterial(Request $request): JsonResponse
-    {
-        return response()->json([
-            'data' => [
-                'id' => 1,
-                'type' => $request->type ?? 'banner',
-                'title' => 'Generated Material',
-                'description' => 'Promotional material',
-                'image_url' => null,
-                'download_url' => null,
-                'dimensions' => '1080x1080',
-                'platform' => $request->platform ?? 'universal',
-            ],
-        ]);
-    }
-
-    /**
-     * POST /api/artist/referrals/share
-     */
-    public function trackShare(Request $request): JsonResponse
-    {
-        return response()->json(['message' => 'Share tracked.']);
     }
 
     // ========================================================================

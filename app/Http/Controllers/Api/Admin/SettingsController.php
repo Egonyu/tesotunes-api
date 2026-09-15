@@ -33,12 +33,6 @@ class SettingsController extends Controller
         'auth_hero_title',
         'auth_hero_description',
         'auth_hero_image',
-        'auth_stat_1_value',
-        'auth_stat_1_label',
-        'auth_stat_2_value',
-        'auth_stat_2_label',
-        'auth_stat_3_value',
-        'auth_stat_3_label',
         'homepage_theme',
     ];
 
@@ -358,14 +352,8 @@ class SettingsController extends Controller
             'auth_form_title' => 'Welcome back',
             'auth_form_subtitle' => 'Sign in to continue listening to your favorite music',
             'auth_hero_title' => 'Discover East African Music',
-            'auth_hero_description' => 'Stream millions of songs, discover new artists, and support the sounds of East Africa.',
+            'auth_hero_description' => 'Stream music, discover new artists, and support the sounds of East Africa.',
             'auth_hero_image' => '',
-            'auth_stat_1_value' => '10K+',
-            'auth_stat_1_label' => 'Songs',
-            'auth_stat_2_value' => '500+',
-            'auth_stat_2_label' => 'Artists',
-            'auth_stat_3_value' => '50K+',
-            'auth_stat_3_label' => 'Users',
             'homepage_theme' => 'classic_home',
         ];
 

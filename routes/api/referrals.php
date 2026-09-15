@@ -13,8 +13,9 @@ use Illuminate\Support\Facades\Route;
 | the whole time; members simply had no way to see it, share a link, or
 | climb the milestone ladder.
 |
-| Note these are member routes. /api/artist/referrals/* is a separate,
-| artist-specific fan-referral surface and is left alone.
+| Artists use these too. The separate /api/artist/referrals/* surface was
+| removed: every endpoint returned hardcoded zeros behind a "5% commission"
+| screen that nothing paid.
 |
 */
 

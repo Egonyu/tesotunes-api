@@ -49,14 +49,8 @@ Route::middleware(['auth:sanctum', 'role:artist,admin,super_admin'])->prefix('ar
     // Analytics
     Route::get('/analytics', [\App\Http\Controllers\Api\ArtistApiController::class, 'analytics'])->name('analytics');
 
-    // Referrals
-    Route::get('/referrals/dashboard', [\App\Http\Controllers\Api\ArtistApiController::class, 'referralsDashboard'])->name('referrals.dashboard');
-    Route::get('/referrals/link', [\App\Http\Controllers\Api\ArtistApiController::class, 'referralLink'])->name('referrals.link');
-    Route::get('/referrals/fans', [\App\Http\Controllers\Api\ArtistApiController::class, 'referralFans'])->name('referrals.fans');
-    Route::get('/referrals/earnings', [\App\Http\Controllers\Api\ArtistApiController::class, 'referralEarnings'])->name('referrals.earnings');
-    Route::get('/referrals/promo-materials', [\App\Http\Controllers\Api\ArtistApiController::class, 'promoMaterials'])->name('referrals.promo');
-    Route::post('/referrals/promo-materials/generate', [\App\Http\Controllers\Api\ArtistApiController::class, 'generatePromoMaterial'])->name('referrals.promoGenerate');
-    Route::post('/referrals/share', [\App\Http\Controllers\Api\ArtistApiController::class, 'trackShare'])->name('referrals.share');
+    // Artist referrals (commission, promo materials) were stubs returning
+    // hardcoded zeros; artists use the member programme at /api/referrals.
 });
 
 // Catalog — authenticated user catalog submissions and claim requests

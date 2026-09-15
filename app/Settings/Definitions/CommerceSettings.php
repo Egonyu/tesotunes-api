@@ -3,6 +3,7 @@
 namespace App\Settings\Definitions;
 
 use App\Settings\Define;
+use App\Settings\Enums\SettingVisibility;
 use App\Settings\SettingRegistry;
 
 /**
@@ -62,6 +63,9 @@ final class CommerceSettings
         // Packages — canonical artist_revenue_share flat key (shadow wins reads)
         Define::float('artist_revenue_share', 70.0)
             ->group($g)->subgroup('revenue')
+            // Public: the become-artist page states it, and must state the
+            // figure actually applied rather than a typed-in "70%".
+            ->visibility(SettingVisibility::Public)
             ->rules(['numeric', 'min:0', 'max:100'])
             ->label('Artist revenue share %')
             ->help('Percent of net revenue paid to artists.')

@@ -59,11 +59,11 @@ final class BrandingSettings
             'auth_form_title' => 'Welcome back',
             'auth_form_subtitle' => 'Sign in to continue listening to your favorite music',
             'auth_hero_title' => 'Discover East African Music',
-            'auth_hero_description' => 'Stream millions of songs, discover new artists, and support the sounds of East Africa.',
+            'auth_hero_description' => 'Stream music, discover new artists, and support the sounds of East Africa.',
             'auth_hero_image' => '',
-            'auth_stat_1_value' => '10K+', 'auth_stat_1_label' => 'Songs',
-            'auth_stat_2_value' => '500+', 'auth_stat_2_label' => 'Artists',
-            'auth_stat_3_value' => '50K+', 'auth_stat_3_label' => 'Users',
+            // auth_stat_{1,2,3}_{value,label} were removed: free-text numbers
+            // ("10K+ songs", "50K+ users") against a catalogue of a few
+            // hundred. The login page reads real counts from /api/public/stats.
         ];
         foreach ($loginStrings as $field => $default) {
             Define::str("appearance_{$field}", $default)

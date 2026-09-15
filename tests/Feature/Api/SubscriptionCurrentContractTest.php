@@ -44,8 +44,33 @@ class SubscriptionCurrentContractTest extends TestCase
             ->assertJsonPath('data.plan', 'premium')
             ->assertJsonPath('data.ad_free', true)
             ->assertJsonPath('data.offline_access', true)
-            ->assertJsonPath('data.limits.downloads_per_day', 0)
+            ->assertJsonPath('data.limits.downloads_per_day', null)
             ->assertJsonPath('data.limits.audio_quality_kbps', 320)
             ->assertJsonPath('data.limits.uploads_per_month', 12);
+    }
+
+    public function test_a_plan_allowing_no_downloads_is_not_reported_as_unlimited(): void
+    {
+        $user = User::factory()->create();
+        $plan = SubscriptionPlan::factory()->create([
+            'slug' => 'no-downloads',
+            'max_downloads_per_day' => 0,
+            'downloads_per_day' => 0,
+        ]);
+
+        UserSubscription::factory()->active()->create([
+            'user_id' => $user->id,
+            'subscription_plan_id' => $plan->id,
+            'status' => 'active',
+            'started_at' => now()->subDay(),
+            'expires_at' => now()->addDays(29),
+        ]);
+
+        $this->actingAs($user)
+            ->getJson('/api/user/subscription')
+            ->assertOk()
+            ->assertJsonPath('data.limits.downloads_per_day', 0);
+
+        $this->assertFalse($user->fresh()->canDownload());
     }
 }

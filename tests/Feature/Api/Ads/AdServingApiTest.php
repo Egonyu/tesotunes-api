@@ -349,4 +349,36 @@ class AdServingApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data', null);
     }
+
+    /**
+     * Ad-free is what the subscriber paid for. It used to hold only if every
+     * zone was configured to exclude paid tiers; a zone targeting everyone
+     * served ads to premium members.
+     */
+    public function test_ad_free_subscriber_gets_no_ad_even_when_zone_targets_every_tier(): void
+    {
+        $this->zone->update(['target_tiers' => null]);
+
+        $ad = Ad::factory()->image()->active()->create(['target_tiers' => null, 'target_devices' => null]);
+        $this->assignAd($ad);
+
+        $user = User::factory()->create();
+        $plan = \App\Models\SubscriptionPlan::factory()->premium()->create([
+            'slug' => 'premium-adfree-'.uniqid(),
+            'has_ads' => false,
+            'ad_free' => false,
+        ]);
+        \App\Models\UserSubscription::factory()->active()->create([
+            'user_id' => $user->id,
+            'subscription_plan_id' => $plan->id,
+            'status' => 'active',
+            'started_at' => now()->subDay(),
+            'expires_at' => now()->addDays(29),
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/ads?placement=web_top_banner')
+            ->assertOk()
+            ->assertJsonPath('data', null);
+    }
 }

@@ -31,7 +31,7 @@ class WelcomeNotification extends Notification implements ShouldQueue
             ->greeting("Welcome, {$displayName}!")
             ->line('Thank you for joining TesoTunes — Africa\'s premier music platform.')
             ->line('Here\'s what you can do:')
-            ->line('🎵 **Discover** — Stream thousands of African songs')
+            ->line('🎵 **Discover** — Stream music from African artists')
             ->line('❤️ **Connect** — Follow your favorite artists')
             ->line('📱 **Download** — Take your music offline')
             ->line('💰 **Earn** — Get credits for listening and engaging')

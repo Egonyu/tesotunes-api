@@ -448,12 +448,18 @@ class SubscriptionController extends Controller
         ]);
     }
 
-    private function resolveCurrentDownloadsLimit(?SubscriptionPlan $plan): int
+    /**
+     * Null means unlimited — the same meaning /subscriptions/plans and
+     * canDownload() give it. This returned 0 for unlimited, while enforcement
+     * treats 0 as "no downloads", so a plan allowing none was shown to its
+     * subscribers as "Unlimited".
+     */
+    private function resolveCurrentDownloadsLimit(?SubscriptionPlan $plan): ?int
     {
         $limit = $plan?->max_downloads_per_day ?? $plan?->downloads_per_day;
 
         if ($limit === null || (int) $limit < 0) {
-            return 0;
+            return null;
         }
 
         return (int) $limit;
@@ -477,15 +483,8 @@ class SubscriptionController extends Controller
 
     private function resolveAdFree(?SubscriptionPlan $plan): bool
     {
-        if ($plan === null) {
-            return false;
-        }
-
-        if ($plan->ad_free !== null) {
-            return (bool) $plan->ad_free;
-        }
-
-        return ! (bool) $plan->has_ads;
+        // Same rule as HasSubscriptionCapabilities::isAdFree().
+        return $plan !== null && ((bool) $plan->ad_free || ! (bool) $plan->has_ads);
     }
 
     private function resolveOfflineAccess(?SubscriptionPlan $plan): bool

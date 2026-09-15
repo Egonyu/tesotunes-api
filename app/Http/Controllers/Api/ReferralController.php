@@ -194,11 +194,19 @@ class ReferralController extends Controller
     public function leaderboard(Request $request): JsonResponse
     {
         $limit = max(1, min((int) $request->integer('limit', 20), 100));
+        $validated = $request->validate([
+            'period' => 'sometimes|string|in:'.implode(',', [
+                ReferralProgramService::PERIOD_WEEKLY,
+                ReferralProgramService::PERIOD_MONTHLY,
+                ReferralProgramService::PERIOD_ALL_TIME,
+            ]),
+        ]);
 
         return response()->json([
-            'data' => array_merge(
-                $this->referrals->leaderboard($request->user(), $limit),
-                ['period' => (string) $request->input('period', 'all_time')],
+            'data' => $this->referrals->leaderboard(
+                $request->user(),
+                $limit,
+                $validated['period'] ?? ReferralProgramService::PERIOD_ALL_TIME,
             ),
         ]);
     }
@@ -215,6 +223,8 @@ class ReferralController extends Controller
             'data' => [
                 'valid' => $referrer !== null,
                 'referrer_name' => $referrer?->name,
+                // The join page used to promise a fixed "50 credits".
+                'joiner_credits' => $referrer ? $this->liveRate(CreditRate::REFERRAL_WELCOME) : 0,
             ],
         ]);
     }

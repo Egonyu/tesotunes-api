@@ -67,6 +67,11 @@ require __DIR__.'/api/loyalty.php';
 Route::get('/featured', [\App\Http\Controllers\Api\FeaturedContentController::class, 'index'])->name('api.featured');
 Route::get('/homepage', [\App\Http\Controllers\Api\HomepageController::class, 'index'])->name('api.homepage');
 
+// Real catalogue and community counts for marketing pages (cached hourly)
+Route::get('/public/stats', [\App\Http\Controllers\Api\PublicStatsController::class, 'index'])
+    ->middleware('throttle:60,1')
+    ->name('api.public.stats');
+
 // Events & Tickets API Routes
 require app_path('Modules/Events/Routes/api.php');
 

@@ -111,11 +111,19 @@ trait HasSubscriptionCapabilities
         return $this->artist?->monthly_upload_limit;
     }
 
+    /**
+     * One rule for "ad-free", used by ad serving and /user/subscription.
+     *
+     * Plans carry two flags for the same promise: the pricing page ticks
+     * "Ad-Free" from has_ads, while this read only ad_free. A plan with
+     * has_ads=false and ad_free=false was sold as ad-free and served ads.
+     * Either flag now makes it ad-free, so nobody told "Ad-Free" sees an ad.
+     */
     public function isAdFree(): bool
     {
         $plan = $this->getActivePlan();
 
-        return $plan && (bool) ($plan->ad_free ?? false);
+        return $plan !== null && ((bool) $plan->ad_free || ! (bool) $plan->has_ads);
     }
 
     public function canAccessOffline(): bool

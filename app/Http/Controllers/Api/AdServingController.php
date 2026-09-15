@@ -44,6 +44,13 @@ class AdServingController extends Controller
         $country = $validated['country'] ?? null;
         $user = $request->user();
 
+        // A plan sold as ad-free is ad-free everywhere. This used to depend on
+        // every ad zone being configured to exclude paid tiers, so a zone left
+        // at its defaults served ads to people paying not to see them.
+        if ($user && $user->isAdFree()) {
+            return response()->json(['data' => null]);
+        }
+
         $tier = 'free';
         if ($user) {
             $tier = $user->subscription?->tier ?? 'free';

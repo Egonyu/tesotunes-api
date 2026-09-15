@@ -41,6 +41,24 @@ class ReferralProgramService
 
     public const STATUS_CHURNED = 'churned';
 
+    public const PERIOD_WEEKLY = 'weekly';
+
+    public const PERIOD_MONTHLY = 'monthly';
+
+    public const PERIOD_ALL_TIME = 'all_time';
+
+    /**
+     * Calendar week (Monday start) or month, in the app timezone.
+     */
+    private function periodStart(string $period): ?\Carbon\CarbonInterface
+    {
+        return match ($period) {
+            self::PERIOD_WEEKLY => now()->startOfWeek(),
+            self::PERIOD_MONTHLY => now()->startOfMonth(),
+            default => null,
+        };
+    }
+
     public function referralLink(User $user): string
     {
         return $this->frontendUrl('register?ref='.urlencode((string) $user->referral_code));
@@ -266,15 +284,24 @@ class ReferralProgramService
     /**
      * Top referrers, and where this account sits.
      *
-     * Ranked on referrals actually made, counted from users.referrer_id.
+     * Ranked on referrals actually made, counted from users.referrer_id, within
+     * the period asked for. The screen's This Week / This Month tabs used to
+     * send a period this ignored, so every tab showed all-time numbers under a
+     * weekly label. Tier stays all-time so it agrees with milestone badges.
      *
      * @return array<string, mixed>
      */
-    public function leaderboard(User $viewer, int $limit = 20): array
+    public function leaderboard(User $viewer, int $limit = 20, string $period = self::PERIOD_ALL_TIME): array
     {
+        $since = $this->periodStart($period);
+        $periodCount = '(SELECT COUNT(*) FROM users AS referred WHERE referred.referrer_id = users.id AND referred.deleted_at IS NULL'
+            .($since ? ' AND referred.created_at >= ?' : '').')';
+        $bindings = $since ? [$since] : [];
+
         $rows = User::query()
             ->select('users.id', 'users.name', 'users.username', 'users.avatar')
-            ->selectRaw('(SELECT COUNT(*) FROM users AS referred WHERE referred.referrer_id = users.id AND referred.deleted_at IS NULL) AS referral_total')
+            ->selectRaw($periodCount.' AS referral_total', $bindings)
+            ->selectRaw('(SELECT COUNT(*) FROM users AS referred WHERE referred.referrer_id = users.id AND referred.deleted_at IS NULL) AS referral_all_time')
             ->havingRaw('referral_total > 0')
             ->orderByDesc('referral_total')
             ->orderBy('users.id')
@@ -290,18 +317,20 @@ class ReferralProgramService
                 'avatar' => \App\Helpers\StorageHelper::avatarUrl($row->avatar, $row->name ?? 'User'),
                 'referrals' => (int) $row->referral_total,
                 'credits_earned' => $this->creditsEarned($row),
-                'tier' => $this->tierFor((int) $row->referral_total),
+                'tier' => $this->tierFor((int) $row->referral_all_time),
             ];
         })->all();
 
-        $viewerReferrals = User::where('referrer_id', $viewer->id)->count();
+        $viewerReferrals = User::where('referrer_id', $viewer->id)
+            ->when($since, fn ($query) => $query->where('created_at', '>=', $since))
+            ->count();
         $viewerRank = collect($entries)->firstWhere('user_id', $viewer->id)['rank'] ?? null;
 
         if ($viewerRank === null && $viewerReferrals > 0) {
             // Outside the visible page — count how many are strictly ahead.
             $ahead = User::query()
                 ->selectRaw('COUNT(*) AS ahead')
-                ->whereRaw('(SELECT COUNT(*) FROM users AS referred WHERE referred.referrer_id = users.id AND referred.deleted_at IS NULL) > ?', [$viewerReferrals])
+                ->whereRaw($periodCount.' > ?', [...$bindings, $viewerReferrals])
                 ->value('ahead');
 
             $viewerRank = ((int) $ahead) + 1;
@@ -311,10 +340,11 @@ class ReferralProgramService
             'rank' => $viewerRank,
             'referrals' => $viewerReferrals,
             'credits_earned' => $this->creditsEarned($viewer),
-            'tier' => $this->tierFor($viewerReferrals),
+            'tier' => $this->tierFor(User::where('referrer_id', $viewer->id)->count()),
         ] : null;
 
         return [
+            'period' => $period,
             'leaderboard' => $entries,
             'current_user' => $position ? array_merge($position, [
                 'user_id' => $viewer->id,
