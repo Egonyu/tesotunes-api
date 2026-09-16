@@ -21,13 +21,14 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// Buyer actions on a promotion order.
+// Read-only promotion views. Order actions (accept, dispute, deliver) live
+// only in routes/api/promotions.php — the copies here passed an order-item id
+// where an order id was expected, and one let the promoter release their own
+// payment.
 Route::middleware('auth:sanctum')->prefix('promotions')->name('promotions.')->group(function () {
     Route::get('/', [PromotionController::class, 'index'])->name('index');
     Route::get('/my-promotions', [PromotionController::class, 'myPromotions'])->name('my');
     Route::get('/{slug}', [PromotionController::class, 'show'])->name('show');
-    Route::post('/order-items/{orderItem}/submit-verification', [PromotionController::class, 'submitVerification'])->name('submit-verification');
-    Route::post('/order-items/{orderItem}/dispute', [PromotionController::class, 'dispute'])->name('dispute');
 });
 
 // Seller actions — sellers (any shop owner, not just artists) plus artists,
@@ -41,6 +42,5 @@ Route::middleware(['auth:sanctum', 'capability:seller,artist'])
         Route::put('/{product:id}', [SellerPromotionController::class, 'update'])->name('update');
         Route::delete('/{product:id}', [SellerPromotionController::class, 'destroy'])->name('destroy');
         Route::get('/pending-verifications', [SellerPromotionController::class, 'pendingVerifications'])->name('pending-verifications');
-        Route::post('/order-items/{orderItem}/verify', [SellerPromotionController::class, 'verifyCompletion'])->name('verify');
         Route::get('/statistics', [SellerPromotionController::class, 'statistics'])->name('statistics');
     });

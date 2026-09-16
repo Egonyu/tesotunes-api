@@ -108,26 +108,26 @@ class PromotionRejectionRefundTest extends TestCase
         );
     }
 
-    public function test_payout_is_refused_until_the_buyer_submits_proof(): void
+    public function test_payout_is_refused_until_the_promoter_submits_proof(): void
     {
-        [$promoter, , $order] = $this->buildPaidPromotionOrder('pending');
+        [, $buyer, $order] = $this->buildPaidPromotionOrder('pending');
 
-        $this->actingAs($promoter)
-            ->postJson("/api/promotions/orders/{$order->id}/verify")
+        $this->actingAs($buyer)
+            ->postJson("/api/promotions/orders/{$order->id}/accept")
             ->assertStatus(422);
     }
 
     public function test_payout_is_refused_while_a_dispute_is_open(): void
     {
-        [$promoter, , $order, $item] = $this->buildPaidPromotionOrder();
+        [, $buyer, $order, $item] = $this->buildPaidPromotionOrder();
 
         $item->forceFill([
             'dispute_reason' => 'The post was taken down after an hour.',
             'product_snapshot' => ['promotion_dispute' => ['state' => 'open']],
         ])->save();
 
-        $this->actingAs($promoter)
-            ->postJson("/api/promotions/orders/{$order->id}/verify")
+        $this->actingAs($buyer)
+            ->postJson("/api/promotions/orders/{$order->id}/accept")
             ->assertStatus(422);
     }
 }

@@ -20,14 +20,16 @@ Route::prefix('promotions')->name('promotions.')->group(function () {
     // Buyer actions — any authenticated user
     Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/{slug}/purchase', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'purchase'])->name('purchase');
-        Route::post('/orders/{orderId}/submit-verification', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'submitVerification'])->name('orders.submit-verification');
+        Route::post('/orders/{orderId}/accept', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'accept'])->name('orders.accept');
         Route::post('/orders/{orderId}/dispute', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'dispute'])->name('orders.dispute');
         Route::post('/orders/{orderId}/review', [\App\Modules\Store\Http\Controllers\Api\PromotionController::class, 'review'])->name('orders.review');
     });
 
     // Seller order actions — promoter capability required (admins always pass)
     Route::middleware(['auth:sanctum', 'capability:promoter'])->group(function () {
-        Route::post('/orders/{orderId}/verify', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'verifyCompletionById'])->name('orders.verify');
+        // The promoter proves delivery; only the buyer (or the scheduled
+        // auto-release) can release payment to them.
+        Route::post('/orders/{orderId}/deliver', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'deliver'])->name('orders.deliver');
         Route::post('/orders/{orderId}/reject', [\App\Modules\Store\Http\Controllers\Api\SellerPromotionController::class, 'rejectCompletionById'])->name('orders.reject');
     });
 });

@@ -245,10 +245,15 @@ class EventFeeHandlingTest extends TestCase
             ->assertJsonPath('data.upcoming_count', 1)
             ->assertJsonPath('data.tickets_sold_30d', 1);
 
-        $this->actingAs($admin, 'sanctum')->getJson('/api/admin/events')
+        // Found by id: suites that commit rows can put other events first.
+        $listed = collect($this->actingAs($admin, 'sanctum')->getJson('/api/admin/events?per_page=100')
             ->assertOk()
-            ->assertJsonPath('data.0.tickets_sold', 1)
-            ->assertJsonPath('data.0.tickets_capacity', 100);
+            ->json('data'))
+            ->firstWhere('id', $event->id);
+
+        $this->assertNotNull($listed);
+        $this->assertSame(1, $listed['tickets_sold']);
+        $this->assertSame(100, $listed['tickets_capacity']);
     }
 
     public function test_artists_get_a_real_fee_estimate(): void

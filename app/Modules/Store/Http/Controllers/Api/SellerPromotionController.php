@@ -12,6 +12,7 @@ use App\Modules\Store\Models\OrderItem;
 use App\Modules\Store\Models\Product;
 use App\Modules\Store\Models\Store;
 use App\Modules\Store\Services\StoreService;
+use App\Services\Store\PromotionOrderNotifier;
 use App\Services\Store\PromotionSettlementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -369,8 +370,23 @@ class SellerPromotionController extends Controller
         ]);
     }
 
-    public function verifyCompletionById(Request $request, int $orderId): JsonResponse
+    /**
+     * The promoter submits proof that the promotion ran.
+     *
+     * Proof starts the buyer's review window: the buyer accepts (which pays
+     * the promoter) or disputes, and if they do neither the scheduled
+     * auto-release pays the promoter after promotions.auto_release_hours.
+     * A promoter can resubmit until the buyer has accepted.
+     */
+    public function deliver(Request $request, int $orderId): JsonResponse
     {
+        $validated = $request->validate([
+            'delivery_url' => ['required', 'url', 'max:2048'],
+            'delivery_notes' => ['nullable', 'string', 'max:2000'],
+            'delivery_files' => ['nullable', 'array', 'max:10'],
+            'delivery_files.*' => ['url', 'max:2048'],
+        ]);
+
         $storeId = $request->user()?->store?->id;
         $order = Order::query()
             ->where('id', $orderId)
@@ -381,7 +397,35 @@ class SellerPromotionController extends Controller
         $orderItem = $order->items->first(fn (OrderItem $item) => $item->product?->product_type === 'promotion');
         abort_unless($orderItem, 404);
 
-        return $this->verifyCompletion($request, $orderItem);
+        if ($order->payment_status === Order::PAYMENT_REFUNDED || $order->status === Order::STATUS_CANCELLED) {
+            return response()->json(['message' => 'This promotion order has already been refunded.'], 422);
+        }
+
+        if ($order->status === Order::STATUS_COMPLETED || $orderItem->verification_status === 'verified') {
+            return response()->json(['message' => 'The buyer has already accepted this delivery.'], 422);
+        }
+
+        $orderItem->forceFill([
+            'verification_status' => 'submitted',
+            'verification_url' => $validated['delivery_url'],
+            'verification_notes' => $validated['delivery_notes'] ?? null,
+            'verification_proof' => $validated['delivery_files'] ?? null,
+            'verification_submitted_at' => now(),
+            'rejection_reason' => null,
+        ])->save();
+
+        app(PromotionOrderNotifier::class)->deliverySubmitted($order, $order->buyer, $orderItem->product_name);
+
+        $this->logSellerActivity($request, 'promotion_delivery_submitted', $orderItem, [
+            'order_id' => $order->id,
+            'promotion_id' => $orderItem->product_id,
+            'delivery_url' => $orderItem->verification_url,
+        ]);
+
+        return response()->json([
+            'message' => 'Proof submitted. The buyer has been asked to review it.',
+            'data' => $this->serializeOrder($order->fresh(['items.product.store.user', 'buyer'])),
+        ]);
     }
 
     public function rejectCompletionById(Request $request, int $orderId): JsonResponse
@@ -427,6 +471,8 @@ class SellerPromotionController extends Controller
                 'refund_reason' => $validated['reason'],
             ])->save();
         });
+
+        app(PromotionOrderNotifier::class)->orderDeclined($order, $order->buyer, $orderItem->product_name, $validated['reason']);
 
         $this->logSellerActivity($request, 'promotion_order_rejected', $orderItem, [
             'order_id' => $order->id,
@@ -484,31 +530,6 @@ class SellerPromotionController extends Controller
         ]);
     }
 
-    public function verifyCompletion(Request $request, OrderItem $orderItem): JsonResponse
-    {
-        $product = $orderItem->product;
-        $this->assertOwnership($request, $product);
-
-        $order = $orderItem->order()->with(['buyer', 'items.product.store.user'])->firstOrFail();
-        $settlements = app(PromotionSettlementService::class);
-
-        if ($blocked = $settlements->releaseBlockedReason($order, $orderItem)) {
-            return response()->json(['message' => $blocked], 422);
-        }
-
-        $settlement = $settlements->releaseToSeller($order, $orderItem, $request->user()?->id);
-
-        $this->logSellerActivity($request, 'promotion_order_verified', $orderItem, [
-            'order_id' => $order->id,
-            'promotion_id' => $orderItem->product_id,
-            'settlement' => $settlement,
-        ]);
-
-        return response()->json([
-            'message' => 'Completion verified successfully.',
-        ]);
-    }
-
     public function statistics(Request $request): JsonResponse
     {
         $storeId = $request->user()?->store?->id;
@@ -527,21 +548,38 @@ class SellerPromotionController extends Controller
             ->get();
 
         $settlementService = app(PromotionSettlementService::class);
-        $settlements = $orders->flatMap(fn (Order $order) => $order->items->map(fn (OrderItem $item) => $settlementService->summarize($item)));
+        $items = $orders->flatMap(fn (Order $order) => $order->items->map(fn (OrderItem $item) => [
+            'order' => $order,
+            'item' => $item,
+            'summary' => $settlementService->summarize($item),
+        ]));
+
+        // Earnings count only settled orders; money still held for an open
+        // order is escrow, and a refunded order is neither.
+        $settled = $items->filter(fn (array $row) => data_get($row, 'summary.status') === 'settled');
+        $open = $items->filter(fn (array $row) => ! in_array($row['order']->status, [Order::STATUS_COMPLETED, Order::STATUS_CANCELLED], true)
+            && $row['order']->payment_status !== Order::PAYMENT_REFUNDED);
+        $sum = fn ($rows, string $key) => (float) $rows->sum(fn (array $row) => (float) data_get($row, "summary.breakdown.{$key}", 0));
 
         return response()->json([
             'data' => [
                 'total_promotions' => $promotions->count(),
                 'active_promotions' => $promotions->where('status', Product::STATUS_ACTIVE)->count(),
                 'total_orders' => $orders->count(),
-                'pending_verifications' => $orders->flatMap->items->filter(fn (OrderItem $item) => in_array($item->verification_status, [null, 'pending', 'submitted'], true))->count(),
-                'total_revenue_credits' => (float) $settlements->sum(fn (array $summary) => (float) data_get($summary, 'breakdown.seller_net_credits', 0)),
-                'total_revenue_ugx' => (float) $settlements->sum(fn (array $summary) => (float) data_get($summary, 'breakdown.seller_net_ugx', 0)),
-                'total_platform_fees_credits' => (float) $settlements->sum(fn (array $summary) => (float) data_get($summary, 'breakdown.platform_fee_credits', 0)),
-                'total_platform_fees_ugx' => (float) $settlements->sum(fn (array $summary) => (float) data_get($summary, 'breakdown.platform_fee_ugx', 0)),
-                'net_revenue_credits' => (float) $settlements->sum(fn (array $summary) => (float) data_get($summary, 'breakdown.seller_net_credits', 0)),
-                'net_revenue_ugx' => (float) $settlements->sum(fn (array $summary) => (float) data_get($summary, 'breakdown.seller_net_ugx', 0)),
-                'settled_orders' => $settlements->filter(fn (array $summary) => data_get($summary, 'status') === 'settled')->count(),
+                'completed_orders' => $orders->where('status', Order::STATUS_COMPLETED)->count(),
+                'pending_verifications' => $open->count(),
+                'awaiting_delivery' => $open->filter(fn (array $row) => $row['item']->verification_status !== 'submitted')->count(),
+                'awaiting_buyer' => $open->filter(fn (array $row) => $row['item']->verification_status === 'submitted')->count(),
+                'total_revenue_credits' => $sum($settled, 'gross_credits'),
+                'total_revenue_ugx' => $sum($settled, 'gross_ugx'),
+                'total_platform_fees_credits' => $sum($settled, 'platform_fee_credits'),
+                'total_platform_fees_ugx' => $sum($settled, 'platform_fee_ugx'),
+                'net_revenue_credits' => $sum($settled, 'seller_net_credits'),
+                'net_revenue_ugx' => $sum($settled, 'seller_net_ugx'),
+                'escrow_credits' => $sum($open, 'seller_net_credits'),
+                'escrow_ugx' => $sum($open, 'seller_net_ugx'),
+                'settled_orders' => $settled->count(),
+                'escrow_release_hours' => (int) config('promotions.auto_release_hours', 168),
                 'average_rating' => $promotions->count() > 0 ? round((float) $promotions->avg('average_rating'), 2) : 0,
                 'conversion_rate' => $promotions->sum('total_orders') > 0 ? round($promotions->sum('completed_orders') / max($promotions->sum('total_orders'), 1), 4) : 0,
                 'top_performing_promotion' => $promotions->sortByDesc('completed_orders')->first() ? $this->serializePromotion($promotions->sortByDesc('completed_orders')->first()) : null,
@@ -816,6 +854,7 @@ class SellerPromotionController extends Controller
                 'verification_notes' => $item?->verification_notes ?? null,
                 'verification_files' => is_array($item?->verification_proof ?? null) ? $item->verification_proof : [],
                 'rejection_reason' => $item?->rejection_reason ?? null,
+                'auto_release_at' => app(PromotionSettlementService::class)->autoReleaseAt($item),
             ],
             'dispute' => [
                 'is_disputed' => ! empty($item?->dispute_reason),
@@ -828,7 +867,7 @@ class SellerPromotionController extends Controller
                 'resolution_notes' => $order->refund_reason ?? null,
             ],
             'created_at' => optional($order->created_at)->toIso8601String(),
-            'expected_delivery_at' => optional($order->created_at?->copy()->addDays(3))->toIso8601String(),
+            'expected_delivery_at' => optional($order->created_at?->copy()->addDays(max(1, (int) ($item?->product?->delivery_days_max ?? 7))))->toIso8601String(),
             'completed_at' => optional($order->completed_at)->toIso8601String(),
         ];
     }

@@ -90,7 +90,7 @@ class PromotionSettlementService
     public function releaseBlockedReason(Order $order, OrderItem $orderItem): ?string
     {
         if ($orderItem->verification_status !== 'submitted') {
-            return 'Payout can only be released after the buyer has submitted proof.';
+            return 'Payout can only be released after the promoter has submitted proof of delivery.';
         }
 
         if ($this->hasOpenDispute($orderItem)) {
@@ -106,6 +106,21 @@ class PromotionSettlementService
         }
 
         return null;
+    }
+
+    /**
+     * When escrow releases on its own if the buyer neither accepts nor
+     * disputes the promoter's proof — the promotions:release-due-escrow rule.
+     */
+    public function autoReleaseAt(?OrderItem $orderItem): ?string
+    {
+        if ($orderItem?->verification_status !== 'submitted' || ! $orderItem->verification_submitted_at) {
+            return null;
+        }
+
+        return $orderItem->verification_submitted_at->copy()
+            ->addHours((int) config('promotions.auto_release_hours', 168))
+            ->toIso8601String();
     }
 
     /**

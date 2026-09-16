@@ -11,7 +11,9 @@ use App\Modules\Store\Models\Order;
 use App\Modules\Store\Models\OrderItem;
 use App\Modules\Store\Models\Product;
 use App\Modules\Store\Services\PaymentService;
+use App\Services\Store\PromotionOrderNotifier;
 use App\Services\Store\PromotionSettlementService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -41,7 +43,7 @@ class PromotionController extends Controller
         $promotions = Product::query()
             ->promotion()
             ->active()
-            ->with(['store.user'])
+            ->with(['store.user.promoterProfile'])
             ->withCount($this->promotionCountRelations())
             ->when($request->filled('type'), fn ($query) => $query->where('promotion_type', $request->string('type')->toString()))
             ->when($request->filled('platform'), fn ($query) => $query->where('promotion_platform', $request->string('platform')->toString()))
@@ -78,7 +80,7 @@ class PromotionController extends Controller
             ->when($request->boolean('featured'), fn ($query) => $query->where('is_featured', true))
             ->when($request->boolean('verified'), fn ($query) => $query->whereHas('store.user', fn ($userQuery) => $userQuery->where('is_verified', true)))
             ->when($request->filled('search'), function ($query) use ($request) {
-                $search = $request->string('search')->toString();
+                $search = escape_like($request->string('search')->toString());
                 $query->where(function ($inner) use ($search) {
                     $inner->where('store_products.name', 'like', "%{$search}%")
                         ->orWhere('store_products.short_description', 'like', "%{$search}%")
@@ -218,7 +220,7 @@ class PromotionController extends Controller
         $promotions = Product::query()
             ->promotion()
             ->where('store_id', $storeId)
-            ->with(['store.user'])
+            ->with(['store.user.promoterProfile'])
             ->withCount($this->promotionCountRelations())
             ->latest()
             ->paginate($this->getPerPage($request));
@@ -496,6 +498,8 @@ class PromotionController extends Controller
             return response()->json(['message' => $e->getMessage()], 422);
         }
 
+        app(PromotionOrderNotifier::class)->orderReceived($order, $promotion->store?->user, $promotion->name);
+
         $this->logPromotionActivity($user, 'promotion_purchase_created', $order, [
             'order_id' => $order->id,
             'order_number' => $order->order_number,
@@ -524,6 +528,8 @@ class PromotionController extends Controller
     {
         $orders = Order::query()
             ->where('user_id', $request->user()?->id)
+            ->whereHas('items.product', fn ($query) => $query->promotion())
+            ->when($request->filled('status'), fn ($query) => $this->filterByWireStatus($query, $request->string('status')->toString()))
             ->with(['items.product.store.user', 'buyer'])
             ->latest()
             ->paginate($this->getPerPage($request));
@@ -560,6 +566,7 @@ class PromotionController extends Controller
 
         $orders = Order::query()
             ->whereHas('items.product', fn ($query) => $query->promotion()->where('store_id', $storeId))
+            ->when($request->filled('status'), fn ($query) => $this->filterByWireStatus($query, $request->string('status')->toString()))
             ->with(['items.product.store.user', 'buyer'])
             ->latest()
             ->paginate($this->getPerPage($request));
@@ -577,56 +584,47 @@ class PromotionController extends Controller
         ]);
     }
 
-    public function submitVerification(Request $request, int $orderId): JsonResponse
+    /**
+     * The buyer accepts the promoter's delivery, releasing escrow to them.
+     *
+     * The promoter submits proof (SellerPromotionController::deliver) and the
+     * buyer decides. This used to run the other way round: the buyer chased
+     * the post link and submitted it, and the promoter approved it — which
+     * paid the promoter. A promoter could pay themselves on any link, and one
+     * whose buyer never submitted could never be paid.
+     */
+    public function accept(Request $request, int $orderId): JsonResponse
     {
-        $validated = $request->validate([
-            'verification_url' => 'required|string|max:2048',
-            'verification_notes' => 'nullable|string|max:2000',
-            'verification_files' => 'nullable|array',
-            'verification_files.*' => 'nullable|string|max:2048',
-        ]);
-
         $order = Order::query()
             ->where('id', $orderId)
             ->where('user_id', $request->user()?->id)
-            ->with('items')
+            ->with(['items.product.store.user', 'buyer'])
             ->firstOrFail();
 
-        $orderItem = $order->items->first();
+        $orderItem = $order->items->first(fn (OrderItem $item) => $item->product?->product_type === 'promotion');
         if (! $orderItem) {
             return response()->json(['message' => 'Promotion order item not found.'], 404);
         }
 
-        if ($order->payment_status === Order::PAYMENT_REFUNDED || $order->status === Order::STATUS_CANCELLED) {
-            return response()->json([
-                'message' => 'This promotion order has already been refunded.',
-            ], 422);
+        $settlements = app(PromotionSettlementService::class);
+
+        if ($blocked = $settlements->releaseBlockedReason($order, $orderItem)) {
+            return response()->json(['message' => $blocked], 422);
         }
 
-        if ($orderItem->verification_status === 'verified') {
-            return response()->json([
-                'message' => 'Verification has already been approved for this order.',
-            ], 422);
-        }
+        $settlement = $settlements->releaseToSeller($order, $orderItem, $request->user()?->id);
 
-        $orderItem->forceFill([
-            'verification_status' => 'submitted',
-            'verification_url' => $validated['verification_url'],
-            'verification_notes' => $validated['verification_notes'] ?? null,
-            'verification_proof' => $validated['verification_files'] ?? null,
-            'verification_submitted_at' => now(),
-        ])->save();
+        app(PromotionOrderNotifier::class)->deliveryAccepted($order, $orderItem->product?->store?->user, $orderItem->product_name, automatic: false);
 
-        $this->logPromotionActivity($request->user(), 'promotion_verification_submitted', $orderItem, [
+        $this->logPromotionActivity($request->user(), 'promotion_delivery_accepted', $orderItem, [
             'order_id' => $order->id,
             'promotion_id' => $orderItem->product_id,
-            'verification_url' => $orderItem->verification_url,
-            'verification_files_count' => count($validated['verification_files'] ?? []),
+            'settlement' => $settlement,
         ]);
 
         return response()->json([
             'success' => true,
-            'message' => 'Verification submitted successfully.',
+            'message' => 'Delivery accepted. The promoter will be paid.',
         ]);
     }
 
@@ -657,6 +655,12 @@ class PromotionController extends Controller
         if (($disputeMeta['state'] ?? null) === 'open') {
             return response()->json([
                 'message' => 'A dispute is already open for this promotion order.',
+            ], 422);
+        }
+
+        if ($order->status === Order::STATUS_COMPLETED) {
+            return response()->json([
+                'message' => 'This order is complete and the promoter has been paid. Contact support for help.',
             ], 422);
         }
 
@@ -798,6 +802,23 @@ class PromotionController extends Controller
         ]);
     }
 
+    /**
+     * Filter promotion orders by the status the API reports for them
+     * (serializeOrder), which is derived from the order item.
+     *
+     * @param  Builder<Order>  $query
+     */
+    private function filterByWireStatus(Builder $query, string $status): void
+    {
+        match ($status) {
+            'pending_verification' => $query->whereHas('items', fn ($item) => $item->where(fn ($inner) => $inner->whereNull('verification_status')->orWhere('verification_status', 'pending'))),
+            'verification_submitted' => $query->whereHas('items', fn ($item) => $item->where('verification_status', 'submitted')),
+            'completed' => $query->whereHas('items', fn ($item) => $item->where('verification_status', 'verified')),
+            'disputed' => $query->whereHas('items', fn ($item) => $item->where(fn ($inner) => $inner->where('verification_status', 'rejected')->orWhereNotNull('dispute_reason'))),
+            default => null,
+        };
+    }
+
     protected function getPerPage(Request $request, int $default = 20, int $max = 100): int
     {
         return parent::getPerPage($request, $default, $max);
@@ -805,7 +826,7 @@ class PromotionController extends Controller
 
     private function serializePromotion(Product $promotion, bool $includeReviews = false): array
     {
-        $promotion->loadMissing(['store.user']);
+        $promotion->loadMissing(['store.user.promoterProfile']);
         $metadata = is_array($promotion->metadata ?? null) ? $promotion->metadata : [];
 
         return [
@@ -827,6 +848,7 @@ class PromotionController extends Controller
             'content_formats' => array_values(array_filter((array) data_get($metadata, 'content_formats', []))),
             'delivery_days_min' => (int) ($promotion->delivery_days_min ?? 1),
             'delivery_days_max' => (int) ($promotion->delivery_days_max ?? 7),
+            'escrow_release_hours' => (int) config('promotions.auto_release_hours', 168),
             'requirements' => data_get($metadata, 'requirements'),
             'platform_specifics' => data_get($metadata, 'platform_specifics', []),
             'deliverables' => array_values(array_filter((array) data_get($metadata, 'deliverables', []), fn ($value) => filled($value))),
@@ -837,7 +859,16 @@ class PromotionController extends Controller
             'completed_orders' => (int) ($promotion->completed_orders ?? 0),
             'is_featured' => (bool) ($promotion->is_featured ?? false),
             'is_top_rated' => (float) ($promotion->average_rating ?? 0) >= 4.5,
-            'promoter' => $promotion->store?->user ? $this->serializeUserSummary($promotion->store->user) : null,
+            // The seller is shown as their promoter profile: its display name,
+            // and profile_slug as the storefront URL key (/promoters/{slug}),
+            // which is not always the username.
+            'promoter' => $promotion->store?->user ? array_merge(
+                $this->serializeUserSummary($promotion->store->user),
+                array_filter([
+                    'name' => $promotion->store->user->promoterProfile?->display_name,
+                    'profile_slug' => $promotion->store->user->promoterProfile?->slug,
+                ]),
+            ) : null,
             'featured_image_url' => $promotion->featured_image_url,
             'status' => $promotion->status,
             'created_at' => optional($promotion->created_at)->toIso8601String(),
@@ -871,7 +902,7 @@ class PromotionController extends Controller
 
     private function promotionDetailRelations(): array
     {
-        $relations = ['store.user'];
+        $relations = ['store.user.promoterProfile'];
 
         if ($this->reviewsTableAvailable()) {
             $relations[] = 'approvedGenericReviews.user';
@@ -928,6 +959,7 @@ class PromotionController extends Controller
                 'verification_notes' => $item?->verification_notes ?? null,
                 'verification_files' => is_array($item?->verification_proof ?? null) ? $item->verification_proof : [],
                 'rejection_reason' => $item?->rejection_reason ?? null,
+                'auto_release_at' => app(PromotionSettlementService::class)->autoReleaseAt($item),
             ],
             'dispute' => [
                 'is_disputed' => ! empty($item?->dispute_reason),
@@ -949,7 +981,7 @@ class PromotionController extends Controller
                 'refund_reason' => $order->refund_reason ?? null,
             ],
             'created_at' => optional($order->created_at)->toIso8601String(),
-            'expected_delivery_at' => optional($order->created_at?->copy()->addDays(3))->toIso8601String(),
+            'expected_delivery_at' => optional($order->created_at?->copy()->addDays(max(1, (int) ($item?->product?->delivery_days_max ?? 7))))->toIso8601String(),
             'completed_at' => optional($order->completed_at)->toIso8601String(),
         ];
     }

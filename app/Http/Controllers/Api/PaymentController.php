@@ -707,7 +707,7 @@ class PaymentController extends Controller
     public function walletTransactions(Request $request): JsonResponse
     {
         $payments = Payment::where('user_id', $request->user()->id)
-            ->whereIn('payment_type', ['wallet_topup', 'credits_purchase', 'credits_sale', 'withdrawal'])
+            ->whereIn('payment_type', ['wallet_topup', 'credits_purchase', 'credits_sale', 'withdrawal', \App\Services\Commerce\SettlementPayoutService::PAYMENT_TYPE])
             ->orderBy('created_at', 'desc')
             ->paginate($this->getPerPage($request));
 

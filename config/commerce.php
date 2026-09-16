@@ -22,4 +22,18 @@ return [
         'promotions' => env('COMMERCE_PROMOTIONS_HOLD_DAYS', 2),
         'music' => env('COMMERCE_MUSIC_HOLD_DAYS', 0),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Wallet payout verticals
+    |--------------------------------------------------------------------------
+    |
+    | Verticals whose cleared settlements are paid into the beneficiary's
+    | wallet by commerce:clear-due-settlements (SettlementPayoutService).
+    | Music and contributions are paid by their own flows and only mirror
+    | into the ledger, so they must never be listed here.
+    |
+    */
+
+    'wallet_payout_verticals' => ['store', 'events', 'promotions'],
 ];

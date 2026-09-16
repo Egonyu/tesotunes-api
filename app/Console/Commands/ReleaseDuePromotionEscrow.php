@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Modules\Store\Models\Order;
 use App\Modules\Store\Models\OrderItem;
+use App\Services\Store\PromotionOrderNotifier;
 use App\Services\Store\PromotionSettlementService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -85,6 +86,7 @@ class ReleaseDuePromotionEscrow extends Command
 
             try {
                 $settlements->releaseToSeller($order, $item, null);
+                app(PromotionOrderNotifier::class)->deliveryAccepted($order, $item->product?->store?->user, (string) $item->product_name, automatic: true);
                 $this->line("  released order {$order->id}");
                 $released++;
             } catch (Throwable $e) {
