@@ -105,9 +105,12 @@ class ProfileController extends Controller
             ->values();
 
         // Downloads
+        // downloads has no created_at (timestamps are off): ordering by it
+        // failed every library request. Only song downloads resolve to songs.
         $downloads = $user->downloads()
+            ->where('downloadable_type', (new \App\Models\Song)->getMorphClass())
             ->with(['song.artist', 'song.album'])
-            ->latest()
+            ->latest('downloaded_at')
             ->limit(20)
             ->get()
             ->pluck('song')

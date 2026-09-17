@@ -144,10 +144,15 @@ class CreditController extends Controller
                 ],
             ]);
         } catch (\Exception $e) {
+            // The exception text stays in the log, not the response.
+            \Illuminate\Support\Facades\Log::error('credits.daily_bonus_failed', [
+                'user_id' => $request->user()?->id,
+                'error' => $e->getMessage(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to claim daily bonus',
-                'error' => $e->getMessage(),
             ], 500);
         }
     }

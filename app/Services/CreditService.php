@@ -116,7 +116,7 @@ class CreditService
             'metadata' => ['streak_days' => $streakDays],
         ]);
 
-        if (! $outcome->awarded) {
+        if (! $outcome->wasAwarded()) {
             return null;
         }
 
