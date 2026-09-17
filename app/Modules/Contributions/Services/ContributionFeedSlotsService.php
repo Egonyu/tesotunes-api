@@ -124,7 +124,7 @@ class ContributionFeedSlotsService
                 'source_lang' => $task->source_lang,
                 'target_lang' => $task->target_lang,
                 'register' => $task->register,
-                'reward_credits' => (int) config('contributions.rewards.per_pair_ugx', 200),
+                'reward_credits' => (int) config('contributions.rewards.per_pair_credits', 200),
             ],
             'visibility' => 'public',
             'created_at' => now()->toIso8601String(),

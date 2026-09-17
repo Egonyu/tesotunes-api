@@ -40,7 +40,7 @@ class ContributorProfilePendingTest extends TestCase
     public function test_profile_reports_pending_submissions_and_estimated_credits(): void
     {
         ContributionsModule::setEnabled(true);
-        config(['contributions.rewards.per_pair_ugx' => 200]);
+        config(['contributions.rewards.per_pair_credits' => 200]);
 
         $author = $this->consentedUser();
         app(SubmissionService::class)->submit($author, $this->task(), 'I greet you');

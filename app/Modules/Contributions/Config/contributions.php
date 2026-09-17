@@ -51,15 +51,16 @@ return [
     'redundancy_target' => 3,
 
     /*
-    | Reward economics (consumed from 9.4 onward). Money rides the settlement
+    | Reward economics (consumed from 9.4 onward). Paid in credits, not UGX —
+    | the keys used to say _ugx, which read as cash. Rewards ride the settlement
     | ledger; these are the tuning knobs. Conservative by design.
     */
     'rewards' => [
-        'per_pair_ugx' => 200,
-        'per_pair_floor_ugx' => 100,
+        'per_pair_credits' => 200,
+        'per_pair_floor_credits' => 100,
         'validation_pct' => 0.50,       // validation pays 50% of a translation
         'trusted_multiplier' => 1.30,   // trusted-tier bonus
-        'daily_pool_ugx' => 50000,      // start small; raise as quality proves out
+        'daily_pool_credits' => 50000,      // start small; raise as quality proves out
         'per_contributor_daily_cap' => 20, // max rewarded accepted pairs/day
     ],
 

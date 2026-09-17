@@ -28,7 +28,7 @@ class ContributorProfileController extends Controller
             ->where('status', ContributionSubmission::STATUS_SUBMITTED)
             ->count();
 
-        $perPair = (int) config('contributions.rewards.per_pair_ugx', 200);
+        $perPair = (int) config('contributions.rewards.per_pair_credits', 200);
 
         return response()->json([
             'success' => true,

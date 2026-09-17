@@ -47,7 +47,7 @@ class RewardService
 
     private function rewardTranslation(ContributionSubmission $winner): void
     {
-        $base = (int) config('contributions.rewards.per_pair_ugx', 200);
+        $base = (int) config('contributions.rewards.per_pair_credits', 200);
         $amount = $this->grant($winner->user, $winner, 'translation_accepted', $base, 'contribution_translation', [
             'submission_uuid' => $winner->uuid,
         ]);
@@ -65,7 +65,7 @@ class RewardService
             return;
         }
 
-        $base = (int) config('contributions.rewards.per_pair_ugx', 200);
+        $base = (int) config('contributions.rewards.per_pair_credits', 200);
         $pct = (float) config('contributions.rewards.validation_pct', 0.5);
         $nominal = (int) round($base * $pct);
 
@@ -150,7 +150,7 @@ class RewardService
         }
 
         // Shared daily pool ceiling — clamp the grant to what's left.
-        $pool = (int) config('contributions.rewards.daily_pool_ugx', 50000);
+        $pool = (int) config('contributions.rewards.daily_pool_credits', 50000);
         $grantedToday = (int) Settlement::query()
             ->where('vertical', Settlement::VERTICAL_CONTRIBUTIONS)
             ->whereDate('created_at', today())

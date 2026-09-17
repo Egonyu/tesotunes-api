@@ -101,9 +101,9 @@ class ContributionAdminController extends Controller
                     'by_tier' => ContributorProfile::query()->selectRaw('tier, COUNT(*) c')->groupBy('tier')->pluck('c', 'tier'),
                 ],
                 'rewards' => [
-                    'daily_pool' => (int) config('contributions.rewards.daily_pool_ugx'),
+                    'daily_pool' => (int) config('contributions.rewards.daily_pool_credits'),
                     'pool_spent_today' => $poolSpentToday,
-                    'pool_remaining_today' => max(0, (int) config('contributions.rewards.daily_pool_ugx') - $poolSpentToday),
+                    'pool_remaining_today' => max(0, (int) config('contributions.rewards.daily_pool_credits') - $poolSpentToday),
                 ],
             ],
         ]);
