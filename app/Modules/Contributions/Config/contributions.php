@@ -57,7 +57,6 @@ return [
     */
     'rewards' => [
         'per_pair_credits' => 200,
-        'per_pair_floor_credits' => 100,
         'validation_pct' => 0.50,       // validation pays 50% of a translation
         'trusted_multiplier' => 1.30,   // trusted-tier bonus
         'daily_pool_credits' => 50000,      // start small; raise as quality proves out
