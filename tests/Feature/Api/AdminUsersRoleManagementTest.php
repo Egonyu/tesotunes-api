@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Models\Payment;
 use App\Models\Role;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -213,11 +214,44 @@ class AdminUsersRoleManagementTest extends TestCase
             ->assertJsonPath('data.review.account.phone_verified', true)
             ->assertJsonPath('data.review.account.profile_completion_percentage', 70)
             ->assertJsonPath('data.review.wallet.balance_ugx', 15000)
+            ->assertJsonPath('data.review.wallet.movements.withdrawn_ugx', 0)
+            ->assertJsonPath('data.review.wallet.movements.withdrawals_pending_ugx', 0)
+            ->assertJsonPath('data.review.wallet.movements.earnings_pending_ugx', 0)
             ->assertJsonPath('data.review.wallet.credits', 25)
             ->assertJsonPath('data.review.wallet.payments.total', 0)
             ->assertJsonPath('data.review.activity.orders.total', 0)
             ->assertJsonFragment(['title' => 'Email unverified'])
             ->assertJsonFragment(['title' => 'KYC awaiting review']);
+    }
+
+    public function test_admin_wallet_movements_separate_incoming_outgoing_and_pending_payments(): void
+    {
+        $user = User::factory()->create(['ugx_balance' => 12000]);
+
+        foreach ([
+            ['credits_sale', 'completed', 'platform_credits', 16000],
+            ['withdrawal', 'completed', 'mobile_money', 3000],
+            ['withdrawal', 'processing', 'mobile_money', 1000],
+            ['credits_purchase', 'completed', 'wallet', 500],
+            ['credits_sale', 'failed', 'platform_credits', 9000],
+        ] as [$type, $status, $method, $amount]) {
+            Payment::withoutEvents(fn () => Payment::factory()->create([
+                'user_id' => $user->id,
+                'payment_type' => $type,
+                'status' => $status,
+                'payment_method' => $method,
+                'amount' => $amount,
+                'currency' => 'UGX',
+            ]));
+        }
+
+        $this->actingAs($this->admin)->getJson("/api/admin/users/{$user->id}")
+            ->assertOk()
+            ->assertJsonPath('data.review.wallet.balance_ugx', 12000)
+            ->assertJsonPath('data.review.wallet.movements.credits_converted_ugx', 16000)
+            ->assertJsonPath('data.review.wallet.movements.withdrawn_ugx', 3000)
+            ->assertJsonPath('data.review.wallet.movements.withdrawals_pending_ugx', 1000)
+            ->assertJsonPath('data.review.wallet.movements.credits_purchased_ugx', 500);
     }
 
     public function test_admin_can_create_multiple_artists_with_the_same_name_without_slug_collision(): void

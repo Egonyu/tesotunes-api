@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\Commerce\Settlement;
 use App\Models\Payment;
 use App\Models\Role;
 use App\Models\User;
@@ -206,6 +207,32 @@ class AdminUsersController extends Controller
             )
             ->first();
 
+        $walletMovements = $user->payments()
+            ->where('currency', 'UGX')
+            ->where(function ($query) {
+                $query->whereIn('payment_type', ['wallet_topup', 'credits_sale', 'earnings_payout', 'withdrawal'])
+                    ->orWhere(function ($walletPurchase) {
+                        $walletPurchase->where('payment_type', 'credits_purchase')
+                            ->where('payment_method', 'wallet');
+                    });
+            })
+            ->selectRaw('payment_type, status, COUNT(*) as count, COALESCE(SUM(amount), 0) as amount')
+            ->groupBy('payment_type', 'status')
+            ->get();
+
+        $movementAmount = fn (string $type, array $statuses) => (float) $walletMovements
+            ->where('payment_type', $type)
+            ->whereIn('status', $statuses)
+            ->sum('amount');
+
+        $uncreditedEarnings = Settlement::query()
+            ->where('beneficiary_user_id', $user->id)
+            ->where('net_ugx', '>', 0)
+            ->whereIn('status', [Settlement::STATUS_PENDING, Settlement::STATUS_CLEARED])
+            ->selectRaw('status, COALESCE(SUM(net_ugx), 0) as amount')
+            ->groupBy('status')
+            ->pluck('amount', 'status');
+
         $orderSummary = $user->orders()
             ->selectRaw(
                 'COUNT(*) as total, '
@@ -306,6 +333,16 @@ class AdminUsersController extends Controller
             ],
             'wallet' => [
                 'balance_ugx' => (float) ($user->ugx_balance ?? 0),
+                'movements' => [
+                    'topups_ugx' => $movementAmount('wallet_topup', [Payment::STATUS_COMPLETED]),
+                    'credits_converted_ugx' => $movementAmount('credits_sale', [Payment::STATUS_COMPLETED]),
+                    'earnings_credited_ugx' => $movementAmount('earnings_payout', [Payment::STATUS_COMPLETED]),
+                    'credits_purchased_ugx' => $movementAmount('credits_purchase', [Payment::STATUS_COMPLETED]),
+                    'withdrawn_ugx' => $movementAmount('withdrawal', [Payment::STATUS_COMPLETED]),
+                    'withdrawals_pending_ugx' => $movementAmount('withdrawal', [Payment::STATUS_PENDING, Payment::STATUS_PROCESSING]),
+                    'earnings_pending_ugx' => (float) ($uncreditedEarnings[Settlement::STATUS_PENDING] ?? 0),
+                    'earnings_cleared_ugx' => (float) ($uncreditedEarnings[Settlement::STATUS_CLEARED] ?? 0),
+                ],
                 'credits' => (int) ($user->credits ?? 0),
                 'pin_set' => (bool) $user->wallet_pin_set_at,
                 'pin_locked_until' => $user->wallet_pin_locked_until?->toIso8601String(),
