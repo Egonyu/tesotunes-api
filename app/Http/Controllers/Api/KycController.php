@@ -6,10 +6,13 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\Kyc\ReviewKycRequest;
 use App\Http\Requests\Api\Kyc\UploadKycDocumentRequest;
 use App\Http\Resources\KycStatusResource;
+use App\Models\KYCDocument;
 use App\Models\User;
 use App\Services\Kyc\KycService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class KycController extends Controller
 {
@@ -83,9 +86,19 @@ class KycController extends Controller
         $decision = $request->string('decision')->toString();
 
         if ($decision === 'approve') {
-            $this->kyc->markVerified($user, $admin, $request->input('notes'));
+            $this->kyc->markVerified(
+                $user,
+                $admin,
+                $request->input('notes'),
+                requireReviewableSubmission: true,
+            );
         } else {
-            $this->kyc->markRejected($user, $admin, $request->string('reason')->toString());
+            $this->kyc->markRejected(
+                $user,
+                $admin,
+                $request->string('reason')->toString(),
+                requireReviewableSubmission: true,
+            );
         }
 
         return response()->json([
@@ -120,6 +133,28 @@ class KycController extends Controller
                 'per_page' => $users->perPage(),
                 'total' => $users->total(),
             ],
+        ]);
+    }
+
+    /**
+     * GET /api/admin/kyc/documents/{document} — stream a private KYC file.
+     *
+     * This route stays behind the staff role middleware. KYC files must never
+     * be exposed through the public storage disk or a permanent public URL.
+     */
+    public function document(KYCDocument $document): StreamedResponse
+    {
+        $path = $document->file_path;
+
+        if (! $path || ! Storage::disk('private')->exists($path)) {
+            abort(404, 'KYC document file not found.');
+        }
+
+        $filename = $document->file_name ?: "kyc-document-{$document->id}";
+
+        return Storage::disk('private')->response($path, $filename, [
+            'Cache-Control' => 'private, no-store, max-age=0',
+            'X-Content-Type-Options' => 'nosniff',
         ]);
     }
 }

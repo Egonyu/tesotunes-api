@@ -7,11 +7,13 @@ use App\Enums\KycDocumentType;
 use App\Enums\KycStatus;
 use App\Models\AuditLog;
 use App\Models\KYCDocument;
+use App\Models\Notification as AppNotification;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -131,11 +133,22 @@ class KycService
      * Marks all pending documents verified and flips the user to
      * KycStatus::Verified with a TTL on kyc_expires_at.
      */
-    public function markVerified(User $user, User $admin, ?string $notes = null): void
-    {
+    public function markVerified(
+        User $user,
+        User $admin,
+        ?string $notes = null,
+        bool $requireReviewableSubmission = false,
+    ): void {
         $this->ensureAdmin($admin);
 
-        DB::transaction(function () use ($user, $admin, $notes) {
+        DB::transaction(function () use ($user, $admin, $notes, $requireReviewableSubmission) {
+            $user = User::query()->lockForUpdate()->findOrFail($user->id);
+
+            if ($requireReviewableSubmission) {
+                $this->assertPendingReview($user);
+                $this->assertCompleteEvidence($user);
+            }
+
             KYCDocument::query()
                 ->where('user_id', $user->id)
                 ->where('status', KycDocumentStatus::Pending)
@@ -158,27 +171,61 @@ class KycService
                 'kyc_expires_at' => now()->addDays(self::VERIFICATION_TTL_DAYS),
                 'kyc_rejection_reason' => null,
             ])->save();
+
+            AppNotification::createRichForUser(
+                user: $user,
+                type: 'kyc_approved',
+                title: 'Identity verification approved',
+                message: 'Your identity has been verified. You can now use features that require verification.',
+                data: ['status' => KycStatus::Verified->value],
+                actionUrl: '/verify',
+                category: 'account',
+                notifiable: $user,
+                actorId: $admin->id,
+                priority: 'high',
+            );
         });
     }
 
     /**
      * Admin action: reject the user's KYC submission with a reason.
      */
-    public function markRejected(User $user, User $admin, string $reason): void
-    {
+    public function markRejected(
+        User $user,
+        User $admin,
+        string $reason,
+        bool $requireReviewableSubmission = false,
+    ): void {
         $this->ensureAdmin($admin);
 
         if (trim($reason) === '') {
             throw new InvalidArgumentException('Rejection reason cannot be empty.');
         }
 
-        DB::transaction(function () use ($user, $admin, $reason) {
+        DB::transaction(function () use ($user, $admin, $reason, $requireReviewableSubmission) {
+            $user = User::query()->lockForUpdate()->findOrFail($user->id);
+
+            if ($requireReviewableSubmission) {
+                $this->assertPendingReview($user);
+            }
+
+            $pendingDocuments = KYCDocument::query()
+                ->where('user_id', $user->id)
+                ->where('status', KycDocumentStatus::Pending)
+                ->count();
+
+            if ($pendingDocuments === 0) {
+                throw ValidationException::withMessages([
+                    'user' => 'This user has no pending KYC documents to reject.',
+                ]);
+            }
+
             KYCDocument::query()
                 ->where('user_id', $user->id)
                 ->where('status', KycDocumentStatus::Pending)
                 ->update([
                     'status' => KycDocumentStatus::Rejected->value,
-                    'verified_at' => now(),
+                    'verified_at' => null,
                     'verified_by' => $admin->id,
                     'rejection_reason' => $reason,
                 ]);
@@ -196,6 +243,22 @@ class KycService
                 'kyc_verified_at' => null,
                 'kyc_expires_at' => null,
             ])->save();
+
+            AppNotification::createRichForUser(
+                user: $user,
+                type: 'kyc_resubmission_required',
+                title: 'Identity documents need to be resubmitted',
+                message: $reason,
+                data: [
+                    'status' => KycStatus::Rejected->value,
+                    'reason' => $reason,
+                ],
+                actionUrl: '/verify',
+                category: 'account',
+                notifiable: $user,
+                actorId: $admin->id,
+                priority: 'high',
+            );
         });
     }
 
@@ -325,7 +388,7 @@ class KycService
             'error' => 'kyc_required',
             'action' => $action,
             'missing_steps' => $this->missingStepsFor($user, $action),
-            'redirect' => '/account/verify-identity',
+            'redirect' => '/verify',
         ];
     }
 
@@ -361,8 +424,9 @@ class KycService
 
         $updates = ['kyc_status' => $to->value];
 
-        if ($to === KycStatus::PendingReview && $user->kyc_submitted_at === null) {
+        if ($to === KycStatus::PendingReview) {
             $updates['kyc_submitted_at'] = now();
+            $updates['kyc_rejection_reason'] = null;
         }
 
         $user->forceFill($updates)->save();
@@ -394,6 +458,38 @@ class KycService
     {
         if (! $admin->hasAnyRole(['admin', 'super_admin', 'moderator'])) {
             throw new RuntimeException('Only admins can review KYC submissions.');
+        }
+    }
+
+    private function assertPendingReview(User $user): void
+    {
+        if ($this->currentStatus($user) !== KycStatus::PendingReview) {
+            throw ValidationException::withMessages([
+                'user' => 'This KYC submission is no longer pending review. Refresh the queue and try again.',
+            ]);
+        }
+    }
+
+    private function assertCompleteEvidence(User $user): void
+    {
+        $reviewableTypes = $user->kycDocuments()
+            ->whereIn('status', [
+                KycDocumentStatus::Pending->value,
+                KycDocumentStatus::Verified->value,
+            ])
+            ->pluck('document_type')
+            ->map(fn ($type) => $type instanceof KycDocumentType ? $type->value : (string) $type)
+            ->unique();
+
+        $missing = collect(KycDocumentType::required())
+            ->reject(fn (KycDocumentType $type) => $reviewableTypes->contains($type->value))
+            ->map(fn (KycDocumentType $type) => $type->label())
+            ->values();
+
+        if ($missing->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'documents' => 'Cannot approve an incomplete submission. Missing: '.$missing->join(', ').'.',
+            ]);
         }
     }
 }

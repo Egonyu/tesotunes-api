@@ -34,7 +34,7 @@ class KycStatusResource extends JsonResource
             'rejection_reason' => $user->kyc_rejection_reason,
             'can_submit_documents' => $status->canSubmitDocuments(),
             'eligible_for_sensitive_actions' => $status->isEligibleForSensitiveActions(),
-            'documents' => $this->documentsByType($user),
+            'documents' => $this->documentsByType($user, $request),
             'requirements' => [
                 'required_document_types' => array_map(
                     fn (KycDocumentType $t) => [
@@ -50,8 +50,10 @@ class KycStatusResource extends JsonResource
     /**
      * @return array<int, array<string, mixed>>
      */
-    private function documentsByType(User $user): array
+    private function documentsByType(User $user, Request $request): array
     {
+        $canReview = $request->user()?->hasAnyRole(['admin', 'super_admin', 'moderator']) ?? false;
+
         return $user->kycDocuments()
             ->orderByDesc('created_at')
             ->get()
@@ -64,6 +66,9 @@ class KycStatusResource extends JsonResource
                 'rejection_reason' => $doc->rejection_reason,
                 'submitted_at' => $doc->created_at?->toIso8601String(),
                 'verified_at' => $doc->verified_at?->toIso8601String(),
+                'review_url' => $canReview
+                    ? route('api.admin.kyc.documents.show', ['document' => $doc->id], false)
+                    : null,
             ])
             ->values()
             ->all();

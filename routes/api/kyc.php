@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Route;
 |
 | Admin endpoints (require admin/super_admin/moderator role):
 |   GET  /api/admin/kyc/pending          — list users awaiting review
+|   GET  /api/admin/kyc/documents/{document} — securely view an uploaded document
 |   POST /api/admin/kyc/users/{user}/review — approve or reject submission
 |
 */
@@ -30,5 +31,6 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin,moderator'])
     ->name('api.admin.kyc.')
     ->group(function () {
         Route::get('/pending', [KycController::class, 'pending'])->name('pending');
+        Route::get('/documents/{document}', [KycController::class, 'document'])->name('documents.show');
         Route::post('/users/{user}/review', [KycController::class, 'review'])->name('review');
     });
