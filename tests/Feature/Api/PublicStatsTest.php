@@ -21,6 +21,11 @@ class PublicStatsTest extends TestCase
     {
         Cache::flush();
 
+        $publishedSongsBefore = Song::query()->published()->count();
+        $playableArtistsBefore = Artist::query()
+            ->whereHas('songs', fn ($query) => $query->where('status', 'published'))
+            ->count();
+
         $playable = Artist::factory()->create();
         Song::factory()->count(2)->create(['artist_id' => $playable->id, 'status' => 'published']);
 
@@ -31,8 +36,8 @@ class PublicStatsTest extends TestCase
 
         $this->getJson('/api/public/stats')
             ->assertOk()
-            ->assertJsonPath('data.songs', 2)
-            ->assertJsonPath('data.artists', 1)
+            ->assertJsonPath('data.songs', $publishedSongsBefore + 2)
+            ->assertJsonPath('data.artists', $playableArtistsBefore + 1)
             ->assertJsonPath('data.members', $members);
     }
 
