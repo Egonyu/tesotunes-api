@@ -71,7 +71,7 @@ class WithdrawalKycGateTest extends TestCase
             ])
             ->assertForbidden()
             ->assertJsonPath('error', 'kyc_required')
-            ->assertJsonPath('redirect', '/account/verify-identity')
+            ->assertJsonPath('redirect', '/verify')
             ->assertJsonStructure(['missing_steps']);
     }
 
