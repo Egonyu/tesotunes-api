@@ -91,6 +91,19 @@ class KycReviewWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_pending_queue_can_open_a_specific_applicant(): void
+    {
+        $requested = $this->pendingApplicant();
+        $other = $this->pendingApplicant();
+
+        $this->actingAs($this->moderator)
+            ->getJson("/api/admin/kyc/pending?user_id={$requested->id}")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.user_id', $requested->id)
+            ->assertJsonMissing(['user_id' => $other->id]);
+    }
+
     public function test_incomplete_submission_cannot_be_approved(): void
     {
         $applicant = $this->pendingApplicant();

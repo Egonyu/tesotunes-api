@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
+use App\Models\Payment;
 use App\Models\Role;
 use App\Models\User;
 use App\Services\UserService;
@@ -169,6 +170,166 @@ class AdminUsersController extends Controller
             'artist' => $this->buildArtistReference($user),
             'created_at' => $user->created_at,
             'updated_at' => $user->updated_at,
+        ];
+    }
+
+    /**
+     * Build the operational summary used by the admin user review screen.
+     *
+     * Keep this separate from buildUserPayload(): that payload is also used by
+     * create/update responses, where running review aggregates is unnecessary.
+     */
+    private function buildUserReviewSummary(User $user): array
+    {
+        $kycStatus = $user->kyc_status?->value ?? 'none';
+
+        $documentCounts = $user->kycDocuments()
+            ->selectRaw('status, COUNT(*) as aggregate')
+            ->groupBy('status')
+            ->pluck('aggregate', 'status');
+
+        $paymentSummary = $user->payments()
+            ->selectRaw(
+                'COUNT(*) as total, '
+                .'SUM(CASE WHEN status IN (?, ?) THEN 1 ELSE 0 END) as in_flight, '
+                .'SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as completed, '
+                .'SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as failed, '
+                .'SUM(CASE WHEN status = ? AND currency = ? THEN amount ELSE 0 END) as completed_volume_ugx',
+                [
+                    Payment::STATUS_PENDING,
+                    Payment::STATUS_PROCESSING,
+                    Payment::STATUS_COMPLETED,
+                    Payment::STATUS_FAILED,
+                    Payment::STATUS_COMPLETED,
+                    'UGX',
+                ]
+            )
+            ->first();
+
+        $orderSummary = $user->orders()
+            ->selectRaw(
+                'COUNT(*) as total, '
+                .'SUM(CASE WHEN payment_status = ? THEN 1 ELSE 0 END) as paid, '
+                .'SUM(CASE WHEN status = ? OR payment_status = ? THEN 1 ELSE 0 END) as failed',
+                ['paid', 'failed', 'failed']
+            )
+            ->first();
+
+        $capabilities = $user->capabilities()
+            ->latest('updated_at')
+            ->get()
+            ->map(fn ($grant) => [
+                'capability' => $grant->capability->value,
+                'label' => $grant->capability->label(),
+                'status' => $grant->status->value,
+                'status_reason' => $grant->status_reason,
+                'applied_at' => $grant->applied_at?->toIso8601String(),
+                'granted_at' => $grant->granted_at?->toIso8601String(),
+                'updated_at' => $grant->updated_at?->toIso8601String(),
+            ])
+            ->values();
+
+        $recentAudit = AuditLog::query()
+            ->with('user:id,name,username,email')
+            ->where(function ($query) use ($user) {
+                $query
+                    ->where(function ($auditableQuery) use ($user) {
+                        $auditableQuery
+                            ->where('auditable_type', User::class)
+                            ->where('auditable_id', $user->id);
+                    })
+                    ->orWhere('user_id', $user->id)
+                    ->orWhere('new_values->user_id', $user->id);
+            })
+            ->latest()
+            ->limit(10)
+            ->get()
+            ->map(fn (AuditLog $log) => [
+                'id' => $log->id,
+                'action' => $log->action,
+                'actor' => $log->user ? [
+                    'id' => $log->user->id,
+                    'name' => $log->user->name ?: $log->user->username ?: $log->user->email,
+                    'email' => $log->user->email,
+                ] : null,
+                'ip_address' => $log->ip_address,
+                'request_id' => $log->request_id,
+                'trace_id' => $log->trace_id,
+                'created_at' => $log->created_at?->toIso8601String(),
+            ])
+            ->values();
+
+        $risks = collect();
+
+        if (! $user->is_active) {
+            $risks->push(['severity' => 'critical', 'title' => 'Account inactive', 'detail' => 'Sign-in and protected account actions are restricted.']);
+        }
+        if (! $user->email_verified_at) {
+            $risks->push(['severity' => 'warning', 'title' => 'Email unverified', 'detail' => 'Ownership of the primary email address is unconfirmed.']);
+        }
+        if (in_array($kycStatus, ['rejected', 'expired'], true)) {
+            $risks->push(['severity' => 'critical', 'title' => 'KYC '.str_replace('_', ' ', $kycStatus), 'detail' => $user->kyc_rejection_reason ?: 'Identity verification requires attention.']);
+        } elseif ($kycStatus === 'pending_review') {
+            $risks->push(['severity' => 'warning', 'title' => 'KYC awaiting review', 'detail' => 'Submitted identity documents need an administrator decision.']);
+        }
+        if ($this->isPrivilegedUser($user) && ! $user->two_factor_enabled) {
+            $risks->push(['severity' => 'critical', 'title' => 'Privileged account without 2FA', 'detail' => 'Require two-factor authentication before retaining elevated access.']);
+        }
+        if ($user->wallet_pin_locked_until?->isFuture()) {
+            $risks->push(['severity' => 'warning', 'title' => 'Wallet PIN locked', 'detail' => 'The wallet PIN is locked until '.$user->wallet_pin_locked_until->toIso8601String().'.']);
+        }
+
+        return [
+            'risks' => $risks->values(),
+            'account' => [
+                'is_online' => (bool) $user->is_online,
+                'last_seen_at' => $user->last_seen_at?->toIso8601String(),
+                'last_login_at' => $user->last_login_at?->toIso8601String(),
+                'email_verified' => (bool) $user->email_verified_at,
+                'phone_verified' => (bool) $user->phone_verified_at,
+                'two_factor_enabled' => (bool) $user->two_factor_enabled,
+                'profile_completion_percentage' => (int) ($user->profile_completion_percentage ?? 0),
+                'account_age_days' => $user->created_at?->diffInDays(now()),
+            ],
+            'identity' => [
+                'status' => $kycStatus,
+                'submitted_at' => $user->kyc_submitted_at?->toIso8601String(),
+                'verified_at' => $user->kyc_verified_at?->toIso8601String(),
+                'expires_at' => $user->kyc_expires_at?->toIso8601String(),
+                'rejection_reason' => $user->kyc_rejection_reason,
+                'documents' => [
+                    'total' => (int) $documentCounts->sum(),
+                    'pending' => (int) ($documentCounts['pending'] ?? 0),
+                    'verified' => (int) ($documentCounts['verified'] ?? 0),
+                    'rejected' => (int) ($documentCounts['rejected'] ?? 0),
+                ],
+            ],
+            'wallet' => [
+                'balance_ugx' => (float) ($user->ugx_balance ?? 0),
+                'credits' => (int) ($user->credits ?? 0),
+                'pin_set' => (bool) $user->wallet_pin_set_at,
+                'pin_locked_until' => $user->wallet_pin_locked_until?->toIso8601String(),
+                'payments' => [
+                    'total' => (int) ($paymentSummary->total ?? 0),
+                    'in_flight' => (int) ($paymentSummary->in_flight ?? 0),
+                    'completed' => (int) ($paymentSummary->completed ?? 0),
+                    'failed' => (int) ($paymentSummary->failed ?? 0),
+                    'completed_volume_ugx' => (float) ($paymentSummary->completed_volume_ugx ?? 0),
+                ],
+            ],
+            'activity' => [
+                'songs' => $user->songs()->count(),
+                'published_songs' => $user->songs()->where('songs.status', 'published')->count(),
+                'playlists' => $user->playlists()->count(),
+                'comments' => $user->comments()->count(),
+                'orders' => [
+                    'total' => (int) ($orderSummary->total ?? 0),
+                    'paid' => (int) ($orderSummary->paid ?? 0),
+                    'failed' => (int) ($orderSummary->failed ?? 0),
+                ],
+            ],
+            'capabilities' => $capabilities,
+            'recent_audit' => $recentAudit,
         ];
     }
 
@@ -415,7 +576,10 @@ class AdminUsersController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $this->buildUserPayload($user),
+                'data' => [
+                    ...$this->buildUserPayload($user),
+                    'review' => $this->buildUserReviewSummary($user),
+                ],
             ]);
         }, 'Failed to load user details.');
     }

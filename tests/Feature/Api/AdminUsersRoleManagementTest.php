@@ -191,6 +191,35 @@ class AdminUsersRoleManagementTest extends TestCase
             ->assertJsonPath('data.artist.status', 'active');
     }
 
+    public function test_admin_user_show_includes_review_summary_and_attention_flags(): void
+    {
+        $user = User::factory()->create([
+            'email_verified_at' => null,
+            'phone_verified_at' => now(),
+            'kyc_status' => 'pending_review',
+            'kyc_submitted_at' => now()->subHour(),
+            'profile_completion_percentage' => 70,
+            'credits' => 25,
+            'ugx_balance' => 15000,
+        ]);
+        $user->assignRole('user', $this->admin->id);
+
+        $response = $this->actingAs($this->admin)->getJson("/api/admin/users/{$user->id}");
+
+        $response->assertOk()
+            ->assertJsonPath('data.review.identity.status', 'pending_review')
+            ->assertJsonPath('data.review.identity.documents.total', 0)
+            ->assertJsonPath('data.review.account.email_verified', false)
+            ->assertJsonPath('data.review.account.phone_verified', true)
+            ->assertJsonPath('data.review.account.profile_completion_percentage', 70)
+            ->assertJsonPath('data.review.wallet.balance_ugx', 15000)
+            ->assertJsonPath('data.review.wallet.credits', 25)
+            ->assertJsonPath('data.review.wallet.payments.total', 0)
+            ->assertJsonPath('data.review.activity.orders.total', 0)
+            ->assertJsonFragment(['title' => 'Email unverified'])
+            ->assertJsonFragment(['title' => 'KYC awaiting review']);
+    }
+
     public function test_admin_can_create_multiple_artists_with_the_same_name_without_slug_collision(): void
     {
         $payload = [

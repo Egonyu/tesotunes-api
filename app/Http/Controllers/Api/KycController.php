@@ -117,6 +117,10 @@ class KycController extends Controller
 
         $users = User::query()
             ->where('kyc_status', \App\Enums\KycStatus::PendingReview)
+            ->when(
+                $request->integer('user_id') > 0,
+                fn ($query) => $query->whereKey($request->integer('user_id'))
+            )
             ->with('kycDocuments')
             ->orderBy('kyc_submitted_at')
             ->paginate($perPage);
