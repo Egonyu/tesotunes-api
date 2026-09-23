@@ -91,6 +91,11 @@ trait HasStore
      */
     public function getStoreTransactionFee(): float
     {
+        $configured = $this->getSubscriptionEntitlement('store.platform_commission_percent');
+        if (is_numeric($configured)) {
+            return (float) $configured;
+        }
+
         if (! $this->hasStore()) {
             return config('store.fees.free_tier', 7.0);
         }

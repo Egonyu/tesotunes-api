@@ -506,6 +506,17 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(30)->by($request->user()?->id ?? $request->ip());
         });
 
+        // Guest contribution loop — unauthenticated, so the IP is the only
+        // identity we have. Generous enough that a genuine contributor doing a
+        // dozen sentences in a sitting is never interrupted, tight enough that
+        // the translator (a single free CPU worker) cannot be trivially drained.
+        RateLimiter::for('contribute-guest', function (Request $request) {
+            return [
+                Limit::perMinute(20)->by($request->ip()),
+                Limit::perDay(300)->by($request->ip()),
+            ];
+        });
+
         // Registration (prevent spam)
         RateLimiter::for('register', function (Request $request) {
             $isLocalEnvironment = $this->app->environment(['local', 'development']);

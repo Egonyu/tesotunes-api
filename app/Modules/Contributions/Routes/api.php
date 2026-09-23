@@ -5,6 +5,7 @@ use App\Modules\Contributions\Http\Controllers\Api\ContributionConsentController
 use App\Modules\Contributions\Http\Controllers\Api\ContributionTaskController;
 use App\Modules\Contributions\Http\Controllers\Api\ContributionValidationController;
 use App\Modules\Contributions\Http\Controllers\Api\ContributorProfileController;
+use App\Modules\Contributions\Http\Controllers\Api\GuestLoopController;
 use App\Modules\Contributions\Http\Controllers\Api\LyricOptInController;
 use App\Modules\Contributions\Support\ContributionsModule;
 use Illuminate\Support\Facades\Route;
@@ -26,6 +27,23 @@ Route::get('/status', fn () => response()->json([
         'feed_cards_enabled' => ContributionsModule::feedCardsEnabled(),
     ],
 ]))->name('status');
+
+// Guest loop — unauthenticated front door. Type, see the model try, say whether
+// it is right, correct it. No account, no consent gate: the only people who ever
+// contributed to the prototype did so anonymously. Throttled per IP; nothing
+// written here is rewarded until a real user claims it at sign-in.
+Route::middleware(['throttle:contribute-guest'])->prefix('guest')->name('guest.')->group(function () {
+    Route::get('/session', [GuestLoopController::class, 'session'])->name('session');
+    Route::get('/suggestions', [GuestLoopController::class, 'suggestions'])->name('suggestions');
+    Route::post('/translate', [GuestLoopController::class, 'translate'])->name('translate');
+    Route::post('/{uuid}/verdict', [GuestLoopController::class, 'verdict'])->name('verdict');
+});
+
+// Claim anonymous work at sign-in — authed, but deliberately outside the
+// contributions.enabled gate so work is never silently lost while the module is
+// toggled off.
+Route::middleware(['auth:sanctum'])->post('/guest/claim', [GuestLoopController::class, 'claim'])
+    ->name('guest.claim');
 
 // Admin operator console — reachable regardless of the toggle (role-gated).
 Route::middleware(['auth:sanctum', 'role:admin,super_admin'])->prefix('admin')->name('admin.')->group(function () {

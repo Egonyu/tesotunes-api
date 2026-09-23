@@ -28,6 +28,7 @@ class SubscriptionPlan extends Model
         'is_visible',
         'features',
         'limits',
+        'entitlements',
         'metadata',
         'sort_order',
         'price_usd',
@@ -52,6 +53,7 @@ class SubscriptionPlan extends Model
     protected $casts = [
         'features' => 'array',
         'limits' => 'array',
+        'entitlements' => 'array',
         'metadata' => 'array',
         'is_active' => 'boolean',
         'is_featured' => 'boolean',
@@ -125,5 +127,29 @@ class SubscriptionPlan extends Model
     public function getLimit(string $limitType): ?int
     {
         return $this->limits[$limitType] ?? null;
+    }
+
+    public function entitlement(string $key, mixed $default = null): mixed
+    {
+        $entitlements = $this->entitlements ?? [];
+
+        return array_key_exists($key, $entitlements)
+            ? $entitlements[$key]
+            : $default;
+    }
+
+    public function allows(string $key): bool
+    {
+        $value = $this->entitlement($key, false);
+
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_numeric($value)) {
+            return (float) $value !== 0.0;
+        }
+
+        return in_array(strtolower((string) $value), ['1', 'true', 'yes', 'on', 'enabled', 'unlimited'], true);
     }
 }

@@ -26,6 +26,17 @@ class PayoutController extends Controller
         ]);
 
         $user = $request->user();
+        $minimum = (int) $user->getSubscriptionEntitlement(
+            'finance.withdrawal_minimum_ugx',
+            config('payments.payout.min_amount', 50000)
+        );
+
+        if ((float) $validated['amount'] < $minimum) {
+            return response()->json([
+                'message' => 'Minimum payout amount is UGX '.number_format($minimum).'.',
+                'data' => ['minimum_amount' => $minimum],
+            ], 422);
+        }
 
         // Find the artist profile for this user
         $artist = \App\Models\Artist::where('user_id', $user->id)->firstOrFail();

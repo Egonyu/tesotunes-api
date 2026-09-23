@@ -40,6 +40,7 @@ class SubscriptionController extends Controller
                 'currency' => $plan->currency,
                 'trial_days' => $plan->trial_days,
                 'features' => $plan->features ?? [],
+                'entitlements' => $plan->entitlements ?? [],
                 'limits' => [
                     'downloads_per_day' => $plan->max_downloads_per_day ?? $plan->downloads_per_day,
                     'uploads_per_month' => $plan->max_uploads_per_month,
@@ -76,16 +77,20 @@ class SubscriptionController extends Controller
             : 0;
 
         if (! $sub || ! $sub->isActive()) {
+            $freePlan = SubscriptionPlan::where('slug', 'free')->where('is_active', true)->first();
+
             return response()->json([
                 'success' => true,
                 'data' => [
                     'has_subscription' => false,
                     'plan' => 'free',
+                    'plan_name' => $freePlan?->name ?? 'Free',
+                    'entitlements' => $freePlan?->entitlements ?? [],
                     'limits' => [
-                        'downloads_per_day' => 3,
+                        'downloads_per_day' => $freePlan?->entitlement('streaming.downloads_per_day', $freePlan?->max_downloads_per_day ?? 3) ?? 3,
                         'downloads_today' => $downloadsToday,
-                        'audio_quality_kbps' => 128,
-                        'uploads_per_month' => 0,
+                        'audio_quality_kbps' => $freePlan?->entitlement('streaming.audio_quality_kbps', $freePlan?->max_audio_quality_kbps ?? 128) ?? 128,
+                        'uploads_per_month' => $freePlan?->entitlement('creator.uploads_per_month', $freePlan?->max_uploads_per_month ?? 0) ?? 0,
                         'uploads_this_month' => $uploadsThisMonth,
                     ],
                 ],
@@ -112,6 +117,7 @@ class SubscriptionController extends Controller
                 'expires_at' => $sub->expires_at?->toIso8601String(),
                 'days_remaining' => $sub->daysUntilExpiry(),
                 'auto_renew' => (bool) $sub->auto_renew,
+                'entitlements' => $plan?->entitlements ?? [],
                 'ad_free' => $adFree,
                 'offline_access' => $offlineAccess,
                 'limits' => [
@@ -456,7 +462,10 @@ class SubscriptionController extends Controller
      */
     private function resolveCurrentDownloadsLimit(?SubscriptionPlan $plan): ?int
     {
-        $limit = $plan?->max_downloads_per_day ?? $plan?->downloads_per_day;
+        $limit = $plan?->entitlement(
+            'streaming.downloads_per_day',
+            $plan?->max_downloads_per_day ?? $plan?->downloads_per_day
+        );
 
         if ($limit === null || (int) $limit < 0) {
             return null;
@@ -467,12 +476,12 @@ class SubscriptionController extends Controller
 
     private function resolveAudioQualityLimit(?SubscriptionPlan $plan): int
     {
-        return (int) ($plan?->max_audio_quality_kbps ?? 128);
+        return (int) ($plan?->entitlement('streaming.audio_quality_kbps', $plan?->max_audio_quality_kbps ?? 128) ?? 128);
     }
 
     private function resolveUploadsLimit(?SubscriptionPlan $plan): int
     {
-        $limit = $plan?->max_uploads_per_month;
+        $limit = $plan?->entitlement('creator.uploads_per_month', $plan?->max_uploads_per_month);
 
         if ($limit === null || (int) $limit < 0) {
             return 0;
@@ -484,13 +493,20 @@ class SubscriptionController extends Controller
     private function resolveAdFree(?SubscriptionPlan $plan): bool
     {
         // Same rule as HasSubscriptionCapabilities::isAdFree().
-        return $plan !== null && ((bool) $plan->ad_free || ! (bool) $plan->has_ads);
+        return $plan !== null && (bool) $plan->entitlement(
+            'streaming.ad_free',
+            ((bool) $plan->ad_free || ! (bool) $plan->has_ads)
+        );
     }
 
     private function resolveOfflineAccess(?SubscriptionPlan $plan): bool
     {
         if ($plan === null) {
             return false;
+        }
+
+        if (array_key_exists('streaming.offline', $plan->entitlements ?? [])) {
+            return (bool) $plan->entitlement('streaming.offline');
         }
 
         if ($plan->allows_offline !== null) {

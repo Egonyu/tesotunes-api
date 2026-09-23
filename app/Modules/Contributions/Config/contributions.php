@@ -19,6 +19,18 @@ return [
     // broader; see docs/architecture/ATESO_DATA_PIPELINE.md).
     'license_version' => 'CC-BY-SA-4.0',
 
+    /*
+    | Hosted translator used by the guest loop. A Gradio Space: the call is two
+    | requests (POST for an event id, GET to read the SSE result), and the free
+    | CPU tier sleeps after 48h idle, so keep the scheduled ping enabled.
+    */
+    'translator' => [
+        'base_url' => env('ATESO_TRANSLATOR_URL', 'https://egonyu-ateso-translator.hf.space'),
+        'endpoint' => env('ATESO_TRANSLATOR_ENDPOINT', 'translate'),
+        'timeout' => (int) env('ATESO_TRANSLATOR_TIMEOUT', 45),
+        'keep_warm' => env('ATESO_TRANSLATOR_KEEP_WARM', true),
+    ],
+
     'languages' => [
         'source' => 'en',
         'target' => 'teo', // ISO 639-3 for Ateso/Teso

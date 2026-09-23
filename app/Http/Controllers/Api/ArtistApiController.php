@@ -1613,13 +1613,21 @@ class ArtistApiController extends Controller
                 ],
                 'earnings_sources' => $sources,
                 'payout_limits' => [
-                    'min_amount' => config('payments.payout.min_amount', 50000),
+                    'min_amount' => (int) $request->user()->getSubscriptionEntitlement(
+                        'finance.withdrawal_minimum_ugx',
+                        config('payments.payout.min_amount', 50000)
+                    ),
                     'max_single' => config('payments.payout.max_single', 5000000),
                     'max_daily' => config('payments.payout.max_daily', 10000000),
-                    'fee_rates' => config('payments.payout.fees', [
+                    'fee_rates' => array_merge(config('payments.payout.fees', [
                         'mobile_money' => 1.5,
                         'bank_transfer' => 0.5,
                         'paypal' => 2.0,
+                    ]), [
+                        'subscription_rate' => (float) $request->user()->getSubscriptionEntitlement(
+                            'finance.withdrawal_fee_percent',
+                            config('payments.payout.fees.mobile_money', 1.5)
+                        ),
                     ]),
                 ],
                 'streaming_configuration' => app(StreamingRateService::class)->getStreamingConfigurationSummary(),

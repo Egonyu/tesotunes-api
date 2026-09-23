@@ -303,6 +303,7 @@ class AdminSubscriptionsController extends Controller
             foreach ($validated['plans'] ?? [] as $planData) {
                 $plan = SubscriptionPlan::findOrFail($planData['id']);
                 $metadata = $plan->metadata ?? [];
+                $entitlements = $plan->entitlements ?? [];
 
                 $metadata['stream_rate_ugx'] = array_key_exists('stream_rate_ugx', $planData)
                     ? $this->normalizeDecimal($planData['stream_rate_ugx'])
@@ -315,12 +316,22 @@ class AdminSubscriptionsController extends Controller
                 $metadata['event_platform_commission_percent'] = array_key_exists('event_platform_commission_percent', $planData)
                     ? $this->normalizeDecimal($planData['event_platform_commission_percent'])
                     : Arr::get($metadata, 'event_platform_commission_percent');
+                if (array_key_exists('event_platform_commission_percent', $planData)) {
+                    $entitlements['events.platform_commission_percent'] = $planData['event_platform_commission_percent'] === null
+                        ? null
+                        : (float) $planData['event_platform_commission_percent'];
+                }
 
                 $metadata['event_processing_fee_percent'] = array_key_exists('event_processing_fee_percent', $planData)
                     ? $this->normalizeDecimal($planData['event_processing_fee_percent'])
                     : Arr::get($metadata, 'event_processing_fee_percent');
+                if (array_key_exists('event_processing_fee_percent', $planData)) {
+                    $entitlements['events.processing_fee_percent'] = $planData['event_processing_fee_percent'] === null
+                        ? null
+                        : (float) $planData['event_processing_fee_percent'];
+                }
 
-                $plan->update(['metadata' => $metadata]);
+                $plan->update(['metadata' => $metadata, 'entitlements' => $entitlements]);
             }
 
             if (array_key_exists('platform_commissions', $validated)) {
@@ -651,6 +662,12 @@ class AdminSubscriptionsController extends Controller
             'region' => 'sometimes|nullable|string|max:20',
             'features' => 'sometimes|array',
             'features.*' => 'string|max:255',
+            'entitlements' => 'sometimes|array',
+            'entitlements.*' => ['nullable', function (string $attribute, mixed $value, \Closure $fail) {
+                if (! is_bool($value) && ! is_numeric($value) && ! is_string($value) && $value !== null) {
+                    $fail("The {$attribute} entitlement must be a boolean, number, string, or null.");
+                }
+            }],
             'max_downloads_per_day' => 'sometimes|nullable|integer|min:0',
             'max_uploads_per_month' => 'sometimes|nullable|integer|min:0',
             'max_audio_quality_kbps' => 'sometimes|integer|in:128,192,256,320',
@@ -702,6 +719,14 @@ class AdminSubscriptionsController extends Controller
                 ->map(fn ($feature) => trim((string) $feature))
                 ->filter()
                 ->values()
+                ->all();
+        }
+
+        if (array_key_exists('entitlements', $validated)) {
+            $payload['entitlements'] = collect($validated['entitlements'])
+                ->mapWithKeys(fn ($value, $key) => [trim((string) $key) => $value])
+                ->filter(fn ($value, $key) => $key !== '')
+                ->sortKeys()
                 ->all();
         }
 
@@ -760,8 +785,45 @@ class AdminSubscriptionsController extends Controller
             ]);
         }
 
+        if ($downloadLimitProvided || $uploadLimitProvided || $qualityProvided || array_key_exists('offline_mode', $validated) || array_key_exists('has_ads', $validated)) {
+            $entitlements = $payload['entitlements'] ?? $plan?->entitlements ?? [];
+
+            if ($downloadLimitProvided) {
+                $entitlements['streaming.downloads_per_day'] = $validated['max_downloads_per_day'];
+            }
+            if ($uploadLimitProvided) {
+                $entitlements['creator.uploads_per_month'] = $validated['max_uploads_per_month'];
+            }
+            if ($qualityProvided) {
+                $entitlements['streaming.audio_quality_kbps'] = $validated['max_audio_quality_kbps'];
+            }
+            if (array_key_exists('offline_mode', $validated)) {
+                $entitlements['streaming.offline'] = (bool) $validated['offline_mode'];
+            }
+            if (array_key_exists('has_ads', $validated)) {
+                $entitlements['streaming.ad_free'] = ! (bool) $validated['has_ads'];
+            }
+
+            $payload['entitlements'] = $entitlements;
+        }
+
         if (array_key_exists('rates', $validated)) {
             $payload['metadata'] = $this->mergePlanRatesIntoMetadata($plan ?? new SubscriptionPlan, $validated['rates']);
+            $entitlements = $payload['entitlements'] ?? $plan?->entitlements ?? [];
+
+            if (array_key_exists('event_platform_commission_percent', $validated['rates'])) {
+                $entitlements['events.platform_commission_percent'] = $validated['rates']['event_platform_commission_percent'] === null
+                    ? null
+                    : (float) $validated['rates']['event_platform_commission_percent'];
+            }
+
+            if (array_key_exists('event_processing_fee_percent', $validated['rates'])) {
+                $entitlements['events.processing_fee_percent'] = $validated['rates']['event_processing_fee_percent'] === null
+                    ? null
+                    : (float) $validated['rates']['event_processing_fee_percent'];
+            }
+
+            $payload['entitlements'] = $entitlements;
         }
 
         return $payload;
@@ -969,8 +1031,12 @@ class AdminSubscriptionsController extends Controller
         return [
             'stream_rate_ugx' => Arr::get($metadata, 'stream_rate_ugx'),
             'credit_to_ugx_rate' => Arr::get($metadata, 'credit_to_ugx_rate'),
-            'event_platform_commission_percent' => Arr::get($metadata, 'event_platform_commission_percent'),
-            'event_processing_fee_percent' => Arr::get($metadata, 'event_processing_fee_percent'),
+            'event_platform_commission_percent' => $this->normalizeDecimal(
+                $plan->entitlement('events.platform_commission_percent', Arr::get($metadata, 'event_platform_commission_percent'))
+            ),
+            'event_processing_fee_percent' => $this->normalizeDecimal(
+                $plan->entitlement('events.processing_fee_percent', Arr::get($metadata, 'event_processing_fee_percent'))
+            ),
         ];
     }
 

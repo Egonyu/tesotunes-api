@@ -427,7 +427,6 @@ class EventFeeCalculatorService
     private function resolveFeeConfiguration(?User $organizer): array
     {
         $plan = $organizer?->getActivePlan();
-        $planMetadata = $plan?->metadata ?? [];
         $artistCommission = $this->resolveArtistCommissionRate($organizer);
 
         $platformCommissionPercent = $this->resolvePlanDecimal(
@@ -451,7 +450,9 @@ class EventFeeCalculatorService
         );
 
         $feeSource = 'event_settings';
-        if ($plan && $this->hasAnyConfiguredRate($planMetadata)) {
+        if ($plan && $this->hasAnyConfiguredEntitlementRate($plan)) {
+            $feeSource = 'subscription_plan_entitlements';
+        } elseif ($plan && $this->hasAnyConfiguredMetadataRate($plan->metadata ?? [])) {
             $feeSource = 'subscription_plan_metadata';
         } elseif ($artistCommission !== null) {
             $feeSource = 'artist_commission_rate';
@@ -477,6 +478,13 @@ class EventFeeCalculatorService
         }
 
         foreach ($keys as $key) {
+            if (array_key_exists($key, $plan->entitlements ?? [])) {
+                $value = $plan->entitlements[$key];
+                if ($value !== null && is_numeric($value)) {
+                    return round((float) $value, 2);
+                }
+            }
+
             $value = Arr::get($plan->metadata ?? [], $key);
             if ($value !== null && is_numeric($value)) {
                 return round((float) $value, 2);
@@ -486,7 +494,19 @@ class EventFeeCalculatorService
         return round($default, 2);
     }
 
-    private function hasAnyConfiguredRate(array $metadata): bool
+    private function hasAnyConfiguredEntitlementRate(SubscriptionPlan $plan): bool
+    {
+        return collect([
+            'event_platform_commission_percent',
+            'events.platform_commission_percent',
+            'platform_commission_percent',
+            'event_processing_fee_percent',
+            'events.processing_fee_percent',
+            'processing_fee_percent',
+        ])->contains(fn ($key) => array_key_exists($key, $plan->entitlements ?? []));
+    }
+
+    private function hasAnyConfiguredMetadataRate(array $metadata): bool
     {
         return collect([
             'event_platform_commission_percent',

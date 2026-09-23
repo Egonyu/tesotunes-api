@@ -358,8 +358,14 @@ class AdminSubscriptionRatesApiTest extends TestCase
                 'Ad-free listening',
                 'Offline downloads',
             ],
+            'entitlements' => [
+                'streaming.ad_free' => true,
+                'creator.uploads_per_month' => 10,
+                'finance.withdrawal_minimum_ugx' => 25000,
+                'support.level' => 'community',
+            ],
             'max_downloads_per_day' => null,
-            'max_uploads_per_month' => 0,
+            'max_uploads_per_month' => 10,
             'max_audio_quality_kbps' => 320,
             'has_ads' => false,
             'offline_mode' => true,
@@ -388,12 +394,19 @@ class AdminSubscriptionRatesApiTest extends TestCase
             ->assertJsonPath('data.rates.event_platform_commission_percent', '6.50')
             ->assertJsonPath('data.rates.event_processing_fee_percent', '1.75');
 
+        $this->assertSame(true, $response->json('data.entitlements')['streaming.ad_free']);
+        $this->assertSame(10, $response->json('data.entitlements')['creator.uploads_per_month']);
+        $this->assertSame(25000, $response->json('data.entitlements')['finance.withdrawal_minimum_ugx']);
+        $this->assertSame('community', $response->json('data.entitlements')['support.level']);
+
         $plan = SubscriptionPlan::query()->where('slug', 'starter-plus')->firstOrFail();
 
         $this->assertSame('18000.00', $plan->price);
         $this->assertNull($plan->max_downloads_per_day);
         $this->assertTrue($plan->allows_offline);
         $this->assertTrue($plan->ad_free);
+        $this->assertTrue($plan->entitlements['streaming.ad_free']);
+        $this->assertSame(10, $plan->entitlements['creator.uploads_per_month']);
         $this->assertSame('9.50', $plan->metadata['stream_rate_ugx']);
         $this->assertSame('1.3500', $plan->metadata['credit_to_ugx_rate']);
         $this->assertSame('6.50', $plan->metadata['event_platform_commission_percent']);

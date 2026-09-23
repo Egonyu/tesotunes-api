@@ -30,8 +30,13 @@ class PayoutService
 
     protected ZengaPayService $zengaPayService;
 
-    protected function minAmount(): int
+    protected function minAmount(?User $user = null): int
     {
+        $configured = $user?->getSubscriptionEntitlement('finance.withdrawal_minimum_ugx');
+        if (is_numeric($configured)) {
+            return max(1, (int) $configured);
+        }
+
         return (int) config('payments.payout.min_amount', 50000);
     }
 
@@ -45,8 +50,13 @@ class PayoutService
         return (int) config('payments.payout.max_daily', 10000000);
     }
 
-    protected function feeRate(string $method): float
+    protected function feeRate(string $method, ?User $user = null): float
     {
+        $configured = $user?->getSubscriptionEntitlement('finance.withdrawal_fee_percent');
+        if (is_numeric($configured)) {
+            return max(0, (float) $configured);
+        }
+
         return (float) config("payments.payout.fees.{$method}", match ($method) {
             'mobile_money' => 1.5,
             'bank_transfer' => 0.5,
@@ -75,10 +85,11 @@ class PayoutService
 
         try {
             // Validate payout request
-            $this->validatePayoutRequest($artist, $amount, $method, $payoutData);
+            $requestingUser = $requestedBy ?? $artist->user;
+            $this->validatePayoutRequest($artist, $amount, $method, $payoutData, $requestingUser);
 
             // Calculate fees and net amount
-            $fees = $this->calculatePayoutFees($amount, $method);
+            $fees = $this->calculatePayoutFees($amount, $method, $requestingUser);
             $netAmount = $amount - $fees;
 
             // Create payout record (use explicit setters for protected fields)
@@ -463,11 +474,11 @@ class PayoutService
     /**
      * Validate payout request
      */
-    protected function validatePayoutRequest(Artist $artist, float $amount, string $method, array $data): void
+    protected function validatePayoutRequest(Artist $artist, float $amount, string $method, array $data, ?User $user = null): void
     {
         // Check minimum amount
-        if ($amount < $this->minAmount()) {
-            throw new Exception('Minimum payout amount is UGX '.number_format($this->minAmount()));
+        if ($amount < $this->minAmount($user)) {
+            throw new Exception('Minimum payout amount is UGX '.number_format($this->minAmount($user)));
         }
 
         // Check maximum single payout
@@ -546,13 +557,13 @@ class PayoutService
     /**
      * Calculate payout fees based on method
      */
-    protected function calculatePayoutFees(float $amount, string $method): float
+    protected function calculatePayoutFees(float $amount, string $method, ?User $user = null): float
     {
         return match ($method) {
             ArtistPayout::METHOD_MOBILE_MONEY,
-            ArtistPayout::METHOD_ZENGAPAY => $amount * $this->feeRate('mobile_money') / 100,
-            ArtistPayout::METHOD_BANK_TRANSFER => $amount * $this->feeRate('bank_transfer') / 100,
-            ArtistPayout::METHOD_PAYPAL => $amount * $this->feeRate('paypal') / 100,
+            ArtistPayout::METHOD_ZENGAPAY => $amount * $this->feeRate('mobile_money', $user) / 100,
+            ArtistPayout::METHOD_BANK_TRANSFER => $amount * $this->feeRate('bank_transfer', $user) / 100,
+            ArtistPayout::METHOD_PAYPAL => $amount * $this->feeRate('paypal', $user) / 100,
             default => 0.0,
         };
     }

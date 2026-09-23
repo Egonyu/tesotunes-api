@@ -723,7 +723,13 @@ class PaymentController extends Controller
      */
     private function withdrawalFloorFor(User $user): int
     {
-        $subscribed = $user->activeSubscription()->exists();
+        $configuredFloor = $user->getSubscriptionEntitlement('finance.withdrawal_minimum_ugx');
+
+        if (is_numeric($configuredFloor)) {
+            return max((int) config('payments.wallet_withdrawal.min_amount', 5000), (int) $configuredFloor);
+        }
+
+        $subscribed = $user->hasActiveSubscription();
 
         return (int) config(
             $subscribed

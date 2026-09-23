@@ -410,6 +410,11 @@ class Store extends Model
      */
     public function getTransactionFeeAttribute(): float
     {
+        $configured = $this->user?->getSubscriptionEntitlement('store.platform_commission_percent');
+        if (is_numeric($configured)) {
+            return (float) $configured;
+        }
+
         return match ($this->subscription_tier) {
             self::TIER_PREMIUM => config('store.fees.premium_tier', 5.0),
             self::TIER_BUSINESS => config('store.fees.business_tier', 3.0),
@@ -428,7 +433,8 @@ class Store extends Model
      */
     public function canAddProducts(): bool
     {
-        $limit = match ($this->subscription_tier) {
+        $configured = $this->user?->getSubscriptionEntitlement('store.products_per_shop');
+        $limit = is_numeric($configured) ? (int) $configured : match ($this->subscription_tier) {
             self::TIER_FREE => config('store.limits.free_tier_products', 10),
             default => -1, // Unlimited
         };
@@ -445,7 +451,8 @@ class Store extends Model
      */
     public function getRemainingProductSlots(): int
     {
-        $limit = match ($this->subscription_tier) {
+        $configured = $this->user?->getSubscriptionEntitlement('store.products_per_shop');
+        $limit = is_numeric($configured) ? (int) $configured : match ($this->subscription_tier) {
             self::TIER_FREE => config('store.limits.free_tier_products', 10),
             default => -1,
         };
@@ -462,8 +469,8 @@ class Store extends Model
      */
     public function calculatePlatformFee(float $amount): float
     {
-        // Get fee percentage based on subscription tier
-        $feePercentage = match ($this->subscription_tier) {
+        $configured = $this->user?->getSubscriptionEntitlement('store.platform_commission_percent');
+        $feePercentage = is_numeric($configured) ? (float) $configured : match ($this->subscription_tier) {
             'premium' => config('store.fees.premium_tier', 5.0),
             'business' => config('store.fees.business_tier', 3.0),
             default => config('store.fees.free_tier', 7.0),
@@ -472,7 +479,10 @@ class Store extends Model
         $fee = $amount * ($feePercentage / 100);
 
         // Apply minimum fee
-        $minFee = config('store.fees.minimum_fee', 1000);
+        $configuredMinimum = $this->user?->getSubscriptionEntitlement('store.minimum_platform_fee_ugx');
+        $minFee = is_numeric($configuredMinimum)
+            ? (float) $configuredMinimum
+            : (float) config('store.fees.minimum_fee', 1000);
 
         return max($fee, $minFee);
     }
@@ -482,7 +492,8 @@ class Store extends Model
      */
     public function calculatePromotionFee(float $amount): float
     {
-        $feePercentage = match ($this->subscription_tier) {
+        $configured = $this->user?->getSubscriptionEntitlement('promotions.platform_commission_percent');
+        $feePercentage = is_numeric($configured) ? (float) $configured : match ($this->subscription_tier) {
             'premium' => config('store.fees.promotion_premium_tier', 7.0),
             'business' => config('store.fees.promotion_business_tier', 5.0),
             default => config('store.fees.promotion_free_tier', 10.0),

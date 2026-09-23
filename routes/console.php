@@ -102,6 +102,16 @@ Schedule::command('contributions:daily-challenge')
     ->withoutOverlapping()
     ->onOneServer();
 
+// ── Ateso translator keep-warm ────────────────────────────────
+// The Space sleeps after 48h idle and costs 1–3 min to wake. Twice daily is far
+// inside that window, so a visitor never pays the cold start.
+Schedule::command('ateso:ping-translator')
+    ->twiceDaily(6, 18)
+    ->name('ateso-translator-keepwarm')
+    ->withoutOverlapping()
+    ->onOneServer()
+    ->runInBackground();
+
 // ── KYC completion reminders ──────────────────────────────────
 // Nudges users with incomplete identity verification once a fortnight.
 // Per-user frequency cap lives in the command, so a weekly cadence is safe.

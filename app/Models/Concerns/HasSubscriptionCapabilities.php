@@ -28,12 +28,22 @@ trait HasSubscriptionCapabilities
         return $this->subscription->subscriptionPlan;
     }
 
+    public function getEffectiveSubscriptionPlan(): ?SubscriptionPlan
+    {
+        return $this->getActivePlan()
+            ?? SubscriptionPlan::query()->where('slug', 'free')->where('is_active', true)->first();
+    }
+
     public function getPlanLimit(string $key, mixed $default = null): mixed
     {
         $plan = $this->getActivePlan();
 
         if (! $plan) {
             return $default;
+        }
+
+        if (array_key_exists($key, $plan->entitlements ?? [])) {
+            return $plan->entitlements[$key];
         }
 
         if (isset($plan->{$key}) && $plan->{$key} !== null) {
@@ -43,9 +53,47 @@ trait HasSubscriptionCapabilities
         return $plan->limits[$key] ?? $default;
     }
 
+    public function getSubscriptionEntitlements(): array
+    {
+        return $this->getEffectiveSubscriptionPlan()?->entitlements ?? [];
+    }
+
+    public function getSubscriptionEntitlement(string $key, mixed $default = null): mixed
+    {
+        $entitlements = $this->getSubscriptionEntitlements();
+
+        return array_key_exists($key, $entitlements) ? $entitlements[$key] : $default;
+    }
+
+    public function hasSubscriptionEntitlement(string $key): bool
+    {
+        return $this->getEffectiveSubscriptionPlan()?->allows($key) ?? false;
+    }
+
+    public function getSubscriptionLimit(string $key, ?int $default = 0): ?int
+    {
+        $value = $this->getSubscriptionEntitlement($key, $default);
+
+        if ($value === null || (is_numeric($value) && (int) $value < 0)) {
+            return null;
+        }
+
+        return is_numeric($value) ? (int) $value : $default;
+    }
+
+    public function isWithinSubscriptionLimit(string $key, int $currentUsage): bool
+    {
+        $limit = $this->getSubscriptionLimit($key);
+
+        return $limit === null || $currentUsage < $limit;
+    }
+
     public function canDownload(): bool
     {
-        $limit = $this->getPlanLimit('max_downloads_per_day', 3);
+        $limit = $this->getSubscriptionEntitlement(
+            'streaming.downloads_per_day',
+            $this->getPlanLimit('max_downloads_per_day', 3)
+        );
 
         if ($limit === null || $limit === -1) {
             return true;
@@ -83,7 +131,10 @@ trait HasSubscriptionCapabilities
      */
     public function getMaxAudioQuality(): int
     {
-        return (int) $this->getPlanLimit('max_audio_quality_kbps', 128);
+        return (int) $this->getSubscriptionEntitlement(
+            'streaming.audio_quality_kbps',
+            $this->getPlanLimit('max_audio_quality_kbps', 128)
+        );
     }
 
     /**
@@ -91,7 +142,10 @@ trait HasSubscriptionCapabilities
      */
     public function canUpload(): bool
     {
-        $uploadLimit = $this->getPlanLimit('max_uploads_per_month', 0);
+        $uploadLimit = $this->getSubscriptionEntitlement(
+            'creator.uploads_per_month',
+            $this->getPlanLimit('max_uploads_per_month', 0)
+        );
 
         if ($uploadLimit !== 0) {
             return true;
@@ -102,7 +156,10 @@ trait HasSubscriptionCapabilities
 
     public function getMonthlyUploadLimit(): ?int
     {
-        $planLimit = $this->getPlanLimit('max_uploads_per_month', null);
+        $planLimit = $this->getSubscriptionEntitlement(
+            'creator.uploads_per_month',
+            $this->getPlanLimit('max_uploads_per_month', null)
+        );
 
         if ($planLimit !== null && $planLimit !== 0) {
             return $planLimit === -1 ? null : $planLimit;
@@ -123,19 +180,28 @@ trait HasSubscriptionCapabilities
     {
         $plan = $this->getActivePlan();
 
-        return $plan !== null && ((bool) $plan->ad_free || ! (bool) $plan->has_ads);
+        return $plan !== null && (bool) $this->getSubscriptionEntitlement(
+            'streaming.ad_free',
+            ((bool) $plan->ad_free || ! (bool) $plan->has_ads)
+        );
     }
 
     public function canAccessOffline(): bool
     {
         $plan = $this->getActivePlan();
 
-        return $plan && (bool) ($plan->allows_offline ?? false);
+        return $plan && (bool) $this->getSubscriptionEntitlement(
+            'streaming.offline',
+            (bool) ($plan->allows_offline ?? false)
+        );
     }
 
     public function getRemainingDownloadsAttribute(): int
     {
-        $limit = $this->getPlanLimit('max_downloads_per_day', 3);
+        $limit = $this->getSubscriptionEntitlement(
+            'streaming.downloads_per_day',
+            $this->getPlanLimit('max_downloads_per_day', 3)
+        );
 
         if ($limit === null || $limit === -1) {
             return -1;
