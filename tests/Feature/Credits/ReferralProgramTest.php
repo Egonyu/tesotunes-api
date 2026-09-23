@@ -6,6 +6,7 @@ use App\Models\CreditRate;
 use App\Models\ReferralMilestone;
 use App\Models\ReferralMilestoneClaim;
 use App\Models\User;
+use App\Models\UserReferral;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
@@ -169,6 +170,24 @@ class ReferralProgramTest extends TestCase
         $this->getJson('/api/referrals/validate/NOPE999')
             ->assertOk()
             ->assertJsonPath('data.valid', false);
+    }
+
+    public function test_a_legacy_profile_code_validates_and_history_search_finds_a_name(): void
+    {
+        $referrer = User::factory()->create(['referral_code' => null]);
+        UserReferral::updateOrCreate(['user_id' => $referrer->id], ['referral_code' => 'LEGACY42']);
+        $referred = User::factory()->create(['name' => 'Jevenda Singer', 'display_name' => 'Jevenda Singer', 'referrer_id' => $referrer->id]);
+        $this->assertSame('Jevenda Singer', $referred->fresh()->name);
+        $this->assertSame($referrer->id, $referred->fresh()->referrer_id);
+
+        $this->getJson('/api/referrals/validate/LEGACY42')
+            ->assertOk()
+            ->assertJsonPath('data.valid', true)
+            ->assertJsonPath('data.referrer_name', $referrer->name);
+
+        $this->actingAs($referrer)->getJson('/api/referrals/history?search=jevenda')
+            ->assertOk()
+            ->assertJsonPath('data.pagination.total', 1);
     }
 
     public function test_the_signup_reward_is_attributable_to_the_person_who_joined(): void

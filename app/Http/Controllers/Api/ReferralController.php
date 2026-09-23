@@ -8,6 +8,7 @@ use App\Models\CreditRate;
 use App\Models\ReferralMilestone;
 use App\Models\ReferralMilestoneClaim;
 use App\Models\User;
+use App\Models\UserReferral;
 use App\Services\ActivityService;
 use App\Services\Referrals\ReferralProgramService;
 use Illuminate\Http\JsonResponse;
@@ -28,6 +29,7 @@ class ReferralController extends Controller
     public function dashboard(Request $request): JsonResponse
     {
         $user = $request->user();
+        $user->generateReferralCode();
 
         $recent = $this->referrals->referredUsers($user)
             ->take(5)
@@ -82,6 +84,7 @@ class ReferralController extends Controller
     public function code(Request $request): JsonResponse
     {
         $user = $request->user();
+        $user->generateReferralCode();
 
         return response()->json([
             'data' => [
@@ -97,8 +100,12 @@ class ReferralController extends Controller
         $perPage = max(1, min((int) $request->integer('per_page', 20), 100));
         $page = max(1, (int) $request->integer('page', 1));
         $statusFilter = trim((string) $request->input('status', ''));
+        $search = mb_strtolower(trim((string) $request->input('search', '')));
 
         $all = $this->referrals->referredUsers($user)
+            ->when($search !== '', fn ($users) => $users->filter(fn (User $referred) => str_contains(mb_strtolower((string) $referred->name), $search)
+                || str_contains(mb_strtolower((string) $referred->username), $search)
+            ))
             ->map(fn (User $referred) => [
                 'id' => (string) $referred->id,
                 'user' => $this->serializeReferredUser($referred),
@@ -218,6 +225,10 @@ class ReferralController extends Controller
     public function validateCode(string $code): JsonResponse
     {
         $referrer = User::where('referral_code', $code)->first();
+        if (! $referrer) {
+            $referrerId = UserReferral::where('referral_code', $code)->value('user_id');
+            $referrer = $referrerId ? User::find($referrerId) : null;
+        }
 
         return response()->json([
             'data' => [
