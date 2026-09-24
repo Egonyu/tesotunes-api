@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Setting;
 use App\Services\PaymentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,8 +27,8 @@ class PayoutController extends Controller
         ]);
 
         $user = $request->user();
-        $minimum = (int) $user->getSubscriptionEntitlement(
-            'finance.withdrawal_minimum_ugx',
+        $minimum = (int) Setting::get(
+            'payments_minimum_payout_ugx',
             config('payments.payout.min_amount', 50000)
         );
 

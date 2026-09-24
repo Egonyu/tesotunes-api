@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Artist;
 use App\Models\ArtistPayout;
 use App\Models\ArtistRevenue;
+use App\Models\Setting;
 use App\Models\User;
 use App\Services\Payment\MobileMoneyService;
 use App\Services\Payment\ZengaPayService;
@@ -32,12 +33,10 @@ class PayoutService
 
     protected function minAmount(?User $user = null): int
     {
-        $configured = $user?->getSubscriptionEntitlement('finance.withdrawal_minimum_ugx');
-        if (is_numeric($configured)) {
-            return max(1, (int) $configured);
-        }
-
-        return (int) config('payments.payout.min_amount', 50000);
+        return max(1, (int) Setting::get(
+            'payments_minimum_payout_ugx',
+            config('payments.payout.min_amount', 50000)
+        ));
     }
 
     protected function maxSingle(): int
@@ -52,17 +51,12 @@ class PayoutService
 
     protected function feeRate(string $method, ?User $user = null): float
     {
-        $configured = $user?->getSubscriptionEntitlement('finance.withdrawal_fee_percent');
-        if (is_numeric($configured)) {
-            return max(0, (float) $configured);
-        }
-
-        return (float) config("payments.payout.fees.{$method}", match ($method) {
+        return max(0, (float) Setting::get('payments_transaction_fee_percentage', config("payments.payout.fees.{$method}", match ($method) {
             'mobile_money' => 1.5,
             'bank_transfer' => 0.5,
             'paypal' => 2.0,
             default => 0.0,
-        });
+        })));
     }
 
     public function __construct(MobileMoneyService $mobileMoneyService, ZengaPayService $zengaPayService)

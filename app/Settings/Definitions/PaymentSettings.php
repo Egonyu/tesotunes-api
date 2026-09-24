@@ -47,7 +47,9 @@ final class PaymentSettings
         Define::int('payments_minimum_payout_ugx', 50000)
             ->group($g)->subgroup('payouts')
             ->rules(['integer', 'min:0'])
-            ->label('Minimum payout (UGX)')->auditCategory($cat)->register();
+            ->label('Artist payout minimum (UGX)')
+            ->help('Applies equally to artist earnings payouts during the trial period. Wallet cash-outs are a separate flow.')
+            ->auditCategory($cat)->register();
         Define::int('payments_payout_hold_days', 7)
             ->group($g)->subgroup('payouts')
             ->rules(['integer', 'min:0', 'max:90'])
@@ -58,6 +60,8 @@ final class PaymentSettings
         Define::float('payments_transaction_fee_percentage', 2.5)
             ->group($g)->subgroup('payouts')
             ->rules(['numeric', 'min:0', 'max:100'])
-            ->label('Transaction fee %')->auditCategory($cat)->register();
+            ->label('Artist payout fee %')
+            ->help('Applies equally to artist earnings payouts during the trial period.')
+            ->auditCategory($cat)->register();
     }
 }
