@@ -64,6 +64,24 @@ class AdminUsersRoleManagementTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_search_users_by_phone_number(): void
+    {
+        $matchingUser = User::factory()->create([
+            'phone' => '+256700123456',
+        ]);
+        User::factory()->create([
+            'phone' => '+256788999999',
+        ]);
+
+        $response = $this->actingAs($this->admin)
+            ->getJson('/api/admin/users?search=700123456');
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $matchingUser->id)
+            ->assertJsonPath('data.0.phone', '+256700123456');
+    }
+
     public function test_admin_can_create_artist_even_when_artist_role_row_is_missing(): void
     {
         Role::where('name', 'artist')->delete();

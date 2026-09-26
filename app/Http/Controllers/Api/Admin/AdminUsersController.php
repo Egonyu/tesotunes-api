@@ -467,6 +467,7 @@ class AdminUsersController extends Controller
                     $q->where('name', 'LIKE', "%{$escaped}%")
                         ->orWhere('username', 'LIKE', "%{$escaped}%")
                         ->orWhere('email', 'LIKE', "%{$escaped}%")
+                        ->orWhere('phone', 'LIKE', "%{$escaped}%")
                         ->orWhere('full_name', 'LIKE', "%{$escaped}%");
                 });
             }
