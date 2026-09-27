@@ -127,6 +127,63 @@ class WalletPinTest extends TestCase
         $this->assertTrue(Hash::check('8391', $user->fresh()->wallet_pin));
     }
 
+    public function test_a_user_can_reset_a_forgotten_pin_with_their_account_password(): void
+    {
+        $user = User::factory()->create();
+        $this->pins()->setPin($user, '4726');
+
+        $this->actingAs($user->fresh())
+            ->postJson('/api/wallet/pin/reset', [
+                'password' => 'password',
+                'pin' => '8391',
+                'pin_confirmation' => '8391',
+            ])
+            ->assertOk()
+            ->assertJsonPath('message', 'Wallet PIN reset. Enter the new PIN before your next wallet action.');
+
+        $this->assertTrue(Hash::check('8391', $user->fresh()->wallet_pin));
+        $this->assertSame(0, (int) $user->fresh()->wallet_pin_failed_attempts);
+        $this->assertNull($user->fresh()->wallet_pin_locked_until);
+    }
+
+    public function test_resetting_a_pin_rejects_an_incorrect_account_password(): void
+    {
+        $user = User::factory()->create();
+        $this->pins()->setPin($user, '4726');
+
+        $this->actingAs($user->fresh())
+            ->postJson('/api/wallet/pin/reset', [
+                'password' => 'wrong-password',
+                'pin' => '8391',
+                'pin_confirmation' => '8391',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('password');
+
+        $this->assertTrue(Hash::check('4726', $user->fresh()->wallet_pin));
+    }
+
+    public function test_resetting_a_pin_invalidates_an_existing_unlocked_window(): void
+    {
+        $user = User::factory()->create();
+        $this->pins()->setPin($user, '4726');
+        $user = $user->fresh();
+        $sessionKey = $this->pins()->sessionKeyFor($user);
+        $this->pins()->unlockSession($user, $sessionKey);
+
+        $this->assertTrue($this->pins()->sessionIsUnlocked($user, $sessionKey));
+
+        $this->actingAs($user)
+            ->postJson('/api/wallet/pin/reset', [
+                'password' => 'password',
+                'pin' => '8391',
+                'pin_confirmation' => '8391',
+            ])
+            ->assertOk();
+
+        $this->assertFalse($this->pins()->sessionIsUnlocked($user->fresh(), $sessionKey));
+    }
+
     public function test_the_gate_blocks_money_movement_when_enforcement_is_on(): void
     {
         config(['wallet.pin.enforce' => true]);

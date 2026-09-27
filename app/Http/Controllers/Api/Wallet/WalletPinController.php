@@ -7,6 +7,8 @@ use App\Http\Requests\Api\Wallet\SetWalletPinRequest;
 use App\Services\Wallet\WalletPinService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Wallet transaction PIN — set it, change it, and unlock a short-lived window
@@ -79,6 +81,43 @@ class WalletPinController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Wallet PIN updated.',
+        ]);
+    }
+
+    /**
+     * POST /api/wallet/pin/reset — replace a forgotten PIN after confirming
+     * the account password. A signed-in session alone is not enough to reset a
+     * credential that protects money movement.
+     */
+    public function reset(Request $request): JsonResponse
+    {
+        $length = (int) config('wallet.pin.length', 4);
+
+        $request->validate([
+            'password' => ['required', 'string'],
+            'pin' => ['required', 'string', 'digits:'.$length],
+            'pin_confirmation' => ['required', 'string', 'same:pin'],
+        ]);
+
+        $user = $request->user();
+
+        if (! filled($user->password)) {
+            throw ValidationException::withMessages([
+                'password' => 'Set an account password before resetting your wallet PIN.',
+            ]);
+        }
+
+        if (! Hash::check($request->string('password')->toString(), (string) $user->password)) {
+            throw ValidationException::withMessages([
+                'password' => 'That account password is incorrect.',
+            ]);
+        }
+
+        $this->pins->resetPin($user, $request->string('pin')->toString());
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Wallet PIN reset. Enter the new PIN before your next wallet action.',
         ]);
     }
 

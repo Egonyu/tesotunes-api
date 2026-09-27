@@ -63,6 +63,22 @@ class WalletPinService
     }
 
     /**
+     * Replace a forgotten PIN after the controller has re-authenticated the
+     * account owner with their password.
+     */
+    public function resetPin(User $user, string $newPin): void
+    {
+        if (! $this->hasPin($user)) {
+            throw ValidationException::withMessages([
+                'pin' => 'No wallet PIN is set yet.',
+            ]);
+        }
+
+        $this->assertPinIsAcceptable($newPin);
+        $this->persistPin($user, $newPin);
+    }
+
+    /**
      * Check a PIN, counting failures and locking the PIN when they pile up.
      * Returns false for a wrong PIN; throws when the PIN is locked.
      */
@@ -199,6 +215,11 @@ class WalletPinService
 
     private function sessionCacheKey(User $user, string $sessionKey): string
     {
-        return "wallet:pin:unlocked:{$user->id}:{$sessionKey}";
+        // Changing or resetting the hashed PIN changes this version even when
+        // it happens within the same second. Previously unlocked windows then
+        // become unreachable immediately and expire naturally in the cache.
+        $pinVersion = substr(hash('sha256', (string) $user->wallet_pin), 0, 16);
+
+        return "wallet:pin:unlocked:{$user->id}:{$sessionKey}:{$pinVersion}";
     }
 }
