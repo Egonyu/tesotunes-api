@@ -1707,31 +1707,29 @@ class ArtistApiController extends Controller
             ], 422);
         }
 
-        // If the withdrawal exceeds artist earnings, transfer the shortfall from the user's wallet
-        $walletContribution = max(0.0, $validated['amount'] - $earningsBalance);
-        if ($walletContribution > 0) {
-            DB::transaction(function () use ($withdrawUser, $artist, $walletContribution) {
-                $withdrawUser->decrement('ugx_balance', $walletContribution);
-                $artist->increment('earnings_balance', $walletContribution);
-            });
-            $artist->refresh();
-        }
-
         try {
             $payoutService = app(PayoutService::class);
+
+            $method = match ($validated['payment_method']) {
+                'mtn_momo', 'airtel_money' => 'mobile_money',
+                default => $validated['payment_method'],
+            };
 
             $result = $payoutService->requestPayout(
                 artist: $artist,
                 amount: $validated['amount'],
-                method: $validated['payment_method'],
+                method: $method,
                 payoutData: [
                     'phone_number' => $validated['phone_number'] ?? null,
                 ],
                 requestedBy: $request->user()
             );
 
+            $statusCode = ($result['success'] ?? false) ? 201 : 422;
+
             return response()->json([
                 'message' => $result['message'] ?? 'Withdrawal request submitted. You will receive your funds within 24-48 hours.',
+                'success' => (bool) ($result['success'] ?? false),
                 'data' => [
                     'transaction_id' => $result['transaction_id'] ?? null,
                     'amount' => $result['amount'] ?? $validated['amount'],
@@ -1739,7 +1737,7 @@ class ArtistApiController extends Controller
                     'net_amount' => $result['net_amount'] ?? $validated['amount'],
                     'estimated_processing_time' => $result['estimated_processing_time'] ?? '1-3 business days',
                 ],
-            ]);
+            ], $statusCode);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => $e->getMessage(),

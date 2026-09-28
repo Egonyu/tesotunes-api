@@ -60,6 +60,7 @@ class MigrationPolicyGuardTest extends TestCase
         '2026_09_19_100000_create_guest_contribution_tables.php',
         '2026_09_23_130000_add_entitlements_to_subscription_plans_table.php',
         '2026_09_27_100000_publish_tesotunes_subscription_plans.php',
+        '2026_09_28_230000_create_payment_provider_balance_snapshots_table.php',
     ];
 
     private const BANNED_NAME_FRAGMENTS = [

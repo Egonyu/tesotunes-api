@@ -64,15 +64,6 @@ class ArtistPayout extends Model
         'failed_at' => 'datetime',
     ];
 
-    // Protected from mass-assignment so financial fields are always set explicitly
-    public float $amount = 0.0;
-
-    public float $fee_amount = 0.0;
-
-    public float $net_amount = 0.0;
-
-    public string $status = self::STATUS_PENDING;
-
     // ── Relationships ─────────────────────────────────────────────────────────
 
     public function artist(): BelongsTo

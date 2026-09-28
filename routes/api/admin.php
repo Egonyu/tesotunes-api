@@ -7,9 +7,14 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::get('/payment-analytics', [\App\Http\Controllers\Api\PaymentController::class, 'analytics'])->name('payment-analytics');
     Route::get('/payments/observability', [\App\Http\Controllers\Api\Admin\PaymentObservabilityController::class, 'dashboard'])->name('payments.observability');
     Route::get('/payments/entry-points', [\App\Http\Controllers\Api\Admin\PaymentObservabilityController::class, 'entryPoints'])->name('payments.entry-points');
+    Route::get('/payments/provider-balance', [\App\Http\Controllers\Api\Admin\PaymentObservabilityController::class, 'providerBalance'])->name('payments.provider-balance');
     Route::get('/payment-issues', [\App\Http\Controllers\Api\Admin\PaymentObservabilityController::class, 'issues'])->name('payment-issues.index');
     Route::get('/payments', [\App\Http\Controllers\Api\Admin\PaymentObservabilityController::class, 'payments'])->name('payments.index');
     Route::get('/payments/{payment}', [\App\Http\Controllers\Api\Admin\PaymentObservabilityController::class, 'show'])->name('payments.show');
+    Route::get('/artist-payouts', [\App\Http\Controllers\Api\Admin\AdminArtistPayoutController::class, 'index'])->name('artist-payouts.index');
+    Route::post('/artist-payouts/{payout}/approve', [\App\Http\Controllers\Api\Admin\AdminArtistPayoutController::class, 'approve'])->name('artist-payouts.approve');
+    Route::post('/artist-payouts/{payout}/reject', [\App\Http\Controllers\Api\Admin\AdminArtistPayoutController::class, 'reject'])->name('artist-payouts.reject');
+    Route::post('/artist-payouts/{payout}/retry', [\App\Http\Controllers\Api\Admin\AdminArtistPayoutController::class, 'retry'])->name('artist-payouts.retry');
 });
 
 /*

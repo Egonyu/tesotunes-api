@@ -78,9 +78,22 @@ class PayoutService
         DB::beginTransaction();
 
         try {
+            $artist = Artist::query()->lockForUpdate()->findOrFail($artist->id);
+
             // Validate payout request
-            $requestingUser = $requestedBy ?? $artist->user;
+            $requestingUserId = $requestedBy?->id ?? $artist->user_id;
+            $requestingUser = User::query()->lockForUpdate()->find($requestingUserId);
             $this->validatePayoutRequest($artist, $amount, $method, $payoutData, $requestingUser);
+
+            $earningsContribution = min($amount, (float) ($artist->earnings_balance ?? 0));
+            $walletContribution = round($amount - $earningsContribution, 2);
+
+            if ($earningsContribution > 0) {
+                $artist->decrement('earnings_balance', $earningsContribution);
+            }
+            if ($walletContribution > 0) {
+                $requestingUser?->decrement('ugx_balance', $walletContribution);
+            }
 
             // Calculate fees and net amount
             $fees = $this->calculatePayoutFees($amount, $method, $requestingUser);
@@ -107,8 +120,12 @@ class PayoutService
             $payout->status = ArtistPayout::STATUS_PENDING;
             $payout->transaction_id = ArtistPayout::generateTransactionId();
             $payout->metadata = [
-                'balance_before' => $artist->earnings_balance ?? 0,
-                'unpaid_revenue' => $this->getUnpaidRevenueAmount($artist),
+                'funds_reserved' => true,
+                'funds_reserved_at' => now()->toDateTimeString(),
+                'funding_sources' => [
+                    'artist_earnings' => $earningsContribution,
+                    'user_wallet' => $walletContribution,
+                ],
                 'payout_method_details' => $this->maskSensitiveData($payoutData, $method),
                 'ip_address' => request()->ip(),
                 'user_agent' => request()->userAgent(),
@@ -175,6 +192,11 @@ class PayoutService
         DB::beginTransaction();
 
         try {
+            $payout = ArtistPayout::query()->lockForUpdate()->findOrFail($payout->id);
+            if (! $payout->canBeApproved()) {
+                throw new Exception('Payout cannot be approved in current status: '.$payout->status);
+            }
+
             // Re-validate payout is still valid
             $artist = $payout->artist;
             $this->validatePayoutAtApproval($payout, $artist);
@@ -196,11 +218,6 @@ class PayoutService
                 'approver_role' => $approver->role,
                 'notes' => $notes,
             ]);
-
-            // Auto-process if auto-processing is enabled
-            if (config('payments.auto_process_approved_payouts', false)) {
-                $this->processPayout($payout);
-            }
 
             // Notify artist
             $this->notifyArtistOfApproval($payout);
@@ -246,6 +263,12 @@ class PayoutService
         DB::beginTransaction();
 
         try {
+            $payout = ArtistPayout::query()->lockForUpdate()->findOrFail($payout->id);
+            if (! $payout->canBeRejected()) {
+                throw new Exception('Payout cannot be rejected in current status: '.$payout->status);
+            }
+
+            $this->releaseReservedFunds($payout);
             $payout->markAsRejected($rejector, $reason);
 
             // Log audit trail
@@ -278,16 +301,22 @@ class PayoutService
      */
     public function processPayout(ArtistPayout $payout): array
     {
-        if (! $payout->isApproved()) {
-            throw new Exception('Only approved payouts can be processed');
-        }
-
         DB::beginTransaction();
 
         try {
-            // Mark as processing
-            $payout->markAsProcessing();
+            $payout = ArtistPayout::query()->lockForUpdate()->findOrFail($payout->id);
+            if (! $payout->isApproved()) {
+                throw new Exception('Only approved payouts can be processed');
+            }
 
+            $payout->markAsProcessing();
+            DB::commit();
+        } catch (Exception $e) {
+            DB::rollBack();
+            throw $e;
+        }
+
+        try {
             // Process based on payout method
             $result = match ($payout->payout_method) {
                 ArtistPayout::METHOD_MOBILE_MONEY => $this->processMobileMoneyPayout($payout),
@@ -304,12 +333,11 @@ class PayoutService
                     'provider_reference' => $result['provider_reference'] ?? null,
                     'metadata' => [
                         'processed_at' => now()->toDateTimeString(),
+                        'funds_reserved' => false,
+                        'funds_disbursed_at' => now()->toDateTimeString(),
                         'processing_time_seconds' => $result['processing_time'] ?? null,
                     ],
                 ]);
-
-                // Update artist's paid revenue
-                $this->markRevenueAsPaid($payout);
 
                 // Log audit trail
                 $this->logPayoutActivity($payout, 'payout_completed', [
@@ -319,8 +347,6 @@ class PayoutService
 
                 // Notify artist
                 $this->notifyArtistOfCompletion($payout);
-
-                DB::commit();
 
                 return [
                     'success' => true,
@@ -333,8 +359,6 @@ class PayoutService
             }
 
         } catch (Exception $e) {
-            DB::rollBack();
-
             // Mark as failed
             $payout->markAsFailed($e->getMessage(), [
                 'metadata' => [
@@ -368,15 +392,17 @@ class PayoutService
      */
     public function retryPayout(ArtistPayout $payout): array
     {
-        if (! $payout->canBeRetried()) {
-            throw new Exception('Payout cannot be retried in current status: '.$payout->status);
-        }
+        DB::transaction(function () use (&$payout) {
+            $payout = ArtistPayout::query()->lockForUpdate()->findOrFail($payout->id);
+            if (! $payout->canBeRetried()) {
+                throw new Exception('Payout cannot be retried in current status: '.$payout->status);
+            }
 
-        // Reset to approved status for retry
-        $payout->status = ArtistPayout::STATUS_APPROVED;
-        $payout->failed_at = null;
-        $payout->failure_reason = null;
-        $payout->save();
+            $payout->status = ArtistPayout::STATUS_APPROVED;
+            $payout->failed_at = null;
+            $payout->failure_reason = null;
+            $payout->save();
+        });
 
         // Log audit trail
         $this->logPayoutActivity($payout, 'payout_retry_initiated', [
@@ -399,6 +425,12 @@ class PayoutService
         DB::beginTransaction();
 
         try {
+            $payout = ArtistPayout::query()->lockForUpdate()->findOrFail($payout->id);
+            if (! $payout->canBeCancelled()) {
+                throw new Exception('Payout cannot be cancelled in current status: '.$payout->status);
+            }
+
+            $this->releaseReservedFunds($payout);
             $payout->markAsCancelled();
 
             // Log audit trail
@@ -480,10 +512,10 @@ class PayoutService
             throw new Exception('Maximum single payout is UGX '.number_format($this->maxSingle()));
         }
 
-        // Check artist has sufficient balance
-        $unpaidRevenue = $this->getUnpaidRevenueAmount($artist);
-        if ($amount > $unpaidRevenue) {
-            throw new Exception('Insufficient balance. Available: UGX '.number_format($unpaidRevenue, 2));
+        $availableBalance = (float) ($artist->earnings_balance ?? 0)
+            + (float) ($user?->ugx_balance ?? 0);
+        if ($amount > $availableBalance) {
+            throw new Exception('Insufficient balance. Available: UGX '.number_format($availableBalance, 2));
         }
 
         // Check daily limit
@@ -541,10 +573,8 @@ class PayoutService
      */
     protected function validatePayoutAtApproval(ArtistPayout $payout, Artist $artist): void
     {
-        // Re-check artist still has sufficient balance
-        $unpaidRevenue = $this->getUnpaidRevenueAmount($artist);
-        if ($payout->amount > $unpaidRevenue) {
-            throw new Exception('Artist no longer has sufficient balance for this payout');
+        if (! data_get($payout->metadata, 'funds_reserved', false)) {
+            throw new Exception('Payout funds are not reserved; cancel this request and ask the user to submit it again');
         }
     }
 
@@ -617,15 +647,33 @@ class PayoutService
         ];
     }
 
-    /**
-     * Mark associated revenue records as paid
-     */
-    protected function markRevenueAsPaid(ArtistPayout $payout): void
+    protected function releaseReservedFunds(ArtistPayout $payout): void
     {
-        ArtistRevenue::forArtist($payout->artist_id)
-            ->whereIn('status', ['pending', 'confirmed'])
-            ->orderBy('revenue_date', 'asc')
-            ->update(['status' => 'paid']);
+        $payout = ArtistPayout::query()->lockForUpdate()->findOrFail($payout->id);
+        $metadata = $payout->metadata ?? [];
+
+        if (! data_get($metadata, 'funds_reserved', false)
+            || data_get($metadata, 'funds_released_at')) {
+            return;
+        }
+
+        $artistAmount = (float) data_get($metadata, 'funding_sources.artist_earnings', 0);
+        $walletAmount = (float) data_get($metadata, 'funding_sources.user_wallet', 0);
+
+        if ($artistAmount > 0) {
+            Artist::query()->lockForUpdate()->findOrFail($payout->artist_id)
+                ->increment('earnings_balance', $artistAmount);
+        }
+
+        if ($walletAmount > 0 && $payout->requested_by_user_id) {
+            User::query()->lockForUpdate()->findOrFail($payout->requested_by_user_id)
+                ->increment('ugx_balance', $walletAmount);
+        }
+
+        $metadata['funds_released_at'] = now()->toDateTimeString();
+        $metadata['funds_reserved'] = false;
+        $payout->metadata = $metadata;
+        $payout->save();
     }
 
     /**
