@@ -109,7 +109,7 @@ test('catalogue fallback excludes unpublished private and unavailable music', fu
     $response = $this->getJson('/api/feed/timeline?module=music')->assertOk()->assertJsonCount(1, 'data');
     expect($response->json('data.0.uuid'))->toBe('catalog-song-'.$song->id);
     expect($response->json('data.0.section'))->toBe('discovery');
-    $this->getJson('/api/feed/timeline?view=latest&module=music')->assertOk()->assertJsonPath('data', []);
+    $this->getJson('/api/feed/timeline?view=latest&module=music')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.identity', 'song:'.$song->id);
 });
 
 test('publishing a draft song creates one release feed item', function () {

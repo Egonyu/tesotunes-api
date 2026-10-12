@@ -22,9 +22,9 @@ use Illuminate\Validation\ValidationException;
 
 class TimelineFeedService
 {
-    public const MODULES = ['music', 'social', 'events', 'awards', 'store', 'forum', 'podcasts', 'promotions', 'platform'];
+    public const MODULES = ['music', 'social', 'events', 'awards', 'store', 'forum', 'podcasts', 'promotions', 'platform', 'ateso'];
 
-    private const CONTENT_TYPES = ['song_release', 'album_release', 'playlist_created', 'artist_update', 'artist_joined', 'event_created', 'event_reminder', 'award_won', 'award_season_started', 'store_created', 'product_listed', 'thread_created', 'poll_created', 'episode_published', 'promotion_request_posted', 'announcement'];
+    private const CONTENT_TYPES = ['song_release', 'album_release', 'playlist_created', 'artist_update', 'artist_joined', 'event_created', 'event_reminder', 'award_won', 'award_season_started', 'store_created', 'product_listed', 'thread_created', 'poll_created', 'episode_published', 'promotion_request_posted', 'promotion_service_listed', 'corpus_pair_accepted', 'ateso_project', 'announcement'];
 
     private const DISCOVERY_TYPES = ['song_release', 'album_release', 'playlist_created', 'episode_published', 'poll_created', 'event_created', 'product_listed', 'store_created', 'promotion_request_posted'];
 
@@ -77,8 +77,8 @@ class TimelineFeedService
                         ->orWhere(fn ($episodes) => $episodes->where('subject_type', PodcastEpisode::class)->whereIn('subject_id', array_map(fn ($value) => substr($value, 8), array_filter($saved, fn ($value) => str_starts_with($value, 'episode:')))));
                 });
             })
-            ->when($view !== 'saved', fn ($query) => $query->whereBetween('published_at', [$since, $at]))->with('subject')
-            ->orderByDesc('published_at')->orderByDesc('id')->limit($view === 'saved' ? 500 : 400)->get()
+            ->when(in_array($view, ['latest', 'saved'], true), fn ($query) => $query->where('published_at', '<=', $at), fn ($query) => $query->whereBetween('published_at', [$since, $at]))->with('subject')
+            ->orderByDesc('published_at')->orderByDesc('id')->when($view !== 'latest', fn ($query) => $query->limit($view === 'saved' ? 500 : 400))->get()
             ->loadMorph('subject', [Song::class => ['artist', 'primaryGenre'], PodcastEpisode::class => ['podcast'], Product::class => ['store']])
             ->filter(fn (FeedItem $item) => $this->isAvailable($item, $user))
             ->reject(fn (FeedItem $item) => in_array($preferences->identity($item), $state['hidden'], true))
@@ -87,7 +87,11 @@ class TimelineFeedService
             if ($record->subject instanceof Poll && $record->subject->is_anonymous) {
                 $record->actor_id = null;
             }
+            if ($record->subject instanceof Product && $record->subject->product_type === Product::TYPE_PROMOTION) {
+                $record->module = 'promotions';
+            }
         }
+        $records = $records->filter(fn (FeedItem $item) => in_array($item->module, $allowed, true))->values();
         $follows = $user ? UserFollow::query()->where('follower_id', $user->id)->get(['followable_type', 'followable_id']) : collect();
         $followedUsers = $follows->where('followable_type', User::class)->pluck('followable_id');
         $followedArtists = $follows->where('followable_type', Artist::class)->pluck('followable_id');
@@ -101,7 +105,7 @@ class TimelineFeedService
         }
         $scored = in_array($view, ['latest', 'saved'], true) ? $records : $this->ranking->rankFeedItems($user, $records);
         $ranked = $scored->map(fn (FeedItem $item) => [
-            'key' => 'feed:'.$item->id, 'model' => $item, 'module' => $item->module,
+            'key' => 'feed:'.$item->id, 'identity' => $preferences->identity($item), 'model' => $item, 'module' => $item->module,
             'actor' => $item->actor_id, 'at' => $item->published_at,
             'score' => ($item->feed_score ?? 0) + (in_array($item->module, $interests, true) ? 35 : 0) + ($isFollowed($item) ? 35 : 0),
             'section' => $item->published_at->gte($freshSince) ? 'recent' : 'discovery',
@@ -111,7 +115,7 @@ class TimelineFeedService
         if (in_array('social', $allowed, true)) {
             $posts = Post::query()->with(['user', 'media', 'song.artist'])
                 ->when($view === 'saved', fn ($query) => $query->whereIn('id', array_map(fn ($value) => substr($value, 5), array_filter($state['saved'], fn ($value) => str_starts_with($value, 'post:')))))
-                ->when($view === 'saved', fn ($query) => $query->where('published_at', '<=', $at), fn ($query) => $query->whereBetween('published_at', [$since, $at]))
+                ->when(in_array($view, ['latest', 'saved'], true), fn ($query) => $query->where('published_at', '<=', $at), fn ($query) => $query->whereBetween('published_at', [$since, $at]))
                 ->where(function ($query) use ($user, $view) {
                     $query->where('visibility', 'public');
                     if ($user && $view !== 'latest') {
@@ -121,20 +125,33 @@ class TimelineFeedService
                         });
                     }
                 })->when($view === 'following', fn ($query) => $query->whereIn('user_id', $followedActorIds))
-                ->orderByDesc('published_at')->orderByDesc('id')->limit($view === 'saved' ? 500 : 100)->get()
+                ->orderByDesc('published_at')->orderByDesc('id')->when($view !== 'latest', fn ($query) => $query->limit($view === 'saved' ? 500 : 100))->get()
                 ->reject(fn (Post $post) => in_array('post:'.$post->id, $state['hidden'], true))
                 ->filter(fn (Post $post) => $view !== 'saved' || in_array('post:'.$post->id, $state['saved'], true));
             $ranked = $ranked->concat($posts->map(fn (Post $post) => [
-                'key' => 'post:'.$post->id, 'model' => $post, 'module' => 'social', 'actor' => $post->user_id,
+                'key' => 'post:'.$post->id, 'identity' => 'post:'.$post->id, 'model' => $post, 'module' => 'social', 'actor' => $post->user_id,
                 'at' => $post->published_at, 'score' => 45 + max(0, 48 - $post->published_at->diffInHours($at)) + (in_array('social', $interests, true) ? 35 : 0),
                 'section' => $post->published_at->gte($freshSince) ? 'recent' : 'discovery', 'reason' => 'A community conversation',
             ]));
         }
 
+        $catalogue = app(TimelineCatalogueService::class);
+        $native = $catalogue->references($allowed, $at, $user)
+            ->reject(fn (array $entry) => in_array($entry['identity'], $state['hidden'], true))
+            ->filter(fn (array $entry) => ($view !== 'saved' || in_array($entry['identity'], $state['saved'], true)) && ($view !== 'following' || ($entry['actor'] && $followedActorIds->contains($entry['actor']))))
+            ->map(function (array $entry) use ($at, $freshSince, $interests, $followedActorIds, $user) {
+                $followed = $entry['actor'] && $followedActorIds->contains($entry['actor']);
+                $entry['section'] = $entry['at']->gte($freshSince) ? 'recent' : 'discovery';
+                $entry['score'] = max(0, 30 - $entry['at']->diffInDays($at)) + (in_array($entry['module'], $interests, true) ? 35 : 0) + ($followed ? 35 : 0) + ($entry['actionable'] ? 20 : 0) + min(12, log(1 + max(0, $entry['engagement']), 2));
+                $entry['rotation'] = hash('sha256', $at->toDateString().':'.($user?->id ?? 'guest').':'.$entry['key']);
+                $entry['reason'] = $followed ? 'From a creator you follow' : ($entry['actionable'] ? 'Something you can take part in' : 'From the community catalogue');
+
+                return $entry;
+            });
+        $ranked = $ranked->concat($native)->unique('identity')->values();
         $recent = $ranked->filter(fn (array $entry) => $entry['section'] === 'recent');
-        if (($view === 'saved') || (! in_array($view, ['latest', 'following'], true) && $recent->count() < 6)) {
-            $catalogue = $this->catalogDiscoveries($allowed, $at, $records, $user, $view === 'saved' ? $state['saved'] : null);
-            $ranked = $ranked->concat($catalogue->reject(fn (array $entry) => in_array($preferences->identity($entry['model']), $state['hidden'], true)));
+        if ($view === 'for-you' && ! $module && ! in_array('ateso', $interests, true)) {
+            $recent = $recent->where('module', '!=', 'ateso')->concat($recent->where('module', 'ateso')->sortByDesc('score')->take(3));
         }
         $byKey = $ranked->keyBy('key');
         if (! $session) {
@@ -142,18 +159,32 @@ class TimelineFeedService
                 $ordered = $ranked->sortByDesc(fn (array $entry) => $entry['at']->getTimestamp())->values();
                 $ordered = $ordered->map(fn (array $entry) => array_replace($entry, ['section' => 'recent']));
             } else {
-                $discovery = $ranked->filter(fn (array $entry) => $entry['section'] === 'discovery' && $entry['model'] instanceof FeedItem && in_array($entry['model']->type, self::DISCOVERY_TYPES, true));
-                $selection = $discovery->sortByDesc('score')->take(24)->sortBy(fn (array $entry) => hash('sha256', $at->toDateString().':'.($user?->id ?? 'guest').':'.$entry['key']))->values();
+                $discovery = $ranked->filter(fn (array $entry) => $entry['section'] === 'discovery' && (isset($entry['native']) || (($entry['model'] ?? null) instanceof FeedItem && in_array($entry['model']->type, self::DISCOVERY_TYPES, true))));
+                $selection = collect();
+                foreach ($discovery->groupBy('module') as $group) {
+                    $pool = $group->sortBy(fn (array $entry) => $entry['rotation'] ?? hash('sha256', $at->toDateString().':'.($user?->id ?? 'guest').':'.$entry['key']));
+                    $useful = $group->filter(fn (array $entry) => $entry['actionable'] ?? false)->sortByDesc('score')->take(2);
+                    $followed = $group->filter(fn (array $entry) => $entry['actor'] && $followedActorIds->contains($entry['actor']))->sortByDesc('score')->take(2);
+                    $selection = $selection->concat($useful->concat($followed)->concat($pool)->unique('identity')->take($group->first()['module'] === 'ateso' ? 3 : 8));
+                }
+                $selection = $selection->sortByDesc('score')->values();
                 $ordered = $this->diversify($recent->sortByDesc('score')->values())
-                    ->concat($this->diversify($selection)->take(8));
+                    ->concat($this->diversify($selection)->take(24));
             }
             $session = ['context' => $context, 'at' => $at->toIso8601String(), 'order' => $ordered->map(fn (array $entry) => ['key' => $entry['key'], 'section' => $entry['section']])->values()->all()];
             Cache::put('edula:timeline:'.$token, $session, now()->addMinutes(15));
         }
         $size = (int) ($options['per_page'] ?? 15);
         $references = array_slice($session['order'], $offset, $size);
-        $items = collect($references)->map(function (array $ref) use ($byKey) {
+        $nativePage = $catalogue->hydrate(collect($references)->map(fn (array $ref) => $byKey->get($ref['key']))->filter(fn ($entry) => $entry && isset($entry['native'])), $at, $user);
+        $items = collect($references)->map(function (array $ref) use ($byKey, $nativePage) {
             $entry = $byKey->get($ref['key']);
+            if ($entry && isset($entry['native'])) {
+                $entry['model'] = $nativePage->get($entry['key']);
+                if (! $entry['model']) {
+                    return null;
+                }
+            }
 
             return $entry ? array_replace($entry, ['section' => $ref['section']]) : null;
         })->filter()->values();
@@ -164,7 +195,7 @@ class TimelineFeedService
             'next_cursor' => $hasMore ? Crypt::encryptString(json_encode([$token, $nextOffset])) : null,
             'snapshot_at' => $session['at'], 'recent_count' => collect($session['order'])->where('section', 'recent')->count(),
             'discovery_count' => collect($session['order'])->where('section', 'discovery')->count(),
-            'fresh_hours' => 48, 'window_days' => 30, 'window_limited' => $records->count() === 400,
+            'fresh_hours' => 48, 'window_days' => $view === 'latest' ? null : 30, 'window_limited' => $view !== 'latest' && $ranked->count() > count($session['order']),
         ], 'pulse' => $this->communityPulse($allowed, $at)];
     }
 
@@ -201,16 +232,19 @@ class TimelineFeedService
             return $subject->status === 'published' && $subject->published_at?->lte(now()) && $subject->podcast?->status === 'published';
         }
         if ($subject instanceof Poll) {
-            return $subject->status === 'active' && (! $subject->ends_at || $subject->ends_at->gt(now())) && (! $subject->starts_at || $subject->starts_at->lte(now())) && ($subject->audience === 'all' || ($subject->audience === 'users' && $viewer));
+            return app(TimelineCatalogueService::class)->available('poll', $subject->id, $viewer) !== null;
         }
         if ($subject instanceof Event) {
-            return $subject->status === 'published' && $subject->visibility === 'public' && ! $subject->hide_from_non_qualifying && $subject->ends_at?->gte(now());
+            return app(TimelineCatalogueService::class)->available('event', $subject->id, $viewer) !== null;
         }
         if ($subject instanceof Product) {
-            return $subject->status === 'active' && $subject->store?->status === 'active';
+            return app(TimelineCatalogueService::class)->available('product', $subject->id, $viewer) !== null;
         }
         if ($subject instanceof PromotionRequest) {
-            return $subject->status === 'open' && (! $subject->deadline_at || $subject->deadline_at->gt(now()));
+            return app(TimelineCatalogueService::class)->available('brief', $subject->id, $viewer) !== null;
+        }
+        if ($subject instanceof \App\Modules\Contributions\Models\CorpusPair) {
+            return app(TimelineCatalogueService::class)->available('corpus', $subject->id, $viewer) !== null;
         }
         if (array_key_exists('visibility', $subject->getAttributes()) && $subject->visibility !== 'public') {
             return false;
@@ -225,48 +259,6 @@ class TimelineFeedService
     public function canDisplay(FeedItem $item, ?User $viewer): bool
     {
         return in_array($item->type, self::CONTENT_TYPES, true) && $item->visibility === 'public' && $this->isAvailable($item, $viewer);
-    }
-
-    private function catalogDiscoveries(array $allowed, Carbon $at, Collection $records, ?User $user, ?array $saved = null): Collection
-    {
-        $result = collect();
-        if (in_array('music', $allowed, true)) {
-            $songs = Song::query()->with(['artist', 'primaryGenre'])->published()->where('visibility', 'public')->whereHas('artist', fn ($query) => $query->whereIn('status', Artist::VISIBLE_STATUSES))
-                ->when($saved !== null, fn ($query) => $query->whereIn('id', array_map(fn ($identity) => substr($identity, 5), array_filter($saved, fn ($identity) => str_starts_with($identity, 'song:')))))
-                ->where(fn ($query) => $query->whereNull('published_at')->orWhere('published_at', '<=', $at))->where('created_at', '<=', $at)
-                ->whereNotIn('id', $records->where('type', 'song_release')->where('subject_type', Song::class)->pluck('subject_id'))
-                ->orderByRaw('COALESCE(published_at, created_at) DESC')->orderByDesc('id')->limit($saved !== null ? 500 : 24)->get();
-            if ($saved === null) {
-                $songs = $songs->sortBy(fn (Song $song) => hash('sha256', $at->toDateString().':'.($user?->id ?? 'guest').':song:'.$song->id))->take(4);
-            }
-            foreach ($songs as $song) {
-                $date = $song->published_at ?? $song->created_at;
-                $item = new FeedItem(['type' => 'song_release', 'module' => 'music', 'title' => $song->title, 'body' => 'From the TesoTunes music catalogue', 'actor_name' => $song->artist->stage_name, 'actor_type' => 'artist', 'actor_id' => $song->artist->user_id, 'media_type' => 'song', 'media_url' => $song->artwork_url, 'media_thumbnail_url' => $song->artwork_url, 'published_at' => $date, 'visibility' => 'public', 'extras' => ['catalog_discovery' => true, 'song_id' => $song->id, 'date_label' => $song->published_at ? 'Published' : 'Added to catalogue'], 'actions' => [['type' => 'play', 'label' => 'Play song', 'url' => '/songs/'.$song->slug]]]);
-                $item->id = -$song->id;
-                $item->uuid = 'catalog-song-'.$song->id;
-                $item->setRelation('subject', $song);
-                $result->push(['key' => $item->uuid, 'model' => $item, 'module' => 'music', 'actor' => $song->artist->user_id, 'at' => $date, 'score' => 0, 'section' => 'discovery', 'reason' => 'A catalogue release worth discovering']);
-            }
-        }
-        if (in_array('podcasts', $allowed, true)) {
-            $episodes = PodcastEpisode::query()->with('podcast')->where('status', 'published')->whereHas('podcast', fn ($query) => $query->where('status', 'published'))
-                ->when($saved !== null, fn ($query) => $query->whereIn('id', array_map(fn ($identity) => substr($identity, 8), array_filter($saved, fn ($identity) => str_starts_with($identity, 'episode:')))))
-                ->whereNotNull('published_at')->where('published_at', '<=', $at)->where('created_at', '<=', $at)
-                ->whereNotIn('id', $records->where('subject_type', PodcastEpisode::class)->pluck('subject_id'))
-                ->orderByDesc('published_at')->orderByDesc('id')->limit($saved !== null ? 500 : 24)->get();
-            if ($saved === null) {
-                $episodes = $episodes->sortBy(fn (PodcastEpisode $episode) => hash('sha256', $at->toDateString().':'.($user?->id ?? 'guest').':episode:'.$episode->id))->take(4);
-            }
-            foreach ($episodes as $episode) {
-                $item = new FeedItem(['type' => 'episode_published', 'module' => 'podcasts', 'title' => $episode->title, 'body' => $episode->podcast->title, 'actor_name' => $episode->podcast->title, 'media_type' => 'image', 'media_url' => $episode->artwork ?? $episode->podcast->artwork, 'published_at' => $episode->published_at, 'visibility' => 'public', 'extras' => ['catalog_discovery' => true], 'actions' => [['type' => 'view', 'label' => 'Listen to episode', 'url' => '/podcasts/'.$episode->podcast_id.'/episodes/'.$episode->id]]]);
-                $item->id = -$episode->id;
-                $item->uuid = 'catalog-episode-'.$episode->id;
-                $item->setRelation('subject', $episode);
-                $result->push(['key' => $item->uuid, 'model' => $item, 'module' => 'podcasts', 'actor' => null, 'at' => $episode->published_at, 'score' => 0, 'section' => 'discovery', 'reason' => 'An earlier episode worth discovering']);
-            }
-        }
-
-        return $result;
     }
 
     /** Only explicitly public records, with a minimum cohort; never raw buyer identities. */

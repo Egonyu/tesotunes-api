@@ -27,7 +27,7 @@ class TimelineFeedRequest extends FormRequest
         return [
             'view' => ['sometimes', Rule::in(['for-you', 'interests', 'latest', 'following', 'saved'])],
             'module' => ['nullable', Rule::in(TimelineFeedService::MODULES)],
-            'interests' => ['sometimes', 'array', 'max:9'],
+            'interests' => ['sometimes', 'array', 'max:10'],
             'interests.*' => ['string', 'distinct', Rule::in(TimelineFeedService::MODULES)],
             'cursor' => ['nullable', 'string', 'max:2048'],
             'per_page' => ['sometimes', 'integer', 'min:1', 'max:30'],
