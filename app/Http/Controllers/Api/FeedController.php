@@ -3,6 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\TimelineFeedRequest;
+use App\Http\Requests\UpdateTimelinePreferencesRequest;
 use App\Http\Resources\BaseResourceCollection;
 use App\Models\FeedItem;
 use App\Models\Post;
@@ -12,6 +14,9 @@ use App\Models\UserFollow;
 use App\Services\FeedAnalyticsService;
 use App\Services\FeedPreferenceService;
 use App\Services\FeedService;
+use App\Services\TimelineFeedService;
+use App\Services\TimelineItemPresenter;
+use App\Services\TimelinePreferenceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -23,6 +28,30 @@ class FeedController extends Controller
         protected FeedPreferenceService $preferenceService,
         protected FeedAnalyticsService $analyticsService,
     ) {}
+
+    public function timeline(TimelineFeedRequest $request, TimelineFeedService $timeline, TimelineItemPresenter $presenter): JsonResponse
+    {
+        $viewer = $request->user() ?? auth('sanctum')->user();
+        $result = $timeline->get($viewer, $request->validated());
+        $data = $result['items']->map(function (array $entry) use ($viewer, $presenter) {
+            $model = $entry['model'];
+            $item = $model instanceof Post ? array_merge($this->transformPostToFeedShape($model, $viewer), ['identity' => 'post:'.$model->id]) : $presenter->present($model);
+
+            return array_merge($item, ['section' => $entry['section'], 'reason' => $entry['section'] === 'discovery' ? 'An earlier publication worth discovering' : $entry['reason']]);
+        });
+
+        return response()->json(['data' => $data, 'meta' => $result['meta'], 'pulse' => $result['pulse']]);
+    }
+
+    public function timelinePreferences(Request $request, TimelinePreferenceService $preferences): JsonResponse
+    {
+        return response()->json(['data' => $preferences->get($request->user())]);
+    }
+
+    public function updateTimelinePreferences(UpdateTimelinePreferencesRequest $request, TimelinePreferenceService $preferences): JsonResponse
+    {
+        return response()->json(['data' => $preferences->update($request->user(), $request->validated())]);
+    }
 
     /**
      * GET /api/feed — main feed (chronological/ranked)
@@ -152,7 +181,7 @@ class FeedController extends Controller
      */
     public function module(Request $request, string $module)
     {
-        $validModules = ['music', 'events', 'awards', 'store', 'sacco', 'loyalty', 'forum'];
+        $validModules = ['music', 'events', 'awards', 'store', 'sacco', 'loyalty', 'forum', 'podcasts', 'promotions', 'platform', 'social'];
 
         if (! in_array($module, $validModules)) {
             return response()->json(['message' => 'Invalid module.'], 422);
@@ -476,9 +505,10 @@ class FeedController extends Controller
             'preferences' => 'required|array',
         ]);
 
+        $existing = UserFeedSetting::query()->where('user_id', $request->user()->id)->first()?->preferences ?? [];
         UserFeedSetting::updateOrCreate(
             ['user_id' => $request->user()->id],
-            ['preferences' => $validated['preferences']],
+            ['preferences' => array_replace($existing, $validated['preferences'])],
         );
 
         $this->preferenceService->updatePreferences($request->user(), $validated['preferences']);

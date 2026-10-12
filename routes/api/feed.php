@@ -6,6 +6,7 @@ Route::prefix('feed')->name('api.feed.')->group(function () {
     // Public feed endpoints (guests can browse)
     Route::get('/', [\App\Http\Controllers\Api\FeedController::class, 'index'])->name('index');
     Route::get('/for-you', [\App\Http\Controllers\Api\FeedController::class, 'forYou'])->name('for-you');
+    Route::get('/timeline', [\App\Http\Controllers\Api\FeedController::class, 'timeline'])->name('timeline');
     Route::get('/discover', [\App\Http\Controllers\Api\FeedController::class, 'discover'])->name('discover');
     Route::get('/module/{module}', [\App\Http\Controllers\Api\FeedController::class, 'module'])->name('module');
     Route::get('/tabs', [\App\Http\Controllers\Api\FeedController::class, 'tabs'])->name('tabs');
@@ -13,6 +14,8 @@ Route::prefix('feed')->name('api.feed.')->group(function () {
 
     // Authenticated feed endpoints (MUST be before /{uuid} to avoid route conflicts)
     Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/timeline/preferences', [\App\Http\Controllers\Api\FeedController::class, 'timelinePreferences'])->name('timeline.preferences');
+        Route::put('/timeline/preferences', [\App\Http\Controllers\Api\FeedController::class, 'updateTimelinePreferences'])->name('timeline.preferences.update');
         Route::get('/following', [\App\Http\Controllers\Api\FeedController::class, 'following'])->name('following');
         Route::get('/saved', [\App\Http\Controllers\Api\FeedController::class, 'saved'])->name('saved');
 

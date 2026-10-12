@@ -345,7 +345,7 @@ class FeedRankingService
 
         // Genre matching (for music items)
         if ($item->module === 'music' && ! empty($preferences['genres'])) {
-            $itemGenre = $item->getExtra('genre');
+            $itemGenre = $item->extras['genre'] ?? null;
             if ($itemGenre && in_array($itemGenre, $preferences['genres'])) {
                 $score += 50;
             }
@@ -418,9 +418,9 @@ class FeedRankingService
                 return false;
             }
 
-            $followableType = match ($actorType) {
-                'Artist' => 'App\Models\Artist',
-                'User' => 'App\Models\User',
+            $followableType = match (strtolower($actorType)) {
+                'artist' => 'App\Models\Artist',
+                'user' => 'App\Models\User',
                 default => null,
             };
 

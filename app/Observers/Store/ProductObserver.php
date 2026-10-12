@@ -30,6 +30,7 @@ class ProductObserver
                 FeedItemService::create([
                     'type' => 'store_created',
                     'module' => 'store',
+                    'visibility' => 'public',
                     'title' => ($store->name ?? 'A store').' listed a new product: '.$product->name,
                     'body' => $product->description ? substr($product->description, 0, 200) : null,
                     'actor_id' => $user->id,
@@ -41,7 +42,7 @@ class ProductObserver
                     'media_type' => 'image',
                     'media_url' => $product->image_url ?? null,
                     'actions' => [
-                        ['type' => 'view', 'label' => 'View Product', 'url' => "/store/{$store->slug}/products/{$product->slug}"],
+                        ['type' => 'view', 'label' => 'View Product', 'url' => "/store/products/{$product->slug}"],
                     ],
                     'extras' => [
                         'price_ugx' => $product->price_ugx ?? null,

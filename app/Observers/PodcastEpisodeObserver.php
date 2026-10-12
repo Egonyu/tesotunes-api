@@ -63,12 +63,12 @@ class PodcastEpisodeObserver
                 'actor_verified' => (bool) ($artist?->is_verified ?? false),
                 'subject_type' => PodcastEpisode::class,
                 'subject_id' => $episode->id,
-                'media_type' => 'song',
+                'media_type' => 'image',
                 'media_url' => $episode->artwork ?? $podcast->artwork ?? null,
                 'media_duration_seconds' => $episode->duration_seconds,
-                'tags' => array_filter([$podcast->tags ?? null]),
+                'tags' => is_array($podcast->tags) ? array_values(array_filter($podcast->tags, 'is_string')) : [],
                 'actions' => [
-                    ['type' => 'play', 'label' => 'Listen Now', 'url' => "/podcasts/{$podcast->slug}/episodes/{$episode->slug}"],
+                    ['type' => 'view', 'label' => 'Listen Now', 'url' => "/podcasts/{$podcast->id}/episodes/{$episode->id}"],
                 ],
                 'extras' => [
                     'podcast_title' => $podcast->title,

@@ -29,7 +29,13 @@ class SongObserver
                 actorType: 'Artist'
             );
 
-            // Create feed item for discovery feed
+            $this->publishRelease($song);
+        }
+    }
+
+    protected function publishRelease(Song $song): void
+    {
+        if (! \App\Models\FeedItem::query()->where('type', 'song_release')->where('subject_type', Song::class)->where('subject_id', $song->id)->exists()) {
             FeedItemService::create([
                 'type' => 'song_release',
                 'module' => 'music',
@@ -95,6 +101,7 @@ class SongObserver
                     ],
                     actorType: 'Artist'
                 );
+                $this->publishRelease($song);
             }
         }
 
