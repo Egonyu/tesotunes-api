@@ -41,6 +41,13 @@ return [
 
     'wallet_withdrawal' => [
         /*
+         * Hours a user must wait after KYC approval before their first cash
+         * out. 0 disables the wait. Gives reviewers a window to catch a bad
+         * approval before money leaves the platform.
+         */
+        'cooling_off_hours' => (int) env('WALLET_WITHDRAWAL_COOLING_OFF_HOURS', 0),
+
+        /*
          * The absolute floor, and the subscriber floor. Nobody may cash out
          * below this: a measured 1,000 UGX movement lost roughly 220 to
          * ZengaPay charges, so under 5,000 the user is mostly paying fees to

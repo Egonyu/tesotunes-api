@@ -768,6 +768,23 @@ class PaymentController extends Controller
             ], 422);
         }
 
+        $coolingOffHours = (int) config('payments.wallet_withdrawal.cooling_off_hours', 0);
+        $verifiedAt = $user->kyc_verified_at;
+
+        if ($coolingOffHours > 0 && $verifiedAt !== null) {
+            $availableAt = $verifiedAt->copy()->addHours($coolingOffHours);
+
+            if ($availableAt->isFuture()) {
+                return response()->json([
+                    'data' => [
+                        'success' => false,
+                        'message' => 'Cash outs open '.$availableAt->diffForHumans().', after your identity check settles.',
+                        'available_at' => $availableAt->toIso8601String(),
+                    ],
+                ], 422);
+            }
+        }
+
         /*
          * Accounts without a subscription cash out in larger pieces, because
          * the provider's per-transaction charge does not shrink with the
