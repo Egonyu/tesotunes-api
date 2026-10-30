@@ -689,8 +689,12 @@ class AdminArtistsController extends Controller
             // Identity (KYC) approval flows through KycService — the single writer.
             // No-op when the user has no pending docs.
             $admin = auth()->user();
-            if ($admin && $user->kycDocuments()->where('status', 'pending')->exists()) {
-                app(\App\Services\Kyc\KycService::class)->markVerified($user, $admin);
+            $kyc = app(\App\Services\Kyc\KycService::class);
+            if ($admin
+                && $user->kycDocuments()->where('status', 'pending')->exists()
+                && $kyc->canApproveFromEvidence($user, $admin)
+            ) {
+                $kyc->markVerified($user, $admin);
             }
         }
 

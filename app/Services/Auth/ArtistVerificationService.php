@@ -186,9 +186,11 @@ class ArtistVerificationService
             // changes flow through the single writer. This is a no-op if the user
             // submitted no docs; the admin can still approve them as an artist
             // without identity verification (that gate is on withdrawals/claims).
-            if ($artist->user->kycDocuments()->where('status', 'pending')->exists()) {
-                app(\App\Services\Kyc\KycService::class)
-                    ->markVerified($artist->user, $admin, $notes);
+            $kyc = app(\App\Services\Kyc\KycService::class);
+            if ($artist->user->kycDocuments()->where('status', 'pending')->exists()
+                && $kyc->canApproveFromEvidence($artist->user, $admin)
+            ) {
+                $kyc->markVerified($artist->user, $admin, $notes);
             }
 
             // Log activity

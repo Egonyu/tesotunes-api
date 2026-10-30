@@ -146,6 +146,16 @@ class KycService
 
             if ($requireReviewableSubmission) {
                 $this->assertPendingReview($user);
+            }
+
+            // Every approval path needs a reviewer other than the applicant and,
+            // when configured, a minimum review time. Complete evidence is
+            // enforced by the review endpoint (requireReviewableSubmission) and
+            // by canApproveFromEvidence() for side-effect approvals.
+            $this->assertNotSelfReview($user, $admin);
+            $this->assertMinimumReviewTime($user);
+
+            if ($requireReviewableSubmission) {
                 $this->assertCompleteEvidence($user);
             }
 
@@ -185,6 +195,24 @@ class KycService
                 priority: 'high',
             );
         });
+    }
+
+    /**
+     * Whether an approval would currently pass the evidence and timing guards.
+     * Side-effect approvals (e.g. approving an artist) use this to skip KYC
+     * rather than verify an identity that was never properly reviewed.
+     */
+    public function canApproveFromEvidence(User $user, User $admin): bool
+    {
+        try {
+            $this->assertNotSelfReview($user, $admin);
+            $this->assertCompleteEvidence($user);
+            $this->assertMinimumReviewTime($user);
+        } catch (ValidationException) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -489,6 +517,38 @@ class KycService
         if ($missing->isNotEmpty()) {
             throw ValidationException::withMessages([
                 'documents' => 'Cannot approve an incomplete submission. Missing: '.$missing->join(', ').'.',
+            ]);
+        }
+    }
+
+    private function assertNotSelfReview(User $user, User $admin): void
+    {
+        if ($user->id === $admin->id) {
+            throw ValidationException::withMessages([
+                'user' => 'You cannot approve your own identity verification.',
+            ]);
+        }
+    }
+
+    /**
+     * Rejects approvals that land sooner after submission than the configured
+     * minimum (kyc.min_review_seconds, 0 = off).
+     */
+    private function assertMinimumReviewTime(User $user): void
+    {
+        $minimum = (int) config('kyc.min_review_seconds', 0);
+        $submittedAt = $user->kyc_submitted_at;
+
+        if ($minimum <= 0 || $submittedAt === null) {
+            return;
+        }
+
+        $elapsed = $submittedAt->diffInSeconds(now(), true);
+
+        if ($elapsed < $minimum) {
+            throw ValidationException::withMessages([
+                'user' => 'This submission was received moments ago. Review the documents and try again in '
+                    .(int) ceil(($minimum - $elapsed) / 60).' minute(s).',
             ]);
         }
     }

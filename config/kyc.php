@@ -20,6 +20,10 @@ return [
     // Days a verification stays valid before re-KYC is required.
     'verification_ttl_days' => env('KYC_VERIFICATION_TTL_DAYS', 365),
 
+    // Minimum seconds between a KYC submission and its approval. 0 disables
+    // the check. Guards against approvals made without reading the documents.
+    'min_review_seconds' => env('KYC_MIN_REVIEW_SECONDS', 0),
+
     // Max upload size (in kilobytes) for a single KYC document.
     'max_document_size_kb' => env('KYC_MAX_DOCUMENT_SIZE_KB', 5120),
 
