@@ -42,6 +42,10 @@ Route::middleware(['auth:sanctum', 'role:admin,super_admin', 'admin.exceptions']
     Route::get('/analytics/api-usage', [\App\Http\Controllers\Api\Admin\ApiAnalyticsController::class, 'dashboard'])->name('analytics.api-usage');
     Route::get('/analytics/top-users', [\App\Http\Controllers\Api\Admin\ApiAnalyticsController::class, 'topUsers'])->name('analytics.top-users');
     Route::get('/analytics/api-usage/top-users', [\App\Http\Controllers\Api\Admin\ApiAnalyticsController::class, 'topUsers'])->name('analytics.api-usage.top-users');
+
+    // User 360 audit view (admin only: carries payout numbers and activity history)
+    Route::get('/users/{id}/audit', [\App\Http\Controllers\Api\Admin\AdminUserAuditController::class, 'show'])->whereNumber('id')->name('users.audit');
+    Route::get('/users/{id}/audit/timeline', [\App\Http\Controllers\Api\Admin\AdminUserAuditController::class, 'timeline'])->whereNumber('id')->name('users.audit.timeline');
 });
 
 // Super-admin only settings (environment variables)
