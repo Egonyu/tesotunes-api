@@ -40,7 +40,7 @@ class DispatchUserRegisteredWebhook implements ShouldQueue
                 'email' => $user->email,
                 'phone' => $user->phone,
             ],
-        ]);
+        ])->throw();
 
         Log::info('User registered webhook dispatched', ['user_id' => $this->userId]);
     }

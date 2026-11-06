@@ -54,7 +54,7 @@ class DispatchSongApprovedWebhook implements ShouldQueue
             // Pass artist contact details so n8n can send WhatsApp/email
             'artist_phone' => $artistUser?->phone ?? null,
             'artist_email' => $artistUser?->email ?? null,
-        ]);
+        ])->throw();
 
         Log::info('Song approved webhook dispatched', ['song_id' => $this->songId]);
     }
