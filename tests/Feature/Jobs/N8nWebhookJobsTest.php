@@ -4,8 +4,8 @@ use App\Jobs\DispatchArtistUpgradedWebhook;
 use App\Jobs\DispatchUserRegisteredWebhook;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Request;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 
 uses(RefreshDatabase::class);
