@@ -42,7 +42,7 @@ class DispatchArtistUpgradedWebhook implements ShouldQueue
                 'stage_name' => $user->artist?->stage_name,
                 'slug' => $user->artist?->slug,
             ],
-        ]);
+        ])->throw();
 
         Log::info('Artist upgraded webhook dispatched', ['user_id' => $this->userId]);
     }
