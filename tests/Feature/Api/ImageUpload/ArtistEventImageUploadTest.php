@@ -4,6 +4,7 @@ namespace Tests\Feature\Api\ImageUpload;
 
 use App\Models\Artist;
 use App\Models\User;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Http\UploadedFile;
 use Tests\TestCase;
 
@@ -15,6 +16,7 @@ use Tests\TestCase;
 class ArtistEventImageUploadTest extends TestCase
 {
     use CreatesUsersWithRoles;
+    use DatabaseTransactions;
 
     private User $artistUser;
 
