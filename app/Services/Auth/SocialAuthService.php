@@ -321,6 +321,10 @@ class SocialAuthService
             return $user;
         });
 
+        // is_active is not mass-assignable; reload so the DB default is present,
+        // otherwise the first sign-in of a new social user is rejected as suspended.
+        $user->refresh();
+
         // n8n automation: welcome email + Listmonk subscriber creation (same as password signup)
         DispatchUserRegisteredWebhook::dispatch($user->id)->onQueue('webhooks');
 
