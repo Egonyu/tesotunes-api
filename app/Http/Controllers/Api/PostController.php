@@ -317,15 +317,29 @@ class PostController extends Controller
      */
     public function storeComment(Request $request, Post $post): JsonResponse
     {
+        $limit = (int) app(\App\Settings\SettingsManager::class)->get('general_edula_voice_reply_seconds');
         $request->validate([
-            'content' => 'required|string|max:2000',
+            'content' => 'required_without:audio|nullable|string|max:2000',
             'parent_id' => 'sometimes|nullable|exists:post_comments,id',
-        ]);
+            // Browsers record webm/ogg (Chrome, Firefox) or mp4/aac (Safari); webm audio is often sniffed as video/webm.
+            'audio' => ['nullable', 'file', 'max:2048', 'mimetypes:audio/webm,video/webm,audio/ogg,audio/mpeg,audio/mp4,audio/aac,audio/x-m4a,audio/wav,audio/x-wav'],
+            'audio_duration_seconds' => ['required_with:audio', 'nullable', 'integer', 'min:1', 'max:'.max(1, $limit)],
+        ], ['audio.max' => 'Voice replies must be 2 MB or smaller.', 'audio_duration_seconds.max' => 'This voice reply is longer than allowed.']);
+        abort_if($request->hasFile('audio') && $limit <= 0, 422, 'Voice replies are turned off right now.');
+
+        $attributes = [];
+        if ($request->hasFile('audio')) {
+            $attributes = [
+                'audio_path' => StorageHelper::store($request->file('audio'), 'voice-replies/'.$post->id),
+                'audio_duration_seconds' => (int) $request->input('audio_duration_seconds'),
+            ];
+        }
 
         $comment = $post->addComment(
             $request->user(),
-            $request->input('content'),
+            (string) ($request->input('content') ?? ''),
             $request->input('parent_id'),
+            $attributes,
         );
 
         $comment->load('user');
@@ -347,6 +361,11 @@ class PostController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
+        // A member who removes a voice reply expects the recording gone, not just hidden.
+        if ($comment->audio_path) {
+            StorageHelper::delete($comment->audio_path);
+            $comment->forceFill(['audio_path' => null])->save();
+        }
         $comment->delete();
         $post->decrement('comments_count');
 
@@ -464,6 +483,8 @@ class PostController extends Controller
                 'is_verified' => (bool) ($comment->user->is_verified ?? false),
             ],
             'content' => $comment->content,
+            'audio_url' => $comment->audio_url,
+            'audio_duration_seconds' => $comment->audio_duration_seconds,
             'created_at' => $comment->created_at?->toIso8601String(),
             'likes_count' => $comment->likes_count ?? 0,
             'is_liked' => $viewer ? \App\Models\Like::where('user_id', $viewer->id)

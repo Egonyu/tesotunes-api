@@ -150,6 +150,12 @@ class Store extends Model
         return $this->hasMany(Product::class);
     }
 
+    /** Partner deals this store has posted to Edula */
+    public function deals(): HasMany
+    {
+        return $this->hasMany(Deal::class);
+    }
+
     /**
      * Get only active products
      */

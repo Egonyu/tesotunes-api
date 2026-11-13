@@ -225,6 +225,7 @@ return [
             'product_purchased' => 30,
             'product_reviewed' => 25,
             'store_created' => 50,
+            'deal_posted' => 70,
 
             // SACCO
             'sacco_joined' => 40,

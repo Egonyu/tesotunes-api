@@ -79,6 +79,8 @@ if (config('backup.auto_enabled', false)) {
 // ── Expired API tokens ─────────────────────────────────────────
 // /auth/refresh now expires the old token after a grace period instead of
 // deleting it, so expired rows are cleared here.
+Schedule::command('deals:expire-claims')->everyFifteenMinutes()->withoutOverlapping();
+
 Schedule::command('sanctum:prune-expired --hours=24')
     ->dailyAt('03:30')
     ->name('sanctum-prune-expired')

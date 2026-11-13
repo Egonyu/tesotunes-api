@@ -40,6 +40,8 @@ class ProfileController extends Controller
             'name' => 'sometimes|required|string|max:255',
             'bio' => 'nullable|string|max:500',
             'location' => 'nullable|string|max:255',
+            // Home town for Edula: deals and events from it rank first (see TimelineFeedService::townBoost)
+            'city' => 'nullable|string|max:80',
             'website' => 'nullable|url|max:255',
             'phone' => 'nullable|string|max:20',
             'date_of_birth' => 'nullable|date|before:today',

@@ -11,11 +11,13 @@ Route::prefix('feed')->name('api.feed.')->group(function () {
     Route::get('/module/{module}', [\App\Http\Controllers\Api\FeedController::class, 'module'])->name('module');
     Route::get('/tabs', [\App\Http\Controllers\Api\FeedController::class, 'tabs'])->name('tabs');
     Route::get('/trending', [\App\Http\Controllers\Api\FeedController::class, 'trending'])->name('trending');
+    Route::get('/today', [\App\Http\Controllers\Api\FeedController::class, 'today'])->name('today');
 
     // Authenticated feed endpoints (MUST be before /{uuid} to avoid route conflicts)
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/timeline/preferences', [\App\Http\Controllers\Api\FeedController::class, 'timelinePreferences'])->name('timeline.preferences');
         Route::put('/timeline/preferences', [\App\Http\Controllers\Api\FeedController::class, 'updateTimelinePreferences'])->name('timeline.preferences.update');
+        Route::put('/reactions', [\App\Http\Controllers\Api\FeedController::class, 'react'])->middleware('throttle:60,1')->name('reactions.update');
         Route::get('/following', [\App\Http\Controllers\Api\FeedController::class, 'following'])->name('following');
         Route::get('/saved', [\App\Http\Controllers\Api\FeedController::class, 'saved'])->name('saved');
 

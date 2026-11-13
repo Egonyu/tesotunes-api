@@ -126,6 +126,9 @@ require __DIR__.'/api/sacco.php';
 // Feed API Routes (Edula discovery feed)
 require __DIR__.'/api/feed.php';
 
+// Edula Partners: claimable deals from local businesses (routes/api/deals.php)
+require __DIR__.'/api/deals.php';
+
 // User Credits Routes
 require __DIR__.'/api/credits.php';
 

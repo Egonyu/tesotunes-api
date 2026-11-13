@@ -24,6 +24,30 @@ final class PlatformSettings
             ->visibility(SettingVisibility::Public)
             ->label('Platform name')->auditCategory('platform_identity')->register();
 
+        Define::str('general_edula_towns', 'Soroti,Kumi,Katakwi,Ngora,Bukedea,Amuria,Serere,Kaberamaido,Kapelebyong,Kalaki,Kampala,Diaspora')
+            ->group($g)->subgroup('identity')
+            ->visibility(SettingVisibility::Public)
+            ->label('Edula towns')
+            ->help('Comma-separated places a member can choose as home town; deals and events from it rank first.')
+            ->auditCategory('platform_identity')->register();
+
+        Define::int('general_edula_voice_reply_seconds', 60)
+            ->group($g)->subgroup('identity')
+            ->visibility(SettingVisibility::Public)
+            ->rules(['integer', 'min:0', 'max:300'])
+            ->label('Edula voice reply length (seconds)')
+            ->help('Longest voice reply a member can record on a post. 0 turns voice replies off.')
+            ->auditCategory('platform_identity')->register();
+
+        // Ateso wording should be confirmed by native speakers; operators can edit it.
+        Define::str('general_edula_reactions', 'ejok:Ejok!,ejok_noi:Ejok noi,eyalama:Eyalama')
+            ->group($g)->subgroup('identity')
+            ->visibility(SettingVisibility::Public)
+            ->rules(['nullable', 'string', 'max:500'])
+            ->label('Edula reactions')
+            ->help('Comma-separated key:Label pairs offered as one-tap reactions on Edula. Keys are lowercase; removing one stops it being counted.')
+            ->auditCategory('platform_identity')->register();
+
         Define::str('general_tagline', 'Empowering Artists, Connecting Fans')
             ->group($g)->subgroup('identity')
             ->visibility(SettingVisibility::Public)

@@ -62,6 +62,9 @@ class MigrationPolicyGuardTest extends TestCase
         '2026_09_27_100000_publish_tesotunes_subscription_plans.php',
         '2026_09_28_230000_create_payment_provider_balance_snapshots_table.php',
         '2026_10_12_071132_add_preferences_to_user_feed_settings_table.php',
+        '2026_11_12_100000_create_deals_tables.php',
+        '2026_11_12_200000_create_edula_reactions_table.php',
+        '2026_11_12_300000_add_voice_notes_to_post_comments_table.php',
     ];
 
     private const BANNED_NAME_FRAGMENTS = [

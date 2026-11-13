@@ -41,6 +41,7 @@ class FeedItemService
         'product_purchased' => 30,
         'product_reviewed' => 25,
         'store_created' => 50,
+        'deal_posted' => 70,
         'sacco_joined' => 40,
         'loan_taken' => 20,
         'loan_repaid' => 20,

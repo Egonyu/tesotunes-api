@@ -188,6 +188,19 @@ class SongService
 
             // Create activity
             $this->createUserActivity($user, 'played_song', $song);
+
+            // Anonymous pulse signal for Edula ("N people discovered music this week").
+            // Never a card: the timeline only counts it once a minimum cohort exists.
+            try {
+                \App\Services\FeedItemService::create([
+                    'type' => 'song_played', 'module' => 'music', 'visibility' => 'public',
+                    'title' => 'Played '.$song->title,
+                    'actor_id' => $user->id, 'actor_type' => 'user', 'actor_name' => null,
+                    'subject_type' => Song::class, 'subject_id' => $song->id,
+                ]);
+            } catch (\Throwable $error) {
+                \Illuminate\Support\Facades\Log::debug('song_played pulse item skipped', ['song_id' => $song->id, 'error' => $error->getMessage()]);
+            }
         }
 
         return $playHistory;

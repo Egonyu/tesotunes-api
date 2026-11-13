@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\UserFollow;
 use App\Modules\Podcast\Models\PodcastEpisode;
 use App\Modules\Promotions\Models\PromotionRequest;
+use App\Modules\Store\Models\Deal;
 use App\Modules\Store\Models\Product;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -24,9 +25,9 @@ class TimelineFeedService
 {
     public const MODULES = ['music', 'social', 'events', 'awards', 'store', 'forum', 'podcasts', 'promotions', 'platform', 'ateso'];
 
-    private const CONTENT_TYPES = ['song_release', 'album_release', 'playlist_created', 'artist_update', 'artist_joined', 'event_created', 'event_reminder', 'award_won', 'award_season_started', 'store_created', 'product_listed', 'thread_created', 'poll_created', 'episode_published', 'promotion_request_posted', 'promotion_service_listed', 'corpus_pair_accepted', 'ateso_project', 'announcement'];
+    private const CONTENT_TYPES = ['song_release', 'album_release', 'playlist_created', 'artist_update', 'artist_joined', 'event_created', 'event_reminder', 'award_won', 'award_season_started', 'store_created', 'product_listed', 'thread_created', 'poll_created', 'episode_published', 'promotion_request_posted', 'promotion_service_listed', 'corpus_pair_accepted', 'ateso_project', 'announcement', 'deal_posted'];
 
-    private const DISCOVERY_TYPES = ['song_release', 'album_release', 'playlist_created', 'episode_published', 'poll_created', 'event_created', 'product_listed', 'store_created', 'promotion_request_posted'];
+    private const DISCOVERY_TYPES = ['song_release', 'album_release', 'playlist_created', 'episode_published', 'poll_created', 'event_created', 'product_listed', 'store_created', 'promotion_request_posted', 'deal_posted'];
 
     public function __construct(private FeedRankingService $ranking) {}
 
@@ -41,7 +42,7 @@ class TimelineFeedService
         $view = $options['view'] ?? 'for-you';
         abort_if(in_array($view, ['saved', 'following'], true) && ! $user, 401);
         $preferences = app(TimelinePreferenceService::class);
-        $state = $user ? $preferences->get($user) : ['interests' => [], 'saved' => [], 'hidden' => []];
+        $state = $user ? $preferences->get($user) : ['interests' => [], 'saved' => [], 'hidden' => [], 'affinity' => ['modules' => [], 'actors' => []]];
         $interests = array_values(array_unique($options['interests'] ?? []));
         sort($interests);
         $module = $options['module'] ?? null;
@@ -74,12 +75,13 @@ class TimelineFeedService
                 $query->where(function ($match) use ($saved) {
                     $match->whereIn('uuid', array_map(fn ($value) => substr($value, 5), array_filter($saved, fn ($value) => str_starts_with($value, 'feed:'))))
                         ->orWhere(fn ($songs) => $songs->where('type', 'song_release')->where('subject_type', Song::class)->whereIn('subject_id', array_map(fn ($value) => substr($value, 5), array_filter($saved, fn ($value) => str_starts_with($value, 'song:')))))
-                        ->orWhere(fn ($episodes) => $episodes->where('subject_type', PodcastEpisode::class)->whereIn('subject_id', array_map(fn ($value) => substr($value, 8), array_filter($saved, fn ($value) => str_starts_with($value, 'episode:')))));
+                        ->orWhere(fn ($episodes) => $episodes->where('subject_type', PodcastEpisode::class)->whereIn('subject_id', array_map(fn ($value) => substr($value, 8), array_filter($saved, fn ($value) => str_starts_with($value, 'episode:')))))
+                        ->orWhere(fn ($deals) => $deals->where('subject_type', Deal::class)->whereIn('subject_id', array_map(fn ($value) => substr($value, 5), array_filter($saved, fn ($value) => str_starts_with($value, 'deal:')))));
                 });
             })
             ->when(in_array($view, ['latest', 'saved'], true), fn ($query) => $query->where('published_at', '<=', $at), fn ($query) => $query->whereBetween('published_at', [$since, $at]))->with('subject')
             ->orderByDesc('published_at')->orderByDesc('id')->when($view !== 'latest', fn ($query) => $query->limit($view === 'saved' ? 500 : 400))->get()
-            ->loadMorph('subject', [Song::class => ['artist', 'primaryGenre'], PodcastEpisode::class => ['podcast'], Product::class => ['store']])
+            ->loadMorph('subject', [Song::class => ['artist', 'primaryGenre'], PodcastEpisode::class => ['podcast'], Product::class => ['store'], Deal::class => ['store']])
             ->filter(fn (FeedItem $item) => $this->isAvailable($item, $user))
             ->reject(fn (FeedItem $item) => in_array($preferences->identity($item), $state['hidden'], true))
             ->unique(fn (FeedItem $item) => $preferences->identity($item))->values();
@@ -107,7 +109,7 @@ class TimelineFeedService
         $ranked = $scored->map(fn (FeedItem $item) => [
             'key' => 'feed:'.$item->id, 'identity' => $preferences->identity($item), 'model' => $item, 'module' => $item->module,
             'actor' => $item->actor_id, 'at' => $item->published_at,
-            'score' => ($item->feed_score ?? 0) + (in_array($item->module, $interests, true) ? 35 : 0) + ($isFollowed($item) ? 35 : 0),
+            'score' => ($item->feed_score ?? 0) + (in_array($item->module, $interests, true) ? 35 : 0) + ($isFollowed($item) ? 35 : 0) + $this->townBoost($item->region, $user) + $this->affinityBoost($item->module, $item->actor_id, $state),
             'section' => $item->published_at->gte($freshSince) ? 'recent' : 'discovery',
             'reason' => $isFollowed($item) ? 'From a creator you follow' : (in_array($item->module, $interests, true) ? 'From your selected interests' : 'Public activity across TesoTunes'),
         ]);
@@ -130,7 +132,7 @@ class TimelineFeedService
                 ->filter(fn (Post $post) => $view !== 'saved' || in_array('post:'.$post->id, $state['saved'], true));
             $ranked = $ranked->concat($posts->map(fn (Post $post) => [
                 'key' => 'post:'.$post->id, 'identity' => 'post:'.$post->id, 'model' => $post, 'module' => 'social', 'actor' => $post->user_id,
-                'at' => $post->published_at, 'score' => 45 + max(0, 48 - $post->published_at->diffInHours($at)) + (in_array('social', $interests, true) ? 35 : 0),
+                'at' => $post->published_at, 'score' => 45 + max(0, 48 - $post->published_at->diffInHours($at)) + (in_array('social', $interests, true) ? 35 : 0) + $this->affinityBoost('social', $post->user_id, $state),
                 'section' => $post->published_at->gte($freshSince) ? 'recent' : 'discovery', 'reason' => 'A community conversation',
             ]));
         }
@@ -139,10 +141,10 @@ class TimelineFeedService
         $native = $catalogue->references($allowed, $at, $user)
             ->reject(fn (array $entry) => in_array($entry['identity'], $state['hidden'], true))
             ->filter(fn (array $entry) => ($view !== 'saved' || in_array($entry['identity'], $state['saved'], true)) && ($view !== 'following' || ($entry['actor'] && $followedActorIds->contains($entry['actor']))))
-            ->map(function (array $entry) use ($at, $freshSince, $interests, $followedActorIds, $user) {
+            ->map(function (array $entry) use ($at, $freshSince, $interests, $followedActorIds, $user, $state) {
                 $followed = $entry['actor'] && $followedActorIds->contains($entry['actor']);
                 $entry['section'] = $entry['at']->gte($freshSince) ? 'recent' : 'discovery';
-                $entry['score'] = max(0, 30 - $entry['at']->diffInDays($at)) + (in_array($entry['module'], $interests, true) ? 35 : 0) + ($followed ? 35 : 0) + ($entry['actionable'] ? 20 : 0) + min(12, log(1 + max(0, $entry['engagement']), 2));
+                $entry['score'] = max(0, 30 - $entry['at']->diffInDays($at)) + (in_array($entry['module'], $interests, true) ? 35 : 0) + ($followed ? 35 : 0) + ($entry['actionable'] ? 20 : 0) + min(12, log(1 + max(0, $entry['engagement']), 2)) + $this->affinityBoost($entry['module'], $entry['actor'], $state);
                 $entry['rotation'] = hash('sha256', $at->toDateString().':'.($user?->id ?? 'guest').':'.$entry['key']);
                 $entry['reason'] = $followed ? 'From a creator you follow' : ($entry['actionable'] ? 'Something you can take part in' : 'From the community catalogue');
 
@@ -199,6 +201,27 @@ class TimelineFeedService
         ], 'pulse' => $this->communityPulse($allowed, $at)];
     }
 
+    /**
+     * "More / less like this" taps, as ranking points. One step on a module is
+     * worth less than a chosen interest (35), so taps nudge rather than take over.
+     */
+    public function affinityBoost(?string $module, mixed $actor, array $state): int
+    {
+        $affinity = $state['affinity'] ?? [];
+        $moduleSteps = $module ? (int) ($affinity['modules'][$module] ?? 0) : 0;
+        $actorSteps = $actor ? (int) ($affinity['actors'][(string) $actor] ?? 0) : 0;
+
+        return $moduleSteps * 15 + $actorSteps * 20;
+    }
+
+    /** Home-town activity ranks ahead of the rest of the region; nothing is hidden for being elsewhere. */
+    public function townBoost(?string $region, ?User $user): int
+    {
+        $town = trim((string) $user?->city);
+
+        return $region !== null && $town !== '' && strcasecmp(trim($region), $town) === 0 ? 30 : 0;
+    }
+
     /** Spread content without inventing activity or dropping eligible records. */
     public function diversify(Collection $entries): Collection
     {
@@ -242,6 +265,9 @@ class TimelineFeedService
         }
         if ($subject instanceof PromotionRequest) {
             return app(TimelineCatalogueService::class)->available('brief', $subject->id, $viewer) !== null;
+        }
+        if ($subject instanceof Deal) {
+            return $subject->isLive();
         }
         if ($subject instanceof \App\Modules\Contributions\Models\CorpusPair) {
             return app(TimelineCatalogueService::class)->available('corpus', $subject->id, $viewer) !== null;

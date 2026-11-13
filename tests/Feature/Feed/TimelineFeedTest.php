@@ -265,3 +265,49 @@ test('artist follows include public updates published under the artist owner ide
     UserFollow::create(['follower_id' => $viewer->id, 'followable_id' => $artist->id, 'followable_type' => Artist::class]);
     $this->actingAs($viewer)->getJson('/api/feed/timeline?view=following')->assertOk()->assertJsonPath('data.0.uuid', $release->uuid);
 });
+
+test('more like this lifts a module and less like this hides the item and lowers its module and creator', function () {
+    $member = User::factory()->create();
+    $creator = User::factory()->create();
+    $music = timelineItem(['module' => 'music', 'title' => 'A music update', 'published_at' => now()->subMinutes(5)]);
+    $podcast = timelineItem(['module' => 'podcasts', 'title' => 'A podcast update', 'published_at' => now()->subMinutes(5)]);
+    $otherMusic = timelineItem(['module' => 'music', 'title' => 'Another music update', 'actor_id' => $creator->id, 'published_at' => now()->subMinutes(6)]);
+    $order = fn () => collect($this->actingAs($member)->getJson('/api/feed/timeline')->assertOk()->json('data'))->pluck('uuid')->all();
+
+    $before = $order();
+    $last = collect([$music->uuid, $podcast->uuid])->sortBy(fn ($uuid) => array_search($uuid, $before, true))->last();
+    $this->actingAs($member)->putJson('/api/feed/timeline/preferences', ['action' => 'more', 'identity' => 'feed:'.$last])->assertOk()
+        ->assertJsonPath('data.affinity.modules', [$last === $music->uuid ? 'music' : 'podcasts' => 1]);
+    $this->actingAs($member)->putJson('/api/feed/timeline/preferences', ['action' => 'more', 'identity' => 'feed:'.$last])->assertOk();
+    Cache::flush();
+    expect($order()[0])->toBe($last);
+
+    $less = $this->actingAs($member)->putJson('/api/feed/timeline/preferences', ['action' => 'less', 'identity' => 'feed:'.$otherMusic->uuid])->assertOk();
+    expect($less->json('data.hidden'))->toBe(['feed:'.$otherMusic->uuid]);
+    expect($less->json('data.affinity.actors'))->toBe([(string) $creator->id => -1]);
+    Cache::flush();
+    expect($order())->not->toContain($otherMusic->uuid);
+
+    $undo = $this->actingAs($member)->putJson('/api/feed/timeline/preferences', ['action' => 'undo-less', 'identity' => 'feed:'.$otherMusic->uuid])->assertOk();
+    expect($undo->json('data.hidden'))->toBe([]);
+    expect($undo->json('data.affinity.actors'))->toBe([]);
+    Cache::flush();
+    expect($order())->toContain($otherMusic->uuid);
+});
+
+test('affinity is capped, private to the member, and never records the creator of an anonymous poll', function () {
+    $member = User::factory()->create();
+    $item = timelineItem(['module' => 'podcasts']);
+    $this->putJson('/api/feed/timeline/preferences', ['action' => 'more', 'identity' => 'feed:'.$item->uuid])->assertUnauthorized();
+    foreach (range(1, 6) as $tap) {
+        $this->actingAs($member)->putJson('/api/feed/timeline/preferences', ['action' => 'more', 'identity' => 'feed:'.$item->uuid])->assertOk();
+    }
+    $this->actingAs($member)->getJson('/api/feed/timeline/preferences')->assertOk()->assertJsonPath('data.affinity.modules.podcasts', 3);
+    $this->actingAs($member)->putJson('/api/feed/timeline/preferences', ['action' => 'more'])->assertUnprocessable();
+
+    $creator = User::factory()->create();
+    $poll = Poll::create(['user_id' => $creator->id, 'title' => 'Anonymous question', 'poll_type' => 'general', 'audience' => 'all', 'status' => 'active', 'is_anonymous' => true]);
+    [$module, $actor] = app(\App\Services\TimelinePreferenceService::class)->signal($poll);
+    expect($module)->toBe('forum');
+    expect($actor)->toBeNull();
+});

@@ -17,6 +17,8 @@ use App\Services\FeedService;
 use App\Services\TimelineFeedService;
 use App\Services\TimelineItemPresenter;
 use App\Services\TimelinePreferenceService;
+use App\Services\TodayCardService;
+use App\Services\EdulaReactionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -29,18 +31,39 @@ class FeedController extends Controller
         protected FeedAnalyticsService $analyticsService,
     ) {}
 
-    public function timeline(TimelineFeedRequest $request, TimelineFeedService $timeline, TimelineItemPresenter $presenter): JsonResponse
+    public function timeline(TimelineFeedRequest $request, TimelineFeedService $timeline, TimelineItemPresenter $presenter, EdulaReactionService $reactions): JsonResponse
     {
         $viewer = $request->user() ?? auth('sanctum')->user();
         $result = $timeline->get($viewer, $request->validated());
         $data = $result['items']->map(function (array $entry) use ($viewer, $presenter) {
             $model = $entry['model'];
-            $item = $model instanceof Post ? array_merge($this->transformPostToFeedShape($model, $viewer), ['identity' => 'post:'.$model->id]) : $presenter->present($model);
+            $item = $model instanceof Post ? array_merge($this->transformPostToFeedShape($model, $viewer), ['identity' => 'post:'.$model->id]) : $presenter->present($model, $viewer);
 
             return array_merge($item, ['section' => $entry['section'], 'reason' => $entry['section'] === 'discovery' ? 'An earlier publication worth discovering' : $entry['reason']]);
         });
+        $summaries = $reactions->summaries($data->pluck('identity')->all(), $viewer);
+        $data = $data->map(fn (array $item) => array_merge($item, ['reactions' => $summaries[$item['identity'] ?? ''] ?? ['counts' => (object) [], 'mine' => null]]));
 
         return response()->json(['data' => $data, 'meta' => $result['meta'], 'pulse' => $result['pulse']]);
+    }
+
+    /** Set, change or clear (reaction: null) the member's one-tap reaction to a timeline item. */
+    public function react(Request $request, EdulaReactionService $reactions): JsonResponse
+    {
+        $data = $request->validate([
+            'identity' => ['required', 'string', 'max:100', 'regex:'.EdulaReactionService::IDENTITY],
+            'reaction' => ['present', 'nullable', 'string', 'max:30'],
+        ], ['identity.regex' => 'Choose a valid timeline item.']);
+
+        return response()->json(['data' => $reactions->react($request->user(), $data['identity'], $data['reaction'])]);
+    }
+
+    /** The morning card: what matters in Teso today, assembled from live data only. */
+    public function today(Request $request, TodayCardService $today): JsonResponse
+    {
+        $viewer = $request->user() ?? auth('sanctum')->user();
+
+        return response()->json(['data' => $today->build($viewer)]);
     }
 
     public function timelinePreferences(Request $request, TimelinePreferenceService $preferences): JsonResponse

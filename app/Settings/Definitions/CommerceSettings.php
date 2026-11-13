@@ -50,6 +50,28 @@ final class CommerceSettings
             ->group($g)->subgroup('credits')
             ->deprecatedInFavorOf('credits_per_ugx')->register();
 
+        // Edula Partners: deals claimed with credits and redeemed at the counter.
+        Define::bool('deals_enabled', true)
+            ->group($g)->subgroup('deals')
+            ->label('Partner deals')
+            ->help('Local businesses can post claimable deals to the Edula timeline.')
+            ->visibility(SettingVisibility::Public)
+            ->auditCategory($cat)->register();
+
+        Define::float('deals_platform_margin_percent', 10.0)
+            ->group($g)->subgroup('deals')
+            ->rules(['numeric', 'min:0', 'max:100'])
+            ->label('Deal redemption margin (%)')
+            ->help('Share of a redeemed claim kept by the platform; the rest lands on the partner balance.')
+            ->auditCategory($cat)->register();
+
+        Define::int('deals_claim_window_hours', 48)
+            ->group($g)->subgroup('deals')
+            ->rules(['integer', 'min:1', 'max:720'])
+            ->label('Deal claim window (hours)')
+            ->help('How long a claimed code stays redeemable before the credits are refunded.')
+            ->auditCategory($cat)->register();
+
         Define::int('credits_credits_per_song_upload', 5)
             ->group($g)->subgroup('credits')
             ->rules(['integer', 'min:0', 'max:10000'])

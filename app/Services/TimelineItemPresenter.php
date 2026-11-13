@@ -6,16 +6,18 @@ use App\Models\Event;
 use App\Models\FeedItem;
 use App\Models\Modules\Forum\Poll;
 use App\Models\Song;
+use App\Models\User;
 use App\Modules\Contributions\Models\CorpusPair;
 use App\Modules\Podcast\Models\PodcastEpisode;
 use App\Modules\Promotions\Models\PromotionRequest;
+use App\Modules\Store\Models\Deal;
 use App\Modules\Store\Models\Product;
 
 class TimelineItemPresenter
 {
     public function __construct(private TimelinePreferenceService $preferences) {}
 
-    public function present(FeedItem $item): array
+    public function present(FeedItem $item, ?User $viewer = null): array
     {
         $subject = $item->subject;
         $title = $item->title;
@@ -46,6 +48,11 @@ class TimelineItemPresenter
         } elseif ($subject instanceof CorpusPair) {
             $presentation = ['kind' => 'corpus', 'title' => 'A little Ateso to carry with you', 'href' => '/contribute', 'ateso_text' => $subject->ateso_text, 'english_text' => $subject->en_text, 'dialect' => $subject->dialect, 'license' => $subject->license_version, 'pair_uuid' => $subject->uuid];
             $actor = ['id' => null, 'name' => 'Ateso community', 'type' => 'community', 'avatar_url' => null, 'verified' => false];
+            $body = null;
+        } elseif ($subject instanceof Deal) {
+            $claim = $viewer ? $subject->claimFor($viewer) : null;
+            $presentation = ['kind' => 'deal', 'title' => $subject->title, 'href' => $subject->store?->slug ? '/store/shops/'.$subject->store->slug : null, 'image' => $subject->image_url ?? $subject->store?->logo_url, 'subtitle' => $subject->store?->name, 'deal_uuid' => $subject->uuid, 'discount_label' => $subject->discount_label, 'terms' => $subject->terms, 'town' => $subject->town, 'credits_price' => (int) $subject->credits_price, 'ugx_value' => $subject->ugx_value !== null ? (float) $subject->ugx_value : null, 'valid_until' => $subject->valid_until?->toIso8601String(), 'claims_left' => $subject->claimsLeft(), 'state' => $subject->isLive() ? 'open' : 'closed', 'claim' => $claim ? ['uuid' => $claim->uuid, 'status' => $claim->status, 'expires_at' => $claim->expires_at?->toIso8601String()] : null];
+            $actor = ['id' => $subject->store?->user_id, 'name' => $subject->store?->name ?? 'Edula partner', 'type' => 'partner', 'avatar_url' => $subject->store?->logo_url, 'verified' => (bool) $subject->store?->is_verified, 'href' => $subject->store?->slug ? '/store/shops/'.$subject->store->slug : null];
             $body = null;
         } elseif ($item->uuid === 'project-ateso') {
             $presentation = ['kind' => 'translation', 'title' => $item->title, 'href' => '/contribute', 'accepted_pairs' => (int) ($item->extras['accepted_pairs'] ?? 0), 'open_tasks' => (int) ($item->extras['open_tasks'] ?? 0)];

@@ -205,13 +205,13 @@ class Post extends Model
         }
     }
 
-    public function addComment(User $user, string $content, ?int $parentId = null): PostComment
+    public function addComment(User $user, string $content, ?int $parentId = null, array $attributes = []): PostComment
     {
-        $comment = $this->allComments()->create([
+        $comment = $this->allComments()->create(array_merge([
             'user_id' => $user->id,
             'parent_id' => $parentId,
             'content' => $content,
-        ]);
+        ], array_intersect_key($attributes, array_flip(['audio_path', 'audio_duration_seconds']))));
 
         $this->increment('comments_count');
 

@@ -27,8 +27,8 @@ class UpdateTimelinePreferencesRequest extends FormRequest
         return [
             'interests' => ['sometimes', 'array', 'max:10'],
             'interests.*' => ['string', 'distinct', Rule::in(TimelineFeedService::MODULES)],
-            'action' => ['sometimes', Rule::in(['save', 'unsave', 'hide', 'unhide', 'restore-hidden'])],
-            'identity' => [Rule::requiredIf(in_array($this->input('action'), ['save', 'unsave', 'hide', 'unhide'], true)), 'string', 'max:100', 'regex:/^(feed:[a-fA-F0-9-]{36}|(?:song|episode|post|event|poll|product|brief|corpus):[1-9][0-9]*|project:ateso)$/'],
+            'action' => ['sometimes', Rule::in(['save', 'unsave', 'hide', 'unhide', 'restore-hidden', 'more', 'less', 'undo-less'])],
+            'identity' => [Rule::requiredIf(in_array($this->input('action'), ['save', 'unsave', 'hide', 'unhide', 'more', 'less', 'undo-less'], true)), 'string', 'max:100', 'regex:/^(feed:[a-fA-F0-9-]{36}|(?:song|episode|post|event|poll|product|brief|corpus|deal):[1-9][0-9]*|project:ateso)$/'],
         ];
     }
 

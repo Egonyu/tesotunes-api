@@ -17,8 +17,20 @@ class PostComment extends Model
         'user_id',
         'parent_id',
         'content',
+        'audio_path',
+        'audio_duration_seconds',
         'likes_count',
     ];
+
+    protected $casts = [
+        'audio_duration_seconds' => 'integer',
+    ];
+
+    /** Absolute URL of the voice reply, if this comment has one. */
+    public function getAudioUrlAttribute(): ?string
+    {
+        return \App\Helpers\StorageHelper::url($this->audio_path);
+    }
 
     // Relationships
     public function post(): BelongsTo
