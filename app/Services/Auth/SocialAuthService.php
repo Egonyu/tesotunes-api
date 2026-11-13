@@ -2,6 +2,7 @@
 
 namespace App\Services\Auth;
 
+use App\Jobs\DispatchUserRegisteredWebhook;
 use App\Models\AuditLog;
 use App\Models\Notification as AppNotification;
 use App\Models\User;
@@ -253,7 +254,7 @@ class SocialAuthService
      */
     protected function createUserFromSocial($socialUser, string $provider): User
     {
-        return DB::transaction(function () use ($socialUser, $provider) {
+        $user = DB::transaction(function () use ($socialUser, $provider) {
             // Generate unique name if needed
             $name = $socialUser->getName() ?: 'User'.Str::random(6);
 
@@ -319,6 +320,15 @@ class SocialAuthService
 
             return $user;
         });
+
+        // is_active is not mass-assignable; reload so the DB default is present,
+        // otherwise the first sign-in of a new social user is rejected as suspended.
+        $user->refresh();
+
+        // n8n automation: welcome email + Listmonk subscriber creation (same as password signup)
+        DispatchUserRegisteredWebhook::dispatch($user->id)->onQueue('webhooks');
+
+        return $user;
     }
 
     /**

@@ -2,8 +2,10 @@
 
 namespace Tests\Feature\Api\Auth;
 
+use App\Jobs\DispatchUserRegisteredWebhook;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Laravel\Socialite\Contracts\Provider;
 use Laravel\Socialite\Facades\Socialite;
 use Mockery;
@@ -118,6 +120,39 @@ class SocialAuthApiTest extends TestCase
 
         $response->assertStatus(422)
             ->assertJsonPath('code', 'SOCIAL_EMAIL_REQUIRED');
+    }
+
+    public function test_social_exchange_dispatches_welcome_webhook_for_new_users(): void
+    {
+        Bus::fake([DispatchUserRegisteredWebhook::class]);
+        $this->mockSocialiteSuccess('google', 'social-google-id-4', 'brand-new@example.com');
+
+        $response = $this->postJson('/api/auth/social/google/exchange', [
+            'access_token' => 'valid-token',
+        ]);
+
+        $response->assertOk()
+            ->assertJsonPath('auth.is_new_user', true);
+
+        Bus::assertDispatched(DispatchUserRegisteredWebhook::class, fn ($job) => $job->queue === 'webhooks');
+    }
+
+    public function test_social_exchange_does_not_dispatch_welcome_webhook_when_linking_existing_user(): void
+    {
+        Bus::fake([DispatchUserRegisteredWebhook::class]);
+        User::factory()->create([
+            'email' => 'already-here@example.com',
+            'provider' => null,
+            'provider_id' => null,
+            'is_active' => true,
+        ]);
+        $this->mockSocialiteSuccess('google', 'social-google-id-5', 'already-here@example.com');
+
+        $this->postJson('/api/auth/social/google/exchange', [
+            'access_token' => 'valid-token',
+        ])->assertOk();
+
+        Bus::assertNotDispatched(DispatchUserRegisteredWebhook::class);
     }
 
     private function mockSocialiteSuccess(string $provider, string $providerId, string $email): void
