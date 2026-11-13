@@ -6,6 +6,10 @@ use App\Http\Resources\EventResource;
 use App\Http\Resources\ForumThreadResource;
 use App\Models\Event;
 use App\Models\Modules\Forum\ForumTopic;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
+
+// Without isolation the factory event (random status) leaks into later timeline feed tests.
+uses(DatabaseTransactions::class);
 
 it('uses named-route compatible links in event resource', function (): void {
     $event = Event::factory()->create();

@@ -84,12 +84,19 @@ class AdminArtistModerationSyncTest extends TestCase
             ]
         );
 
-        KYCDocument::create([
-            'user_id' => $user->id,
-            'document_type' => KYCDocument::TYPE_NATIONAL_ID_FRONT,
-            'file_path' => 'kyc/test/front.jpg',
-            'status' => KYCDocument::STATUS_PENDING,
-        ]);
+        // Approving an artist only verifies KYC when the full required set is on file.
+        foreach ([
+            KYCDocument::TYPE_NATIONAL_ID_FRONT => 'front',
+            KYCDocument::TYPE_NATIONAL_ID_BACK => 'back',
+            KYCDocument::TYPE_SELFIE_WITH_ID => 'selfie',
+        ] as $type => $file) {
+            KYCDocument::create([
+                'user_id' => $user->id,
+                'document_type' => $type,
+                'file_path' => "kyc/test/{$file}.jpg",
+                'status' => KYCDocument::STATUS_PENDING,
+            ]);
+        }
 
         $this->actingAs($admin, 'sanctum')
             ->postJson("/api/admin/artists/{$artist->id}/approve")
@@ -113,10 +120,44 @@ class AdminArtistModerationSyncTest extends TestCase
             'artist_id' => $artist->id,
         ]);
 
+        foreach ([KYCDocument::TYPE_NATIONAL_ID_FRONT, KYCDocument::TYPE_NATIONAL_ID_BACK, KYCDocument::TYPE_SELFIE_WITH_ID] as $type) {
+            $this->assertDatabaseHas('kyc_documents', [
+                'user_id' => $user->id,
+                'document_type' => $type,
+                'status' => KYCDocument::STATUS_VERIFIED,
+            ]);
+        }
+    }
+
+    public function test_admin_approval_leaves_incomplete_kyc_pending(): void
+    {
+        $admin = User::factory()->create();
+        $admin->assignRole('admin', $admin->id);
+
+        $user = User::factory()->create(['application_status' => 'pending']);
+        $artist = Artist::factory()->create([
+            'user_id' => $user->id,
+            'status' => 'pending',
+            'is_verified' => false,
+            'can_upload' => false,
+        ]);
+
+        KYCDocument::create([
+            'user_id' => $user->id,
+            'document_type' => KYCDocument::TYPE_NATIONAL_ID_FRONT,
+            'file_path' => 'kyc/test/front.jpg',
+            'status' => KYCDocument::STATUS_PENDING,
+        ]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson("/api/admin/artists/{$artist->id}/approve")
+            ->assertOk();
+
+        $this->assertDatabaseHas('artists', ['id' => $artist->id, 'status' => 'approved']);
         $this->assertDatabaseHas('kyc_documents', [
             'user_id' => $user->id,
             'document_type' => KYCDocument::TYPE_NATIONAL_ID_FRONT,
-            'status' => KYCDocument::STATUS_VERIFIED,
+            'status' => KYCDocument::STATUS_PENDING,
         ]);
     }
 

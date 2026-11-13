@@ -1003,6 +1003,9 @@ class ArtistEventsController extends Controller
                 return data_get($attendee->attendee_metadata, 'order_id') === $orderId
                     && (bool) data_get($attendee->attendee_metadata, 'printed_ticket_import', false);
             })
+            // Number holders in import order; a batch shares one created_at, so the
+            // newest-first base query gives no stable order within it.
+            ->sortBy('id')
             ->values();
 
         if ($orderAttendees->isEmpty()) {

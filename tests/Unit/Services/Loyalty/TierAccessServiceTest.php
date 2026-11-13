@@ -7,10 +7,13 @@ use App\Models\Loyalty\LoyaltyCard;
 use App\Models\Loyalty\LoyaltyCardMember;
 use App\Models\User;
 use App\Services\Loyalty\TierAccessService;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Tests\TestCase;
 
 class TierAccessServiceTest extends TestCase
 {
+    use DatabaseTransactions;
+
     private TierAccessService $service;
 
     private User $user;
